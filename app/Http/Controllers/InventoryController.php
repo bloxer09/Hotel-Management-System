@@ -1,0 +1,244 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\InventoryItem;
+use App\Services\BookingService;
+use Illuminate\Http\Request;
+use Inertia\Inertia;
+
+class InventoryController extends Controller
+{
+    public function index(Request $request)
+    {
+        $search = $request->input('search');
+        $category = $request->input('category');
+
+        $items = InventoryItem::orderBy('item_name', 'asc')
+            ->when($search, function ($query, $search) {
+                return $query->where('item_name', 'like', "%{$search}%");
+            })
+            ->when($category, function ($query, $category) {
+                return $query->where('category', $category);
+            })
+            ->get();
+
+        $activeBookings = \App\Models\Booking::with(['room'])
+            ->where('status', 'active')
+            ->orderBy('guest_name', 'asc')
+            ->get();
+
+        return Inertia::render('Inventory/Index', [
+            'items' => $items,
+            'activeBookings' => $activeBookings,
+            'currentSearch' => $search,
+            'currentCategory' => $category,
+        ]);
+    }
+
+    public function bulkUsageView(Request $request)
+    {
+        $items = InventoryItem::where('is_active', true)
+            ->orderBy('item_name', 'asc')
+            ->get();
+
+        $activeBookings = \App\Models\Booking::with(['room'])
+            ->where('status', 'active')
+            ->orderBy('guest_name', 'asc')
+            ->get();
+
+        return Inertia::render('Inventory/BulkUsage', [
+            'items' => $items,
+            'activeBookings' => $activeBookings,
+        ]);
+    }
+
+    public function store(Request $request)
+    {
+        $request->validate([
+            'item_name' => 'required|string|max:100',
+            'category' => 'required|in:minibar,toiletries,laundry,amenities,supplies',
+            'unit' => 'required|string|max:20',
+            'current_stock' => 'required|integer|min:0',
+            'minimum_stock' => 'required|integer|min:0',
+            'unit_cost' => 'required|numeric|min:0',
+            'selling_price' => 'required|numeric|min:0',
+        ]);
+
+        $user = $request->user();
+        if ($user->role !== 'admin') {
+            abort(403, 'Only administrators can add new inventory items.');
+        }
+
+        $item = InventoryItem::create($request->all());
+
+        BookingService::auditLog(
+            $user->id,
+            'INVENTORY_CREATE',
+            'inventory_items',
+            $item->id,
+            null,
+            $item->item_name,
+            "Created new inventory item {$item->item_name} with initial stock {$item->current_stock}."
+        );
+
+        return back()->with('success', "Item {$item->item_name} created successfully.");
+    }
+
+    public function update(InventoryItem $inventoryItem, Request $request)
+    {
+        $request->validate([
+            'item_name' => 'required|string|max:100',
+            'category' => 'required|in:minibar,toiletries,laundry,amenities,supplies',
+            'unit' => 'required|string|max:20',
+            'minimum_stock' => 'required|integer|min:0',
+            'unit_cost' => 'required|numeric|min:0',
+            'selling_price' => 'required|numeric|min:0',
+            'is_active' => 'required|boolean',
+        ]);
+
+        $user = $request->user();
+        if ($user->role !== 'admin') {
+            abort(403, 'Only administrators can update inventory details.');
+        }
+
+        $oldDetails = $inventoryItem->toArray();
+        $inventoryItem->update($request->all());
+        $newDetails = $inventoryItem->toArray();
+
+        BookingService::auditLog(
+            $user->id,
+            'INVENTORY_UPDATE',
+            'inventory_items',
+            $inventoryItem->id,
+            $oldDetails,
+            $newDetails,
+            "Updated inventory details for {$inventoryItem->item_name}."
+        );
+
+        return back()->with('success', "Item {$inventoryItem->item_name} updated successfully.");
+    }
+
+    public function adjust(InventoryItem $inventoryItem, Request $request)
+    {
+        $request->validate([
+            'adjustment_type' => 'required|in:add,subtract,set',
+            'quantity' => 'required|integer|min:0',
+            'reason' => 'required|string|max:255',
+        ]);
+
+        $user = $request->user();
+        if (!in_array($user->role, ['admin', 'front_desk'], true)) {
+            abort(403, 'You do not have permissions to perform stock adjustments.');
+        }
+
+        $oldStock = $inventoryItem->current_stock;
+        $qty = (int)$request->quantity;
+
+        if ($request->adjustment_type === 'add') {
+            $inventoryItem->current_stock += $qty;
+        } elseif ($request->adjustment_type === 'subtract') {
+            if ($inventoryItem->current_stock < $qty) {
+                return back()->with('error', "Insufficient stock. Current: {$inventoryItem->current_stock}, attempted reduction: {$qty}");
+            }
+            $inventoryItem->current_stock -= $qty;
+        } else { // set
+            $inventoryItem->current_stock = $qty;
+        }
+
+        $inventoryItem->save();
+
+        BookingService::auditLog(
+            $user->id,
+            'STOCK_ADJUSTMENT',
+            'inventory_items',
+            $inventoryItem->id,
+            $oldStock,
+            $inventoryItem->current_stock,
+            "Stock adjusted ({$request->adjustment_type} to {$qty}). Reason: " . $request->reason
+        );
+
+        return back()->with('success', "Stock for {$inventoryItem->item_name} adjusted. New level: {$inventoryItem->current_stock}.");
+    }
+
+    public function useItems(Request $request)
+    {
+        $request->validate([
+            'booking_id' => 'nullable|exists:bookings,id',
+            'consumer_name' => 'nullable|string|max:100',
+            'items' => 'required|array|min:1',
+            'items.*.item_id' => 'required|exists:inventory_items,id',
+            'items.*.quantity' => 'required|integer|min:1',
+        ]);
+
+        $user = $request->user();
+        $bookingId = $request->booking_id;
+        $consumerName = $request->consumer_name;
+
+        try {
+            return \DB::transaction(function () use ($request, $user, $bookingId, $consumerName) {
+                $grandTotal = 0;
+                $usageCount = 0;
+                $usedItemNames = [];
+
+                $notes = $consumerName ? "Consumer: " . $consumerName : null;
+
+                foreach ($request->items as $lineItem) {
+                    $item = InventoryItem::findOrFail($lineItem['item_id']);
+                    $qty = (int)$lineItem['quantity'];
+
+                    if ($item->current_stock < $qty) {
+                        throw new \Exception("Insufficient stock for {$item->item_name}. Current: {$item->current_stock}, requested: {$qty}");
+                    }
+
+                    $oldStock = $item->current_stock;
+                    $item->current_stock -= $qty;
+                    $item->save();
+
+                    $unitPrice = $item->selling_price;
+                    $totalPrice = round($unitPrice * $qty, 2);
+
+                    \App\Models\InventoryUsage::create([
+                        'booking_id' => $bookingId,
+                        'item_id' => $item->id,
+                        'quantity' => $qty,
+                        'unit_price' => $unitPrice,
+                        'total_price' => $totalPrice,
+                        'recorded_by' => $user->id,
+                        'notes' => $notes,
+                    ]);
+
+                    BookingService::auditLog(
+                        $user->id,
+                        'STOCK_DECREASE',
+                        'inventory_items',
+                        $item->id,
+                        $oldStock,
+                        $item->current_stock,
+                        "Bulk use: Deducted {$qty} {$item->unit}(s) of {$item->item_name}." . ($bookingId ? " Charged to Booking ID {$bookingId}." : " Direct sale to Walk-in: {$consumerName}")
+                    );
+
+                    $grandTotal += $totalPrice;
+                    $usageCount++;
+                    $usedItemNames[] = "{$item->item_name} x{$qty}";
+                }
+
+                BookingService::auditLog(
+                    $user->id,
+                    'INVENTORY_USAGE',
+                    'inventory_usage',
+                    0,
+                    null,
+                    $consumerName ?: null,
+                    implode(', ', $usedItemNames) . " (Total: ₱{$grandTotal})"
+                );
+
+                $successMsg = "Usage recorded for {$usageCount} item(s)" . ($consumerName ? " for {$consumerName}" : "") . " - Total: ₱" . number_format($grandTotal, 2);
+
+                return back()->with('success', $successMsg);
+            });
+        } catch (\Exception $e) {
+            return back()->with('error', $e->getMessage());
+        }
+    }
+}

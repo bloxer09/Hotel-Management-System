@@ -1,0 +1,72 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Force dark color-scheme globally ───────────────────────────────────── */
+/* This tells the browser to render all native UI controls (select dropdowns,
+   scrollbars, date pickers, etc.) using dark-mode colors instead of white. */
+html,
+body {
+    color-scheme: dark;
+}
+
+/* Dark background for all native <select> and <option> elements */
+select {
+    color-scheme: dark;
+    background-color: #0f172a !important;
+    color: #e2e8f0 !important;
+}
+
+option {
+    background-color: #1e293b !important;
+    color: #e2e8f0 !important;
+}
+
+option:hover,
+option:checked {
+    background-color: #334155 !important;
+    color: #f1f5f9 !important;
+}
+
+/* Premium Global Scrollbars */
+* {
+    /* Support for Firefox */
+    scrollbar-width: thin;
+    scrollbar-color: rgba(148, 163, 184, 0.25) transparent; /* Slate-400 with 0.25 opacity */
+}
+
+/* Chrome, Edge, Safari, Opera (WebKit browsers) */
+::-webkit-scrollbar {
+    width: 6px; /* Super thin width */
+    height: 6px; /* Super thin height for horizontal scrollbars */
+}
+
+::-webkit-scrollbar-track {
+    background: transparent; /* No ugly white background - perfectly matches any container/page background */
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.25); /* Sleek slate-400 color with low opacity for elegance */
+    border-radius: 100px; /* Fully rounded capsule/pill shape */
+    border: 1px solid transparent; /* Subtle padding-like effect */
+    background-clip: padding-box;
+    transition: background-color 0.2s ease-in-out;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(148, 163, 184, 0.5); /* Brightens smoothly on hover */
+    background-clip: padding-box;
+}
+
+/* Active/dragged state */
+::-webkit-scrollbar-thumb:active {
+    background: rgba(148, 163, 184, 0.7);
+    background-clip: padding-box;
+}
+
+/* Hide scrollbar arrows completely */
+::-webkit-scrollbar-button {
+    display: none;
+    width: 0;
+    height: 0;
+}
