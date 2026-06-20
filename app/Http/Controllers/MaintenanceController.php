@@ -12,15 +12,43 @@ class MaintenanceController extends Controller
 {
     public function index(Request $request)
     {
-        $tickets = MaintenanceTicket::with(['room.type', 'reportedBy', 'resolvedBy'])
-            ->orderBy('id', 'desc')
-            ->get();
+        $sortBy = $request->input('sort_by', 'id');
+        $sortDir = $request->input('sort_dir', 'desc');
+        $search = $request->input('search');
+        $status = $request->input('status', 'all');
+
+        $allowedSorts = ['id', 'room_id', 'title', 'status', 'priority', 'created_at'];
+        if (!in_array($sortBy, $allowedSorts)) $sortBy = 'id';
+        if (!in_array($sortDir, ['asc', 'desc'])) $sortDir = 'desc';
+
+        $query = MaintenanceTicket::with(['room.type', 'reportedBy', 'resolvedBy']);
+
+        if ($status && $status !== 'all') {
+            $query->where('status', $status);
+        }
+
+        if ($search) {
+            $query->where(function($q) use ($search) {
+                $q->where('title', 'like', "%{$search}%")
+                  ->orWhere('description', 'like', "%{$search}%")
+                  ->orWhereHas('room', function($r) use ($search) {
+                      $r->where('room_number', 'like', "%{$search}%");
+                  });
+            });
+        }
+
+        $tickets = $query->orderBy($sortBy, $sortDir)
+            ->paginate(15)
+            ->withQueryString();
 
         $rooms = Room::orderBy('room_number', 'asc')->get();
 
         return Inertia::render('Maintenance/Index', [
             'tickets' => $tickets,
             'rooms' => $rooms,
+            'filters' => ['search' => $search, 'status' => $status],
+            'sortBy' => $sortBy,
+            'sortDir' => $sortDir,
         ]);
     }
 

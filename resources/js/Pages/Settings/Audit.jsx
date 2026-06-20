@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, router } from '@inertiajs/react';
-import { Shield, Eye, Clock, User, HardDrive, HelpCircle, X, ChevronDown, ChevronUp, Search, Calendar } from 'lucide-react';
+import { Shield, Eye, Clock, User, HardDrive, HelpCircle, X, ChevronDown, ChevronUp, Search, Calendar, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import SortableHeader from '@/Components/SortableHeader';
+import Pagination from '@/Components/Pagination';
 
-export default function Audit({ logs, users = [], modules = [], filters = {} }) {
+export default function Audit({ logs, users = [], modules = [], filters = {}, sortBy, sortDir }) {
     const [keyword, setKeyword] = useState(filters.keyword || '');
     const [userId, setUserId] = useState(filters.user_id || '');
     const [moduleFilter, setModuleFilter] = useState(filters.module || '');
@@ -213,6 +215,14 @@ export default function Audit({ logs, users = [], modules = [], filters = {} }) 
                             >
                                 Apply
                             </button>
+                            <button
+                                type="button"
+                                onClick={() => router.reload({ only: ['logs'] })}
+                                className="px-3 py-2.5 bg-[#1e293b] hover:bg-slate-700 text-slate-400 border border-[#334155] rounded-xl transition-all shadow-sm flex items-center justify-center shrink-0"
+                                title="Refresh"
+                            >
+                                <RefreshCw size={14} />
+                            </button>
                         </div>
                     </div>
                 </form>
@@ -220,14 +230,14 @@ export default function Audit({ logs, users = [], modules = [], filters = {} }) 
                 {/* Audit logs listing table */}
                 <div className="p-6 rounded-2xl bg-[#1e293b] border border-[#334155] shadow-xl flex flex-col gap-6">
                     <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse text-xs">
+                        <table className="w-full text-left border-collapse text-xs table-fixed">
                             <thead>
                                 <tr className="border-b border-[#334155] text-slate-400 uppercase tracking-wider font-semibold">
-                                    <th className="pb-3">Date</th>
-                                    <th className="pb-3">Staff</th>
-                                    <th className="pb-3">Action</th>
-                                    <th className="pb-3">Module</th>
-                                    <th className="pb-3">Description</th>
+                                    <SortableHeader sortKey="created_at" currentSortBy={sortBy} currentSortDir={sortDir} className="pb-3 text-left">Date</SortableHeader>
+                                    <SortableHeader sortKey="user_id" currentSortBy={sortBy} currentSortDir={sortDir} className="pb-3 text-left">Staff</SortableHeader>
+                                    <SortableHeader sortKey="action" currentSortBy={sortBy} currentSortDir={sortDir} className="pb-3 text-left">Action</SortableHeader>
+                                    <SortableHeader sortKey="module" currentSortBy={sortBy} currentSortDir={sortDir} className="pb-3 text-left">Module</SortableHeader>
+                                    <th className="pb-3 text-left">Description</th>
                                     <th className="pb-3 text-right">Details</th>
                                 </tr>
                             </thead>
@@ -320,27 +330,12 @@ export default function Audit({ logs, users = [], modules = [], filters = {} }) 
                     </div>
 
                     {/* Pagination control bar */}
-                    {logs.links && logs.links.length > 3 && (
+                    {logs && logs.last_page > 1 && (
                         <div className="pt-4 border-t border-[#334155]/60 flex items-center justify-between">
                             <span className="text-xs text-slate-400">
                                 Showing records <span className="font-bold font-mono text-slate-300">{logs.from || 0}</span> to <span className="font-bold font-mono text-slate-300">{logs.to || 0}</span> of <span className="font-bold font-mono text-slate-300">{logs.total}</span> entries
                             </span>
-                            <div className="flex gap-1">
-                                {logs.links.map((link) => (
-                                    <Link
-                                        key={link.label}
-                                        href={link.url || '#'}
-                                        disabled={!link.url}
-                                        dangerouslySetInnerHTML={{ __html: link.label }}
-                                        className={`px-3.5 py-2 border rounded-xl text-xs font-outfit font-extrabold transition-all ${link.active
-                                                ? 'bg-brand-600 text-slate-50 border-brand-500/40 shadow-lg shadow-brand-600/20'
-                                                : link.url
-                                                    ? 'bg-[#0f172a]/40 border-[#334155] text-slate-400 hover:text-slate-200'
-                                                    : 'opacity-40 border-[#334155] text-slate-650 cursor-not-allowed'
-                                            }`}
-                                    />
-                                ))}
-                            </div>
+                            <Pagination links={logs.links} />
                         </div>
                     )}
                 </div>
@@ -349,7 +344,7 @@ export default function Audit({ logs, users = [], modules = [], filters = {} }) 
                 <AnimatePresence>
                     {selectedLog && (
                         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 0.5 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black" onClick={() => setSelectedLog(null)} />
+                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-[#070b13]/90" onClick={() => setSelectedLog(null)} />
                             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-[#1e293b] border border-[#334155] rounded-2xl w-full max-w-4xl shadow-2xl relative z-10 overflow-hidden">
                                 <div className="p-6 border-b border-[#334155] flex items-center justify-between">
                                     <div className="flex flex-col">

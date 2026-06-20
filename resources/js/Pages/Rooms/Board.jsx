@@ -144,6 +144,7 @@ export default function Board({ rooms, roomTypes, housekeepers = [] }) {
     const [bulkSelected, setBulkSelected] = useState([]);
 
     const [isAvailabilityOpen, setIsAvailabilityOpen] = useState(false);
+    const [availabilityRoomId, setAvailabilityRoomId] = useState('');
 
     const statusForm = useForm({ status: '', notes: '' });
     const addForm = useForm({ room_number: '', room_type_id: '', floor: 1, notes: '', photo: null });
@@ -360,7 +361,7 @@ export default function Board({ rooms, roomTypes, housekeepers = [] }) {
                         )}
                         {user.role !== 'housekeeping' && (
                             <button
-                                onClick={() => setIsAvailabilityOpen(true)}
+                                onClick={() => { setAvailabilityRoomId(''); setIsAvailabilityOpen(true); }}
                                 className="flex items-center gap-2 px-4 py-2 bg-indigo-700/30 border border-indigo-600/40 hover:bg-indigo-600/40 text-indigo-300 rounded-xl text-xs font-bold transition-all"
                             >
                                 <Calendar size={15} /> Room Availability
@@ -394,7 +395,6 @@ export default function Board({ rooms, roomTypes, housekeepers = [] }) {
                                 }`}>
                                 <span className={`w-1.5 h-1.5 rounded-full ${tab.dot} ${statusFilter === tab.key ? 'opacity-100' : 'opacity-40'}`} />
                                 {tab.label}
-                                <span className="text-[10px] opacity-60 ml-1 font-mono">({tab.count})</span>
                             </button>
                         ))}
                     </div>
@@ -421,19 +421,23 @@ export default function Board({ rooms, roomTypes, housekeepers = [] }) {
                 <div className="flex gap-1 bg-[#1e293b] p-1 rounded-xl border border-[#334155] w-fit shadow-md">
                     <button
                         onClick={() => setFloorFilter('all')}
-                        className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${floorFilter === 'all' ? 'bg-[#0f172a] text-slate-100 shadow' : 'text-slate-400 hover:text-slate-200'}`}
+                        className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${floorFilter === 'all' ? 'bg-[#0f172a] text-slate-100 shadow' : 'text-slate-400 hover:text-slate-200'}`}
                     >
-                        All Floors ({rooms.length})
+                        <span className={`w-1.5 h-1.5 rounded-full bg-brand-400 ${floorFilter === 'all' ? 'opacity-100' : 'opacity-40'}`} />
+                        All Floors
                     </button>
                     {uniqueFloors.map(f => {
                         const floorRoomCount = rooms.filter(r => r.floor === f).length;
+                        const colors = ['bg-indigo-400', 'bg-emerald-400', 'bg-sky-400', 'bg-amber-400', 'bg-rose-400', 'bg-purple-400'];
+                        const dotColor = colors[(parseInt(f) || 0) % colors.length];
                         return (
                             <button
                                 key={f}
                                 onClick={() => setFloorFilter(f.toString())}
-                                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${floorFilter === f.toString() ? 'bg-[#0f172a] text-slate-100 shadow' : 'text-slate-400 hover:text-slate-200'}`}
+                                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${floorFilter === f.toString() ? 'bg-[#0f172a] text-slate-100 shadow' : 'text-slate-400 hover:text-slate-200'}`}
                             >
-                                Floor {f} ({floorRoomCount})
+                                <span className={`w-1.5 h-1.5 rounded-full ${dotColor} ${floorFilter === f.toString() ? 'opacity-100' : 'opacity-40'}`} />
+                                Floor {f}
                             </button>
                         );
                     })}
@@ -497,15 +501,15 @@ export default function Board({ rooms, roomTypes, housekeepers = [] }) {
                                                 </div>
                                             )}
 
-                                            <Link
-                                                href={route('reports.analytics', { room_id: room.id })}
-                                                onClick={e => e.stopPropagation()}
+                                            <button
+                                                type="button"
+                                                onClick={e => { e.stopPropagation(); setAvailabilityRoomId(room.id); setIsAvailabilityOpen(true); }}
                                                 className="inline-flex items-center gap-1 text-[9px] font-extrabold text-brand-400 hover:text-brand-300 mt-2 bg-brand-500/10 border border-brand-500/20 px-2 py-0.5 rounded-md hover:bg-brand-500/20 transition-all"
                                                 title="Check Room Availability Calendar"
                                             >
                                                 <Calendar size={9} className="shrink-0 text-brand-400" />
                                                 <span>Calendar</span>
-                                            </Link>
+                                            </button>
                                         </div>
 
                                         {room.status === 'occupied' && room.active_booking?.guest_name && (
@@ -571,14 +575,15 @@ export default function Board({ rooms, roomTypes, housekeepers = [] }) {
                                         <div>
                                             <h2 className="text-xl font-outfit font-black text-slate-100">Room {selectedRoom.room_number}</h2>
                                             <p className="text-xs text-slate-400">{selectedRoom.type?.type_name} - Floor {selectedRoom.floor} - <span className="capitalize">{selectedRoom.status.replace('_', ' ')}</span></p>
-                                            <Link
-                                                href={route('reports.analytics', { room_id: selectedRoom.id })}
+                                            <button
+                                                type="button"
+                                                onClick={() => { setAvailabilityRoomId(selectedRoom.id); setIsAvailabilityOpen(true); }}
                                                 className="inline-flex items-center gap-1.5 mt-2.5 text-[11px] font-extrabold text-brand-400 hover:text-brand-300 transition-colors bg-brand-500/10 border border-brand-500/20 px-2 py-0.5 rounded-md hover:bg-brand-500/20"
                                                 title="View Availability Calendar for this Room"
                                             >
                                                 <Calendar size={11} className="text-brand-400" />
                                                 <span>Check Room Calendar</span>
-                                            </Link>
+                                            </button>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">
@@ -1321,6 +1326,7 @@ export default function Board({ rooms, roomTypes, housekeepers = [] }) {
             <RoomAvailabilityModal 
                 isOpen={isAvailabilityOpen} 
                 onClose={() => setIsAvailabilityOpen(false)} 
+                initialRoomId={availabilityRoomId}
             />
 
         </AuthenticatedLayout>

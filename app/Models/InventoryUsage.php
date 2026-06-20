@@ -10,6 +10,7 @@ class InventoryUsage extends Model
 
     protected $fillable = [
         'booking_id',
+        'transaction_id',
         'item_id',
         'quantity',
         'unit_price',
@@ -38,6 +39,11 @@ class InventoryUsage extends Model
                 }
             }
         });
+    }
+
+    public function transaction()
+    {
+        return $this->belongsTo(Transaction::class);
     }
 
     public function booking()

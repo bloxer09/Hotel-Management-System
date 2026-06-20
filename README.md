@@ -1,6 +1,6 @@
 # 🏨 Uptown Pension House — Hotel Management System
 
-A full-featured, web-based **Property Management System (PMS)** built for Uptown Pension House (Bacolod City). Designed for front desk operations, cashiering, housekeeping coordination, and hotel administration from a single unified dashboard.
+A full-featured, web-based **Property Management System (PMS)** built for Uptown Pension House. Designed for front desk operations, cashiering, housekeeping coordination, and hotel administration from a single unified dashboard.
 
 ---
 
@@ -224,4 +224,4 @@ hotel_management/
 
 ## 📄 License
 
-This project is proprietary software developed for **Uptown Pension House**, Mansilingan, Bacolod City. All rights reserved.
+This project is proprietary software developed for **Uptown Pension House**. All rights reserved.

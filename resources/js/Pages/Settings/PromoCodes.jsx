@@ -99,7 +99,7 @@ export default function PromoCodes({ promoCodes }) {
                 {/* Table Listing */}
                 <div className="p-6 rounded-2xl bg-[#1e293b] border border-[#334155] shadow-xl">
                     <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse text-xs">
+                        <table className="w-full text-left border-collapse text-xs table-fixed">
                             <thead>
                                 <tr className="border-b border-[#334155] text-slate-400 uppercase tracking-wider font-semibold">
                                     <th className="pb-3">Code / Label</th>
@@ -220,9 +220,9 @@ export default function PromoCodes({ promoCodes }) {
                         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
                             <motion.div
                                 initial={{ opacity: 0 }}
-                                animate={{ opacity: 0.5 }}
+                                animate={{ opacity: 1 }}
                                 exit={{ opacity: 0 }}
-                                className="fixed inset-0 bg-black"
+                                className="fixed inset-0 bg-[#070b13]/90"
                                 onClick={() => setIsOpen(false)}
                             />
 

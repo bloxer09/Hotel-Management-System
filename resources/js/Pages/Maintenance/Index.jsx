@@ -3,18 +3,21 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, useForm, router, usePage } from '@inertiajs/react';
 import {
     Wrench, Plus, X, Check, ArrowRight, Play, RefreshCw, AlertOctagon,
-    Clock, CheckCircle, HelpCircle, MessageSquare, Search, Calendar, UserCheck, Paperclip
+    Clock, CheckCircle, HelpCircle, MessageSquare, Search, Calendar, UserCheck, Paperclip, ChevronRight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import ActionModal from '@/Components/ActionModal';
+import SortableHeader from '@/Components/SortableHeader';
+import Pagination from '@/Components/Pagination';
 
 const FILTER_TABS = [
-    { key: 'all',         label: 'All Tickets',    color: 'text-brand-400',   dot: 'bg-brand-400'   },
-    { key: 'open',        label: 'Filed / Open',   color: 'text-rose-400',    dot: 'bg-rose-400'    },
-    { key: 'in_progress', label: 'Repairing',      color: 'text-indigo-400',  dot: 'bg-indigo-400'  },
-    { key: 'closed',      label: 'Resolved / Closed', color: 'text-emerald-400', dot: 'bg-emerald-400' },
+    { key: 'all', label: 'All Tickets', color: 'text-brand-400', dot: 'bg-brand-400' },
+    { key: 'open', label: 'Filed / Open', color: 'text-rose-400', dot: 'bg-rose-400' },
+    { key: 'in_progress', label: 'Repairing', color: 'text-indigo-400', dot: 'bg-indigo-400' },
+    { key: 'closed', label: 'Resolved / Closed', color: 'text-emerald-400', dot: 'bg-emerald-400' },
 ];
 
-export default function Maintenance({ tickets, rooms }) {
+export default function Maintenance({ tickets, rooms, filters = {}, sortBy, sortDir }) {
     const { auth } = usePage().props;
     const currentUser = auth.user;
 
@@ -22,8 +25,9 @@ export default function Maintenance({ tickets, rooms }) {
     const [isNotesOpen, setIsNotesOpen] = useState(false);
     const [selectedTicket, setSelectedTicket] = useState(null);
     const [nextStatus, setNextStatus] = useState('');
-    const [currentFilter, setCurrentFilter] = useState('all');
-    const [searchTerm, setSearchTerm] = useState('');
+    const [currentFilter, setCurrentFilter] = useState(filters.status || 'all');
+    const [searchTerm, setSearchTerm] = useState(filters.search || '');
+    const [actionModalTicket, setActionModalTicket] = useState(null);
 
     const form = useForm({
         room_id: '',
@@ -127,7 +131,7 @@ export default function Maintenance({ tickets, rooms }) {
         const priorities = ['low', 'medium', 'high', 'critical'];
         const currentIndex = priorities.indexOf(ticket.priority || 'medium');
         const nextPriority = priorities[(currentIndex + 1) % priorities.length];
-        
+
         router.patch(route('maintenance.update', ticket.id), {
             priority: nextPriority,
             status: ticket.status
@@ -149,21 +153,15 @@ export default function Maintenance({ tickets, rooms }) {
 
     const canCloseTicket = ['admin', 'front_desk'].includes(currentUser.role);
 
-    // Front-end filter & search
-    const filteredTickets = tickets.filter(t => {
-        if (currentFilter !== 'all' && t.status !== currentFilter) return false;
-        if (searchTerm.trim() !== '') {
-            const query = searchTerm.toLowerCase();
-            const roomNum = t.room?.room_number?.toString() || '';
-            const title = t.title?.toLowerCase() || '';
-            const desc = t.description?.toLowerCase() || '';
-            const reporterName = t.reported_by?.name 
-                ? t.reported_by.name 
-                : (typeof t.reported_by === 'string' ? t.reported_by : '');
-            return roomNum.includes(query) || title.includes(query) || desc.includes(query) || reporterName.toLowerCase().includes(query);
-        }
-        return true;
-    });
+    const handleSearch = (e) => {
+        if (e) e.preventDefault();
+        router.get(route('maintenance.index'), { search: searchTerm, status: currentFilter }, { preserveState: true });
+    };
+
+    const handleFilterChange = (key) => {
+        setCurrentFilter(key);
+        router.get(route('maintenance.index'), { search: searchTerm, status: key }, { preserveState: true });
+    };
 
     const activeTab = FILTER_TABS.find(t => t.key === currentFilter) || FILTER_TABS[0];
     const inputCls = "w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 px-3 py-2.5 focus:outline-none focus:border-brand-500 text-xs";
@@ -194,64 +192,61 @@ export default function Maintenance({ tickets, rooms }) {
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 justify-between">
                     <div className="flex gap-1 bg-[#1e293b] p-1 rounded-xl border border-[#334155]">
                         {FILTER_TABS.map(tab => {
-                            const count = tab.key === 'all' 
-                                ? tickets.length 
-                                : tickets.filter(t => t.status === tab.key).length;
-
                             return (
-                                <button key={tab.key} onClick={() => setCurrentFilter(tab.key)}
-                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                                        currentFilter === tab.key ? 'bg-[#0f172a] text-slate-100 shadow' : 'text-slate-400 hover:text-slate-200'
-                                    }`}>
+                                <button key={tab.key} onClick={() => handleFilterChange(tab.key)}
+                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${currentFilter === tab.key ? 'bg-[#0f172a] text-slate-100 shadow' : 'text-slate-400 hover:text-slate-200'
+                                        }`}>
                                     <span className={`w-1.5 h-1.5 rounded-full ${tab.dot} ${currentFilter === tab.key ? 'opacity-100' : 'opacity-40'}`} />
                                     {tab.label}
-                                    <span className="text-[10px] bg-[#334155]/60 px-1.5 py-0.5 rounded font-mono font-bold text-slate-400 ml-1">
-                                        {count}
-                                    </span>
                                 </button>
                             );
                         })}
                     </div>
-                    <div className="relative w-full sm:w-64">
-                        <Search className="absolute left-4 top-3 text-slate-500" size={16} />
-                        <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-                            placeholder="Search room, issue, reporter..."
-                            className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 pl-11 pr-4 py-2.5 focus:outline-none focus:border-brand-500 text-xs" />
+                    <div className="flex items-center gap-2 w-full sm:w-auto">
+                        <form onSubmit={handleSearch} className="relative w-full sm:w-64">
+                            <Search className="absolute left-4 top-3 text-slate-500" size={16} />
+                            <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+                                placeholder="Search room, issue, reporter..."
+                                className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 pl-11 pr-4 py-2.5 focus:outline-none focus:border-brand-500 text-xs" />
+                        </form>
+                        <button type="button" onClick={() => router.reload({ only: ['tickets'] })} className="p-2.5 rounded-xl border border-[#334155] bg-[#1e293b] text-slate-400 hover:text-slate-200 hover:border-brand-500/40 transition-all shrink-0 shadow-sm" title="Refresh Table">
+                            <RefreshCw size={16} />
+                        </button>
                     </div>
                 </div>
 
                 {/* Listing Table */}
                 <div className="rounded-2xl bg-[#1e293b] border border-[#334155] overflow-hidden shadow-xl">
                     <div className="overflow-x-auto">
-                        <table className="w-full text-xs">
+                        <table className="w-full text-xs table-fixed">
                             <thead>
                                 <tr className="border-b border-[#334155] bg-[#0f172a]/60">
                                     <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Room / Issue</th>
-                                    <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Priority</th>
-                                    <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Reported By / Date</th>
-                                    <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Status</th>
+                                    <SortableHeader sortKey="priority" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Priority</SortableHeader>
+                                    <SortableHeader sortKey="created_at" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Reported By / Date</SortableHeader>
+                                    <SortableHeader sortKey="status" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Status</SortableHeader>
                                     <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Resolution / Notes</th>
                                     <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-right">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {filteredTickets.length === 0 ? (
+                                {tickets.data.length === 0 ? (
                                     <tr>
                                         <td colSpan={6} className="px-4 py-12 text-center text-slate-500">
                                             {searchTerm ? `No results for "${searchTerm}"` : `No ${activeTab.label.toLowerCase()} found.`}
                                         </td>
                                     </tr>
-                                ) : filteredTickets.map((ticket, i) => (
-                                    <motion.tr key={ticket.id} initial={{ opacity:0, y:6 }} animate={{ opacity:1, y:0 }} transition={{ delay: i*0.03 }}
+                                ) : tickets.data.map((ticket, i) => (
+                                    <motion.tr key={ticket.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}
                                         className="border-b border-[#334155]/50 hover:bg-[#0f172a]/40 transition-colors">
-                                        
+
                                         <td className="px-4 py-4">
                                             <span className="text-slate-300 font-extrabold text-[11px] block">Room {ticket.room?.room_number}</span>
                                             <span className="font-outfit font-bold text-slate-100 text-sm mt-0.5 block">{ticket.title}</span>
                                         </td>
 
                                         <td className="px-4 py-4">
-                                            <span 
+                                            <span
                                                 onClick={(e) => cyclePriority(ticket, e)}
                                                 title="Click to cycle priority"
                                                 className={`text-[9px] uppercase font-black px-2 py-1 rounded border cursor-pointer hover:scale-105 active:scale-95 transition-all select-none ${getPriorityStyle(ticket.priority)}`}
@@ -311,58 +306,9 @@ export default function Maintenance({ tickets, rooms }) {
                                         </td>
 
                                         <td className="px-4 py-4 text-right">
-                                            <div className="inline-flex items-center gap-1.5">
-                                                {ticket.status === 'open' && (
-                                                    <>
-                                                        <button
-                                                            onClick={() => handleStatusTransition(ticket, 'in_progress')}
-                                                            className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-indigo-950 border border-indigo-800 text-indigo-400 hover:text-indigo-300 rounded-lg text-[10px] font-bold uppercase transition-all shadow-sm"
-                                                        >
-                                                            <Play size={10} /> Start Work
-                                                        </button>
-                                                        <button
-                                                            onClick={() => openEditModal(ticket)}
-                                                            className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-[#0f172a] hover:bg-amber-600/20 border border-[#334155] hover:border-amber-500/40 rounded-lg text-[10px] font-bold text-amber-400 transition-all uppercase"
-                                                        >
-                                                            Edit
-                                                        </button>
-                                                    </>
-                                                )}
-                                                {ticket.status === 'in_progress' && (
-                                                    <>
-                                                        <button
-                                                            onClick={() => handleStatusTransition(ticket, 'open')}
-                                                            className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-slate-900 border border-slate-700 text-slate-400 hover:text-slate-300 rounded-lg text-[10px] font-bold uppercase transition-all"
-                                                        >
-                                                            Put Back
-                                                        </button>
-                                                        <button
-                                                            onClick={() => openEditModal(ticket)}
-                                                            className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-[#0f172a] hover:bg-amber-600/20 border border-[#334155] hover:border-amber-500/40 rounded-lg text-[10px] font-bold text-amber-400 transition-all uppercase"
-                                                        >
-                                                            Edit
-                                                        </button>
-                                                        {canCloseTicket ? (
-                                                            <button
-                                                                onClick={() => handleStatusTransition(ticket, 'closed')}
-                                                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-[10px] font-bold uppercase transition-all shadow-sm"
-                                                            >
-                                                                <Check size={10} /> Resolve
-                                                            </button>
-                                                        ) : (
-                                                            <span className="text-[9px] text-slate-500 italic">Closing Restricted</span>
-                                                        )}
-                                                    </>
-                                                )}
-                                                {ticket.status === 'closed' && canCloseTicket && (
-                                                    <button
-                                                        onClick={() => handleStatusTransition(ticket, 'in_progress')}
-                                                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-[#0f172a] hover:bg-brand-600/20 border border-[#334155] hover:border-brand-500/40 text-brand-400 transition-all rounded-lg text-[10px] font-bold uppercase"
-                                                    >
-                                                        <RefreshCw size={10} /> Reopen
-                                                    </button>
-                                                )}
-                                            </div>
+                                            <button onClick={() => setActionModalTicket(ticket)} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#0f172a] hover:bg-slate-800 border border-[#334155] rounded-lg text-[10px] font-bold text-slate-300 transition-colors">
+                                                Manage
+                                            </button>
                                         </td>
 
                                     </motion.tr>
@@ -370,13 +316,22 @@ export default function Maintenance({ tickets, rooms }) {
                             </tbody>
                         </table>
                     </div>
+                    {/* Pagination */}
+                    {tickets && tickets.last_page > 1 && (
+                        <div className="px-4 py-3 border-t border-[#334155] flex items-center justify-between bg-[#0f172a]/40">
+                            <span className="text-[10px] text-slate-500">
+                                Showing {tickets.from}–{tickets.to} of {tickets.total} records
+                            </span>
+                            <Pagination links={tickets.links} />
+                        </div>
+                    )}
                 </div>
 
                 {/* MODAL: FILE NEW MAINTENANCE TICKET */}
                 <AnimatePresence>
                     {isOpen && (
                         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 0.5 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black" onClick={() => setIsOpen(false)} />
+                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-[#070b13]/90" onClick={() => setIsOpen(false)} />
                             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-[#1e293b] border border-[#334155] rounded-2xl w-full max-w-md shadow-2xl relative z-10 overflow-hidden">
                                 <div className="p-6 border-b border-[#334155] flex items-center justify-between">
                                     <h2 className="font-outfit font-black text-slate-100 text-lg flex items-center gap-2">
@@ -472,7 +427,7 @@ export default function Maintenance({ tickets, rooms }) {
                 <AnimatePresence>
                     {isEditOpen && editingTicket && (
                         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 0.5 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black" onClick={() => { setIsEditOpen(false); setEditingTicket(null); }} />
+                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-[#070b13]/90" onClick={() => { setIsEditOpen(false); setEditingTicket(null); }} />
                             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-[#1e293b] border border-[#334155] rounded-2xl w-full max-w-md shadow-2xl relative z-10 overflow-hidden">
                                 <div className="p-6 border-b border-[#334155] flex items-center justify-between">
                                     <h2 className="font-outfit font-black text-slate-100 text-lg flex items-center gap-2">
@@ -589,7 +544,7 @@ export default function Maintenance({ tickets, rooms }) {
                 <AnimatePresence>
                     {isNotesOpen && selectedTicket && (
                         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 0.5 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black" onClick={() => setIsNotesOpen(false)} />
+                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-[#070b13]/90" onClick={() => setIsNotesOpen(false)} />
                             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-[#1e293b] border border-[#334155] rounded-2xl w-full max-w-md shadow-2xl relative z-10 overflow-hidden">
                                 <div className="p-6 border-b border-[#334155] flex items-center justify-between">
                                     <h2 className="font-outfit font-black text-slate-100 text-sm uppercase flex items-center gap-2">
@@ -622,6 +577,69 @@ export default function Maintenance({ tickets, rooms }) {
                 </AnimatePresence>
 
             </div>
+
+            <ActionModal
+                isOpen={!!actionModalTicket}
+                onClose={() => setActionModalTicket(null)}
+                title={`Manage Ticket`}
+            >
+                {actionModalTicket && (
+                    <>
+                        {actionModalTicket.status === 'open' && (
+                            <>
+                                <button
+                                    onClick={() => { setActionModalTicket(null); handleStatusTransition(actionModalTicket, 'in_progress'); }}
+                                    className="w-full flex items-center gap-2 px-4 py-3 bg-indigo-950 hover:bg-indigo-900 border border-indigo-800 text-indigo-400 rounded-xl text-xs font-bold uppercase transition-colors"
+                                >
+                                    <Play size={16} /> Start Work
+                                </button>
+                                <button
+                                    onClick={() => { setActionModalTicket(null); openEditModal(actionModalTicket); }}
+                                    className="w-full flex items-center gap-2 px-4 py-3 bg-[#1e293b] hover:bg-amber-600/20 border border-[#334155] hover:border-amber-500/40 rounded-xl text-xs font-bold text-amber-400 transition-colors uppercase"
+                                >
+                                    Edit Ticket
+                                </button>
+                            </>
+                        )}
+                        {actionModalTicket.status === 'in_progress' && (
+                            <>
+                                <button
+                                    onClick={() => { setActionModalTicket(null); handleStatusTransition(actionModalTicket, 'open'); }}
+                                    className="w-full flex items-center gap-2 px-4 py-3 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-400 rounded-xl text-xs font-bold uppercase transition-colors"
+                                >
+                                    Put Back
+                                </button>
+                                <button
+                                    onClick={() => { setActionModalTicket(null); openEditModal(actionModalTicket); }}
+                                    className="w-full flex items-center gap-2 px-4 py-3 bg-[#1e293b] hover:bg-amber-600/20 border border-[#334155] hover:border-amber-500/40 rounded-xl text-xs font-bold text-amber-400 transition-colors uppercase"
+                                >
+                                    Edit Ticket
+                                </button>
+                                {canCloseTicket ? (
+                                    <button
+                                        onClick={() => { setActionModalTicket(null); handleStatusTransition(actionModalTicket, 'closed'); }}
+                                        className="w-full flex items-center gap-2 px-4 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold uppercase transition-colors"
+                                    >
+                                        <Check size={16} /> Resolve
+                                    </button>
+                                ) : (
+                                    <div className="w-full flex items-center gap-2 px-4 py-3 bg-slate-800/50 rounded-xl text-xs font-bold text-slate-500 italic">
+                                        Closing Restricted
+                                    </div>
+                                )}
+                            </>
+                        )}
+                        {actionModalTicket.status === 'closed' && canCloseTicket && (
+                            <button
+                                onClick={() => { setActionModalTicket(null); handleStatusTransition(actionModalTicket, 'in_progress'); }}
+                                className="w-full flex items-center gap-2 px-4 py-3 bg-[#1e293b] hover:bg-brand-600/20 border border-[#334155] hover:border-brand-500/40 text-brand-400 rounded-xl text-xs font-bold uppercase transition-colors"
+                            >
+                                <RefreshCw size={16} /> Reopen
+                            </button>
+                        )}
+                    </>
+                )}
+            </ActionModal>
         </AuthenticatedLayout>
     );
 }

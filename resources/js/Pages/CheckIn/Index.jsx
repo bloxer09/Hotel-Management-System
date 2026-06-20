@@ -20,11 +20,15 @@ import {
     LogOut,
     Ban,
     Eye,
-    Edit
+    Edit,
+    RefreshCw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import StayDetailsModal from '@/Components/StayDetailsModal';
 import ImagePreviewModal from '@/Components/ImagePreviewModal';
+import ActionModal from '@/Components/ActionModal';
+import SortableHeader from '@/Components/SortableHeader';
+import Pagination from '@/Components/Pagination';
 
 const STATUS_TABS = [
     { key: 'all', label: 'All Stays', color: 'text-brand-400', dot: 'bg-brand-400' },
@@ -33,7 +37,7 @@ const STATUS_TABS = [
     { key: 'cancelled', label: 'Cancelled', color: 'text-red-400', dot: 'bg-red-400' },
 ];
 
-export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCodes = [], bookings, currentFilter }) {
+export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCodes = [], bookings, currentFilter, sortBy, sortDir }) {
     const { auth } = usePage().props;
     const [selectedBookingIdForModal, setSelectedBookingIdForModal] = useState(null);
     const [isStayModalOpen, setIsStayModalOpen] = useState(false);
@@ -44,6 +48,7 @@ export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCod
     const [showModal, setShowModal] = useState(false);
     const [isImageModalOpen, setIsImageModalOpen] = useState(false);
     const [previewImage, setPreviewImage] = useState(null);
+    const [actionModalBooking, setActionModalBooking] = useState(null);
 
     // ── Search state ──
     const [searchQuery, setSearchQuery] = useState('');
@@ -395,53 +400,50 @@ export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCod
 
                 {/* Filter Tabs + Search */}
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 justify-between">
+                    {/* Quick filter tabs */}
                     <div className="flex gap-1 bg-[#1e293b] p-1 rounded-xl border border-[#334155]">
                         {STATUS_TABS.map(tab => (
-                            <button
-                                key={tab.key}
-                                onClick={() => handleFilterChange(tab.key)}
-                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${currentFilter === tab.key
-                                        ? 'bg-[#0f172a] text-slate-100 shadow'
-                                        : 'text-slate-400 hover:text-slate-200'
-                                    }`}
-                            >
+                            <button key={tab.key} onClick={() => handleFilterChange(tab.key)}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${currentFilter === tab.key ? 'bg-[#0f172a] text-slate-100 shadow' : 'text-slate-400 hover:text-slate-200'
+                                    }`}>
                                 <span className={`w-1.5 h-1.5 rounded-full ${tab.dot} ${currentFilter === tab.key ? 'opacity-100' : 'opacity-40'}`} />
                                 {tab.label}
                             </button>
                         ))}
                     </div>
-                    <div className="relative w-full sm:w-64">
-                        <Search className="absolute left-3 top-2.5 text-slate-500" size={14} />
-                        <input
-                            type="text"
-                            value={searchQuery}
-                            onChange={e => setSearchQuery(e.target.value)}
-                            placeholder="Search guest, ref, room..."
-                            className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-200 pl-9 pr-4 py-2.5 text-xs focus:outline-none focus:border-brand-500"
-                        />
+                    <div className="flex items-center gap-2 w-full sm:w-auto">
+                        <div className="relative w-full sm:w-64">
+                            <Search className="absolute left-4 top-3 text-slate-500" size={16} />
+                            <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+                                placeholder="Search ref, guest, room..."
+                                className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 pl-11 pr-4 py-2.5 focus:outline-none focus:border-brand-500 text-xs" />
+                        </div>
+                        <button onClick={() => router.reload({ only: ['bookings'] })} className="p-2.5 rounded-xl border border-[#334155] bg-[#1e293b] text-slate-400 hover:text-slate-200 hover:border-brand-500/40 transition-all shrink-0 shadow-sm" title="Refresh Table">
+                            <RefreshCw size={16} />
+                        </button>
                     </div>
                 </div>
 
                 {/* Stay List Table */}
                 <div className="rounded-2xl bg-[#1e293b] border border-[#334155] overflow-hidden shadow-xl">
                     <div className="overflow-x-auto">
-                        <table className="w-full text-xs">
+                        <table className="w-full text-xs table-fixed">
                             <thead>
                                 <tr className="border-b border-[#334155] bg-[#0f172a]/60">
-                                    <th className="px-4 py-3 text-left text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Ref</th>
-                                    <th className="px-4 py-3 text-left text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Guest</th>
-                                    <th className="px-4 py-3 text-left text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Room</th>
-                                    <th className="px-4 py-3 text-left text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Check-In</th>
-                                    <th className="px-4 py-3 text-left text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Expected Out</th>
-                                    <th className="px-4 py-3 text-left text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Type</th>
-                                    <th className="px-4 py-3 text-right text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Total</th>
-                                    <th className="px-4 py-3 text-center text-[10px] font-semibold text-slate-400 uppercase tracking-wider"></th>
+                                    <SortableHeader sortKey="id" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Ref</SortableHeader>
+                                    <SortableHeader sortKey="guest_name" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Guest</SortableHeader>
+                                    <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Room</th>
+                                    <SortableHeader sortKey="check_in" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Check-In</SortableHeader>
+                                    <SortableHeader sortKey="expected_check_out" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Expected Out</SortableHeader>
+                                    <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Type</th>
+                                    <SortableHeader sortKey="total_amount" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-right">Total</SortableHeader>
+                                    <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-center">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {filtered.length === 0 ? (
                                     <tr>
-                                        <td colSpan={8} className="px-4 py-12 text-center text-slate-500">
+                                        <td colSpan={6} className="px-4 py-12 text-center text-slate-500">
                                             {searchQuery
                                                 ? `No results for "${searchQuery}"`
                                                 : `No ${activeTab.label.toLowerCase()} found.`}
@@ -472,8 +474,8 @@ export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCod
                                         </td>
                                         <td className="px-4 py-3">
                                             <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-black uppercase ${booking.booking_type === 'overnight'
-                                                    ? 'bg-brand-500/10 text-brand-400 border border-brand-500/20'
-                                                    : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                                                ? 'bg-brand-500/10 text-brand-400 border border-brand-500/20'
+                                                : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
                                                 }`}>
                                                 {booking.booking_type === 'overnight' ? <BedDouble size={9} /> : <Clock size={9} />}
                                                 {booking.booking_type === 'overnight' ? 'Overnight' : `${booking.short_time_hours}h`}
@@ -495,25 +497,9 @@ export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCod
                                             </div>
                                         </td>
                                         <td className="px-4 py-3 text-center">
-                                            <div className="flex items-center justify-center gap-1.5">
-                                                {booking.status === 'active' && (
-                                                    <button
-                                                        onClick={() => openEditModal(booking)}
-                                                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#0f172a] hover:bg-amber-600/20 border border-[#334155] hover:border-amber-500/40 text-slate-400 hover:text-amber-400 transition-all text-[10px] font-bold"
-                                                    >
-                                                        <Edit size={11} /> Edit
-                                                    </button>
-                                                )}
-                                                <button
-                                                    onClick={() => {
-                                                        setSelectedBookingIdForModal(booking.id);
-                                                        setIsStayModalOpen(true);
-                                                    }}
-                                                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#0f172a] hover:bg-brand-600/20 border border-[#334155] hover:border-brand-500/40 text-slate-400 hover:text-brand-400 transition-all text-[10px] font-bold cursor-pointer"
-                                                >
-                                                    <Eye size={11} /> View
-                                                </button>
-                                            </div>
+                                            <button onClick={() => setActionModalBooking(booking)} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#0f172a] hover:bg-slate-800 border border-[#334155] rounded-lg text-[10px] font-bold text-slate-300 transition-colors">
+                                                Manage
+                                            </button>
                                         </td>
                                     </motion.tr>
                                 ))}
@@ -527,25 +513,7 @@ export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCod
                             <span className="text-[10px] text-slate-500">
                                 Showing {bookings.from}–{bookings.to} of {bookings.total} records
                             </span>
-                            <div className="flex items-center gap-1">
-                                <button
-                                    onClick={() => handlePageChange(bookings.prev_page_url)}
-                                    disabled={!bookings.prev_page_url}
-                                    className="p-1.5 rounded-lg border border-[#334155] text-slate-400 hover:text-slate-200 hover:border-brand-500/40 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-                                >
-                                    <ChevronLeft size={14} />
-                                </button>
-                                <span className="px-3 py-1 text-[10px] text-slate-300 font-bold font-mono">
-                                    {bookings.current_page} / {bookings.last_page}
-                                </span>
-                                <button
-                                    onClick={() => handlePageChange(bookings.next_page_url)}
-                                    disabled={!bookings.next_page_url}
-                                    className="p-1.5 rounded-lg border border-[#334155] text-slate-400 hover:text-slate-200 hover:border-brand-500/40 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-                                >
-                                    <ChevronRight size={14} />
-                                </button>
-                            </div>
+                            <Pagination links={bookings.links} />
                         </div>
                     )}
                 </div>
@@ -662,12 +630,12 @@ export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCod
                                                 </div>
                                                 <div className="flex flex-col gap-1">
                                                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">ID Type</label>
-                                                    <input 
-                                                        type="text" 
-                                                        list="id_types_list" 
-                                                        value={data.guest_id_type} 
-                                                        onChange={e => setData('guest_id_type', e.target.value)} 
-                                                        className={inputCls} 
+                                                    <input
+                                                        type="text"
+                                                        list="id_types_list"
+                                                        value={data.guest_id_type}
+                                                        onChange={e => setData('guest_id_type', e.target.value)}
+                                                        className={inputCls}
                                                         placeholder="Select or type..."
                                                     />
                                                     <datalist id="id_types_list">
@@ -1000,12 +968,12 @@ export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCod
                                                 </div>
                                                 <div className="flex flex-col gap-1">
                                                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">ID Type</label>
-                                                    <input 
-                                                        type="text" 
-                                                        list="edit_id_types_list" 
-                                                        value={editForm.data.guest_id_type} 
-                                                        onChange={e => editForm.setData('guest_id_type', e.target.value)} 
-                                                        className={inputCls} 
+                                                    <input
+                                                        type="text"
+                                                        list="edit_id_types_list"
+                                                        value={editForm.data.guest_id_type}
+                                                        onChange={e => editForm.setData('guest_id_type', e.target.value)}
+                                                        className={inputCls}
                                                         placeholder="Select or type..."
                                                     />
                                                     <datalist id="edit_id_types_list">
@@ -1248,11 +1216,40 @@ export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCod
                 )}
             </AnimatePresence>
 
-            <ImagePreviewModal 
+            <ImagePreviewModal
                 isOpen={isImageModalOpen}
                 imageUrl={previewImage}
                 onClose={() => { setIsImageModalOpen(false); setPreviewImage(null); }}
             />
+
+            <ActionModal
+                isOpen={!!actionModalBooking}
+                onClose={() => setActionModalBooking(null)}
+                title={`Manage ${actionModalBooking?.booking_ref}`}
+            >
+                {actionModalBooking && (
+                    <>
+                        {actionModalBooking.status === 'active' && (
+                            <button
+                                onClick={() => { setActionModalBooking(null); openEditModal(actionModalBooking); }}
+                                className="w-full flex items-center gap-2 px-4 py-3 bg-[#1e293b] hover:bg-amber-600/20 border border-[#334155] hover:border-amber-500/40 rounded-xl text-xs font-bold text-amber-400 transition-colors"
+                            >
+                                <Edit size={16} /> Edit
+                            </button>
+                        )}
+                        <button
+                            onClick={() => {
+                                setActionModalBooking(null);
+                                setSelectedBookingIdForModal(actionModalBooking.id);
+                                setIsStayModalOpen(true);
+                            }}
+                            className="w-full flex items-center gap-2 px-4 py-3 bg-[#1e293b] hover:bg-brand-600/20 border border-[#334155] hover:border-brand-500/40 rounded-xl text-xs font-bold text-brand-400 transition-colors"
+                        >
+                            <Eye size={16} /> View Details
+                        </button>
+                    </>
+                )}
+            </ActionModal>
         </AuthenticatedLayout>
     );
 }

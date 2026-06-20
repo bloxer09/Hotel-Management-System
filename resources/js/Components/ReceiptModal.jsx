@@ -45,7 +45,8 @@ export default function ReceiptModal({ isOpen, booking, onClose }) {
     return (
         <AnimatePresence>
             <div className="fixed inset-0 bg-[#070b13]/90 z-[99999] flex items-center justify-center p-4 print-bg-transparent">
-                <style dangerouslySetInnerHTML={{__html: `
+                <style dangerouslySetInnerHTML={{
+                    __html: `
                     @media print {
                         @page { size: auto; margin: 0; }
                         body * { visibility: hidden; }
@@ -57,8 +58,8 @@ export default function ReceiptModal({ isOpen, booking, onClose }) {
                         .print-bg-transparent { background: transparent !important; }
                     }
                 `}} />
-                
-                <motion.div 
+
+                <motion.div
                     initial={{ opacity: 0, scale: 0.95, y: 20 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -96,8 +97,8 @@ export default function ReceiptModal({ isOpen, booking, onClose }) {
                                         <h2 className="font-outfit font-black text-2xl tracking-wide text-slate-100 print-text-black">
                                             {app_name || 'UPTOWN PENSION HOUSE'}
                                         </h2>
-                                        <p className="text-slate-400 text-xs font-semibold mt-0.5 print-text-black">Brgy. Mansilingan, Bacolod City</p>
-                                        <p className="text-slate-400 text-xs font-semibold print-text-black">Tel: +63 (34) 434-1234</p>
+                                        {/* <p className="text-slate-400 text-xs font-semibold mt-0.5 print-text-black">Brgy. Mansilingan, Bacolod City</p>
+                                        <p className="text-slate-400 text-xs font-semibold print-text-black">Tel: +63 (34) 434-1234</p> */}
                                     </div>
                                 </div>
                                 <div className="md:text-right">

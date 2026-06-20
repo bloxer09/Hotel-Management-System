@@ -186,48 +186,82 @@ class ReportController extends Controller
         $roomRevenue = max(0.00, (float)$summary->total_revenue - $bookingsInventoryRevenue);
         $unifiedTotalRevenue = $roomRevenue + $productRevenue;
 
-        $filename = "sales_report_{$dateFrom}_to_{$dateTo}.csv";
-        $headers = [
-            'Content-Type'        => 'text/csv; charset=utf-8',
-            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+        $filename = "sales_report_{$dateFrom}_to_{$dateTo}.xlsx";
+
+        $rows = [];
+
+        $rows[] = ['Hotel Management System — Sales Report'];
+        $rows[] = ['Period:', "{$dateFrom} to {$dateTo}"];
+        $rows[] = ['Generated:', date('Y-m-d H:i:s'), 'By:', $user->full_name];
+        $rows[] = [];
+
+        $rows[] = ['=== SUMMARY ==='];
+        $rows[] = ['Metric', 'Value'];
+        $rows[] = ['Total Bookings', $summary->total_bookings];
+        $rows[] = ['Rooms & Lodging Revenue', $roomRevenue];
+        $rows[] = ['Inventory & Products Revenue', $productRevenue];
+        $rows[] = ['Total Revenue', $unifiedTotalRevenue];
+        $rows[] = ['Total Cash', $summary->total_cash];
+        $rows[] = ['Total GCash', $summary->total_gcash];
+        $rows[] = ['Discounts Given', '-' . $summary->total_discount];
+        $rows[] = [];
+
+        $rows[] = ['=== TRANSACTION DETAILS ==='];
+        $rows[] = [
+            'Receipt/Ref#', 'Guest Name', 'Room', 'Room Type', 'Check-In', 'Check-Out', 'Booking Type',
+            'Base Amount', 'Peak Surcharge', 'Discount Type', 'Discount Amt', 'Extension Fee',
+            'Late Checkout Fee', 'Total Amount', 'Amount Paid', 'Payment Method', 'Cash Amt',
+            'GCash Amt', 'GCash Ref', 'Cashier', 'Status', 'Notes'
         ];
+        foreach ($transactions as $t) {
+            $rows[] = [
+                $t->booking_ref,
+                $t->guest_name,
+                $t->room_number,
+                $t->type_name,
+                $t->check_in,
+                $t->check_out ?? '',
+                $t->booking_type,
+                $t->base_amount,
+                $t->peak_surcharge,
+                $t->discount_type ?? '',
+                $t->discount_amount,
+                $t->extension_fee,
+                $t->late_checkout_fee,
+                $t->total_amount,
+                $t->amount_paid,
+                strtoupper($t->payment_method ?? ''),
+                $t->cash_amount,
+                $t->gcash_amount,
+                $t->gcash_ref ?? '',
+                $t->cashier_name ?? '',
+                $t->status,
+                $t->notes ?? ''
+            ];
+        }
+        $rows[] = [];
 
-        $callback = function () use ($summary, $transactions, $byCashier, $dateFrom, $dateTo, $user, $roomRevenue, $productRevenue, $unifiedTotalRevenue) {
-            $out = fopen('php://output', 'w');
-            fprintf($out, chr(0xEF) . chr(0xBB) . chr(0xBF)); // UTF-8 BOM
+        $rows[] = ['=== CASHIER REMITTANCE ==='];
+        $rows[] = ['Staff Name', 'Username', 'Role', 'Transactions', 'Cash', 'GCash', 'Split', 'Total'];
+        foreach ($byCashier as $c) {
+            $rows[] = [
+                $c->full_name,
+                $c->username,
+                $c->role,
+                $c->txn_count,
+                $c->cash,
+                $c->gcash,
+                $c->split_total,
+                $c->total_collected
+            ];
+        }
 
-            fputcsv($out, ['Hotel Management System — Sales Report']);
-            fputcsv($out, ['Period:', "{$dateFrom} to {$dateTo}"]);
-            fputcsv($out, ['Generated:', date('Y-m-d H:i:s'), 'By:', $user->full_name]);
-            fputcsv($out, []);
-
-            fputcsv($out, ['=== SUMMARY ===']);
-            fputcsv($out, ['Total Bookings', $summary->total_bookings]);
-            fputcsv($out, ['Rooms & Lodging Revenue', $roomRevenue]);
-            fputcsv($out, ['Inventory & Products Revenue', $productRevenue]);
-            fputcsv($out, ['Total Revenue', $unifiedTotalRevenue]);
-            fputcsv($out, ['Total Cash', $summary->total_cash]);
-            fputcsv($out, ['Total GCash', $summary->total_gcash]);
-            fputcsv($out, ['Discounts Given', '-' . $summary->total_discount]);
-            fputcsv($out, []);
-
-            fputcsv($out, ['=== TRANSACTION DETAILS ===']);
-            fputcsv($out, ['Receipt/Ref#','Guest Name','Room','Room Type','Check-In','Check-Out','Booking Type','Base Amount','Peak Surcharge','Discount Type','Discount Amt','Extension Fee','Late Checkout Fee','Total Amount','Amount Paid','Payment Method','Cash Amt','GCash Amt','GCash Ref','Cashier','Status','Notes']);
-            foreach ($transactions as $t) {
-                fputcsv($out, [$t->booking_ref,$t->guest_name,$t->room_number,$t->type_name,$t->check_in,$t->check_out ?? '',$t->booking_type,$t->base_amount,$t->peak_surcharge,$t->discount_type ?? '',$t->discount_amount,$t->extension_fee,$t->late_checkout_fee,$t->total_amount,$t->amount_paid,strtoupper($t->payment_method ?? ''),$t->cash_amount,$t->gcash_amount,$t->gcash_ref ?? '',$t->cashier_name ?? '',$t->status,$t->notes ?? '']);
-            }
-            fputcsv($out, []);
-
-            fputcsv($out, ['=== CASHIER REMITTANCE ===']);
-            fputcsv($out, ['Staff Name','Username','Role','Transactions','Cash','GCash','Split','Total']);
-            foreach ($byCashier as $c) {
-                fputcsv($out, [$c->full_name,$c->username,$c->role,$c->txn_count,$c->cash,$c->gcash,$c->split_total,$c->total_collected]);
-            }
-
-            fclose($out);
-        };
-
-        return response()->stream($callback, 200, $headers);
+        $xlsx = \Shuchkin\SimpleXLSXGen::fromArray($rows);
+        return response()->streamDownload(function() use ($xlsx) {
+            echo (string) $xlsx;
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ]);
     }
 
     public function analytics(Request $request)

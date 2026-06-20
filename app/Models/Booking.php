@@ -9,11 +9,13 @@ class Booking extends Model
     protected $fillable = [
         'booking_ref',
         'room_id',
+        'group_ref',
         'guest_profile_id',
         'guest_name',
         'guest_contact',
         'guest_id_type',
         'guest_id_number',
+        'guest_id_image_path',
         'num_guests',
         'booking_type',
         'short_time_hours',
@@ -24,6 +26,7 @@ class Booking extends Model
         'payment_status',
         'base_amount',
         'peak_surcharge',
+        'extra_pax_charges',
         'discount_type',
         'discount_amount',
         'extension_fee',
@@ -65,10 +68,7 @@ class Booking extends Model
         return $this->belongsTo(Room::class);
     }
 
-    public function profile()
-    {
-        return $this->belongsTo(GuestProfile::class, 'guest_profile_id');
-    }
+
 
     public function guestProfile()
     {

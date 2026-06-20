@@ -70,3 +70,8 @@ option:checked {
     width: 0;
     height: 0;
 }
+
+/* Ensure table headers have default cursor instead of text cursor */
+th {
+    @apply cursor-default;
+}

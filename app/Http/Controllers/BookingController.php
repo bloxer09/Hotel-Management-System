@@ -734,7 +734,7 @@ class BookingController extends Controller
             $paymentRatio = $request->input('payment_ratio', 'full');
             $collectedAmount = ($paymentRatio === 'half') ? round($newTotal / 2, 2) : $newTotal;
             $booking->amount_paid = $collectedAmount;
-            $booking->payment_status = ($collectedAmount >= $newTotal) ? 'paid' : 'partially_paid';
+            $booking->payment_status = ($collectedAmount >= $newTotal) ? 'paid' : 'partial';
 
             // Adjust guest total spent if amount_paid changed
             if ($guestProfile && $collectedAmount != $oldPaid) {

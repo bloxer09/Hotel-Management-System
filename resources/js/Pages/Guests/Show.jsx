@@ -138,7 +138,7 @@ export default function Show({ guest, bookings }) {
                         </h2>
                         
                         <div className="overflow-x-auto">
-                            <table className="w-full text-left border-collapse text-xs">
+                            <table className="w-full text-left border-collapse text-xs table-fixed">
                                 <thead>
                                     <tr className="border-b border-[#334155] text-slate-400 uppercase tracking-wider font-semibold">
                                         <th className="pb-3">Ref Code</th>

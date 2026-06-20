@@ -201,7 +201,7 @@ export default function Rates({ roomTypes }) {
                 <AnimatePresence>
                     {isAddOpen && (
                         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 0.6 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black" onClick={() => setIsAddOpen(false)} />
+                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-[#070b13]/90" onClick={() => setIsAddOpen(false)} />
                             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-[#1e293b] border border-[#334155] rounded-2xl w-full max-w-xl shadow-2xl relative z-10 overflow-hidden max-h-[90vh] overflow-y-auto">
                                 <div className="p-6 border-b border-[#334155] flex items-center justify-between">
                                     <h2 className="font-outfit font-black text-slate-100 text-lg flex items-center gap-2"><Plus size={18} className="text-emerald-400" /> Add New Room Type</h2>
@@ -282,7 +282,7 @@ export default function Rates({ roomTypes }) {
                 <AnimatePresence>
                     {isEditOpen && selectedType && (
                         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 0.5 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black" onClick={() => setIsEditOpen(false)} />
+                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-[#070b13]/90" onClick={() => setIsEditOpen(false)} />
                             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-[#1e293b] border border-[#334155] rounded-2xl w-full max-w-xl shadow-2xl relative z-10 overflow-hidden">
                                 <div className="p-6 border-b border-[#334155] flex items-center justify-between">
                                     <h2 className="font-outfit font-black text-slate-100 text-lg">Configure pricing: {selectedType.type_name}</h2>

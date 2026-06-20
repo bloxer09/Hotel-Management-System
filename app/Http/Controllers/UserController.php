@@ -18,7 +18,7 @@ class UserController extends Controller
         }
 
         $users = User::orderBy('full_name', 'asc')->get([
-            'id', 'username', 'password', 'full_name as name', 'role', 
+            'id', 'username', 'full_name as name', 'role', 
             'email', 'phone', 'avatar_path', 'is_active', 'last_login', 
             'created_at', 'updated_at'
         ]);

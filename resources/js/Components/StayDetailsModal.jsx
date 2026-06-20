@@ -394,6 +394,12 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
                                                     <span className="font-mono text-amber-400 font-bold">+ ₱{booking.peak_surcharge.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                                 </div>
                                             )}
+                                            {booking.extra_pax_charges > 0 && (
+                                                <div className="flex justify-between">
+                                                    <span className="text-slate-400">Extra pax charges:</span>
+                                                    <span className="font-mono text-amber-400 font-bold">+ ₱{Number(booking.extra_pax_charges).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                                </div>
+                                            )}
                                             {booking.discount_amount > 0 && (
                                                 <div className="flex justify-between">
                                                     <span className="text-slate-400 capitalize">{booking.discount_type} discount:</span>
@@ -463,6 +469,19 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
                                                 >
                                                     <ClipboardCheck size={14} /> Process Checkout
                                                 </button>
+
+                                                {booking.group_ref && (
+                                                    <button
+                                                        onClick={() => {
+                                                            if (confirm('Are you sure you want to checkout the entire group?')) {
+                                                                router.post(route('reservations.group_checkout', booking.group_ref));
+                                                            }
+                                                        }}
+                                                        className="w-full flex items-center justify-center gap-1.5 px-4 py-3 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-slate-50 text-[11px] font-black uppercase tracking-wider shadow cursor-pointer transition-all active:scale-95"
+                                                    >
+                                                        <ClipboardCheck size={14} /> Process Group Checkout
+                                                    </button>
+                                                )}
                                                 
                                                 <button
                                                     onClick={() => setActiveSubModal('extend')}

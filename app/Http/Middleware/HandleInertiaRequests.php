@@ -35,7 +35,11 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => $request->user(),
                 'active_shift' => $request->user() 
-                    ? \App\Models\ShiftSession::where('user_id', $request->user()->id)->whereNull('ended_at')->first()
+                    ? \Illuminate\Support\Facades\Cache::remember(
+                        "active_shift_{$request->user()->id}", 
+                        now()->addMinutes(5), 
+                        fn() => \App\Models\ShiftSession::where('user_id', $request->user()->id)->whereNull('ended_at')->first()
+                    )
                     : null,
             ],
             'flash' => [

@@ -5,23 +5,24 @@ import axios from 'axios';
 import {
     Search, Calendar, Coins, UserCheck, XCircle, Plus, AlertTriangle,
     Crown, Star, TrendingUp, AlertCircle, CheckCircle, X, ChevronLeft,
-    ChevronRight, Eye, Clock, BedDouble, Edit
+    ChevronRight, Eye, Clock, BedDouble, Edit, RefreshCw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import StayDetailsModal from '@/Components/StayDetailsModal';
 import ImagePreviewModal from '@/Components/ImagePreviewModal';
-
-
+import ActionModal from '@/Components/ActionModal';
+import SortableHeader from '@/Components/SortableHeader';
+import Pagination from '@/Components/Pagination';
 const FILTER_TABS = [
-    { key: 'all',         label: 'All Bookings',color: 'text-brand-400',   dot: 'bg-brand-400'   },
-    { key: 'reserved',    label: 'Pending',    color: 'text-indigo-400',  dot: 'bg-indigo-400'  },
-    { key: 'active',      label: 'Checked In', color: 'text-emerald-400', dot: 'bg-emerald-400' },
-    { key: 'checked_out', label: 'Completed',  color: 'text-slate-400',   dot: 'bg-slate-400'   },
-    { key: 'cancelled',   label: 'Cancelled',  color: 'text-rose-400',    dot: 'bg-rose-400'     },
-    { key: 'no_show',     label: 'No Show',    color: 'text-amber-500',   dot: 'bg-amber-500'    },
+    { key: 'all', label: 'All Bookings', color: 'text-brand-400', dot: 'bg-brand-400' },
+    { key: 'reserved', label: 'Pending', color: 'text-indigo-400', dot: 'bg-indigo-400' },
+    { key: 'active', label: 'Checked In', color: 'text-emerald-400', dot: 'bg-emerald-400' },
+    { key: 'checked_out', label: 'Completed', color: 'text-slate-400', dot: 'bg-slate-400' },
+    { key: 'cancelled', label: 'Cancelled', color: 'text-rose-400', dot: 'bg-rose-400' },
+    { key: 'no_show', label: 'No Show', color: 'text-amber-500', dot: 'bg-amber-500' },
 ];
 
-export default function Index({ reservations, currentFilter, rooms = [], promoCodes = [] }) {
+export default function Index({ reservations, currentFilter, rooms = [], promoCodes = [], sortBy, sortDir }) {
     const { auth } = usePage().props;
     const flash = usePage().props.flash || {};
     const isAdmin = auth?.user?.role === 'admin';
@@ -29,6 +30,7 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
     // ── List state ──
     const [searchTerm, setSearchTerm] = useState('');
     const [viewStayId, setViewStayId] = useState(null);
+    const [actionModalBooking, setActionModalBooking] = useState(null);
 
 
     // ── New Booking Modal ──
@@ -51,7 +53,7 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
     tomorrow.setDate(tomorrow.getDate() + 1);
     tomorrow.setHours(14, 0, 0, 0);
     const pad = (n) => String(n).padStart(2, '0');
-    const defaultCheckIn = `${tomorrow.getFullYear()}-${pad(tomorrow.getMonth()+1)}-${pad(tomorrow.getDate())}T${pad(tomorrow.getHours())}:${pad(tomorrow.getMinutes())}`;
+    const defaultCheckIn = `${tomorrow.getFullYear()}-${pad(tomorrow.getMonth() + 1)}-${pad(tomorrow.getDate())}T${pad(tomorrow.getHours())}:${pad(tomorrow.getMinutes())}`;
 
     const [guestSearch, setGuestSearch] = useState('');
     const [suggestions, setSuggestions] = useState([]);
@@ -66,7 +68,7 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
     });
 
     const { data, setData, post, processing, errors, reset } = useForm({
-        room_id: '', check_in: defaultCheckIn,
+        room_ids: [], check_in: defaultCheckIn,
         guest_name: '', guest_contact: '', guest_id_type: 'Driver License',
         guest_id_number: '', id_image: null, guest_email: '', guest_address: '', num_guests: 1,
         booking_type: 'overnight', num_nights: 1, short_time_hours: 3,
@@ -85,7 +87,7 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
     });
 
     const editForm = useForm({
-        room_id: '', check_in: defaultCheckIn,
+        room_ids: [], check_in: defaultCheckIn,
         guest_name: '', guest_contact: '', guest_id_type: 'Driver License',
         guest_id_number: '', id_image: null, guest_email: '', guest_address: '', num_guests: 1,
         booking_type: 'overnight', num_nights: 1, short_time_hours: 3,
@@ -102,6 +104,7 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                 room_id: editForm.data.room_id, check_in: editForm.data.check_in,
                 booking_type: editForm.data.booking_type, num_nights: editForm.data.num_nights,
                 short_time_hours: editForm.data.short_time_hours, discount_type: editForm.data.discount_type,
+                num_guests: editForm.data.num_guests,
                 discount_amount: editForm.data.discount_amount, promo_code: editForm.data.promo_code
             }).then(res => {
                 setEditCalc(res.data);
@@ -110,12 +113,12 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                     const due = prev.payment_ratio === 'half' ? Math.round(total / 2) : total;
                     if (prev.payment_method === 'cash') return { ...prev, cash_amount: due, gcash_amount: 0 };
                     if (prev.payment_method === 'gcash') return { ...prev, gcash_amount: due, cash_amount: 0 };
-                    if (prev.payment_method === 'split') return { ...prev, cash_amount: Math.round(due/2), gcash_amount: due-Math.round(due/2) };
+                    if (prev.payment_method === 'split') return { ...prev, cash_amount: Math.round(due / 2), gcash_amount: due - Math.round(due / 2) };
                     return { ...prev, cash_amount: 0, gcash_amount: 0 };
                 });
-            }).catch(() => {});
+            }).catch(() => { });
         }
-    }, [editForm.data.room_id, editForm.data.check_in, editForm.data.booking_type, editForm.data.num_nights, editForm.data.short_time_hours, editForm.data.discount_type, editForm.data.discount_amount, editForm.data.promo_code, editForm.data.payment_ratio, editForm.data.payment_method]);
+    }, [editForm.data.room_id, editForm.data.check_in, editForm.data.booking_type, editForm.data.num_nights, editForm.data.short_time_hours, editForm.data.discount_type, editForm.data.discount_amount, editForm.data.promo_code, editForm.data.payment_ratio, editForm.data.payment_method, editForm.data.num_guests]);
 
     const selectEditGuest = (g) => {
         editForm.setData(prev => ({
@@ -143,13 +146,13 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
 
     const handleEditCashInput = (e) => {
         const due = editForm.data.payment_ratio === 'half' ? Math.round(editCalc.total_amount / 2) : editCalc.total_amount;
-        const cash = Math.min(due, Math.max(0, Number(e.target.value)||0));
-        editForm.setData(prev => ({ ...prev, cash_amount: cash, gcash_amount: Math.max(0, due-cash) }));
+        const cash = Math.min(due, Math.max(0, Number(e.target.value) || 0));
+        editForm.setData(prev => ({ ...prev, cash_amount: cash, gcash_amount: Math.max(0, due - cash) }));
     };
     const handleEditGCashInput = (e) => {
         const due = editForm.data.payment_ratio === 'half' ? Math.round(editCalc.total_amount / 2) : editCalc.total_amount;
-        const gcash = Math.min(due, Math.max(0, Number(e.target.value)||0));
-        editForm.setData(prev => ({ ...prev, gcash_amount: gcash, cash_amount: Math.max(0, due-gcash) }));
+        const gcash = Math.min(due, Math.max(0, Number(e.target.value) || 0));
+        editForm.setData(prev => ({ ...prev, gcash_amount: gcash, cash_amount: Math.max(0, due - gcash) }));
     };
 
     const handleEditFormSubmit = (e) => {
@@ -169,7 +172,7 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
     const openEditModal = (booking) => {
         setEditingBooking(booking);
         const checkInDate = new Date(booking.check_in);
-        const formattedCheckIn = `${checkInDate.getFullYear()}-${pad(checkInDate.getMonth()+1)}-${pad(checkInDate.getDate())}T${pad(checkInDate.getHours())}:${pad(checkInDate.getMinutes())}`;
+        const formattedCheckIn = `${checkInDate.getFullYear()}-${pad(checkInDate.getMonth() + 1)}-${pad(checkInDate.getDate())}T${pad(checkInDate.getHours())}:${pad(checkInDate.getMinutes())}`;
 
         editForm.setData({
             room_id: booking.room_id,
@@ -240,14 +243,15 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                 booking_type: rescheduleForm.data.booking_type,
                 num_nights: rescheduleForm.data.num_nights,
                 short_time_hours: rescheduleForm.data.short_time_hours,
+                num_guests: reschedulingBooking?.num_guests || 1,
                 discount_type: reschedulingBooking?.discount_type || 'none',
                 discount_amount: reschedulingBooking?.discount_amount || 0,
                 promo_code: reschedulingBooking?.promo_code || ''
             }).then(res => {
                 setRescheduleCalc(res.data);
-            }).catch(() => {});
+            }).catch(() => { });
         }
-    }, [rescheduleForm.data.room_id, rescheduleForm.data.check_in, rescheduleForm.data.booking_type, rescheduleForm.data.num_nights, rescheduleForm.data.short_time_hours, reschedulingBooking]);
+    }, [rescheduleForm.data.room_id, rescheduleForm.data.check_in, rescheduleForm.data.booking_type, rescheduleForm.data.num_nights, rescheduleForm.data.short_time_hours, reschedulingBooking, reschedulingBooking?.num_guests]);
 
     const handleRescheduleSubmit = (e) => {
         e.preventDefault();
@@ -267,7 +271,7 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
     const openRescheduleModal = (booking) => {
         setReschedulingBooking(booking);
         const checkInDate = new Date(booking.check_in);
-        const formattedCheckIn = `${checkInDate.getFullYear()}-${pad(checkInDate.getMonth()+1)}-${pad(checkInDate.getDate())}T${pad(checkInDate.getHours())}:${pad(checkInDate.getMinutes())}`;
+        const formattedCheckIn = `${checkInDate.getFullYear()}-${pad(checkInDate.getMonth() + 1)}-${pad(checkInDate.getDate())}T${pad(checkInDate.getHours())}:${pad(checkInDate.getMinutes())}`;
         rescheduleForm.setData({
             room_id: booking.room_id,
             check_in: formattedCheckIn,
@@ -298,7 +302,7 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
     useEffect(() => {
         if (guestSearch.length >= 2) {
             axios.get(route('guests.search', { q: guestSearch }))
-                .then(res => setSuggestions(res.data)).catch(() => {});
+                .then(res => setSuggestions(res.data)).catch(() => { });
         } else setSuggestions([]);
     }, [guestSearch]);
 
@@ -315,7 +319,7 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
     const handleApplyPromo = (codeOverride) => {
         const code = codeOverride || promoInput;
         if (!code.trim()) { setPromoError('Enter a promo code.'); return; }
-        if (!data.room_id) { setPromoError('Select a room first.'); return; }
+        if (!data.room_ids || data.room_ids.length === 0) { setPromoError('Select at least one room first.'); return; }
         axios.post(route('promo_codes.validate'), { code })
             .then(res => {
                 if (res.data.valid) {
@@ -328,11 +332,12 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
 
     // Live pricing + conflict check
     useEffect(() => {
-        if (data.room_id && data.check_in) {
+        if (data.room_ids && data.room_ids.length > 0 && data.check_in) {
             axios.post(route('reservations.calculate'), {
-                room_id: data.room_id, check_in: data.check_in,
+                room_ids: data.room_ids, check_in: data.check_in,
                 booking_type: data.booking_type, num_nights: data.num_nights,
                 short_time_hours: data.short_time_hours, discount_type: data.discount_type,
+                num_guests: data.num_guests,
                 discount_amount: data.discount_amount, promo_code: data.promo_code
             }).then(res => {
                 setCalc(res.data);
@@ -341,22 +346,22 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                     const due = prev.payment_ratio === 'half' ? Math.round(total / 2) : total;
                     if (prev.payment_method === 'cash') return { ...prev, cash_amount: due, gcash_amount: 0 };
                     if (prev.payment_method === 'gcash') return { ...prev, gcash_amount: due, cash_amount: 0 };
-                    if (prev.payment_method === 'split') return { ...prev, cash_amount: Math.round(due/2), gcash_amount: due-Math.round(due/2) };
+                    if (prev.payment_method === 'split') return { ...prev, cash_amount: Math.round(due / 2), gcash_amount: due - Math.round(due / 2) };
                     return { ...prev, cash_amount: 0, gcash_amount: 0 };
                 });
-            }).catch(() => {});
+            }).catch(() => { });
         }
-    }, [data.room_id, data.check_in, data.booking_type, data.num_nights, data.short_time_hours, data.discount_type, data.discount_amount, data.promo_code, data.payment_ratio, data.payment_method]);
+    }, [JSON.stringify(data.room_ids), data.check_in, data.booking_type, data.num_nights, data.short_time_hours, data.discount_type, data.discount_amount, data.promo_code, data.payment_ratio, data.payment_method, data.num_guests]);
 
     const handleCashInput = (e) => {
         const due = data.payment_ratio === 'half' ? Math.round(calc.total_amount / 2) : calc.total_amount;
-        const cash = Math.min(due, Math.max(0, Number(e.target.value)||0));
-        setData(prev => ({ ...prev, cash_amount: cash, gcash_amount: Math.max(0, due-cash) }));
+        const cash = Math.min(due, Math.max(0, Number(e.target.value) || 0));
+        setData(prev => ({ ...prev, cash_amount: cash, gcash_amount: Math.max(0, due - cash) }));
     };
     const handleGCashInput = (e) => {
         const due = data.payment_ratio === 'half' ? Math.round(calc.total_amount / 2) : calc.total_amount;
-        const gcash = Math.min(due, Math.max(0, Number(e.target.value)||0));
-        setData(prev => ({ ...prev, gcash_amount: gcash, cash_amount: Math.max(0, due-gcash) }));
+        const gcash = Math.min(due, Math.max(0, Number(e.target.value) || 0));
+        setData(prev => ({ ...prev, gcash_amount: gcash, cash_amount: Math.max(0, due - gcash) }));
     };
 
     const handleFormSubmit = (e) => {
@@ -370,7 +375,7 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
     };
 
     const openBookingModal = () => {
-        reset(); setCalc({ base_amount:0, peak_surcharge:0, discount_amount:0, total_amount:0, expected_check_out:'', is_peak:false, peak_label:null, conflict:null });
+        reset(); setCalc({ base_amount: 0, peak_surcharge: 0, discount_amount: 0, total_amount: 0, expected_check_out: '', is_peak: false, peak_label: null, conflict: null });
         setIsVip(false); setVipNotes(''); setSelectedGuestStays(0);
         setGuestSearch(''); setSuggestions([]); setPromoInput(''); setPromoError('');
         setShowBookingModal(true);
@@ -384,7 +389,7 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
             r.guest_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             r.guest_contact?.includes(searchTerm) ||
             r.room?.room_number?.toString().includes(searchTerm)
-          )
+        )
         : items;
 
     const handleFilterChange = (status) => {
@@ -418,7 +423,7 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
 
             <AnimatePresence>
                 {flash.success && (
-                    <motion.div initial={{ opacity:0, y:-20 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0, y:-20 }}
+                    <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
                         className="mb-4 p-4 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-emerald-300 text-sm font-medium flex items-center gap-2">
                         <CheckCircle size={16} /> {flash.success}
                     </motion.div>
@@ -444,31 +449,38 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                     <div className="flex gap-1 bg-[#1e293b] p-1 rounded-xl border border-[#334155]">
                         {FILTER_TABS.map(tab => (
                             <button key={tab.key} onClick={() => handleFilterChange(tab.key)}
-                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                                    currentFilter === tab.key ? 'bg-[#0f172a] text-slate-100 shadow' : 'text-slate-400 hover:text-slate-200'
-                                }`}>
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${currentFilter === tab.key ? 'bg-[#0f172a] text-slate-100 shadow' : 'text-slate-400 hover:text-slate-200'
+                                    }`}>
                                 <span className={`w-1.5 h-1.5 rounded-full ${tab.dot} ${currentFilter === tab.key ? 'opacity-100' : 'opacity-40'}`} />
                                 {tab.label}
                             </button>
                         ))}
                     </div>
-                    <div className="relative w-full sm:w-64">
-                        <Search className="absolute left-4 top-3 text-slate-500" size={16} />
-                        <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-                            placeholder="Search ref, guest, room..."
-                            className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 pl-11 pr-4 py-2.5 focus:outline-none focus:border-brand-500 text-xs" />
+                    <div className="flex items-center gap-2 w-full sm:w-auto">
+                        <div className="relative w-full sm:w-64">
+                            <Search className="absolute left-4 top-3 text-slate-500" size={16} />
+                            <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+                                placeholder="Search ref, guest, room..."
+                                className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 pl-11 pr-4 py-2.5 focus:outline-none focus:border-brand-500 text-xs" />
+                        </div>
+                        <button onClick={() => router.reload({ only: ['reservations'] })} className="p-2.5 rounded-xl border border-[#334155] bg-[#1e293b] text-slate-400 hover:text-slate-200 hover:border-brand-500/40 transition-all shrink-0 shadow-sm" title="Refresh Table">
+                            <RefreshCw size={16} />
+                        </button>
                     </div>
                 </div>
 
                 {/* Table */}
                 <div className="rounded-2xl bg-[#1e293b] border border-[#334155] overflow-hidden shadow-xl">
                     <div className="overflow-x-auto">
-                        <table className="w-full text-xs">
+                        <table className="w-full text-xs table-fixed">
                             <thead>
                                 <tr className="border-b border-[#334155] bg-[#0f172a]/60">
-                                    {['Ref / Room','Guest','Schedule','Type','Amount','Actions'].map((h,i) => (
-                                        <th key={h} className={`px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider ${i === 5 ? 'text-right' : 'text-left'}`}>{h}</th>
-                                    ))}
+                                    <SortableHeader sortKey="id" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Ref / Room</SortableHeader>
+                                    <SortableHeader sortKey="guest_name" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Guest</SortableHeader>
+                                    <SortableHeader sortKey="check_in_time" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Schedule</SortableHeader>
+                                    <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Type</th>
+                                    <SortableHeader sortKey="amount" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Amount</SortableHeader>
+                                    <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-right">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -477,10 +489,11 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                                         {searchTerm ? `No results for "${searchTerm}"` : `No ${activeTab.label.toLowerCase()} bookings found.`}
                                     </td></tr>
                                 ) : filtered.map((b, i) => (
-                                    <motion.tr key={b.id} initial={{ opacity:0, y:6 }} animate={{ opacity:1, y:0 }} transition={{ delay: i*0.03 }}
+                                    <motion.tr key={b.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}
                                         className="border-b border-[#334155]/50 hover:bg-[#0f172a]/40 transition-colors">
                                         <td className="px-4 py-3">
                                             <span className="font-mono text-brand-400 font-bold block">{b.booking_ref}</span>
+                                            {b.group_ref && <span className="text-[9px] bg-indigo-500/20 text-indigo-300 px-1.5 py-0.5 rounded font-bold uppercase block mt-1 w-fit">Group: {b.group_ref}</span>}
                                             <span className="text-slate-300 font-bold text-[11px]">Room {b.room?.room_number}</span>
                                         </td>
                                         <td className="px-4 py-3">
@@ -491,32 +504,31 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                                             <span className="text-slate-500 text-[10px]">{b.guest_contact || '—'}</span>
                                         </td>
                                         <td className="px-4 py-3 leading-normal">
-                                            <div className="flex items-center gap-1 text-indigo-400 font-bold text-[10px]">IN: <span className="font-mono text-slate-300">{new Date(b.check_in).toLocaleString([], { dateStyle:'short', timeStyle:'short' })}</span></div>
-                                            <div className="flex items-center gap-1 text-slate-500 text-[10px]">OUT: <span className="font-mono text-slate-400">{new Date(b.expected_check_out).toLocaleString([], { dateStyle:'short', timeStyle:'short' })}</span></div>
+                                            <div className="flex items-center gap-1 text-indigo-400 font-bold text-[10px]">IN: <span className="font-mono text-slate-300">{new Date(b.check_in).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</span></div>
+                                            <div className="flex items-center gap-1 text-slate-500 text-[10px]">OUT: <span className="font-mono text-slate-400">{new Date(b.expected_check_out).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</span></div>
                                         </td>
                                         <td className="px-4 py-3">
-                                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-black uppercase ${
-                                                b.booking_type === 'overnight'
+                                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-black uppercase ${b.booking_type === 'overnight'
                                                     ? 'bg-brand-500/10 text-brand-400 border border-brand-500/20'
                                                     : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                                            }`}>
-                                                {b.booking_type === 'overnight' ? <BedDouble size={9}/> : <Clock size={9}/>}
+                                                }`}>
+                                                {b.booking_type === 'overnight' ? <BedDouble size={9} /> : <Clock size={9} />}
                                                 {b.booking_type === 'overnight' ? 'Overnight' : `${b.short_time_hours}h`}
                                             </span>
                                         </td>
                                         <td className="px-4 py-3">
                                             <div className="flex flex-col gap-0.5">
-                                                <span className="font-mono text-emerald-400 font-bold">₱{Number(b.total_amount).toLocaleString(undefined,{minimumFractionDigits:2})}</span>
+                                                <span className="font-mono text-emerald-400 font-bold">₱{Number(b.total_amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                                 {Number(b.amount_paid) < Number(b.total_amount) ? (
                                                     <div className="flex flex-col gap-0.5 mt-0.5">
                                                         <span className="inline-flex items-center w-fit px-1.5 py-0.5 rounded text-[8px] font-bold uppercase bg-amber-500/10 text-amber-400 border border-amber-500/20">
                                                             Partially Paid
                                                         </span>
                                                         <span className="font-mono text-[9px] text-amber-400 font-semibold">
-                                                            Paid: ₱{Number(b.amount_paid).toLocaleString(undefined,{minimumFractionDigits:2})}
+                                                            Paid: ₱{Number(b.amount_paid).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                                         </span>
                                                         <span className="font-mono text-[9px] text-rose-400 font-semibold">
-                                                            Bal: ₱{Number(b.total_amount - b.amount_paid).toLocaleString(undefined,{minimumFractionDigits:2})}
+                                                            Bal: ₱{Number(b.total_amount - b.amount_paid).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                                         </span>
                                                     </div>
                                                 ) : (
@@ -525,34 +537,9 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                                             </div>
                                         </td>
                                         <td className="px-4 py-3 text-right">
-                                            <div className="inline-flex items-center gap-1.5">
-                                                {b.status === 'reserved' && (<>
-                                                    <button onClick={() => triggerCheckIn(b)}
-                                                        className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-[10px] font-bold text-white transition-colors">
-                                                        <UserCheck size={11}/> Check In
-                                                    </button>
-                                                    <button onClick={() => openEditModal(b)}
-                                                        className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-[#0f172a] hover:bg-amber-600/20 border border-[#334155] hover:border-amber-500/40 rounded-lg text-[10px] font-bold text-amber-400 transition-all">
-                                                        <Edit size={11}/> Edit
-                                                    </button>
-                                                    <button onClick={() => openRescheduleModal(b)}
-                                                        className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-[#0f172a] hover:bg-indigo-600/20 border border-[#334155] hover:border-indigo-500/40 rounded-lg text-[10px] font-bold text-indigo-400 transition-all">
-                                                        <Calendar size={11}/> Reschedule
-                                                    </button>
-                                                    <button onClick={() => handleNoShow(b)}
-                                                        className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-[#0f172a] hover:bg-orange-600/20 border border-[#334155] hover:border-orange-500/40 rounded-lg text-[10px] font-bold text-orange-400 transition-all">
-                                                        <Clock size={11}/> No Show
-                                                    </button>
-                                                    <button onClick={() => triggerCancel(b)}
-                                                        className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-[#0f172a] hover:bg-rose-900/30 border border-[#334155] rounded-lg text-[10px] font-bold text-rose-400 transition-colors">
-                                                        <XCircle size={11}/> Cancel
-                                                    </button>
-                                                </>)}
-                                                <button onClick={() => setViewStayId(b.id)}
-                                                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#0f172a] hover:bg-brand-600/20 border border-[#334155] hover:border-brand-500/40 text-slate-400 hover:text-brand-400 transition-all text-[10px] font-bold cursor-pointer">
-                                                    <Eye size={11}/> View
-                                                </button>
-                                            </div>
+                                            <button onClick={() => setActionModalBooking(b)} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#0f172a] hover:bg-slate-800 border border-[#334155] rounded-lg text-[10px] font-bold text-slate-300 transition-colors">
+                                                Manage
+                                            </button>
                                         </td>
                                     </motion.tr>
                                 ))}
@@ -566,19 +553,7 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                             <span className="text-[10px] text-slate-500">
                                 Showing {reservations.from}–{reservations.to} of {reservations.total} records
                             </span>
-                            <div className="flex items-center gap-1">
-                                <button onClick={() => handlePageChange(reservations.prev_page_url)} disabled={!reservations.prev_page_url}
-                                    className="p-1.5 rounded-lg border border-[#334155] text-slate-400 hover:text-slate-200 hover:border-brand-500/40 disabled:opacity-30 disabled:cursor-not-allowed transition-all">
-                                    <ChevronLeft size={14}/>
-                                </button>
-                                <span className="px-3 py-1 text-[10px] text-slate-300 font-bold font-mono">
-                                    {reservations.current_page} / {reservations.last_page}
-                                </span>
-                                <button onClick={() => handlePageChange(reservations.next_page_url)} disabled={!reservations.next_page_url}
-                                    className="p-1.5 rounded-lg border border-[#334155] text-slate-400 hover:text-slate-200 hover:border-brand-500/40 disabled:opacity-30 disabled:cursor-not-allowed transition-all">
-                                    <ChevronRight size={14}/>
-                                </button>
-                            </div>
+                            <Pagination links={reservations.links} />
                         </div>
                     )}
                 </div>
@@ -587,25 +562,25 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
             {/* ── New Booking Modal ── */}
             <AnimatePresence>
                 {showBookingModal && (
-                    <motion.div initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                         className="fixed inset-0 z-50 flex items-start justify-center bg-[#070b13]/90 overflow-y-auto py-6 px-4"
                         onClick={e => { if (e.target === e.currentTarget) setShowBookingModal(false); }}>
                         <motion.div
-                            initial={{ opacity:0, scale:0.97, y:20 }} animate={{ opacity:1, scale:1, y:0 }}
-                            exit={{ opacity:0, scale:0.97, y:20 }} transition={{ type:'spring', stiffness:300, damping:30 }}
+                            initial={{ opacity: 0, scale: 0.97, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.97, y: 20 }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                             className="w-full max-w-4xl bg-[#0f172a] border border-[#334155] rounded-2xl shadow-2xl overflow-hidden">
 
                             {/* Modal Header */}
                             <div className="flex items-center justify-between px-6 py-4 border-b border-[#334155] bg-[#1e293b]/60">
                                 <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-brand-500/10 text-brand-400 rounded-xl"><Calendar size={18}/></div>
+                                    <div className="p-2 bg-brand-500/10 text-brand-400 rounded-xl"><Calendar size={18} /></div>
                                     <div>
                                         <h2 className="text-base font-outfit font-extrabold text-slate-100">New Booking</h2>
                                         <p className="text-[10px] text-slate-400">Register a future reservation and collect deposit</p>
                                     </div>
                                 </div>
                                 <button onClick={() => setShowBookingModal(false)} className="p-2 rounded-xl text-slate-400 hover:text-slate-100 hover:bg-[#334155] transition-all">
-                                    <X size={18}/>
+                                    <X size={18} />
                                 </button>
                             </div>
 
@@ -619,16 +594,16 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                                         {/* Guest Details */}
                                         <div className="p-5 rounded-2xl bg-[#1e293b] border border-[#334155] flex flex-col gap-4">
                                             <div className="flex items-center gap-3 mb-1">
-                                                <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-xl"><UserCheck size={16}/></div>
+                                                <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-xl"><UserCheck size={16} /></div>
                                                 <h3 className="text-sm font-outfit font-bold text-slate-200">Guest Details</h3>
                                             </div>
                                             {/* Autocomplete */}
                                             <div className="relative">
                                                 <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5 block">Search Returning Guest</label>
                                                 <div className="relative">
-                                                    <Search className="absolute left-3 top-2.5 text-slate-500" size={14}/>
+                                                    <Search className="absolute left-3 top-2.5 text-slate-500" size={14} />
                                                     <input type="text" value={guestSearch} onChange={e => setGuestSearch(e.target.value)}
-                                                        placeholder="Type name to autocomplete..." className={`${inputCls} pl-9`}/>
+                                                        placeholder="Type name to autocomplete..." className={`${inputCls} pl-9`} />
                                                 </div>
                                                 {suggestions.length > 0 && (
                                                     <ul className="absolute left-0 right-0 mt-1 bg-[#1e293b] border border-[#334155] rounded-xl shadow-2xl z-[99] text-xs overflow-hidden">
@@ -637,7 +612,7 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                                                                 className="px-4 py-2.5 hover:bg-[#334155] cursor-pointer flex justify-between items-center text-slate-200">
                                                                 <span className="font-bold">{g.full_name}</span>
                                                                 <div className="flex items-center gap-2">
-                                                                    {g.is_vip && <span className="text-[9px] bg-amber-950 border border-amber-600/30 text-amber-400 px-1.5 py-0.5 rounded font-bold uppercase inline-flex items-center gap-1"><Crown size={9}/> VIP</span>}
+                                                                    {g.is_vip && <span className="text-[9px] bg-amber-950 border border-amber-600/30 text-amber-400 px-1.5 py-0.5 rounded font-bold uppercase inline-flex items-center gap-1"><Crown size={9} /> VIP</span>}
                                                                     {g.total_stays >= 3 && <span className="text-[9px] bg-purple-950 border border-purple-600/30 text-purple-400 px-1.5 py-0.5 rounded font-bold">⭐ {g.total_stays} stays</span>}
                                                                     <span className="text-slate-400">{g.contact_number}</span>
                                                                 </div>
@@ -649,9 +624,9 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                                             {/* VIP Banner */}
                                             <AnimatePresence>
                                                 {isVip && (
-                                                    <motion.div initial={{ opacity:0, height:0 }} animate={{ opacity:1, height:'auto' }} exit={{ opacity:0, height:0 }}
+                                                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
                                                         className="p-3 rounded-xl bg-amber-950/20 border border-amber-500/30 flex gap-2 text-xs text-amber-300">
-                                                        <Star className="h-4 w-4 text-amber-400 shrink-0 fill-amber-400 mt-0.5"/>
+                                                        <Star className="h-4 w-4 text-amber-400 shrink-0 fill-amber-400 mt-0.5" />
                                                         <div><span className="font-outfit font-extrabold uppercase tracking-wide block">VIP GUEST</span>
                                                             <p className="mt-0.5 text-amber-400/90">{vipNotes || 'No notes.'}</p></div>
                                                     </motion.div>
@@ -660,13 +635,13 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                                             {/* Loyalty Banner */}
                                             <AnimatePresence>
                                                 {selectedGuestStays >= 3 && data.discount_type !== 'loyalty' && (
-                                                    <motion.div initial={{ opacity:0, height:0 }} animate={{ opacity:1, height:'auto' }} exit={{ opacity:0, height:0 }}
+                                                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
                                                         className="p-3 rounded-xl bg-purple-950/20 border border-purple-500/30 flex gap-2 text-xs text-purple-300 items-center justify-between">
                                                         <div className="flex gap-2"><span>✨</span>
                                                             <div><span className="font-outfit font-extrabold uppercase text-purple-400 block">LOYALTY DISCOUNT</span>
                                                                 <p className="text-purple-400/90">{selectedGuestStays} stays — qualifies for 10% off</p></div>
                                                         </div>
-                                                        <button type="button" onClick={() => setData('discount_type','loyalty')}
+                                                        <button type="button" onClick={() => setData('discount_type', 'loyalty')}
                                                             className="px-2.5 py-1 bg-purple-600 hover:bg-purple-500 text-purple-100 rounded-lg text-[9px] font-black uppercase shrink-0 transition-all">
                                                             Apply 10% Off
                                                         </button>
@@ -676,21 +651,21 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                                             <div className="grid grid-cols-2 gap-3">
                                                 <div className="flex flex-col gap-1">
                                                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Full Name *</label>
-                                                    <input type="text" value={data.guest_name} onChange={e => setData('guest_name', e.target.value)} required className={`${inputCls} font-bold`}/>
+                                                    <input type="text" value={data.guest_name} onChange={e => setData('guest_name', e.target.value)} required className={`${inputCls} font-bold`} />
                                                     {errors.guest_name && <span className="text-[10px] text-red-400">{errors.guest_name}</span>}
                                                 </div>
                                                 <div className="flex flex-col gap-1">
                                                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Contact</label>
-                                                    <input type="text" value={data.guest_contact} onChange={e => setData('guest_contact', e.target.value)} className={inputCls}/>
+                                                    <input type="text" value={data.guest_contact} onChange={e => setData('guest_contact', e.target.value)} className={inputCls} />
                                                 </div>
                                                 <div className="flex flex-col gap-1">
                                                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">ID Type</label>
-                                                    <input 
-                                                        type="text" 
-                                                        list="res_id_types_list" 
-                                                        value={data.guest_id_type} 
-                                                        onChange={e => setData('guest_id_type', e.target.value)} 
-                                                        className={inputCls} 
+                                                    <input
+                                                        type="text"
+                                                        list="res_id_types_list"
+                                                        value={data.guest_id_type}
+                                                        onChange={e => setData('guest_id_type', e.target.value)}
+                                                        className={inputCls}
                                                         placeholder="Select or type..."
                                                     />
                                                     <datalist id="res_id_types_list">
@@ -703,7 +678,7 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                                                 </div>
                                                 <div className="flex flex-col gap-1">
                                                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">ID Number</label>
-                                                    <input type="text" value={data.guest_id_number} onChange={e => setData('guest_id_number', e.target.value)} className={inputCls}/>
+                                                    <input type="text" value={data.guest_id_number} onChange={e => setData('guest_id_number', e.target.value)} className={inputCls} />
                                                 </div>
                                                 <div className="flex flex-col gap-1 col-span-2">
                                                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Attach ID / Document</label>
@@ -720,22 +695,22 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                                         {/* Reservation Details */}
                                         <div className="p-5 rounded-2xl bg-[#1e293b] border border-[#334155] flex flex-col gap-4">
                                             <div className="flex items-center gap-3 mb-1">
-                                                <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-xl"><Calendar size={16}/></div>
+                                                <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-xl"><Calendar size={16} /></div>
                                                 <h3 className="text-sm font-outfit font-bold text-slate-200">Reservation Dates & Room</h3>
                                             </div>
                                             <div className="grid grid-cols-2 gap-3">
                                                 <div className="flex flex-col gap-1">
                                                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Check-In Date & Time *</label>
-                                                    <input type="datetime-local" value={data.check_in} onChange={e => setData('check_in', e.target.value)} required className={`${inputCls} font-mono font-bold`}/>
+                                                    <input type="datetime-local" value={data.check_in} onChange={e => setData('check_in', e.target.value)} required className={`${inputCls} font-mono font-bold`} />
                                                     {errors.check_in && <span className="text-[10px] text-red-400">{errors.check_in}</span>}
                                                 </div>
                                                 <div className="flex flex-col gap-1">
-                                                    <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Room *</label>
-                                                    <select value={data.room_id} onChange={e => setData('room_id', e.target.value)} required className={`${inputCls} font-bold`}>
-                                                        <option value="">Select Room</option>
+                                                    <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Rooms (Multiple) *</label>
+                                                    <select multiple value={data.room_ids} onChange={e => setData('room_ids', Array.from(e.target.selectedOptions, o => o.value))} required className={`${inputCls} font-bold h-28`}>
                                                         {rooms.map(r => <option key={r.id} value={r.id}>Room {r.room_number} ({r.type?.type_name}) — {r.status}</option>)}
                                                     </select>
-                                                    {errors.room_id && <span className="text-[10px] text-red-400">{errors.room_id}</span>}
+                                                    <p className="text-[9px] text-slate-500">Hold Ctrl/Cmd to select multiple</p>
+                                                    {errors.room_ids && <span className="text-[10px] text-red-400">{errors.room_ids}</span>}
                                                 </div>
                                                 <div className="flex flex-col gap-1">
                                                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Stay Type</label>
@@ -747,7 +722,7 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                                                 {data.booking_type === 'overnight' ? (
                                                     <div className="flex flex-col gap-1">
                                                         <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Nights</label>
-                                                        <input type="number" min="1" value={data.num_nights} onChange={e => setData('num_nights', e.target.value)} className={`${inputCls} font-mono font-bold`}/>
+                                                        <input type="number" min="1" value={data.num_nights} onChange={e => setData('num_nights', e.target.value)} className={`${inputCls} font-mono font-bold`} />
                                                     </div>
                                                 ) : (
                                                     <div className="flex flex-col gap-1">
@@ -763,9 +738,9 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                                             {/* Conflict Banner */}
                                             <AnimatePresence>
                                                 {calc.conflict && (
-                                                    <motion.div initial={{ opacity:0, y:-8 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0, y:-8 }}
+                                                    <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
                                                         className="p-4 rounded-xl bg-rose-950/40 border border-rose-500/50 flex gap-3 text-xs text-rose-300 items-start">
-                                                        <AlertCircle className="h-5 w-5 text-rose-400 shrink-0 mt-0.5"/>
+                                                        <AlertCircle className="h-5 w-5 text-rose-400 shrink-0 mt-0.5" />
                                                         <div>
                                                             <span className="font-outfit font-black uppercase tracking-wider block text-rose-400">⚠️ DOUBLE-BOOKING CONFLICT</span>
                                                             <p className="mt-1 text-rose-200">Room is already reserved by <strong className="text-white">{calc.conflict.guest_name}</strong> during this period.</p>
@@ -794,10 +769,10 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                                                         </>}
                                                     </select>
                                                 </div>
-                                                {['promo','staff'].includes(data.discount_type) && !data.promo_code && (
+                                                {['promo', 'staff'].includes(data.discount_type) && !data.promo_code && (
                                                     <div className="flex flex-col gap-1">
                                                         <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Discount Amount (₱)</label>
-                                                        <input type="number" step="0.01" min="0" value={data.discount_amount} onChange={e => setData('discount_amount', e.target.value)} className={`${inputCls} font-mono font-bold`}/>
+                                                        <input type="number" step="0.01" min="0" value={data.discount_amount} onChange={e => setData('discount_amount', e.target.value)} className={`${inputCls} font-mono font-bold`} />
                                                     </div>
                                                 )}
                                             </div>
@@ -817,7 +792,7 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                                                 )}
                                                 <div className="flex gap-2">
                                                     <input type="text" value={promoInput} onChange={e => setPromoInput(e.target.value.toUpperCase())}
-                                                        placeholder="ENTER CODE" className={`${inputCls} font-mono font-bold uppercase`}/>
+                                                        placeholder="ENTER CODE" className={`${inputCls} font-mono font-bold uppercase`} />
                                                     <button type="button" onClick={() => handleApplyPromo()} className="px-3 py-2 bg-brand-600 hover:bg-brand-500 text-white rounded-xl text-xs font-bold shrink-0 transition-colors">Apply</button>
                                                 </div>
                                                 {promoError && <p className="text-red-400 text-[10px]">{promoError}</p>}
@@ -828,7 +803,7 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                                         {/* Payment */}
                                         <div className="p-5 rounded-2xl bg-[#1e293b] border border-[#334155] flex flex-col gap-4">
                                             <div className="flex items-center gap-3 mb-1">
-                                                <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-xl"><Coins size={16}/></div>
+                                                <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-xl"><Coins size={16} /></div>
                                                 <h3 className="text-sm font-outfit font-bold text-slate-200">Deposit Payment</h3>
                                             </div>
                                             <div className="grid grid-cols-2 gap-3">
@@ -855,16 +830,16 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                                                         <option value="split">Split (Cash + GCash)</option>
                                                     </select>
                                                 </div>
-                                                {['gcash','split'].includes(data.payment_method) && (
+                                                {['gcash', 'split'].includes(data.payment_method) && (
                                                     <div className="flex flex-col gap-1">
                                                         <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">GCash 13-Digit Ref #</label>
-                                                        <input type="text" value={data.gcash_ref} onChange={e => setData('gcash_ref', e.target.value)} required placeholder="2083920..." className={`${inputCls} font-mono font-bold`}/>
+                                                        <input type="text" value={data.gcash_ref} onChange={e => setData('gcash_ref', e.target.value)} required placeholder="2083920..." className={`${inputCls} font-mono font-bold`} />
                                                     </div>
                                                 )}
-                                                {['card','bank_transfer'].includes(data.payment_method) && (
+                                                {['card', 'bank_transfer'].includes(data.payment_method) && (
                                                     <div className="flex flex-col gap-1">
                                                         <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">{data.payment_method === 'card' ? 'Approval Code' : 'Bank Ref'}</label>
-                                                        <input type="text" value={data.reference_number} onChange={e => setData('reference_number', e.target.value)} required placeholder={data.payment_method === 'card' ? 'Auth Code...' : 'BDO-9821...'} className={`${inputCls} font-mono font-bold`}/>
+                                                        <input type="text" value={data.reference_number} onChange={e => setData('reference_number', e.target.value)} required placeholder={data.payment_method === 'card' ? 'Auth Code...' : 'BDO-9821...'} className={`${inputCls} font-mono font-bold`} />
                                                     </div>
                                                 )}
                                             </div>
@@ -872,11 +847,11 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                                                 <div className="p-4 rounded-xl bg-[#0f172a]/60 border border-[#334155] grid grid-cols-2 gap-3">
                                                     <div className="flex flex-col gap-1">
                                                         <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Cash (₱)</label>
-                                                        <input type="number" min="0" max={data.payment_ratio === 'half' ? Math.round(calc.total_amount / 2) : calc.total_amount} step="any" value={data.cash_amount} onChange={handleCashInput} className={`${inputCls} font-mono font-bold`}/>
+                                                        <input type="number" min="0" max={data.payment_ratio === 'half' ? Math.round(calc.total_amount / 2) : calc.total_amount} step="any" value={data.cash_amount} onChange={handleCashInput} className={`${inputCls} font-mono font-bold`} />
                                                     </div>
                                                     <div className="flex flex-col gap-1">
                                                         <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">GCash (₱)</label>
-                                                        <input type="number" min="0" max={data.payment_ratio === 'half' ? Math.round(calc.total_amount / 2) : calc.total_amount} step="any" value={data.gcash_amount} onChange={handleGCashInput} className={`${inputCls} font-mono font-bold`}/>
+                                                        <input type="number" min="0" max={data.payment_ratio === 'half' ? Math.round(calc.total_amount / 2) : calc.total_amount} step="any" value={data.gcash_amount} onChange={handleGCashInput} className={`${inputCls} font-mono font-bold`} />
                                                     </div>
                                                 </div>
                                             )}
@@ -888,58 +863,58 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                                         <div className="p-5 rounded-2xl bg-[#1e293b] border border-[#334155] flex flex-col gap-4 relative overflow-hidden sticky top-4">
                                             {calc.is_peak && (
                                                 <div className="absolute top-0 left-0 right-0 py-1 bg-amber-500 text-slate-950 text-[9px] uppercase font-black tracking-widest text-center flex items-center justify-center gap-1">
-                                                    <TrendingUp size={9}/> Peak: {calc.peak_label}
+                                                    <TrendingUp size={9} /> Peak: {calc.peak_label}
                                                 </div>
                                             )}
                                             <div className={`flex items-center gap-2.5 border-b border-[#334155] pb-3 ${calc.is_peak ? 'pt-5' : 'pt-1'}`}>
-                                                <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-xl"><Coins size={16}/></div>
+                                                <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-xl"><Coins size={16} /></div>
                                                 <h3 className="font-outfit font-extrabold text-slate-200 text-sm uppercase tracking-wide">Billing</h3>
                                             </div>
                                             {data.room_id ? (
                                                 <div className="flex flex-col gap-3 text-xs">
                                                     <div className="flex justify-between">
                                                         <span className="text-slate-400">Base charges:</span>
-                                                        <span className="font-mono text-slate-200 font-bold">₱{calc.base_amount.toLocaleString(undefined,{minimumFractionDigits:2})}</span>
+                                                        <span className="font-mono text-slate-200 font-bold">₱{calc.base_amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                                     </div>
                                                     {calc.peak_surcharge > 0 && (
                                                         <div className="flex justify-between">
                                                             <span className="text-slate-400">Peak surcharge:</span>
-                                                            <span className="font-mono text-amber-400 font-bold">+ ₱{calc.peak_surcharge.toLocaleString(undefined,{minimumFractionDigits:2})}</span>
+                                                            <span className="font-mono text-amber-400 font-bold">+ ₱{calc.peak_surcharge.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                                         </div>
                                                     )}
                                                     {calc.discount_amount > 0 && (
                                                         <div className="flex justify-between">
                                                             <span className="text-slate-400 capitalize">{data.discount_type} discount:</span>
-                                                            <span className="font-mono text-emerald-400 font-bold">- ₱{calc.discount_amount.toLocaleString(undefined,{minimumFractionDigits:2})}</span>
+                                                            <span className="font-mono text-emerald-400 font-bold">- ₱{calc.discount_amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                                         </div>
                                                     )}
-                                                    <div className="h-px bg-[#334155]"/>
+                                                    <div className="h-px bg-[#334155]" />
                                                     <div className="flex justify-between items-baseline">
                                                         <span className="font-outfit font-extrabold text-slate-100 uppercase text-[10px]">Total Stay Price:</span>
-                                                        <span className="font-mono text-xs font-bold text-slate-300">₱{calc.total_amount.toLocaleString(undefined,{minimumFractionDigits:2})}</span>
+                                                        <span className="font-mono text-xs font-bold text-slate-300">₱{calc.total_amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                                     </div>
                                                     {data.payment_ratio === 'half' ? (
                                                         <div className="flex justify-between items-baseline bg-brand-500/10 border border-brand-500/20 p-2.5 rounded-xl mt-1">
                                                             <span className="font-outfit font-extrabold text-brand-400 uppercase text-[10px]">Due Today (50%):</span>
-                                                            <span className="font-mono text-base font-black text-brand-400">₱{Math.round(calc.total_amount / 2).toLocaleString(undefined,{minimumFractionDigits:2})}</span>
+                                                            <span className="font-mono text-base font-black text-brand-400">₱{Math.round(calc.total_amount / 2).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                                         </div>
                                                     ) : (
                                                         <div className="flex justify-between items-baseline bg-emerald-500/10 border border-emerald-500/20 p-2.5 rounded-xl mt-1">
                                                             <span className="font-outfit font-extrabold text-emerald-400 uppercase text-[10px]">Due Today (100%):</span>
-                                                            <span className="font-mono text-base font-black text-emerald-400">₱{calc.total_amount.toLocaleString(undefined,{minimumFractionDigits:2})}</span>
+                                                            <span className="font-mono text-base font-black text-emerald-400">₱{calc.total_amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                                         </div>
                                                     )}
                                                     <div className="flex flex-col gap-1 bg-[#0f172a]/65 p-3 rounded-xl border border-[#334155]">
-                                                        <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1"><Calendar size={10}/> Expected Out</span>
+                                                        <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1"><Calendar size={10} /> Expected Out</span>
                                                         <span className="text-xs text-slate-300 font-bold font-mono">{calc.expected_check_out ? new Date(calc.expected_check_out).toLocaleString() : '-'}</span>
                                                     </div>
                                                 </div>
                                             ) : (
                                                 <div className="py-8 text-center text-xs text-slate-500">Select room to load summary.</div>
                                             )}
-                                            <button type="submit" disabled={processing || !data.room_id || !!calc.conflict}
+                                            <button type="submit" disabled={processing || !data.room_ids || data.room_ids.length === 0 || !!calc.conflict}
                                                 className="w-full flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl bg-brand-600 hover:bg-brand-500 disabled:bg-[#334155] disabled:text-slate-500 text-white font-outfit font-extrabold text-sm tracking-wide shadow-lg active:scale-95 transition-all">
-                                                <CheckCircle size={16}/>
+                                                <CheckCircle size={16} />
                                                 {processing ? 'Processing...' : calc.conflict ? 'Conflict — Cannot Book' : 'Complete Booking'}
                                             </button>
                                         </div>
@@ -955,24 +930,24 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
             <AnimatePresence>
                 {showCheckInModal && selectedCheckInRes && (
                     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-                        <motion.div initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
-                            onClick={() => setShowCheckInModal(false)} className="fixed inset-0 bg-[#070b13]/85"/>
-                        <motion.div initial={{ scale:0.95, opacity:0, y:15 }} animate={{ scale:1, opacity:1, y:0 }} exit={{ scale:0.95, opacity:0, y:15 }}
-                            transition={{ type:'spring', damping:25, stiffness:350 }}
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                            onClick={() => setShowCheckInModal(false)} className="fixed inset-0 bg-[#070b13]/90" />
+                        <motion.div initial={{ scale: 0.95, opacity: 0, y: 15 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 15 }}
+                            transition={{ type: 'spring', damping: 25, stiffness: 350 }}
                             className="relative w-full max-w-md bg-[#1e293b] border border-[#334155] rounded-3xl p-6 shadow-2xl z-10">
                             <div className="flex flex-col items-center text-center gap-4">
-                                <div className="p-3.5 bg-emerald-500/10 text-emerald-400 rounded-2xl"><UserCheck size={28}/></div>
+                                <div className="p-3.5 bg-emerald-500/10 text-emerald-400 rounded-2xl"><UserCheck size={28} /></div>
                                 <div>
                                     <h3 className="font-outfit font-black text-slate-100 text-lg uppercase tracking-wide">Confirm Check-In</h3>
                                     <p className="text-xs text-slate-400 mt-1">Check in <strong className="text-slate-200">{selectedCheckInRes.guest_name}</strong> into Room <strong className="text-slate-200">{selectedCheckInRes.room?.room_number}</strong>?</p>
                                 </div>
                                 <div className="w-full bg-[#0f172a]/60 border border-[#334155]/60 rounded-2xl p-4 text-left text-xs space-y-2">
                                     <div className="flex justify-between"><span className="text-slate-400">Ref:</span><span className="font-mono text-slate-200 font-bold">{selectedCheckInRes.booking_ref}</span></div>
-                                    <div className="flex justify-between"><span className="text-slate-400">Scheduled:</span><span className="font-mono text-slate-200">{new Date(selectedCheckInRes.check_in).toLocaleString([], { dateStyle:'short', timeStyle:'short' })}</span></div>
-                                    <div className="flex justify-between"><span className="text-slate-400">Total Amount:</span><span className="font-mono text-slate-200">₱{Number(selectedCheckInRes.total_amount).toLocaleString(undefined, {minimumFractionDigits:2})}</span></div>
-                                    <div className="flex justify-between"><span className="text-slate-400">Paid Amount:</span><span className="font-mono text-emerald-400 font-bold">₱{Number(selectedCheckInRes.amount_paid).toLocaleString(undefined, {minimumFractionDigits:2})}</span></div>
+                                    <div className="flex justify-between"><span className="text-slate-400">Scheduled:</span><span className="font-mono text-slate-200">{new Date(selectedCheckInRes.check_in).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</span></div>
+                                    <div className="flex justify-between"><span className="text-slate-400">Total Amount:</span><span className="font-mono text-slate-200">₱{Number(selectedCheckInRes.total_amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
+                                    <div className="flex justify-between"><span className="text-slate-400">Paid Amount:</span><span className="font-mono text-emerald-400 font-bold">₱{Number(selectedCheckInRes.amount_paid).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
                                     {Number(selectedCheckInRes.amount_paid) < Number(selectedCheckInRes.total_amount) && (
-                                        <div className="flex justify-between border-t border-[#334155] pt-2 mt-2"><span className="text-rose-400 font-bold">Outstanding Balance:</span><span className="font-mono text-rose-400 font-extrabold">₱{Number(selectedCheckInRes.total_amount - selectedCheckInRes.amount_paid).toLocaleString(undefined, {minimumFractionDigits:2})}</span></div>
+                                        <div className="flex justify-between border-t border-[#334155] pt-2 mt-2"><span className="text-rose-400 font-bold">Outstanding Balance:</span><span className="font-mono text-rose-400 font-extrabold">₱{Number(selectedCheckInRes.total_amount - selectedCheckInRes.amount_paid).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
                                     )}
                                 </div>
                                 {Number(selectedCheckInRes.amount_paid) < Number(selectedCheckInRes.total_amount) && (
@@ -1001,13 +976,13 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
             <AnimatePresence>
                 {showCancelModal && selectedCancelRes && (
                     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-                        <motion.div initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
-                            onClick={() => setShowCancelModal(false)} className="fixed inset-0 bg-[#070b13]/85"/>
-                        <motion.div initial={{ scale:0.95, opacity:0, y:15 }} animate={{ scale:1, opacity:1, y:0 }} exit={{ scale:0.95, opacity:0, y:15 }}
-                            transition={{ type:'spring', damping:25, stiffness:350 }}
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                            onClick={() => setShowCancelModal(false)} className="fixed inset-0 bg-[#070b13]/90" />
+                        <motion.div initial={{ scale: 0.95, opacity: 0, y: 15 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 15 }}
+                            transition={{ type: 'spring', damping: 25, stiffness: 350 }}
                             className="relative w-full max-w-md bg-[#1e293b] border border-[#334155] rounded-3xl p-6 shadow-2xl z-10">
                             <div className="flex flex-col items-center text-center gap-4">
-                                <div className="p-3.5 bg-rose-500/10 text-rose-400 rounded-2xl"><AlertTriangle size={28}/></div>
+                                <div className="p-3.5 bg-rose-500/10 text-rose-400 rounded-2xl"><AlertTriangle size={28} /></div>
                                 <div>
                                     <h3 className="font-outfit font-black text-slate-100 text-lg uppercase tracking-wide">Cancel Reservation</h3>
                                     <p className="text-xs text-slate-400 mt-1">Cancel booking for <strong className="text-slate-200">{selectedCancelRes.guest_name}</strong> in Room <strong className="text-slate-200">{selectedCancelRes.room?.room_number}</strong>?</p>
@@ -1015,7 +990,7 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                                 <div className="w-full text-left flex flex-col gap-1.5">
                                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Reason for Cancellation</label>
                                     <textarea value={cancelReason} onChange={e => setCancelReason(e.target.value)} rows="3" required
-                                        placeholder="Type reason here..." className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 p-3 focus:outline-none focus:border-brand-500 text-xs"/>
+                                        placeholder="Type reason here..." className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 p-3 focus:outline-none focus:border-brand-500 text-xs" />
                                 </div>
                                 <div className="grid grid-cols-2 gap-3 w-full">
                                     <button onClick={() => setShowCancelModal(false)} className="px-4 py-3 bg-[#0f172a] hover:bg-[#1e293b] border border-[#334155] rounded-xl text-xs font-black text-slate-400 uppercase transition-colors">Back</button>
@@ -1030,25 +1005,25 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
             {/* ── Edit Reservation Modal ── */}
             <AnimatePresence>
                 {showEditModal && editingBooking && (
-                    <motion.div initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                         className="fixed inset-0 z-50 flex items-start justify-center bg-[#070b13]/90 overflow-y-auto py-6 px-4"
                         onClick={e => { if (e.target === e.currentTarget) closeEditModal(); }}>
                         <motion.div
-                            initial={{ opacity:0, scale:0.97, y:20 }} animate={{ opacity:1, scale:1, y:0 }}
-                            exit={{ opacity:0, scale:0.97, y:20 }} transition={{ type:'spring', stiffness:300, damping:30 }}
+                            initial={{ opacity: 0, scale: 0.97, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.97, y: 20 }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                             className="w-full max-w-4xl bg-[#0f172a] border border-[#334155] rounded-2xl shadow-2xl overflow-hidden">
 
                             {/* Modal Header */}
                             <div className="flex items-center justify-between px-6 py-4 border-b border-[#334155] bg-[#1e293b]/60">
                                 <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-brand-500/10 text-brand-400 rounded-xl"><Edit size={18}/></div>
+                                    <div className="p-2 bg-brand-500/10 text-brand-400 rounded-xl"><Edit size={18} /></div>
                                     <div>
                                         <h2 className="text-base font-outfit font-extrabold text-slate-100">Edit Booking details</h2>
                                         <p className="text-[10px] text-slate-400">Modify details for Ref: {editingBooking.booking_ref}</p>
                                     </div>
                                 </div>
                                 <button onClick={closeEditModal} className="p-2 rounded-xl text-slate-400 hover:text-slate-100 hover:bg-[#334155] transition-all">
-                                    <X size={18}/>
+                                    <X size={18} />
                                 </button>
                             </div>
 
@@ -1062,16 +1037,16 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                                         {/* Guest Details */}
                                         <div className="p-5 rounded-2xl bg-[#1e293b] border border-[#334155] flex flex-col gap-4">
                                             <div className="flex items-center gap-3 mb-1">
-                                                <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-xl"><UserCheck size={16}/></div>
+                                                <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-xl"><UserCheck size={16} /></div>
                                                 <h3 className="text-sm font-outfit font-bold text-slate-200">Guest Details</h3>
                                             </div>
                                             {/* Autocomplete */}
                                             <div className="relative">
                                                 <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5 block">Search Returning Guest</label>
                                                 <div className="relative">
-                                                    <Search className="absolute left-3 top-2.5 text-slate-500" size={14}/>
+                                                    <Search className="absolute left-3 top-2.5 text-slate-500" size={14} />
                                                     <input type="text" value={guestSearch} onChange={e => setGuestSearch(e.target.value)}
-                                                        placeholder="Type name to autocomplete..." className={`${inputCls} pl-9`}/>
+                                                        placeholder="Type name to autocomplete..." className={`${inputCls} pl-9`} />
                                                 </div>
                                                 {suggestions.length > 0 && (
                                                     <ul className="absolute left-0 right-0 mt-1 bg-[#1e293b] border border-[#334155] rounded-xl shadow-2xl z-[99] text-xs overflow-hidden">
@@ -1080,7 +1055,7 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                                                                 className="px-4 py-2.5 hover:bg-[#334155] cursor-pointer flex justify-between items-center text-slate-200">
                                                                 <span className="font-bold">{g.full_name}</span>
                                                                 <div className="flex items-center gap-2">
-                                                                    {g.is_vip && <span className="text-[9px] bg-amber-950 border border-amber-600/30 text-amber-400 px-1.5 py-0.5 rounded font-bold uppercase inline-flex items-center gap-1"><Crown size={9}/> VIP</span>}
+                                                                    {g.is_vip && <span className="text-[9px] bg-amber-950 border border-amber-600/30 text-amber-400 px-1.5 py-0.5 rounded font-bold uppercase inline-flex items-center gap-1"><Crown size={9} /> VIP</span>}
                                                                     {g.total_stays >= 3 && <span className="text-[9px] bg-purple-950 border border-purple-600/30 text-purple-400 px-1.5 py-0.5 rounded font-bold">⭐ {g.total_stays} stays</span>}
                                                                     <span className="text-slate-400">{g.contact_number}</span>
                                                                 </div>
@@ -1092,9 +1067,9 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                                             {/* VIP Banner */}
                                             <AnimatePresence>
                                                 {isVip && (
-                                                    <motion.div initial={{ opacity:0, height:0 }} animate={{ opacity:1, height:'auto' }} exit={{ opacity:0, height:0 }}
+                                                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
                                                         className="p-3 rounded-xl bg-amber-950/20 border border-amber-500/30 flex gap-2 text-xs text-amber-300">
-                                                        <Star className="h-4 w-4 text-amber-400 shrink-0 fill-amber-400 mt-0.5"/>
+                                                        <Star className="h-4 w-4 text-amber-400 shrink-0 fill-amber-400 mt-0.5" />
                                                         <div><span className="font-outfit font-extrabold uppercase tracking-wide block">VIP GUEST</span>
                                                             <p className="mt-0.5 text-amber-400/90">{vipNotes || 'No notes.'}</p></div>
                                                     </motion.div>
@@ -1103,13 +1078,13 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                                             {/* Loyalty Banner */}
                                             <AnimatePresence>
                                                 {selectedGuestStays >= 3 && editForm.data.discount_type !== 'loyalty' && (
-                                                    <motion.div initial={{ opacity:0, height:0 }} animate={{ opacity:1, height:'auto' }} exit={{ opacity:0, height:0 }}
+                                                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
                                                         className="p-3 rounded-xl bg-purple-950/20 border border-purple-500/30 flex gap-2 text-xs text-purple-300 items-center justify-between">
                                                         <div className="flex gap-2"><span>✨</span>
                                                             <div><span className="font-outfit font-extrabold uppercase text-purple-400 block">LOYALTY DISCOUNT</span>
                                                                 <p className="text-purple-400/90">{selectedGuestStays} stays — qualifies for 10% off</p></div>
                                                         </div>
-                                                        <button type="button" onClick={() => editForm.setData('discount_type','loyalty')}
+                                                        <button type="button" onClick={() => editForm.setData('discount_type', 'loyalty')}
                                                             className="px-2.5 py-1 bg-purple-600 hover:bg-purple-500 text-purple-100 rounded-lg text-[9px] font-black uppercase shrink-0 transition-all">
                                                             Apply 10% Off
                                                         </button>
@@ -1119,21 +1094,21 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                                             <div className="grid grid-cols-2 gap-3">
                                                 <div className="flex flex-col gap-1">
                                                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Full Name *</label>
-                                                    <input type="text" value={editForm.data.guest_name} onChange={e => editForm.setData('guest_name', e.target.value)} required className={`${inputCls} font-bold`}/>
+                                                    <input type="text" value={editForm.data.guest_name} onChange={e => editForm.setData('guest_name', e.target.value)} required className={`${inputCls} font-bold`} />
                                                     {editForm.errors.guest_name && <span className="text-[10px] text-red-400">{editForm.errors.guest_name}</span>}
                                                 </div>
                                                 <div className="flex flex-col gap-1">
                                                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Contact</label>
-                                                    <input type="text" value={editForm.data.guest_contact} onChange={e => editForm.setData('guest_contact', e.target.value)} className={inputCls}/>
+                                                    <input type="text" value={editForm.data.guest_contact} onChange={e => editForm.setData('guest_contact', e.target.value)} className={inputCls} />
                                                 </div>
                                                 <div className="flex flex-col gap-1">
                                                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">ID Type</label>
-                                                    <input 
-                                                        type="text" 
-                                                        list="edit_res_id_types_list" 
-                                                        value={editForm.data.guest_id_type} 
-                                                        onChange={e => editForm.setData('guest_id_type', e.target.value)} 
-                                                        className={inputCls} 
+                                                    <input
+                                                        type="text"
+                                                        list="edit_res_id_types_list"
+                                                        value={editForm.data.guest_id_type}
+                                                        onChange={e => editForm.setData('guest_id_type', e.target.value)}
+                                                        className={inputCls}
                                                         placeholder="Select or type..."
                                                     />
                                                     <datalist id="edit_res_id_types_list">
@@ -1146,7 +1121,7 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                                                 </div>
                                                 <div className="flex flex-col gap-1">
                                                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">ID Number</label>
-                                                    <input type="text" value={editForm.data.guest_id_number} onChange={e => editForm.setData('guest_id_number', e.target.value)} className={inputCls}/>
+                                                    <input type="text" value={editForm.data.guest_id_number} onChange={e => editForm.setData('guest_id_number', e.target.value)} className={inputCls} />
                                                 </div>
                                                 <div className="flex flex-col gap-1 col-span-2">
                                                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Update ID / Document</label>
@@ -1167,13 +1142,13 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                                         {/* Reservation Details */}
                                         <div className="p-5 rounded-2xl bg-[#1e293b] border border-[#334155] flex flex-col gap-4">
                                             <div className="flex items-center gap-3 mb-1">
-                                                <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-xl"><Calendar size={16}/></div>
+                                                <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-xl"><Calendar size={16} /></div>
                                                 <h3 className="text-sm font-outfit font-bold text-slate-200">Reservation Dates & Room</h3>
                                             </div>
                                             <div className="grid grid-cols-2 gap-3">
                                                 <div className="flex flex-col gap-1">
                                                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Check-In Date & Time *</label>
-                                                    <input type="datetime-local" value={editForm.data.check_in} onChange={e => editForm.setData('check_in', e.target.value)} required className={`${inputCls} font-mono font-bold`}/>
+                                                    <input type="datetime-local" value={editForm.data.check_in} onChange={e => editForm.setData('check_in', e.target.value)} required className={`${inputCls} font-mono font-bold`} />
                                                     {editForm.errors.check_in && <span className="text-[10px] text-red-400">{editForm.errors.check_in}</span>}
                                                 </div>
                                                 <div className="flex flex-col gap-1">
@@ -1197,7 +1172,7 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                                                 {editForm.data.booking_type === 'overnight' ? (
                                                     <div className="flex flex-col gap-1">
                                                         <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Nights</label>
-                                                        <input type="number" min="1" value={editForm.data.num_nights} onChange={e => editForm.setData('num_nights', e.target.value)} className={`${inputCls} font-mono font-bold`}/>
+                                                        <input type="number" min="1" value={editForm.data.num_nights} onChange={e => editForm.setData('num_nights', e.target.value)} className={`${inputCls} font-mono font-bold`} />
                                                     </div>
                                                 ) : (
                                                     <div className="flex flex-col gap-1">
@@ -1213,9 +1188,9 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                                             {/* Conflict Banner */}
                                             <AnimatePresence>
                                                 {editCalc.conflict && (
-                                                    <motion.div initial={{ opacity:0, y:-8 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0, y:-8 }}
+                                                    <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
                                                         className="p-4 rounded-xl bg-rose-950/40 border border-rose-500/50 flex gap-3 text-xs text-rose-300 items-start">
-                                                        <AlertCircle className="h-5 w-5 text-rose-400 shrink-0 mt-0.5"/>
+                                                        <AlertCircle className="h-5 w-5 text-rose-400 shrink-0 mt-0.5" />
                                                         <div>
                                                             <span className="font-outfit font-black uppercase tracking-wider block text-rose-400">⚠️ DOUBLE-BOOKING CONFLICT</span>
                                                             <p className="mt-1 text-rose-200">Room is already reserved by <strong className="text-white">{editCalc.conflict.guest_name}</strong> during this period.</p>
@@ -1244,10 +1219,10 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                                                         </>}
                                                     </select>
                                                 </div>
-                                                {['promo','staff'].includes(editForm.data.discount_type) && !editForm.data.promo_code && (
+                                                {['promo', 'staff'].includes(editForm.data.discount_type) && !editForm.data.promo_code && (
                                                     <div className="flex flex-col gap-1">
                                                         <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Discount Amount (₱)</label>
-                                                        <input type="number" step="0.01" min="0" value={editForm.data.discount_amount} onChange={e => editForm.setData('discount_amount', e.target.value)} className={`${inputCls} font-mono font-bold`}/>
+                                                        <input type="number" step="0.01" min="0" value={editForm.data.discount_amount} onChange={e => editForm.setData('discount_amount', e.target.value)} className={`${inputCls} font-mono font-bold`} />
                                                     </div>
                                                 )}
                                             </div>
@@ -1267,7 +1242,7 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                                                 )}
                                                 <div className="flex gap-2">
                                                     <input type="text" value={promoInput} onChange={e => setPromoInput(e.target.value.toUpperCase())}
-                                                        placeholder="ENTER CODE" className={`${inputCls} font-mono font-bold uppercase`}/>
+                                                        placeholder="ENTER CODE" className={`${inputCls} font-mono font-bold uppercase`} />
                                                     <button type="button" onClick={() => handleApplyEditPromo()} className="px-3 py-2 bg-brand-600 hover:bg-brand-500 text-white rounded-xl text-xs font-bold shrink-0 transition-colors">Apply</button>
                                                 </div>
                                                 {promoError && <p className="text-red-400 text-[10px]">{promoError}</p>}
@@ -1278,7 +1253,7 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                                         {/* Payment */}
                                         <div className="p-5 rounded-2xl bg-[#1e293b] border border-[#334155] flex flex-col gap-4">
                                             <div className="flex items-center gap-3 mb-1">
-                                                <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-xl"><Coins size={16}/></div>
+                                                <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-xl"><Coins size={16} /></div>
                                                 <h3 className="text-sm font-outfit font-bold text-slate-200">Deposit Payment</h3>
                                             </div>
                                             <div className="grid grid-cols-2 gap-3">
@@ -1305,16 +1280,16 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                                                         <option value="split">Split (Cash + GCash)</option>
                                                     </select>
                                                 </div>
-                                                {['gcash','split'].includes(editForm.data.payment_method) && (
+                                                {['gcash', 'split'].includes(editForm.data.payment_method) && (
                                                     <div className="flex flex-col gap-1">
                                                         <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">GCash 13-Digit Ref #</label>
-                                                        <input type="text" value={editForm.data.gcash_ref} onChange={e => editForm.setData('gcash_ref', e.target.value)} required placeholder="2083920..." className={`${inputCls} font-mono font-bold`}/>
+                                                        <input type="text" value={editForm.data.gcash_ref} onChange={e => editForm.setData('gcash_ref', e.target.value)} required placeholder="2083920..." className={`${inputCls} font-mono font-bold`} />
                                                     </div>
                                                 )}
-                                                {['card','bank_transfer'].includes(editForm.data.payment_method) && (
+                                                {['card', 'bank_transfer'].includes(editForm.data.payment_method) && (
                                                     <div className="flex flex-col gap-1">
                                                         <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">{editForm.data.payment_method === 'card' ? 'Approval Code' : 'Bank Ref'}</label>
-                                                        <input type="text" value={editForm.data.reference_number} onChange={e => editForm.setData('reference_number', e.target.value)} required placeholder={editForm.data.payment_method === 'card' ? 'Auth Code...' : 'BDO-9821...'} className={`${inputCls} font-mono font-bold`}/>
+                                                        <input type="text" value={editForm.data.reference_number} onChange={e => editForm.setData('reference_number', e.target.value)} required placeholder={editForm.data.payment_method === 'card' ? 'Auth Code...' : 'BDO-9821...'} className={`${inputCls} font-mono font-bold`} />
                                                     </div>
                                                 )}
                                             </div>
@@ -1322,11 +1297,11 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                                                 <div className="p-4 rounded-xl bg-[#0f172a]/60 border border-[#334155] grid grid-cols-2 gap-3">
                                                     <div className="flex flex-col gap-1">
                                                         <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Cash (₱)</label>
-                                                        <input type="number" min="0" max={editForm.data.payment_ratio === 'half' ? Math.round(editCalc.total_amount / 2) : editCalc.total_amount} step="any" value={editForm.data.cash_amount} onChange={handleEditCashInput} className={`${inputCls} font-mono font-bold`}/>
+                                                        <input type="number" min="0" max={editForm.data.payment_ratio === 'half' ? Math.round(editCalc.total_amount / 2) : editCalc.total_amount} step="any" value={editForm.data.cash_amount} onChange={handleEditCashInput} className={`${inputCls} font-mono font-bold`} />
                                                     </div>
                                                     <div className="flex flex-col gap-1">
                                                         <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">GCash (₱)</label>
-                                                        <input type="number" min="0" max={editForm.data.payment_ratio === 'half' ? Math.round(editCalc.total_amount / 2) : editCalc.total_amount} step="any" value={editForm.data.gcash_amount} onChange={handleEditGCashInput} className={`${inputCls} font-mono font-bold`}/>
+                                                        <input type="number" min="0" max={editForm.data.payment_ratio === 'half' ? Math.round(editCalc.total_amount / 2) : editCalc.total_amount} step="any" value={editForm.data.gcash_amount} onChange={handleEditGCashInput} className={`${inputCls} font-mono font-bold`} />
                                                     </div>
                                                 </div>
                                             )}
@@ -1338,49 +1313,49 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                                         <div className="p-5 rounded-2xl bg-[#1e293b] border border-[#334155] flex flex-col gap-4 relative overflow-hidden sticky top-4">
                                             {editCalc.is_peak && (
                                                 <div className="absolute top-0 left-0 right-0 py-1 bg-amber-500 text-slate-950 text-[9px] uppercase font-black tracking-widest text-center flex items-center justify-center gap-1">
-                                                    <TrendingUp size={9}/> Peak: {editCalc.peak_label}
+                                                    <TrendingUp size={9} /> Peak: {editCalc.peak_label}
                                                 </div>
                                             )}
                                             <div className={`flex items-center gap-2.5 border-b border-[#334155] pb-3 ${editCalc.is_peak ? 'pt-5' : 'pt-1'}`}>
-                                                <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-xl"><Coins size={16}/></div>
+                                                <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-xl"><Coins size={16} /></div>
                                                 <h3 className="font-outfit font-extrabold text-slate-200 text-sm uppercase tracking-wide">Billing</h3>
                                             </div>
                                             {editForm.data.room_id ? (
                                                 <div className="flex flex-col gap-3 text-xs">
                                                     <div className="flex justify-between">
                                                         <span className="text-slate-400">Base charges:</span>
-                                                        <span className="font-mono text-slate-200 font-bold">₱{editCalc.base_amount.toLocaleString(undefined,{minimumFractionDigits:2})}</span>
+                                                        <span className="font-mono text-slate-200 font-bold">₱{editCalc.base_amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                                     </div>
                                                     {editCalc.peak_surcharge > 0 && (
                                                         <div className="flex justify-between">
                                                             <span className="text-slate-400">Peak surcharge:</span>
-                                                            <span className="font-mono text-amber-400 font-bold">+ ₱{editCalc.peak_surcharge.toLocaleString(undefined,{minimumFractionDigits:2})}</span>
+                                                            <span className="font-mono text-amber-400 font-bold">+ ₱{editCalc.peak_surcharge.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                                         </div>
                                                     )}
                                                     {editCalc.discount_amount > 0 && (
                                                         <div className="flex justify-between">
                                                             <span className="text-slate-400 capitalize">{editForm.data.discount_type} discount:</span>
-                                                            <span className="font-mono text-emerald-400 font-bold">- ₱{editCalc.discount_amount.toLocaleString(undefined,{minimumFractionDigits:2})}</span>
+                                                            <span className="font-mono text-emerald-400 font-bold">- ₱{editCalc.discount_amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                                         </div>
                                                     )}
-                                                    <div className="h-px bg-[#334155]"/>
+                                                    <div className="h-px bg-[#334155]" />
                                                     <div className="flex justify-between items-baseline">
                                                         <span className="font-outfit font-extrabold text-slate-100 uppercase text-[10px]">Total Stay Price:</span>
-                                                        <span className="font-mono text-xs font-bold text-slate-300">₱{editCalc.total_amount.toLocaleString(undefined,{minimumFractionDigits:2})}</span>
+                                                        <span className="font-mono text-xs font-bold text-slate-300">₱{editCalc.total_amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                                     </div>
                                                     {editForm.data.payment_ratio === 'half' ? (
                                                         <div className="flex justify-between items-baseline bg-brand-500/10 border border-brand-500/20 p-2.5 rounded-xl mt-1">
                                                             <span className="font-outfit font-extrabold text-brand-400 uppercase text-[10px]">Due Today (50%):</span>
-                                                            <span className="font-mono text-base font-black text-brand-400">₱{Math.round(editCalc.total_amount / 2).toLocaleString(undefined,{minimumFractionDigits:2})}</span>
+                                                            <span className="font-mono text-base font-black text-brand-400">₱{Math.round(editCalc.total_amount / 2).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                                         </div>
                                                     ) : (
                                                         <div className="flex justify-between items-baseline bg-emerald-500/10 border border-emerald-500/20 p-2.5 rounded-xl mt-1">
                                                             <span className="font-outfit font-extrabold text-emerald-400 uppercase text-[10px]">Due Today (100%):</span>
-                                                            <span className="font-mono text-base font-black text-emerald-400">₱{editCalc.total_amount.toLocaleString(undefined,{minimumFractionDigits:2})}</span>
+                                                            <span className="font-mono text-base font-black text-emerald-400">₱{editCalc.total_amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                                         </div>
                                                     )}
                                                     <div className="flex flex-col gap-1 bg-[#0f172a]/65 p-3 rounded-xl border border-[#334155]">
-                                                        <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1"><Calendar size={10}/> Expected Out</span>
+                                                        <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1"><Calendar size={10} /> Expected Out</span>
                                                         <span className="text-xs text-slate-300 font-bold font-mono">{editCalc.expected_check_out ? new Date(editCalc.expected_check_out).toLocaleString() : '-'}</span>
                                                     </div>
                                                 </div>
@@ -1389,7 +1364,7 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                                             )}
                                             <button type="submit" disabled={editForm.processing || !editForm.data.room_id || !!editCalc.conflict}
                                                 className="w-full flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl bg-brand-600 hover:bg-brand-500 disabled:bg-[#334155] disabled:text-slate-500 text-white font-outfit font-extrabold text-sm tracking-wide shadow-lg active:scale-95 transition-all">
-                                                <CheckCircle size={16}/>
+                                                <CheckCircle size={16} />
                                                 {editForm.processing ? 'Saving...' : editCalc.conflict ? 'Conflict — Cannot Book' : 'Save Updates'}
                                             </button>
                                         </div>
@@ -1404,25 +1379,25 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
             {/* ── Reschedule Wizard Modal ── */}
             <AnimatePresence>
                 {showRescheduleModal && reschedulingBooking && (
-                    <motion.div initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                         className="fixed inset-0 z-50 flex items-start justify-center bg-[#070b13]/90 overflow-y-auto py-6 px-4"
                         onClick={e => { if (e.target === e.currentTarget) { setShowRescheduleModal(false); setReschedulingBooking(null); } }}>
                         <motion.div
-                            initial={{ opacity:0, scale:0.97, y:20 }} animate={{ opacity:1, scale:1, y:0 }}
-                            exit={{ opacity:0, scale:0.97, y:20 }} transition={{ type:'spring', stiffness:300, damping:30 }}
+                            initial={{ opacity: 0, scale: 0.97, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.97, y: 20 }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                             className="w-full max-w-4xl bg-[#0f172a] border border-[#334155] rounded-2xl shadow-2xl overflow-hidden">
 
                             {/* Header */}
                             <div className="flex items-center justify-between px-6 py-4 border-b border-[#334155] bg-[#1e293b]/60">
                                 <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-brand-500/10 text-brand-400 rounded-xl"><Calendar size={18}/></div>
+                                    <div className="p-2 bg-brand-500/10 text-brand-400 rounded-xl"><Calendar size={18} /></div>
                                     <div>
                                         <h2 className="text-base font-outfit font-extrabold text-slate-100">Reschedule Booking</h2>
                                         <p className="text-[10px] text-slate-400">Reschedule Ref: {reschedulingBooking.booking_ref} ({reschedulingBooking.guest_name})</p>
                                     </div>
                                 </div>
                                 <button onClick={() => { setShowRescheduleModal(false); setReschedulingBooking(null); }} className="p-2 rounded-xl text-slate-400 hover:text-slate-100 hover:bg-[#334155] transition-all">
-                                    <X size={18}/>
+                                    <X size={18} />
                                 </button>
                             </div>
 
@@ -1434,14 +1409,14 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                                     <div className="lg:col-span-2 flex flex-col gap-5">
                                         <div className="p-5 rounded-2xl bg-[#1e293b] border border-[#334155] flex flex-col gap-4">
                                             <div className="flex items-center gap-3 mb-1">
-                                                <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-xl"><Calendar size={16}/></div>
+                                                <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-xl"><Calendar size={16} /></div>
                                                 <h3 className="text-sm font-outfit font-bold text-slate-200">Reschedule Parameters</h3>
                                             </div>
 
                                             <div className="grid grid-cols-2 gap-3">
                                                 <div className="flex flex-col gap-1">
                                                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">New Check-In Date & Time *</label>
-                                                    <input type="datetime-local" value={rescheduleForm.data.check_in} onChange={e => rescheduleForm.setData('check_in', e.target.value)} required className={`${inputCls} font-mono font-bold`}/>
+                                                    <input type="datetime-local" value={rescheduleForm.data.check_in} onChange={e => rescheduleForm.setData('check_in', e.target.value)} required className={`${inputCls} font-mono font-bold`} />
                                                     {rescheduleForm.errors.check_in && <span className="text-[10px] text-red-400">{rescheduleForm.errors.check_in}</span>}
                                                 </div>
                                                 <div className="flex flex-col gap-1">
@@ -1462,7 +1437,7 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                                                 {rescheduleForm.data.booking_type === 'overnight' ? (
                                                     <div className="flex flex-col gap-1">
                                                         <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Nights</label>
-                                                        <input type="number" min="1" value={rescheduleForm.data.num_nights} onChange={e => rescheduleForm.setData('num_nights', e.target.value)} className={`${inputCls} font-mono font-bold`}/>
+                                                        <input type="number" min="1" value={rescheduleForm.data.num_nights} onChange={e => rescheduleForm.setData('num_nights', e.target.value)} className={`${inputCls} font-mono font-bold`} />
                                                     </div>
                                                 ) : (
                                                     <div className="flex flex-col gap-1">
@@ -1478,9 +1453,9 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                                             {/* Overlap Banner */}
                                             <AnimatePresence>
                                                 {rescheduleCalc.conflict && (
-                                                    <motion.div initial={{ opacity:0, y:-8 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0, y:-8 }}
+                                                    <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
                                                         className="p-4 rounded-xl bg-rose-950/40 border border-rose-500/50 flex gap-3 text-xs text-rose-300 items-start">
-                                                        <AlertCircle className="h-5 w-5 text-rose-400 shrink-0 mt-0.5"/>
+                                                        <AlertCircle className="h-5 w-5 text-rose-400 shrink-0 mt-0.5" />
                                                         <div>
                                                             <span className="font-outfit font-black uppercase tracking-wider block text-rose-400">⚠️ DOUBLE-BOOKING CONFLICT</span>
                                                             <p className="mt-1 text-rose-200">Room is already reserved by <strong className="text-white">{rescheduleCalc.conflict.guest_name}</strong> during this period.</p>
@@ -1500,44 +1475,44 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                                         <div className="p-5 rounded-2xl bg-[#1e293b] border border-[#334155] flex flex-col gap-4 relative overflow-hidden sticky top-4">
                                             {rescheduleCalc.is_peak && (
                                                 <div className="absolute top-0 left-0 right-0 py-1 bg-amber-500 text-slate-950 text-[9px] uppercase font-black tracking-widest text-center flex items-center justify-center gap-1">
-                                                    <TrendingUp size={9}/> Peak: {rescheduleCalc.peak_label}
+                                                    <TrendingUp size={9} /> Peak: {rescheduleCalc.peak_label}
                                                 </div>
                                             )}
                                             <div className={`flex items-center gap-2.5 border-b border-[#334155] pb-3 ${rescheduleCalc.is_peak ? 'pt-5' : 'pt-1'}`}>
-                                                <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-xl"><Coins size={16}/></div>
+                                                <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-xl"><Coins size={16} /></div>
                                                 <h3 className="font-outfit font-extrabold text-slate-200 text-sm uppercase tracking-wide">Billing</h3>
                                             </div>
                                             {rescheduleForm.data.room_id ? (
                                                 <div className="flex flex-col gap-3 text-xs">
                                                     <div className="flex justify-between">
                                                         <span className="text-slate-400">Base charges:</span>
-                                                        <span className="font-mono text-slate-200 font-bold">₱{rescheduleCalc.base_amount.toLocaleString(undefined,{minimumFractionDigits:2})}</span>
+                                                        <span className="font-mono text-slate-200 font-bold">₱{rescheduleCalc.base_amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                                     </div>
                                                     {rescheduleCalc.peak_surcharge > 0 && (
                                                         <div className="flex justify-between">
                                                             <span className="text-slate-400">Peak surcharge:</span>
-                                                            <span className="font-mono text-amber-400 font-bold">+ ₱{rescheduleCalc.peak_surcharge.toLocaleString(undefined,{minimumFractionDigits:2})}</span>
+                                                            <span className="font-mono text-amber-400 font-bold">+ ₱{rescheduleCalc.peak_surcharge.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                                         </div>
                                                     )}
                                                     {rescheduleCalc.discount_amount > 0 && (
                                                         <div className="flex justify-between">
                                                             <span className="text-slate-400 capitalize">{reschedulingBooking.discount_type} discount:</span>
-                                                            <span className="font-mono text-emerald-400 font-bold">- ₱{rescheduleCalc.discount_amount.toLocaleString(undefined,{minimumFractionDigits:2})}</span>
+                                                            <span className="font-mono text-emerald-400 font-bold">- ₱{rescheduleCalc.discount_amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                                         </div>
                                                     )}
-                                                    <div className="h-px bg-[#334155]"/>
+                                                    <div className="h-px bg-[#334155]" />
                                                     <div className="flex justify-between items-baseline">
                                                         <span className="font-outfit font-extrabold text-slate-100 uppercase text-[10px]">New Total Price:</span>
-                                                        <span className="font-mono text-sm font-bold text-emerald-400">₱{rescheduleCalc.total_amount.toLocaleString(undefined,{minimumFractionDigits:2})}</span>
+                                                        <span className="font-mono text-sm font-bold text-emerald-400">₱{rescheduleCalc.total_amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                                     </div>
                                                     <div className="flex justify-between items-baseline">
                                                         <span className="text-slate-400 text-[10px]">Previously Paid:</span>
-                                                        <span className="font-mono text-slate-300 font-bold">₱{Number(reschedulingBooking.amount_paid).toLocaleString(undefined,{minimumFractionDigits:2})}</span>
+                                                        <span className="font-mono text-slate-300 font-bold">₱{Number(reschedulingBooking.amount_paid).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                                     </div>
                                                     {Number(reschedulingBooking.amount_paid) < rescheduleCalc.total_amount ? (
                                                         <div className="flex justify-between items-baseline bg-rose-500/10 border border-rose-500/20 p-2.5 rounded-xl">
                                                             <span className="font-outfit font-extrabold text-rose-400 uppercase text-[9px]">Additional Due:</span>
-                                                            <span className="font-mono text-sm font-black text-rose-400">₱{(rescheduleCalc.total_amount - Number(reschedulingBooking.amount_paid)).toLocaleString(undefined,{minimumFractionDigits:2})}</span>
+                                                            <span className="font-mono text-sm font-black text-rose-400">₱{(rescheduleCalc.total_amount - Number(reschedulingBooking.amount_paid)).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                                         </div>
                                                     ) : (
                                                         <div className="flex justify-between items-baseline bg-emerald-500/10 border border-emerald-500/20 p-2.5 rounded-xl">
@@ -1546,7 +1521,7 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                                                         </div>
                                                     )}
                                                     <div className="flex flex-col gap-1 bg-[#0f172a]/65 p-3 rounded-xl border border-[#334155]">
-                                                        <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1"><Calendar size={10}/> Expected Out</span>
+                                                        <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1"><Calendar size={10} /> Expected Out</span>
                                                         <span className="text-xs text-slate-300 font-bold font-mono">{rescheduleCalc.expected_check_out ? new Date(rescheduleCalc.expected_check_out).toLocaleString() : '-'}</span>
                                                     </div>
                                                 </div>
@@ -1555,7 +1530,7 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                                             )}
                                             <button type="submit" disabled={rescheduleForm.processing || !rescheduleForm.data.room_id || !!rescheduleCalc.conflict}
                                                 className="w-full flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:bg-[#334155] disabled:text-slate-500 text-white font-outfit font-extrabold text-sm tracking-wide shadow-lg active:scale-95 transition-all">
-                                                <CheckCircle size={16}/>
+                                                <CheckCircle size={16} />
                                                 {rescheduleForm.processing ? 'Rescheduling...' : rescheduleCalc.conflict ? 'Conflict — Cannot Reschedule' : 'Confirm Reschedule'}
                                             </button>
                                         </div>
@@ -1576,11 +1551,54 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                 viewMode="bookings"
             />
 
-            <ImagePreviewModal 
+            <ImagePreviewModal
                 isOpen={isImageModalOpen}
                 imageUrl={previewImage}
                 onClose={() => { setIsImageModalOpen(false); setPreviewImage(null); }}
             />
+
+            <ActionModal
+                isOpen={!!actionModalBooking}
+                onClose={() => setActionModalBooking(null)}
+                title={`Manage ${actionModalBooking?.booking_ref}`}
+            >
+                {actionModalBooking && (
+                    <>
+                        {actionModalBooking.status === 'reserved' && (
+                            <>
+                                <button onClick={() => { setActionModalBooking(null); triggerCheckIn(actionModalBooking); }} className="w-full flex items-center gap-2 px-4 py-3 bg-emerald-600 hover:bg-emerald-500 rounded-xl text-xs font-bold text-white transition-colors">
+                                    <UserCheck size={16} /> Check In
+                                </button>
+                                {actionModalBooking.group_ref && (
+                                    <button onClick={() => {
+                                        setActionModalBooking(null);
+                                        if (confirm('Are you sure you want to check in all grouped reservations?')) {
+                                            router.post(route('reservations.group_checkin', actionModalBooking.group_ref));
+                                        }
+                                    }} className="w-full flex items-center gap-2 px-4 py-3 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-xs font-bold text-white transition-colors">
+                                        <UserCheck size={16} /> Group In
+                                    </button>
+                                )}
+                                <button onClick={() => { setActionModalBooking(null); openEditModal(actionModalBooking); }} className="w-full flex items-center gap-2 px-4 py-3 bg-[#1e293b] hover:bg-amber-600/20 border border-[#334155] hover:border-amber-500/40 rounded-xl text-xs font-bold text-amber-400 transition-colors">
+                                    <Edit size={16} /> Edit
+                                </button>
+                                <button onClick={() => { setActionModalBooking(null); openRescheduleModal(actionModalBooking); }} className="w-full flex items-center gap-2 px-4 py-3 bg-[#1e293b] hover:bg-indigo-600/20 border border-[#334155] hover:border-indigo-500/40 rounded-xl text-xs font-bold text-indigo-400 transition-colors">
+                                    <Calendar size={16} /> Reschedule
+                                </button>
+                                <button onClick={() => { setActionModalBooking(null); handleNoShow(actionModalBooking); }} className="w-full flex items-center gap-2 px-4 py-3 bg-[#1e293b] hover:bg-orange-600/20 border border-[#334155] hover:border-orange-500/40 rounded-xl text-xs font-bold text-orange-400 transition-colors">
+                                    <Clock size={16} /> No Show
+                                </button>
+                                <button onClick={() => { setActionModalBooking(null); triggerCancel(actionModalBooking); }} className="w-full flex items-center gap-2 px-4 py-3 bg-[#1e293b] hover:bg-rose-900/30 border border-[#334155] hover:border-rose-500/40 rounded-xl text-xs font-bold text-rose-400 transition-colors">
+                                    <XCircle size={16} /> Cancel
+                                </button>
+                            </>
+                        )}
+                        <button onClick={() => { setActionModalBooking(null); setViewStayId(actionModalBooking.id); }} className="w-full flex items-center gap-2 px-4 py-3 bg-[#1e293b] hover:bg-brand-600/20 border border-[#334155] hover:border-brand-500/40 rounded-xl text-xs font-bold text-brand-400 transition-colors">
+                            <Eye size={16} /> View Details
+                        </button>
+                    </>
+                )}
+            </ActionModal>
         </AuthenticatedLayout>
     );
 }

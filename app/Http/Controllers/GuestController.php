@@ -15,7 +15,14 @@ class GuestController extends Controller
         $search    = $request->input('search');
         $vipFilter = $request->input('vip'); // '1', '0', or null = all
 
-        $query = GuestProfile::orderBy('total_stays', 'desc')
+        $sortBy = $request->input('sort_by', 'total_stays');
+        $sortDir = $request->input('sort_dir', 'desc');
+
+        $allowedSorts = ['full_name', 'total_stays', 'total_spent', 'last_visit'];
+        if (!in_array($sortBy, $allowedSorts)) $sortBy = 'total_stays';
+        if (!in_array($sortDir, ['asc', 'desc'])) $sortDir = 'desc';
+
+        $query = GuestProfile::orderBy($sortBy, $sortDir)
             ->when($search, function ($q, $search) {
                 return $q->where('full_name', 'like', "%{$search}%")
                     ->orWhere('contact_number', 'like', "%{$search}%")
@@ -25,7 +32,7 @@ class GuestController extends Controller
                 return $q->where('is_vip', (bool) $vipFilter);
             });
 
-        $guests = $query->get();
+        $guests = $query->paginate(15)->withQueryString();
 
         $totalCount   = GuestProfile::count();
         $vipCount     = GuestProfile::where('is_vip', true)->count();
@@ -36,6 +43,8 @@ class GuestController extends Controller
             'currentSearch' => $search,
             'currentVip'   => $vipFilter,
             'stats'        => compact('totalCount', 'vipCount', 'regularCount'),
+            'sortBy'       => $sortBy,
+            'sortDir'      => $sortDir,
         ]);
     }
 

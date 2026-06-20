@@ -14,14 +14,22 @@ class InventoryController extends Controller
         $search = $request->input('search');
         $category = $request->input('category');
 
-        $items = InventoryItem::orderBy('item_name', 'asc')
+        $sortBy = $request->input('sort_by', 'item_name');
+        $sortDir = $request->input('sort_dir', 'asc');
+
+        $allowedSorts = ['item_name', 'category', 'current_stock', 'selling_price'];
+        if (!in_array($sortBy, $allowedSorts)) $sortBy = 'item_name';
+        if (!in_array($sortDir, ['asc', 'desc'])) $sortDir = 'asc';
+
+        $items = InventoryItem::orderBy($sortBy, $sortDir)
             ->when($search, function ($query, $search) {
                 return $query->where('item_name', 'like', "%{$search}%");
             })
             ->when($category, function ($query, $category) {
                 return $query->where('category', $category);
             })
-            ->get();
+            ->paginate(15)
+            ->withQueryString();
 
         $activeBookings = \App\Models\Booking::with(['room'])
             ->where('status', 'active')
@@ -33,25 +41,12 @@ class InventoryController extends Controller
             'activeBookings' => $activeBookings,
             'currentSearch' => $search,
             'currentCategory' => $category,
+            'sortBy' => $sortBy,
+            'sortDir' => $sortDir,
         ]);
     }
 
-    public function bulkUsageView(Request $request)
-    {
-        $items = InventoryItem::where('is_active', true)
-            ->orderBy('item_name', 'asc')
-            ->get();
-
-        $activeBookings = \App\Models\Booking::with(['room'])
-            ->where('status', 'active')
-            ->orderBy('guest_name', 'asc')
-            ->get();
-
-        return Inertia::render('Inventory/BulkUsage', [
-            'items' => $items,
-            'activeBookings' => $activeBookings,
-        ]);
-    }
+    // bulkUsageView removed
 
     public function store(Request $request)
     {
@@ -162,6 +157,29 @@ class InventoryController extends Controller
         return back()->with('success', "Item {$inventoryItem->item_name} updated successfully.");
     }
 
+    public function destroy(InventoryItem $inventoryItem, Request $request)
+    {
+        $user = $request->user();
+        if ($user->role !== 'admin') {
+            abort(403, 'Only administrators can delete inventory items.');
+        }
+
+        $inventoryItem->delete();
+
+        BookingService::auditLog(
+            $user->id,
+            'INVENTORY_DELETE',
+            'inventory_items',
+            $inventoryItem->id,
+            null,
+            null,
+            "Soft deleted inventory item {$inventoryItem->item_name}."
+        );
+
+        return back()->with('success', "Item {$inventoryItem->item_name} has been removed.");
+    }
+
+
     public function adjust(InventoryItem $inventoryItem, Request $request)
     {
         $request->validate([
@@ -204,84 +222,5 @@ class InventoryController extends Controller
         return back()->with('success', "Stock for {$inventoryItem->item_name} adjusted. New level: {$inventoryItem->current_stock}.");
     }
 
-    public function useItems(Request $request)
-    {
-        $request->validate([
-            'booking_id' => 'nullable|exists:bookings,id',
-            'consumer_name' => 'nullable|string|max:100',
-            'items' => 'required|array|min:1',
-            'items.*.item_id' => 'required|exists:inventory_items,id',
-            'items.*.quantity' => 'required|integer|min:1',
-        ]);
-
-        $user = $request->user();
-        $bookingId = $request->booking_id;
-        $consumerName = $request->consumer_name;
-
-        try {
-            return \DB::transaction(function () use ($request, $user, $bookingId, $consumerName) {
-                $grandTotal = 0;
-                $usageCount = 0;
-                $usedItemNames = [];
-
-                $notes = $consumerName ? "Consumer: " . $consumerName : null;
-
-                foreach ($request->items as $lineItem) {
-                    $item = InventoryItem::findOrFail($lineItem['item_id']);
-                    $qty = (int)$lineItem['quantity'];
-
-                    if ($item->current_stock < $qty) {
-                        throw new \Exception("Insufficient stock for {$item->item_name}. Current: {$item->current_stock}, requested: {$qty}");
-                    }
-
-                    $oldStock = $item->current_stock;
-                    $item->current_stock -= $qty;
-                    $item->save();
-
-                    $unitPrice = $item->selling_price;
-                    $totalPrice = round($unitPrice * $qty, 2);
-
-                    \App\Models\InventoryUsage::create([
-                        'booking_id' => $bookingId,
-                        'item_id' => $item->id,
-                        'quantity' => $qty,
-                        'unit_price' => $unitPrice,
-                        'total_price' => $totalPrice,
-                        'recorded_by' => $user->id,
-                        'notes' => $notes,
-                    ]);
-
-                    BookingService::auditLog(
-                        $user->id,
-                        'STOCK_DECREASE',
-                        'inventory_items',
-                        $item->id,
-                        $oldStock,
-                        $item->current_stock,
-                        "Bulk use: Deducted {$qty} {$item->unit}(s) of {$item->item_name}." . ($bookingId ? " Charged to Booking ID {$bookingId}." : " Direct sale to Walk-in: {$consumerName}")
-                    );
-
-                    $grandTotal += $totalPrice;
-                    $usageCount++;
-                    $usedItemNames[] = "{$item->item_name} x{$qty}";
-                }
-
-                BookingService::auditLog(
-                    $user->id,
-                    'INVENTORY_USAGE',
-                    'inventory_usage',
-                    0,
-                    null,
-                    $consumerName ?: null,
-                    implode(', ', $usedItemNames) . " (Total: ₱{$grandTotal})"
-                );
-
-                $successMsg = "Usage recorded for {$usageCount} item(s)" . ($consumerName ? " for {$consumerName}" : "") . " - Total: ₱" . number_format($grandTotal, 2);
-
-                return back()->with('success', $successMsg);
-            });
-        } catch (\Exception $e) {
-            return back()->with('error', $e->getMessage());
-        }
-    }
+    // useItems removed
 }

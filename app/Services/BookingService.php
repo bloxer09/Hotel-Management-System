@@ -82,10 +82,13 @@ class BookingService
     public static function isPeakDate($checkIn): ?PeakDate
     {
         $date = date('Y-m-d', strtotime($checkIn));
-        return PeakDate::where('is_active', true)
-            ->where('date_from', '<=', $date)
-            ->where('date_to', '>=', $date)
-            ->first();
+        $peakDates = \Illuminate\Support\Facades\Cache::remember('active_peak_dates', now()->addMinutes(15), function () {
+            return PeakDate::where('is_active', true)->get();
+        });
+
+        return $peakDates->first(function ($peak) use ($date) {
+            return $peak->date_from <= $date && $peak->date_to >= $date;
+        });
     }
 
     public static function calculateSurcharge(?PeakDate $peakDate, float $baseAmount): float
@@ -99,11 +102,12 @@ class BookingService
         return (float)$peakDate->surcharge_amount;
     }
 
-    public static function calculateBookingAmounts(Room $room, $bookingType, $checkIn, $numNights = 1, $shortTimeHours = 3, $discountType = '', $discountAmount = 0): array
+    public static function calculateBookingAmounts(Room $room, $bookingType, $checkIn, $numNights = 1, $shortTimeHours = 3, $discountType = '', $discountAmount = 0, $numGuests = 1): array
     {
         $roomType = $room->type;
         $numNights = max(1, (int)$numNights);
         $shortTimeHours = (int)$shortTimeHours;
+        $numGuests = max(1, (int)$numGuests);
 
         if ($bookingType === 'overnight') {
             $baseAmount = round((float)$roomType->base_rate * $numNights, 2);
@@ -120,21 +124,35 @@ class BookingService
         $peakSurcharge = self::calculateSurcharge($peakDate, $baseAmount);
         $isPeak = $peakDate ? true : false;
 
+        $extraPaxCharges = 0;
+        $maxOccupancy = (int)$roomType->max_occupancy;
+        if ($numGuests > $maxOccupancy) {
+            $extraGuests = $numGuests - $maxOccupancy;
+            $feePerHead = $isPeak ? 300.00 : 200.00;
+            // The user approved applying fully for all stay durations, so we don't multiply by numNights
+            // Wait, normally extra person is charged per night. If it's overnight, should it be per night?
+            // User requested: "when the people who uses the room is more than x pax the room can, they should be charged 200 per extra head"
+            // For overnight stays, usually extra pax is per night. Let's do per night for overnight, and just flat fee for short time.
+            $multiplier = ($bookingType === 'overnight') ? $numNights : 1;
+            $extraPaxCharges = $extraGuests * $feePerHead * $multiplier;
+        }
+
         $discountType = trim((string)$discountType);
         $discountAmount = (float)$discountAmount;
         if ($discountType === 'senior' || $discountType === 'pwd') {
-            $discountAmount = round(($baseAmount + $peakSurcharge) * 0.20, 2);
+            $discountAmount = round(($baseAmount + $peakSurcharge + $extraPaxCharges) * 0.20, 2);
         } elseif ($discountType === 'loyalty') {
-            $discountAmount = round(($baseAmount + $peakSurcharge) * 0.10, 2);
+            $discountAmount = round(($baseAmount + $peakSurcharge + $extraPaxCharges) * 0.10, 2);
         } elseif ($discountType === 'complimentary') {
-            $discountAmount = round($baseAmount + $peakSurcharge, 2);
+            $discountAmount = round($baseAmount + $peakSurcharge + $extraPaxCharges, 2);
         }
 
-        $totalAmount = round(max(0, $baseAmount + $peakSurcharge - $discountAmount), 2);
+        $totalAmount = round(max(0, $baseAmount + $peakSurcharge + $extraPaxCharges - $discountAmount), 2);
 
         return [
             'base_amount' => $baseAmount,
             'peak_surcharge' => $peakSurcharge,
+            'extra_pax_charges' => $extraPaxCharges,
             'discount_amount' => $discountAmount,
             'total_amount' => $totalAmount,
             'expected_check_out' => $expectedCheckOut,

@@ -18,6 +18,7 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\PromoCodeController;
 use App\Http\Controllers\MaintenanceController;
+use App\Http\Controllers\ExpenseController;
 use Illuminate\Support\Facades\Route;
 
 
@@ -80,6 +81,7 @@ Route::middleware('auth')->group(function () {
             Route::post('/reservations', [ReservationController::class, 'store'])->name('reservations.store');
             Route::post('/reservations/calculate', [ReservationController::class, 'calculate'])->name('reservations.calculate');
             Route::post('/reservations/{booking}/checkin', [ReservationController::class, 'checkin'])->name('reservations.checkin');
+            Route::post('/reservations/group-checkin/{groupRef}', [ReservationController::class, 'groupCheckin'])->name('reservations.group_checkin');
             Route::post('/reservations/{booking}/cancel', [ReservationController::class, 'cancel'])->name('reservations.cancel');
             Route::post('/reservations/{booking}/noshow', [ReservationController::class, 'noshow'])->name('reservations.noshow');
             Route::post('/reservations/{booking}/reschedule', [ReservationController::class, 'reschedule'])->name('reservations.reschedule');
@@ -89,6 +91,7 @@ Route::middleware('auth')->group(function () {
         Route::middleware('role:admin,front_desk,cashier')->group(function () {
             Route::get('/bookings/{booking}', [BookingController::class, 'show'])->name('bookings.show');
             Route::post('/bookings/{booking}/checkout', [BookingController::class, 'checkout'])->name('bookings.checkout');
+            Route::post('/bookings/group-checkout/{groupRef}', [ReservationController::class, 'groupCheckout'])->name('reservations.group_checkout');
             Route::post('/bookings/{booking}/extend', [BookingController::class, 'extend'])->name('bookings.extend');
             Route::post('/bookings/{booking}/preview-extend', [BookingController::class, 'previewExtend'])->name('bookings.preview_extend');
             Route::post('/bookings/{booking}/items', [BookingController::class, 'addItems'])->name('bookings.items');
@@ -111,14 +114,19 @@ Route::middleware('auth')->group(function () {
         Route::get('/bookings/{booking}/receipt', [BookingController::class, 'receipt'])->name('bookings.receipt');
     });
 
+    // POS & Sales (Admin, Front Desk, Cashier)
+    Route::middleware('role:admin,front_desk,cashier')->group(function () {
+        Route::get('/pos', [\App\Http\Controllers\PosController::class, 'index'])->name('pos.index');
+        Route::post('/pos/checkout', [\App\Http\Controllers\PosController::class, 'checkout'])->name('pos.checkout');
+    });
+
     // Inventory & Stock Controls (Admin, Front Desk)
     Route::middleware('role:admin,front_desk')->group(function () {
         Route::get('/inventory', [InventoryController::class, 'index'])->name('inventory.index');
-        Route::get('/inventory/bulk-usage', fn() => redirect()->route('inventory.index'))->name('inventory.bulk_usage');
         Route::post('/inventory', [InventoryController::class, 'store'])->name('inventory.store');
         Route::patch('/inventory/{inventoryItem}', [InventoryController::class, 'update'])->name('inventory.update');
         Route::post('/inventory/{inventoryItem}/adjust', [InventoryController::class, 'adjust'])->name('inventory.adjust');
-        Route::post('/inventory/use', [InventoryController::class, 'useItems'])->name('inventory.use');
+        Route::delete('/inventory/{inventoryItem}', [InventoryController::class, 'destroy'])->name('inventory.destroy');
     });
 
     // Sales & Remittances Dashboard (Admin, Front Desk, Cashier)
@@ -126,6 +134,13 @@ Route::middleware('auth')->group(function () {
         Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
         Route::get('/reports/export', [ReportController::class, 'export'])->name('reports.export');
         Route::get('/reports/analytics', [ReportController::class, 'analytics'])->name('reports.analytics');
+        
+        // Expenses
+        Route::get('/expenses', [ExpenseController::class, 'index'])->name('expenses.index');
+        Route::post('/expenses', [ExpenseController::class, 'store'])->name('expenses.store');
+        Route::post('/expenses/{expense}', [ExpenseController::class, 'update'])->name('expenses.update');
+        Route::delete('/expenses/{expense}', [ExpenseController::class, 'destroy'])->name('expenses.destroy');
+        Route::get('/expenses-export', [ExpenseController::class, 'export'])->name('expenses.export');
     });
 
     // Maintenance (all authenticated roles)

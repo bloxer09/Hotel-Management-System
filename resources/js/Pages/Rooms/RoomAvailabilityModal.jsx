@@ -15,11 +15,17 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-export default function RoomAvailabilityModal({ isOpen, onClose }) {
+export default function RoomAvailabilityModal({ isOpen, onClose, initialRoomId = '' }) {
     const [month, setMonth] = useState(new Date().toISOString().substring(0, 7));
-    const [selectedRoomId, setSelectedRoomId] = useState('');
+    const [selectedRoomId, setSelectedRoomId] = useState(initialRoomId);
     const [data, setData] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
+
+    useEffect(() => {
+        if (isOpen) {
+            setSelectedRoomId(initialRoomId);
+        }
+    }, [isOpen, initialRoomId]);
 
     useEffect(() => {
         if (!isOpen) return;
@@ -233,7 +239,7 @@ export default function RoomAvailabilityModal({ isOpen, onClose }) {
             {isOpen && (
                 <>
                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 0.8 }} exit={{ opacity: 0 }}
-                        onClick={onClose} className="fixed inset-0 bg-[#070b13]/90 z-[999] backdrop-blur-sm" />
+                        onClick={onClose} className="fixed inset-0 bg-[#070b13]/90 z-[999]" />
                     
                     <motion.div 
                         initial={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -244,7 +250,7 @@ export default function RoomAvailabilityModal({ isOpen, onClose }) {
                         <div className="bg-[#0f172a] border border-[#334155] rounded-3xl shadow-2xl w-full max-w-7xl flex flex-col max-h-[95vh] overflow-hidden pointer-events-auto relative">
                             <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 text-slate-100 relative">
                         {isLoading && (
-                            <div className="absolute inset-0 bg-[#0f172a]/50 backdrop-blur-sm z-50 flex items-center justify-center">
+                            <div className="absolute inset-0 bg-[#0f172a]/50 z-50 flex items-center justify-center">
                                 <RefreshCw className="animate-spin text-brand-500" size={32} />
                             </div>
                         )}

@@ -36,7 +36,7 @@ export default function Receipt({ booking, transactions, settings }) {
     };
 
     const balanceDue = Math.max(0, (booking.total_amount || 0) - (booking.amount_paid || 0));
-    
+
     const vatEnabled = false;
     const vatPercent = settings?.vat_percent || 12;
 
@@ -68,7 +68,8 @@ export default function Receipt({ booking, transactions, settings }) {
         <AuthenticatedLayout>
             <Head title={`Guest Receipt - ${booking.booking_ref}`} />
 
-            <style dangerouslySetInnerHTML={{__html: `
+            <style dangerouslySetInnerHTML={{
+                __html: `
                 @media print {
                     @page {
                         size: 80mm auto;
@@ -118,17 +119,17 @@ export default function Receipt({ booking, transactions, settings }) {
             {/* Receipt Sheet */}
             <div className="max-w-4xl mx-auto bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden print-hide-all">
                 <div className="p-8 md:p-12">
-                    
+
                     {/* Header: Brand & Invoice Meta */}
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-stretch gap-6 border-b border-slate-800 print:border-slate-300 pb-8 mb-8">
                         <div className="flex items-center gap-4">
                             <div className="h-16 w-16 rounded-2xl bg-brand-500/10 border border-brand-500/20 flex items-center justify-center overflow-hidden shrink-0 print:border-slate-300">
                                 {!logoError ? (
-                                    <img 
-                                        src="/images/logo.jpg" 
-                                        alt="Logo" 
-                                        className="h-full w-full object-cover animate-fade-in" 
-                                        onError={() => setLogoError(true)} 
+                                    <img
+                                        src="/images/logo.jpg"
+                                        alt="Logo"
+                                        className="h-full w-full object-cover animate-fade-in"
+                                        onError={() => setLogoError(true)}
                                     />
                                 ) : (
                                     <Building className="h-9 w-9 text-brand-400 print:text-black" />
@@ -138,12 +139,12 @@ export default function Receipt({ booking, transactions, settings }) {
                                 <h2 className="font-outfit font-black text-2xl tracking-wide text-slate-100 print:text-black">
                                     {app_name || 'UPTOWN PENSION HOUSE'}
                                 </h2>
-                                <p className="text-slate-400 text-xs font-semibold print:text-slate-600 mt-0.5">
+                                {/* <p className="text-slate-400 text-xs font-semibold print:text-slate-600 mt-0.5">
                                     Brgy. Mansilingan, Bacolod City, Negros Occidental
                                 </p>
                                 <p className="text-slate-400 text-xs font-semibold print:text-slate-600">
                                     Tel: +63 (34) 434-1234 • Email: info@uptownpensionhouse.com
-                                </p>
+                                </p> */}
                             </div>
                         </div>
                         <div className="md:text-right flex flex-col justify-between items-start md:items-end">
@@ -173,7 +174,7 @@ export default function Receipt({ booking, transactions, settings }) {
 
                     {/* Stay & Guest Metadata Columns */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8 bg-slate-950/40 p-6 rounded-2xl border border-slate-800/80 print:bg-white print:border-slate-200 print:rounded-none">
-                        
+
                         {/* Guest Profile Details */}
                         <div>
                             <h3 className="text-xs uppercase tracking-widest text-slate-500 font-bold border-b border-slate-800/50 print:border-slate-200 pb-2 mb-3">
@@ -241,14 +242,14 @@ export default function Receipt({ booking, transactions, settings }) {
 
                     {/* Pricing Detail Items Grid */}
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-8 items-start">
-                        
+
                         {/* Room Charges Table */}
                         <div className="lg:col-span-7">
                             <h3 className="text-xs uppercase tracking-widest text-slate-500 font-bold mb-3">
                                 Room Charges
                             </h3>
                             <div className="border border-slate-800 print:border-slate-300 rounded-2xl overflow-hidden print:rounded-none">
-                                <table className="w-full text-left text-xs border-collapse">
+                                <table className="w-full text-left text-xs border-collapse table-fixed">
                                     <thead>
                                         <tr className="bg-slate-950 border-b border-slate-800 text-slate-400 uppercase tracking-wider font-bold print:bg-slate-100 print:border-slate-300 print:text-black">
                                             <th className="px-4 py-3.5">Description</th>
@@ -390,7 +391,7 @@ export default function Receipt({ booking, transactions, settings }) {
                                 Payment History
                             </h3>
                             <div className="border border-slate-800 print:border-slate-300 rounded-2xl overflow-hidden print:rounded-none">
-                                <table className="w-full text-left text-xs border-collapse">
+                                <table className="w-full text-left text-xs border-collapse table-fixed">
                                     <thead>
                                         <tr className="bg-slate-950 border-b border-slate-800 text-slate-400 uppercase tracking-wider font-bold print:bg-slate-100 print:border-slate-300 print:text-black">
                                             <th className="px-4 py-3">Date</th>
@@ -469,11 +470,11 @@ export default function Receipt({ booking, transactions, settings }) {
                 <div className="text-center font-bold text-sm uppercase mb-1">
                     {app_name || 'UPTOWN PENSION HOUSE'}
                 </div>
-                <div className="text-center text-[10px] mb-3">
+                {/* <div className="text-center text-[10px] mb-3">
                     Mansilingan, Bacolod City<br />
                     Tel: +63 (34) 434-1234<br />
                     --------------------------------
-                </div>
+                </div> */}
 
                 <div className="space-y-1 mb-3 text-[10px]">
                     <div><strong>OR #:</strong> {orDisplay || `RCP-${booking.booking_ref.replace(/[^A-Z0-9]/gi, '').toUpperCase()}`}</div>
@@ -488,7 +489,7 @@ export default function Receipt({ booking, transactions, settings }) {
 
                 <div className="border-t border-dashed border-black my-2"></div>
                 <div className="text-center font-bold uppercase text-[9px] mb-1">Itemized Room Charges</div>
-                <table className="w-full text-[10px] text-left border-collapse">
+                <table className="w-full text-[10px] text-left border-collapse table-fixed">
                     <tbody>
                         {charges.map((c, i) => (
                             <tr key={i}>
@@ -510,7 +511,7 @@ export default function Receipt({ booking, transactions, settings }) {
                     <>
                         <div className="border-t border-dashed border-black my-2"></div>
                         <div className="text-center font-bold uppercase text-[9px] mb-1">Minibar / Shop Charges</div>
-                        <table className="w-full text-[10px] text-left border-collapse">
+                        <table className="w-full text-[10px] text-left border-collapse table-fixed">
                             <tbody>
                                 {booking.inventory_usages.map((u, i) => (
                                     <tr key={i}>
@@ -556,7 +557,7 @@ export default function Receipt({ booking, transactions, settings }) {
                         <span>GRAND TOTAL DUE:</span>
                         <span>
                             {formatCurrency(
-                                Number(booking.total_amount) + 
+                                Number(booking.total_amount) +
                                 Number(booking.inventory_usages?.reduce((acc, u) => acc + Number(u.total_cost || (u.quantity * (u.item?.selling_price || 0))), 0) || 0)
                             )}
                         </span>

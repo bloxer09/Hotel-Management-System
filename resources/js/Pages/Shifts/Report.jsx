@@ -203,7 +203,7 @@ export default function Report({ shift, report }) {
                     <div className="mb-8">
                         <h2 className="text-sm font-outfit font-bold text-slate-200 uppercase tracking-wider mb-4 print:text-black">Audited Shift Transactions List</h2>
                         <div className="overflow-x-auto">
-                            <table className="w-full text-left border-collapse text-xs print:text-slate-800">
+                            <table className="w-full text-left border-collapse text-xs print:text-slate-800 table-fixed">
                                 <thead>
                                     <tr className="border-b border-[#334155] pb-2 text-[10px] font-semibold text-slate-400 uppercase print:border-slate-300 print:text-slate-600">
                                         <th className="pb-2">Time</th>

@@ -14,20 +14,54 @@ import {
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
-export default function Index({ activeShift, suggestedShift, suggestedOpeningCash, liveSummary, recentShifts }) {
+export default function Index({ activeShift, suggestedShift, suggestedOpeningCash, suggestedOpeningDenominations, liveSummary, recentShifts }) {
+
+    const COINS = [0.01, 0.05, 0.25, 1, 5, 10, 20];
+    const BILLS = [20, 50, 100, 200, 500, 1000];
 
     // Start shift form
     const startForm = useForm({
         shift_code: suggestedShift || 'morning',
         opening_cash: suggestedOpeningCash || 0.00,
+        opening_denominations: suggestedOpeningDenominations || {},
         notes: ''
     });
 
     // End shift form
+    const defaultDenominations = {};
+    [...COINS, ...BILLS].forEach(d => { defaultDenominations[d.toString()] = 0; });
+
     const endForm = useForm({
-        closing_cash: liveSummary ? Math.round(liveSummary.expected_drawer_cash) : 0.00,
+        closing_cash: 0.00,
+        closing_denominations: defaultDenominations,
         notes: ''
     });
+
+    const handleDenominationChange = (denom, qty) => {
+        const newDenoms = { ...endForm.data.closing_denominations, [denom]: parseInt(qty) || 0 };
+        let total = 0;
+        Object.entries(newDenoms).forEach(([d, q]) => {
+            total += parseFloat(d) * (parseInt(q) || 0);
+        });
+        endForm.setData(data => ({
+            ...data,
+            closing_denominations: newDenoms,
+            closing_cash: total
+        }));
+    };
+
+    const handleStartDenominationChange = (denom, qty) => {
+        const newDenoms = { ...startForm.data.opening_denominations, [denom]: parseInt(qty) || 0 };
+        let total = 0;
+        Object.entries(newDenoms).forEach(([d, q]) => {
+            total += parseFloat(d) * (parseInt(q) || 0);
+        });
+        startForm.setData(data => ({
+            ...data,
+            opening_denominations: newDenoms,
+            opening_cash: total
+        }));
+    };
 
     const handleStartShift = (e) => {
         e.preventDefault();
@@ -87,26 +121,68 @@ export default function Index({ activeShift, suggestedShift, suggestedOpeningCas
                                                 onChange={e => startForm.setData('shift_code', e.target.value)}
                                                 className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 px-4 py-3 focus:outline-none focus:border-brand-500 font-outfit"
                                             >
-                                                <option value="morning">Morning Shift (6:00 AM - 2:00 PM)</option>
-                                                <option value="evening">Evening Shift (2:00 PM - 10:00 PM)</option>
-                                                <option value="night">Night Shift (10:00 PM - 6:00 AM)</option>
+                                                <option value="morning">Morning Shift (7:00 AM - 4:00 PM)</option>
+                                                <option value="evening">Evening Shift (3:00 PM - 12:00 AM)</option>
+                                                <option value="night">Graveyard Shift (11:00 PM - 8:00 AM)</option>
                                             </select>
                                         </div>
 
                                         {/* Starting Drawer Capital */}
-                                        <div className="flex flex-col gap-2">
-                                            <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Starting Drawer Capital (₱)</label>
-                                            <div className="relative">
-                                                <Coins className="absolute left-4 top-3.5 text-slate-500" size={16} />
-                                                <input
-                                                    type="number"
-                                                    step="0.01"
-                                                    value={startForm.data.opening_cash}
-                                                    onChange={e => startForm.setData('opening_cash', e.target.value)}
-                                                    className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 pl-11 pr-4 py-3 focus:outline-none focus:border-brand-500 font-mono font-bold"
-                                                />
+                                        <div className="flex flex-col gap-4">
+                                            <div>
+                                                <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-3">Starting Drawer Capital (₱)</label>
+                                                <div className="relative mb-2">
+                                                    <Coins className="absolute left-4 top-3.5 text-brand-500" size={16} />
+                                                    <input
+                                                        type="number"
+                                                        step="0.01"
+                                                        value={startForm.data.opening_cash}
+                                                        readOnly
+                                                        className="w-full bg-[#0f172a] border border-brand-500/50 rounded-xl text-brand-300 pl-11 pr-4 py-3 focus:outline-none font-mono font-bold text-lg opacity-80 cursor-not-allowed shadow-[0_0_15px_rgba(16,185,129,0.1)]"
+                                                    />
+                                                </div>
+                                                <span className="text-[10px] text-slate-400 font-medium">Verify your starting physical cash before beginning the shift.</span>
                                             </div>
-                                            <span className="text-[10px] text-slate-400 font-medium">Suggested from last closed shift closing amount.</span>
+
+                                            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 bg-[#0f172a]/40 p-4 rounded-xl border border-[#334155]/60">
+                                                {/* Coins Column */}
+                                                <div className="flex flex-col gap-2">
+                                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-[#334155] pb-2 mb-1">Coins</span>
+                                                    {COINS.map(coin => (
+                                                        <div key={coin} className="flex items-center gap-3">
+                                                            <span className="w-14 text-right font-mono text-xs text-slate-300">₱{coin.toFixed(2)}</span>
+                                                            <span className="text-slate-600 text-xs font-bold">x</span>
+                                                            <input 
+                                                                type="number" 
+                                                                min="0"
+                                                                value={startForm.data.opening_denominations[coin.toString()] || ''}
+                                                                onChange={e => handleStartDenominationChange(coin.toString(), e.target.value)}
+                                                                className="flex-1 bg-[#1e293b] border border-[#334155] rounded-lg text-slate-200 px-3 py-1.5 font-mono text-xs focus:border-brand-500"
+                                                                placeholder="0"
+                                                            />
+                                                        </div>
+                                                    ))}
+                                                </div>
+
+                                                {/* Bills Column */}
+                                                <div className="flex flex-col gap-2">
+                                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-[#334155] pb-2 mb-1">Bills</span>
+                                                    {BILLS.map(bill => (
+                                                        <div key={bill} className="flex items-center gap-3">
+                                                            <span className="w-14 text-right font-mono text-xs text-slate-300">₱{bill.toFixed(2)}</span>
+                                                            <span className="text-slate-600 text-xs font-bold">x</span>
+                                                            <input 
+                                                                type="number" 
+                                                                min="0"
+                                                                value={startForm.data.opening_denominations[bill.toString()] || ''}
+                                                                onChange={e => handleStartDenominationChange(bill.toString(), e.target.value)}
+                                                                className="flex-1 bg-[#1e293b] border border-[#334155] rounded-lg text-slate-200 px-3 py-1.5 font-mono text-xs focus:border-brand-500"
+                                                                placeholder="0"
+                                                            />
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
 
@@ -193,24 +269,24 @@ export default function Index({ activeShift, suggestedShift, suggestedOpeningCas
                                                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                                                     <div className="p-3 rounded-xl bg-[#0f172a]/55 border border-[#334155]/40 flex flex-col gap-0.5">
                                                         <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">💵 Cash</span>
-                                                        <span className="font-mono text-xs font-bold text-slate-350">₱{Number(liveSummary.sales.cash || 0).toLocaleString(undefined, {minimumFractionDigits:2})}</span>
+                                                        <span className="font-mono text-xs font-bold text-slate-350">₱{Number(liveSummary.sales.cash || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                                     </div>
                                                     <div className="p-3 rounded-xl bg-[#0f172a]/55 border border-[#334155]/40 flex flex-col gap-0.5">
                                                         <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">📱 GCash</span>
-                                                        <span className="font-mono text-xs font-bold text-brand-300">₱{Number(liveSummary.sales.gcash || 0).toLocaleString(undefined, {minimumFractionDigits:2})}</span>
+                                                        <span className="font-mono text-xs font-bold text-brand-300">₱{Number(liveSummary.sales.gcash || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                                     </div>
                                                     <div className="p-3 rounded-xl bg-[#0f172a]/55 border border-[#334155]/40 flex flex-col gap-0.5">
                                                         <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">💳 Card</span>
-                                                        <span className="font-mono text-xs font-bold text-slate-350">₱{Number(liveSummary.sales.card || 0).toLocaleString(undefined, {minimumFractionDigits:2})}</span>
+                                                        <span className="font-mono text-xs font-bold text-slate-350">₱{Number(liveSummary.sales.card || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                                     </div>
                                                     <div className="p-3 rounded-xl bg-[#0f172a]/55 border border-[#334155]/40 flex flex-col gap-0.5">
                                                         <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">🏦 Bank Transfer</span>
-                                                        <span className="font-mono text-xs font-bold text-slate-350">₱{Number(liveSummary.sales.bank_transfer || 0).toLocaleString(undefined, {minimumFractionDigits:2})}</span>
+                                                        <span className="font-mono text-xs font-bold text-slate-350">₱{Number(liveSummary.sales.bank_transfer || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                                     </div>
                                                 </div>
                                                 <div className="mt-3.5 pt-2.5 border-t border-[#334155]/30 flex justify-between items-center text-[10px] text-slate-400 font-bold">
                                                     <span>Audited Collections (All electronic & physical channels):</span>
-                                                    <span className="font-mono text-brand-300 text-xs">₱{Number(liveSummary.sales.total_collected || 0).toLocaleString(undefined, {minimumFractionDigits:2})}</span>
+                                                    <span className="font-mono text-brand-300 text-xs">₱{Number(liveSummary.sales.total_collected || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                                 </div>
                                             </div>
                                         </>
@@ -223,7 +299,7 @@ export default function Index({ activeShift, suggestedShift, suggestedOpeningCas
                                     )}
                                 </div>
 
-                                /* End Shift Close Section */
+                                {/* End Shift Close Section */}
                                 <div className="p-6 md:p-8 rounded-2xl bg-[#1e293b] border border-[#334155] shadow-xl">
                                     <div className="flex items-center gap-3.5 mb-6">
                                         <div className="p-3 bg-red-500/10 text-red-400 rounded-xl">
@@ -238,18 +314,60 @@ export default function Index({ activeShift, suggestedShift, suggestedOpeningCas
                                     <form onSubmit={handleEndShift} className="space-y-6">
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
 
-                                            {/* Actual closing cash */}
-                                            <div className="flex flex-col gap-2">
-                                                <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Physical Drawer Cash Count (₱)</label>
-                                                <div className="relative">
-                                                    <Coins className="absolute left-4 top-3.5 text-slate-500" size={16} />
-                                                    <input
-                                                        type="number"
-                                                        step="0.01"
-                                                        value={endForm.data.closing_cash}
-                                                        onChange={e => endForm.setData('closing_cash', e.target.value)}
-                                                        className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 pl-11 pr-4 py-3 focus:outline-none focus:border-brand-500 font-mono font-bold text-lg"
-                                                    />
+                                            {/* Physical Cash Denominations Count */}
+                                            <div className="flex flex-col gap-4">
+                                                <div>
+                                                    <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-3">Physical Drawer Cash Count (₱)</label>
+                                                    <div className="relative mb-2">
+                                                        <Coins className="absolute left-4 top-3.5 text-brand-500" size={16} />
+                                                        <input
+                                                            type="number"
+                                                            step="0.01"
+                                                            value={endForm.data.closing_cash}
+                                                            readOnly
+                                                            className="w-full bg-[#0f172a] border border-brand-500/50 rounded-xl text-brand-300 pl-11 pr-4 py-3 focus:outline-none font-mono font-bold text-lg opacity-80 cursor-not-allowed shadow-[0_0_15px_rgba(16,185,129,0.1)]"
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 bg-[#0f172a]/40 p-4 rounded-xl border border-[#334155]/60">
+                                                    {/* Coins Column */}
+                                                    <div className="flex flex-col gap-2">
+                                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-[#334155] pb-2 mb-1">Coins</span>
+                                                        {COINS.map(coin => (
+                                                            <div key={coin} className="flex items-center gap-3">
+                                                                <span className="w-14 text-right font-mono text-xs text-slate-300">₱{coin.toFixed(2)}</span>
+                                                                <span className="text-slate-600 text-xs font-bold">x</span>
+                                                                <input 
+                                                                    type="number" 
+                                                                    min="0"
+                                                                    value={endForm.data.closing_denominations[coin.toString()] || ''}
+                                                                    onChange={e => handleDenominationChange(coin.toString(), e.target.value)}
+                                                                    className="flex-1 bg-[#1e293b] border border-[#334155] rounded-lg text-slate-200 px-3 py-1.5 font-mono text-xs focus:border-brand-500"
+                                                                    placeholder="0"
+                                                                />
+                                                            </div>
+                                                        ))}
+                                                    </div>
+
+                                                    {/* Bills Column */}
+                                                    <div className="flex flex-col gap-2">
+                                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-[#334155] pb-2 mb-1">Bills</span>
+                                                        {BILLS.map(bill => (
+                                                            <div key={bill} className="flex items-center gap-3">
+                                                                <span className="w-14 text-right font-mono text-xs text-slate-300">₱{bill.toFixed(2)}</span>
+                                                                <span className="text-slate-600 text-xs font-bold">x</span>
+                                                                <input 
+                                                                    type="number" 
+                                                                    min="0"
+                                                                    value={endForm.data.closing_denominations[bill.toString()] || ''}
+                                                                    onChange={e => handleDenominationChange(bill.toString(), e.target.value)}
+                                                                    className="flex-1 bg-[#1e293b] border border-[#334155] rounded-lg text-slate-200 px-3 py-1.5 font-mono text-xs focus:border-brand-500"
+                                                                    placeholder="0"
+                                                                />
+                                                            </div>
+                                                        ))}
+                                                    </div>
                                                 </div>
                                             </div>
 
@@ -269,10 +387,10 @@ export default function Index({ activeShift, suggestedShift, suggestedOpeningCas
                                                     <div className="flex justify-between mt-2 border-t border-[#334155]/60 pt-2 font-bold font-outfit">
                                                         <span>Variance:</span>
                                                         <span className={`font-mono ${Number(endForm.data.closing_cash || 0) - liveSummary.expected_drawer_cash === 0
-                                                                ? 'text-emerald-400'
-                                                                : Number(endForm.data.closing_cash || 0) - liveSummary.expected_drawer_cash > 0
-                                                                    ? 'text-blue-400'
-                                                                    : 'text-rose-400'
+                                                            ? 'text-emerald-400'
+                                                            : Number(endForm.data.closing_cash || 0) - liveSummary.expected_drawer_cash > 0
+                                                                ? 'text-blue-400'
+                                                                : 'text-rose-400'
                                                             }`}>
                                                             ₱{(Number(endForm.data.closing_cash || 0) - liveSummary.expected_drawer_cash).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                                         </span>
@@ -298,8 +416,8 @@ export default function Index({ activeShift, suggestedShift, suggestedOpeningCas
                                                     <textarea
                                                         value={endForm.data.notes}
                                                         onChange={e => endForm.setData('notes', e.target.value)}
-                                                        placeholder={isDiscrepancy 
-                                                            ? "REQUIRED: Please explain the reason for the cash variance (shortage/overage) before shutting down." 
+                                                        placeholder={isDiscrepancy
+                                                            ? "REQUIRED: Please explain the reason for the cash variance (shortage/overage) before shutting down."
                                                             : "Explain any drawer variances, cash deposit transfers, or handover remarks..."}
                                                         rows="3"
                                                         required={isDiscrepancy}
@@ -330,7 +448,7 @@ export default function Index({ activeShift, suggestedShift, suggestedOpeningCas
                     <h2 className="text-lg font-outfit font-bold text-slate-200 mb-6">Recent Logged Shift Session History</h2>
 
                     <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse text-sm">
+                        <table className="w-full text-left border-collapse text-sm table-fixed">
                             <thead>
                                 <tr className="border-b border-[#334155] text-xs font-semibold text-slate-400 uppercase">
                                     <th className="pb-3">Employee</th>

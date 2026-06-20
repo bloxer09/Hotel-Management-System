@@ -285,7 +285,7 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
                             </div>
 
                             <div className="overflow-x-auto text-xs">
-                                <table className="w-full text-left border-collapse">
+                                <table className="w-full text-left border-collapse table-fixed">
                                     <thead>
                                         <tr className="border-b border-[#334155] text-[10px] font-semibold text-slate-400 uppercase tracking-wider pb-2">
                                             <th className="pb-2">Order Item</th>

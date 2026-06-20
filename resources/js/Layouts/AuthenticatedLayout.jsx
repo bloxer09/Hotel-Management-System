@@ -30,8 +30,10 @@ import {
     ShoppingCart,
     Wrench,
     Ticket,
-    Sliders
+    Sliders,
+    Receipt
 } from 'lucide-react';
+import ProfileModal from '@/Components/ProfileModal';
 
 
 export default function AuthenticatedLayout({ children }) {
@@ -47,6 +49,7 @@ export default function AuthenticatedLayout({ children }) {
     });
     const [isMobileOpen, setIsMobileOpen] = useState(false);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+    const [isProfileOpen, setIsProfileOpen] = useState(false);
 
     useEffect(() => {
         localStorage.setItem('sidebar-collapsed', isCollapsed ? 'true' : 'false');
@@ -244,11 +247,26 @@ export default function AuthenticatedLayout({ children }) {
             current: route().current('inventory.*')
         },
         {
+            name: 'POS & Sales',
+            icon: ShoppingCart,
+            href: route('pos.index'),
+            roles: ['admin', 'front_desk', 'cashier'],
+            current: route().current('pos.*'),
+            requiresShift: true
+        },
+        {
             name: 'Sales & Reports',
             icon: TrendingUp,
             href: route('reports.index'),
             roles: ['admin', 'front_desk', 'cashier'],
             current: route().current('reports.index')
+        },
+        {
+            name: 'Expenses',
+            icon: Receipt,
+            href: route('expenses.index'),
+            roles: ['admin', 'front_desk', 'cashier'],
+            current: route().current('expenses.*')
         },
         {
             name: 'Maintenance Tickets',
@@ -465,19 +483,8 @@ export default function AuthenticatedLayout({ children }) {
                                 >
                                     <div className="relative shrink-0">
                                         <item.icon size={20} className={`${item.current ? 'text-slate-50' : 'text-slate-400 group-hover:text-brand-400'}`} />
-                                        {item.name === 'Inventory' && inventoryAlerts.length > 0 && (
-                                            <span className="absolute -top-1.5 -right-1.5 flex h-2 w-2">
-                                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                                                <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
-                                            </span>
-                                        )}
                                     </div>
                                     {!isCollapsed && <span className="text-sm font-outfit">{item.name}</span>}
-                                    {!isCollapsed && item.name === 'Inventory' && inventoryAlerts.length > 0 && (
-                                        <span className="ml-auto text-[9px] bg-amber-950 border border-amber-600/40 text-amber-400 px-1.5 py-0.5 rounded font-black animate-pulse whitespace-nowrap">
-                                            {inventoryAlerts.length} LOW
-                                        </span>
-                                    )}
 
                                     {/* Tooltip on collapse */}
                                     {isCollapsed && (
@@ -598,7 +605,10 @@ export default function AuthenticatedLayout({ children }) {
                             </div>
 
                             {/* Staff Card */}
-                            <div className="m-4 p-4 rounded-xl bg-[#0f172a]/60 border border-[#334155] flex flex-col gap-3">
+                            <div 
+                                onClick={() => { setIsMobileOpen(false); setIsProfileOpen(true); }}
+                                className="m-4 p-4 rounded-xl bg-[#0f172a]/60 border border-[#334155] hover:border-brand-500/50 flex flex-col gap-3 cursor-pointer transition-all active:scale-[0.98]"
+                            >
                                 <div className="flex items-center gap-3">
                                     {user.avatar_url ? (
                                         <img
@@ -656,19 +666,8 @@ export default function AuthenticatedLayout({ children }) {
                                             >
                                                 <div className="relative shrink-0">
                                                     <item.icon size={20} />
-                                                    {item.name === 'Inventory' && inventoryAlerts.length > 0 && (
-                                                        <span className="absolute -top-1.5 -right-1.5 flex h-2 w-2">
-                                                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                                                            <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
-                                                        </span>
-                                                    )}
                                                 </div>
                                                 <span className="text-sm font-outfit">{item.name}</span>
-                                                {item.name === 'Inventory' && inventoryAlerts.length > 0 && (
-                                                    <span className="ml-auto text-[9px] bg-amber-950 border border-amber-600/40 text-amber-400 px-1.5 py-0.5 rounded font-black animate-pulse">
-                                                        {inventoryAlerts.length} LOW
-                                                    </span>
-                                                )}
                                                 {isShiftRestricted && !item.current && (
                                                     <span className="ml-auto text-[9px] bg-amber-950 border border-amber-600/40 text-amber-400 px-1.5 py-0.5 rounded font-bold">
                                                         Locked
@@ -884,8 +883,9 @@ export default function AuthenticatedLayout({ children }) {
                         )}
 
                         {/* Topbar User Indicator */}
-                        <Link
-                            href={route('profile.edit')}
+                        <button
+                            type="button"
+                            onClick={() => setIsProfileOpen(true)}
                             className="flex items-center gap-3 bg-[#0f172a]/55 border border-[#334155] hover:border-brand-500/50 hover:bg-[#1e293b]/65 px-4 py-2 rounded-xl transition-all duration-200 group"
                         >
                             {user.avatar_url ? (
@@ -900,7 +900,7 @@ export default function AuthenticatedLayout({ children }) {
                                 </div>
                             )}
                             <span className="font-outfit font-bold text-sm text-slate-200 group-hover:text-slate-50 hidden sm:inline">{user.name}</span>
-                        </Link>
+                        </button>
                     </div>
                 </header>
 
@@ -954,6 +954,9 @@ export default function AuthenticatedLayout({ children }) {
                     ))}
                 </AnimatePresence>
             </div>
+
+            {/* ─── Profile Settings Modal ────────────────────────────────────── */}
+            <ProfileModal show={isProfileOpen} onClose={() => setIsProfileOpen(false)} />
 
         </div>
     );

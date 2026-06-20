@@ -25,49 +25,49 @@ class DashboardController extends Controller
         $oooCount = Room::where('status', 'out_of_order')->count();
 
         // 2. Revenue Periods Calculations
-        // 2.1 Today's Revenue
+        // Optimized to use SQL aggregation instead of loading all models
         $today = Carbon::today();
-        $todayTransactions = Transaction::whereDate('created_at', $today)->get();
-        $cashToday = $todayTransactions->sum('cash_amount');
-        $gcashToday = $todayTransactions->sum('gcash_amount');
-        $cardToday = $todayTransactions->where('payment_method', 'card')->sum('amount');
-        $bankToday = $todayTransactions->where('payment_method', 'bank_transfer')->sum('amount');
-        $totalToday = $cashToday + $gcashToday + $cardToday + $bankToday;
-        $productToday = (float) InventoryUsage::whereDate('created_at', $today)->sum('total_price');
-        $roomToday = max(0.00, $totalToday - $productToday);
-
-        // 2.2 Last 7 Days Revenue
         $sevenDaysAgo = Carbon::today()->subDays(6);
-        $sevenDaysTransactions = Transaction::where('created_at', '>=', $sevenDaysAgo)->get();
-        $cash7d = $sevenDaysTransactions->sum('cash_amount');
-        $gcash7d = $sevenDaysTransactions->sum('gcash_amount');
-        $card7d = $sevenDaysTransactions->where('payment_method', 'card')->sum('amount');
-        $bank7d = $sevenDaysTransactions->where('payment_method', 'bank_transfer')->sum('amount');
-        $total7d = $cash7d + $gcash7d + $card7d + $bank7d;
-        $product7d = (float) InventoryUsage::where('created_at', '>=', $sevenDaysAgo)->sum('total_price');
-        $room7d = max(0.00, $total7d - $product7d);
-
-        // 2.3 This Month Revenue
         $startOfMonth = Carbon::today()->startOfMonth();
-        $monthTransactions = Transaction::where('created_at', '>=', $startOfMonth)->get();
-        $cashMonth = $monthTransactions->sum('cash_amount');
-        $gcashMonth = $monthTransactions->sum('gcash_amount');
-        $cardMonth = $monthTransactions->where('payment_method', 'card')->sum('amount');
-        $bankMonth = $monthTransactions->where('payment_method', 'bank_transfer')->sum('amount');
-        $totalMonth = $cashMonth + $gcashMonth + $cardMonth + $bankMonth;
-        $productMonth = (float) InventoryUsage::where('created_at', '>=', $startOfMonth)->sum('total_price');
-        $roomMonth = max(0.00, $totalMonth - $productMonth);
-
-        // 2.4 This Year Revenue
         $startOfYear = Carbon::today()->startOfYear();
-        $yearTransactions = Transaction::where('created_at', '>=', $startOfYear)->get();
-        $cashYear = $yearTransactions->sum('cash_amount');
-        $gcashYear = $yearTransactions->sum('gcash_amount');
-        $cardYear = $yearTransactions->where('payment_method', 'card')->sum('amount');
-        $bankYear = $yearTransactions->where('payment_method', 'bank_transfer')->sum('amount');
-        $totalYear = $cashYear + $gcashYear + $cardYear + $bankYear;
-        $productYear = (float) InventoryUsage::where('created_at', '>=', $startOfYear)->sum('total_price');
-        $roomYear = max(0.00, $totalYear - $productYear);
+
+        $periods = [
+            'today' => $today,
+            '7d' => $sevenDaysAgo,
+            'month' => $startOfMonth,
+            'year' => $startOfYear,
+        ];
+
+        $results = [];
+        foreach ($periods as $key => $startDate) {
+            $totals = Transaction::where('created_at', '>=', $startDate)
+                ->selectRaw('
+                    SUM(cash_amount) as cash, 
+                    SUM(gcash_amount) as gcash, 
+                    SUM(CASE WHEN payment_method = "card" THEN amount ELSE 0 END) as card,
+                    SUM(CASE WHEN payment_method = "bank_transfer" THEN amount ELSE 0 END) as bank
+                ')->first();
+
+            $cash = round($totals->cash ?? 0, 2);
+            $gcash = round($totals->gcash ?? 0, 2);
+            $card = round($totals->card ?? 0, 2);
+            $bank = round($totals->bank ?? 0, 2);
+            $total = round($cash + $gcash + $card + $bank, 2);
+
+            $product = round((float) InventoryUsage::where('created_at', '>=', $startDate)->sum('total_price'), 2);
+            $room = round(max(0.00, $total - $product), 2);
+            $expense = round((float) \App\Models\Expense::where('expense_date', '>=', $startDate->format('Y-m-d'))->sum('amount'), 2);
+            $net = round($total - $expense, 2);
+
+            $results[$key] = compact('cash', 'gcash', 'card', 'bank', 'total', 'product', 'room', 'expense', 'net');
+        }
+
+        extract([
+            'cashToday' => $results['today']['cash'], 'gcashToday' => $results['today']['gcash'], 'cardToday' => $results['today']['card'], 'bankToday' => $results['today']['bank'], 'totalToday' => $results['today']['total'], 'productToday' => $results['today']['product'], 'roomToday' => $results['today']['room'], 'expenseToday' => $results['today']['expense'], 'netToday' => $results['today']['net'],
+            'cash7d' => $results['7d']['cash'], 'gcash7d' => $results['7d']['gcash'], 'card7d' => $results['7d']['card'], 'bank7d' => $results['7d']['bank'], 'total7d' => $results['7d']['total'], 'product7d' => $results['7d']['product'], 'room7d' => $results['7d']['room'], 'expense7d' => $results['7d']['expense'], 'net7d' => $results['7d']['net'],
+            'cashMonth' => $results['month']['cash'], 'gcashMonth' => $results['month']['gcash'], 'cardMonth' => $results['month']['card'], 'bankMonth' => $results['month']['bank'], 'totalMonth' => $results['month']['total'], 'productMonth' => $results['month']['product'], 'roomMonth' => $results['month']['room'], 'expenseMonth' => $results['month']['expense'], 'netMonth' => $results['month']['net'],
+            'cashYear' => $results['year']['cash'], 'gcashYear' => $results['year']['gcash'], 'cardYear' => $results['year']['card'], 'bankYear' => $results['year']['bank'], 'totalYear' => $results['year']['total'], 'productYear' => $results['year']['product'], 'roomYear' => $results['year']['room'], 'expenseYear' => $results['year']['expense'], 'netYear' => $results['year']['net'],
+        ]);
 
         // 3. Recent Bookings (limit 5)
         $recentBookings = Booking::with(['room', 'room.type'])
@@ -107,7 +107,12 @@ class DashboardController extends Controller
             })
             ->get();
 
-        // Generate 30 days list and compute daily stats
+        // Pre-calculate InventoryUsage for 30 days grouped by date to avoid N+1 queries
+        $inventoryUsages30d = InventoryUsage::where('created_at', '>=', $startDate)
+            ->selectRaw('DATE(created_at) as date, SUM(total_price) as total_price')
+            ->groupBy('date')
+            ->pluck('total_price', 'date');
+
         $dailyOccupancy = [];
         $dailyRevenue = [];
         $totalRevenue30d = 0;
@@ -120,15 +125,15 @@ class DashboardController extends Controller
             // Daily Revenue from transactions on this day
             $dayTransactions = $transactions30d->filter(fn($t) => Carbon::parse($t->created_at)->isSameDay($day));
             
-            $cash = (float)$dayTransactions->whereIn('payment_method', ['cash', 'split'])->sum('cash_amount');
-            $gcash = (float)$dayTransactions->whereIn('payment_method', ['gcash', 'split'])->sum('gcash_amount');
-            $card = (float)$dayTransactions->where('payment_method', 'card')->sum('amount');
-            $bank = (float)$dayTransactions->where('payment_method', 'bank_transfer')->sum('amount');
-            $total = $cash + $gcash + $card + $bank;
+            $cash = round((float)$dayTransactions->whereIn('payment_method', ['cash', 'split'])->sum('cash_amount'), 2);
+            $gcash = round((float)$dayTransactions->whereIn('payment_method', ['gcash', 'split'])->sum('gcash_amount'), 2);
+            $card = round((float)$dayTransactions->where('payment_method', 'card')->sum('amount'), 2);
+            $bank = round((float)$dayTransactions->where('payment_method', 'bank_transfer')->sum('amount'), 2);
+            $total = round($cash + $gcash + $card + $bank, 2);
 
             // Separate daily Room related income and Product/Inventory usage income
-            $product = (float) InventoryUsage::whereDate('created_at', $day)->sum('total_price');
-            $room = max(0.00, $total - $product);
+            $product = round((float) ($inventoryUsages30d[$dayStr] ?? 0), 2);
+            $room = round(max(0.00, $total - $product), 2);
 
             $totalRevenue30d += $total;
 
@@ -180,9 +185,9 @@ class DashboardController extends Controller
         $roomTypeRevenue = [];
         $roomTypes = RoomType::all();
         foreach ($roomTypes as $type) {
-            $typeRevenue = (float)$transactions30d->filter(function($t) use ($type) {
+            $typeRevenue = round((float)$transactions30d->filter(function($t) use ($type) {
                 return $t->booking && $t->booking->room && $t->booking->room->room_type_id === $type->id;
-            })->sum('amount');
+            })->sum('amount'), 2);
 
             $roomTypeRevenue[] = [
                 'name' => $type->type_name,
@@ -326,24 +331,32 @@ class DashboardController extends Controller
                         'total' => $totalToday,
                         'room' => $roomToday,
                         'product' => $productToday,
-                        'label' => "Today's Income"
+                        'expenses' => $expenseToday,
+                        'net_income' => $netToday,
+                        'label' => "Today's Revenue"
                     ],
                     'last_7_days' => [
                         'total' => $total7d,
                         'room' => $room7d,
                         'product' => $product7d,
+                        'expenses' => $expense7d,
+                        'net_income' => $net7d,
                         'label' => "Last 7 Days"
                     ],
                     'this_month' => [
                         'total' => $totalMonth,
                         'room' => $roomMonth,
                         'product' => $productMonth,
+                        'expenses' => $expenseMonth,
+                        'net_income' => $netMonth,
                         'label' => "This Month"
                     ],
                     'this_year' => [
                         'total' => $totalYear,
                         'room' => $roomYear,
                         'product' => $productYear,
+                        'expenses' => $expenseYear,
+                        'net_income' => $netYear,
                         'label' => "This Year"
                     ],
                 ],

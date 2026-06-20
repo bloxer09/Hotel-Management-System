@@ -9,6 +9,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import StayDetailsModal from '@/Components/StayDetailsModal';
 import ImagePreviewModal from '@/Components/ImagePreviewModal';
+import ActionModal from '@/Components/ActionModal';
+import SortableHeader from '@/Components/SortableHeader';
+import Pagination from '@/Components/Pagination';
 
 const FILTER_TABS = [
     { key: 'all', label: 'All Guests', color: 'text-brand-400', dot: 'bg-brand-400' },
@@ -16,7 +19,7 @@ const FILTER_TABS = [
     { key: '0', label: 'Regular', color: 'text-slate-400', dot: 'bg-slate-400' },
 ];
 
-export default function Index({ guests, currentSearch, currentVip, stats }) {
+export default function Index({ guests, currentSearch, currentVip, stats, sortBy, sortDir }) {
     const { auth } = usePage().props;
     const flash = usePage().props.flash || {};
     const user = auth.user;
@@ -29,6 +32,7 @@ export default function Index({ guests, currentSearch, currentVip, stats }) {
     const [viewStayId, setViewStayId] = useState(null);
     const [isImageModalOpen, setIsImageModalOpen] = useState(false);
     const [previewImage, setPreviewImage] = useState(null);
+    const [actionModalGuest, setActionModalGuest] = useState(null);
     const [selectedGuestBookings, setSelectedGuestBookings] = useState([]);
     const [loadingBookings, setLoadingBookings] = useState(false);
 
@@ -78,7 +82,8 @@ export default function Index({ guests, currentSearch, currentVip, stats }) {
     };
 
     // Fast frontend live filter
-    const filteredGuests = guests.filter(g => {
+    const items = guests?.data || [];
+    const filteredGuests = items.filter(g => {
         if (activeFilter === '1' && !g.is_vip) return false;
         if (activeFilter === '0' && g.is_vip) return false;
         if (searchTerm.trim() !== '') {
@@ -144,34 +149,34 @@ export default function Index({ guests, currentSearch, currentVip, stats }) {
                                         }`}>
                                     <span className={`w-1.5 h-1.5 rounded-full ${tab.dot} ${activeFilter === tab.key ? 'opacity-100' : 'opacity-40'}`} />
                                     {tab.label}
-                                    {count !== undefined && (
-                                        <span className="text-[10px] bg-[#334155]/60 px-1.5 py-0.5 rounded font-mono font-bold text-slate-400 ml-1">
-                                            {count}
-                                        </span>
-                                    )}
                                 </button>
                             );
                         })}
                     </div>
-                    <div className="relative w-full sm:w-64">
-                        <Search className="absolute left-4 top-3 text-slate-500" size={16} />
-                        <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-                            placeholder="Search name, phone, email..."
-                            className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 pl-11 pr-4 py-2.5 focus:outline-none focus:border-brand-500 text-xs" />
+                    <div className="flex items-center gap-2 w-full sm:w-auto">
+                        <div className="relative w-full sm:w-64">
+                            <Search className="absolute left-4 top-3 text-slate-500" size={16} />
+                            <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+                                placeholder="Search name, phone, email..."
+                                className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 pl-11 pr-4 py-2.5 focus:outline-none focus:border-brand-500 text-xs" />
+                        </div>
+                        <button onClick={() => router.reload({ only: ['guests'] })} className="p-2.5 rounded-xl border border-[#334155] bg-[#1e293b] text-slate-400 hover:text-slate-200 hover:border-brand-500/40 transition-all shrink-0 shadow-sm" title="Refresh Table">
+                            <RefreshCw size={16} />
+                        </button>
                     </div>
                 </div>
 
                 {/* Profiles Table */}
                 <div className="rounded-2xl bg-[#1e293b] border border-[#334155] overflow-hidden shadow-xl">
                     <div className="overflow-x-auto">
-                        <table className="w-full text-xs">
+                        <table className="w-full text-xs table-fixed">
                             <thead>
                                 <tr className="border-b border-[#334155] bg-[#0f172a]/60">
-                                    <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Guest Profile</th>
+                                    <SortableHeader sortKey="full_name" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Guest Profile</SortableHeader>
                                     <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Contact Info</th>
-                                    <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Stays Count</th>
-                                    <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Total Spent</th>
-                                    <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Last Visit</th>
+                                    <SortableHeader sortKey="total_stays" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Stays Count</SortableHeader>
+                                    <SortableHeader sortKey="total_spent" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Total Spent</SortableHeader>
+                                    <SortableHeader sortKey="last_visit" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Last Visit</SortableHeader>
                                     <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-right">Actions</th>
                                 </tr>
                             </thead>
@@ -225,22 +230,10 @@ export default function Index({ guests, currentSearch, currentVip, stats }) {
                                             {g.last_visit ? new Date(g.last_visit).toLocaleDateString(undefined, { dateStyle: 'medium' }) : '—'}
                                         </td>
 
-                                        {/* Actions */}
                                         <td className="px-4 py-4 text-right">
-                                             <div className="inline-flex items-center gap-1.5">
-                                                 <Link
-                                                     href={route('checkin.index', { guest_id: g.id })}
-                                                     className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-[10px] font-bold text-white transition-colors"
-                                                 >
-                                                     <UserCheck size={11} /> Quick Check-In
-                                                 </Link>
-                                                 <button
-                                                     onClick={() => openGuestModal(g)}
-                                                     className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-[#0f172a] hover:bg-brand-600/20 border border-[#334155] hover:border-brand-500/40 rounded-lg text-[10px] font-bold text-brand-400 transition-all cursor-pointer"
-                                                 >
-                                                     Details <ChevronRight size={11} />
-                                                 </button>
-                                             </div>
+                                            <button onClick={() => setActionModalGuest(g)} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#0f172a] hover:bg-slate-800 border border-[#334155] rounded-lg text-[10px] font-bold text-slate-300 transition-colors">
+                                                Manage
+                                            </button>
                                         </td>
 
                                     </motion.tr>
@@ -248,6 +241,15 @@ export default function Index({ guests, currentSearch, currentVip, stats }) {
                             </tbody>
                         </table>
                     </div>
+                    {/* Pagination */}
+                    {guests && guests.last_page > 1 && (
+                        <div className="px-4 py-3 border-t border-[#334155] flex items-center justify-between bg-[#0f172a]/40">
+                            <span className="text-[10px] text-slate-500">
+                                Showing {guests.from}–{guests.to} of {guests.total} records
+                            </span>
+                            <Pagination links={guests.links} />
+                        </div>
+                    )}
                 </div>
 
             </div>
@@ -271,7 +273,7 @@ export default function Index({ guests, currentSearch, currentVip, stats }) {
                             className="fixed inset-0 z-[1000] flex items-center justify-center p-4"
                         >
                             <div className="bg-[#1e293b] border border-[#334155] rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden">
-                                
+
                                 {/* Header */}
                                 <div className="flex items-center justify-between border-b border-[#334155] px-6 py-4 shrink-0 bg-[#0f172a]/40">
                                     <div className="flex flex-col gap-1">
@@ -285,7 +287,7 @@ export default function Index({ guests, currentSearch, currentVip, stats }) {
                                         </div>
                                         <p className="text-[10px] text-slate-400 font-mono">Profile Reference: GUST-{selectedGuest.id.toString().padStart(5, '0')}</p>
                                     </div>
-                                    <button 
+                                    <button
                                         onClick={() => setSelectedGuest(null)}
                                         className="p-1.5 rounded-lg bg-[#0f172a] border border-[#334155] text-slate-400 hover:text-slate-100 transition-colors"
                                     >
@@ -375,7 +377,7 @@ export default function Index({ guests, currentSearch, currentVip, stats }) {
                                                 </div>
                                             ) : (
                                                 <div className="overflow-x-auto">
-                                                    <table className="w-full text-left border-collapse text-[11px]">
+                                                    <table className="w-full text-left border-collapse text-[11px] table-fixed">
                                                         <thead>
                                                             <tr className="border-b border-[#334155]/80 text-slate-400 uppercase tracking-wider font-semibold">
                                                                 <th className="pb-2">Ref Code</th>
@@ -469,11 +471,11 @@ export default function Index({ guests, currentSearch, currentVip, stats }) {
                                                                 <span className="text-[9px] text-slate-550">Banners appear at guest check-in</span>
                                                             </div>
                                                             <label className="relative inline-flex items-center cursor-pointer">
-                                                                <input 
-                                                                    type="checkbox" 
+                                                                <input
+                                                                    type="checkbox"
                                                                     checked={vipForm.data.is_vip}
                                                                     onChange={e => vipForm.setData('is_vip', e.target.checked)}
-                                                                    className="sr-only peer" 
+                                                                    className="sr-only peer"
                                                                 />
                                                                 <div className="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-200 after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-600"></div>
                                                             </label>
@@ -543,18 +545,45 @@ export default function Index({ guests, currentSearch, currentVip, stats }) {
                 )}
             </AnimatePresence>
 
-            <StayDetailsModal 
+            <StayDetailsModal
                 isOpen={!!viewStayId}
                 onClose={() => setViewStayId(null)}
                 bookingId={viewStayId}
                 viewMode="bookings"
             />
 
-            <ImagePreviewModal 
+            <ImagePreviewModal
                 isOpen={isImageModalOpen}
                 imageUrl={previewImage}
                 onClose={() => { setIsImageModalOpen(false); setPreviewImage(null); }}
             />
+
+            <ActionModal
+                isOpen={!!actionModalGuest}
+                onClose={() => setActionModalGuest(null)}
+                title={`Manage ${actionModalGuest?.full_name}`}
+            >
+                {actionModalGuest && (
+                    <>
+                        <Link
+                            href={route('checkin.index', { guest_id: actionModalGuest.id })}
+                            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-emerald-600 hover:bg-emerald-500 rounded-xl text-xs font-bold text-white transition-colors"
+                        >
+                            <UserCheck size={16} /> Quick Check-In
+                        </Link>
+                        <button
+                            onClick={() => {
+                                const guest = actionModalGuest;
+                                setActionModalGuest(null);
+                                openGuestModal(guest);
+                            }}
+                            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-[#1e293b] hover:bg-brand-600/20 border border-[#334155] hover:border-brand-500/40 rounded-xl text-xs font-bold text-brand-400 transition-colors"
+                        >
+                            Details <ChevronRight size={16} />
+                        </button>
+                    </>
+                )}
+            </ActionModal>
         </AuthenticatedLayout>
     );
 }

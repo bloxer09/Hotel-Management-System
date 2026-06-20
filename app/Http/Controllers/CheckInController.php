@@ -44,9 +44,16 @@ class CheckInController extends Controller
 
         // Stay list data (paginated)
         $status = $request->input('status', 'active');
+        $sortBy = $request->input('sort_by', 'id');
+        $sortDir = $request->input('sort_dir', 'desc');
+
+        $allowedSorts = ['id', 'guest_name', 'status', 'check_in_time', 'expected_check_out', 'amount'];
+        if (!in_array($sortBy, $allowedSorts)) $sortBy = 'id';
+        if (!in_array($sortDir, ['asc', 'desc'])) $sortDir = 'desc';
+
         $bookings = Booking::with(['room', 'room.type'])
             ->when($status && $status !== 'all', fn($q) => $q->where('status', $status))
-            ->orderBy('id', 'desc')
+            ->orderBy($sortBy, $sortDir)
             ->paginate(15)
             ->withQueryString();
 
@@ -57,6 +64,8 @@ class CheckInController extends Controller
             'promoCodes'    => $promoCodes,
             'bookings'      => $bookings,
             'currentFilter' => $status,
+            'sortBy'        => $sortBy,
+            'sortDir'       => $sortDir,
         ]);
     }
 
@@ -165,12 +174,7 @@ class CheckInController extends Controller
             return back()->withErrors(['discount_type' => 'Only administrators can apply promo, staff, or complimentary discounts.']);
         }
         
-        // Active shift verification for extra safety
-        $activeShift = \App\Models\ShiftSession::where('user_id', $user->id)
-            ->whereNull('ended_at')
-            ->first();
-            
-        if (!$activeShift && $user->role !== 'admin') {
+        if (!\App\Services\ShiftService::requireActiveShift($user)) {
             return back()->with('error', 'You must have an active shift to process a check-in.');
         }
 
@@ -192,7 +196,7 @@ class CheckInController extends Controller
             $promoCodeModel = null;
 
             if ($request->filled('promo_code')) {
-                $promoCodeModel = \App\Models\PromoCode::where('code', $request->promo_code)->first();
+                $promoCodeModel = \App\Models\PromoCode::where('code', $request->promo_code)->lockForUpdate()->first();
                 if ($promoCodeModel && $promoCodeModel->isValid()) {
                     $reqDiscountType = 'promo';
                     
@@ -233,14 +237,16 @@ class CheckInController extends Controller
             $paymentMethod = $request->payment_method;
             $cashAmount = 0.00;
             $gcashAmount = 0.00;
-            $refNum = $request->gcash_ref ?: $request->reference_number ?: null;
+            $bankAmount = 0.00;
+            $gcashRef = $request->gcash_ref ?: null;
+            $bankRef = $request->reference_number ?: null;
 
             if ($paymentMethod === 'cash') {
                 $cashAmount = $totalAmount;
             } elseif ($paymentMethod === 'gcash') {
                 $gcashAmount = $totalAmount;
             } elseif ($paymentMethod === 'card' || $paymentMethod === 'bank_transfer') {
-                // Card / Bank Transfer payments use the total amount, cash/gcash remain 0
+                $bankAmount = $totalAmount;
             } else { // split
                 $cashAmount = (float)($request->cash_amount ?: 0);
                 $gcashAmount = (float)($request->gcash_amount ?: 0);
@@ -250,27 +256,27 @@ class CheckInController extends Controller
             }
 
             // Find or Create guest profile
-            $guestProfile = GuestProfile::where('full_name', trim($request->guest_name))->first();
-            if (!$guestProfile) {
-                $guestProfile = GuestProfile::create([
-                    'full_name' => trim($request->guest_name),
+            $guestProfile = GuestProfile::firstOrCreate(
+                ['full_name' => trim($request->guest_name)],
+                [
                     'contact_number' => $request->guest_contact,
                     'id_type' => $request->guest_id_type,
                     'id_number' => $request->guest_id_number,
                     'id_image_path' => $idImagePath,
                     'email' => $request->guest_email,
                     'address' => $request->guest_address,
+                ]
+            );
+            
+            if (!$guestProfile->wasRecentlyCreated) {
+                $guestProfile->update([
+                    'contact_number' => $request->guest_contact ?: $guestProfile->contact_number,
+                    'id_type' => $request->guest_id_type ?: $guestProfile->id_type,
+                    'id_number' => $request->guest_id_number ?: $guestProfile->id_number,
+                    'id_image_path' => $idImagePath ?: $guestProfile->id_image_path,
+                    'email' => $request->guest_email ?: $guestProfile->email,
+                    'address' => $request->guest_address ?: $guestProfile->address,
                 ]);
-            } else {
-                // update details
-                $guestProfile->contact_number = $request->guest_contact ?: $guestProfile->contact_number;
-                $guestProfile->id_type = $request->guest_id_type ?: $guestProfile->id_type;
-                $guestProfile->id_number = $request->guest_id_number ?: $guestProfile->id_number;
-                if ($idImagePath) {
-                    $guestProfile->id_image_path = $idImagePath;
-                }
-                $guestProfile->email = $request->guest_email ?: $guestProfile->email;
-                $guestProfile->address = $request->guest_address ?: $guestProfile->address;
             }
 
             $guestProfile->total_stays += 1;
@@ -306,7 +312,7 @@ class CheckInController extends Controller
                 'payment_method' => $paymentMethod,
                 'cash_amount' => $cashAmount,
                 'gcash_amount' => $gcashAmount,
-                'gcash_ref' => $refNum,
+                'gcash_ref' => $gcashRef ?: $bankRef,
                 'is_peak' => $pricing['is_peak'],
                 'notes' => $request->notes ? trim($request->notes . ($request->filled('promo_code') ? "\nApplied Promo Code: " . $request->promo_code : '')) : ($request->filled('promo_code') ? "Applied Promo Code: " . $request->promo_code : null),
                 'checked_in_by' => $user->id,
@@ -321,7 +327,9 @@ class CheckInController extends Controller
                 'payment_method' => $paymentMethod,
                 'cash_amount' => $cashAmount,
                 'gcash_amount' => $gcashAmount,
-                'gcash_ref' => $refNum,
+                'bank_amount' => $bankAmount,
+                'gcash_ref' => $gcashRef,
+                'bank_ref' => $bankRef,
                 'processed_by' => $user->id,
             ]);
 

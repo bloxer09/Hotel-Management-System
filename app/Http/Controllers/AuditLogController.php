@@ -46,7 +46,14 @@ class AuditLogController extends Controller
             $query->whereDate('created_at', '<=', Carbon::parse($request->date_to));
         }
 
-        $logs = $query->orderBy('id', 'desc')->paginate(100)->withQueryString();
+        $sortBy = $request->input('sort_by', 'id');
+        $sortDir = $request->input('sort_dir', 'desc');
+
+        $allowedSorts = ['id', 'user_id', 'module', 'action', 'created_at'];
+        if (!in_array($sortBy, $allowedSorts)) $sortBy = 'id';
+        if (!in_array($sortDir, ['asc', 'desc'])) $sortDir = 'desc';
+
+        $logs = $query->orderBy($sortBy, $sortDir)->paginate(100)->withQueryString();
 
         $users = User::orderBy('username', 'asc')->get(['id', 'username', 'full_name', 'role']);
         $modules = AuditLog::select('module')->distinct()->whereNotNull('module')->pluck('module');
@@ -56,6 +63,8 @@ class AuditLogController extends Controller
             'users' => $users,
             'modules' => $modules,
             'filters' => $request->only(['user_id', 'module', 'keyword', 'date_from', 'date_to']),
+            'sortBy' => $sortBy,
+            'sortDir' => $sortDir,
         ]);
     }
 }

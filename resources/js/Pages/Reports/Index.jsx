@@ -51,7 +51,7 @@ export default function Index({ dateFrom, dateTo, summary, byCashier, byRoomType
         router.get(route('reports.index'), { from: f, to: t }, { preserveState: false });
     };
 
-    const exportCSV = () => {
+    const exportExcel = () => {
         window.location.href = route('reports.export') + `?from=${from}&to=${to}`;
     };
 
@@ -93,9 +93,9 @@ export default function Index({ dateFrom, dateTo, summary, byCashier, byRoomType
                             className="flex items-center gap-2 px-4 py-2 bg-indigo-600/20 border border-indigo-500/40 hover:bg-indigo-600/30 text-indigo-300 rounded-xl text-xs font-bold transition-all">
                             <Printer size={14} /> EOD Summary
                         </button>
-                        <button onClick={exportCSV}
+                        <button onClick={exportExcel}
                             className="flex items-center gap-2 px-4 py-2 bg-emerald-600/20 border border-emerald-500/40 hover:bg-emerald-600/30 text-emerald-300 rounded-xl text-xs font-bold transition-all">
-                            <Download size={14} /> Export CSV
+                            <Download size={14} /> Export Excel
                         </button>
                     </div>
                 </div>
@@ -250,7 +250,7 @@ export default function Index({ dateFrom, dateTo, summary, byCashier, byRoomType
                         </h2>
                         {byCashier.length > 0 ? (
                             <div className="overflow-x-auto">
-                                <table className="w-full text-xs text-left border-collapse">
+                                <table className="w-full text-xs text-left border-collapse table-fixed">
                                     <thead>
                                         <tr className="border-b border-[#334155] text-[10px] text-slate-500 uppercase tracking-wider">
                                             <th className="pb-2">Staff</th>
@@ -332,7 +332,7 @@ export default function Index({ dateFrom, dateTo, summary, byCashier, byRoomType
                         <Receipt size={15} className="text-teal-400" /> Transactions ({transactions.length} records)
                     </h2>
                     <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse text-[11px]">
+                        <table className="w-full text-left border-collapse text-[11px] table-fixed">
                             <thead>
                                 <tr className="border-b border-[#334155] text-[10px] text-slate-500 uppercase tracking-wider">
                                     <th className="pb-3">Ref / Guest</th>
@@ -470,9 +470,9 @@ export default function Index({ dateFrom, dateTo, summary, byCashier, byRoomType
                                         className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm flex items-center gap-2">
                                         <Printer size={14} /> Print / PDF
                                     </button>
-                                    <button onClick={exportCSV}
+                                    <button onClick={exportExcel}
                                         className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm flex items-center gap-2">
-                                        <Download size={14} /> Export CSV
+                                        <Download size={14} /> Export Excel
                                     </button>
                                 </div>
                             </div>

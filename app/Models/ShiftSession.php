@@ -15,6 +15,8 @@ class ShiftSession extends Model
         'ended_at',
         'opening_cash',
         'closing_cash',
+        'opening_denominations',
+        'closing_denominations',
         'notes',
     ];
 
@@ -23,6 +25,8 @@ class ShiftSession extends Model
         'ended_at' => 'datetime',
         'opening_cash' => 'float',
         'closing_cash' => 'float',
+        'opening_denominations' => 'array',
+        'closing_denominations' => 'array',
     ];
 
     public function user()

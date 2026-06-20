@@ -256,7 +256,7 @@ export default function BulkUsageModal({ isOpen, onClose, items = [], activeBook
             {isOpen && (
                 <>
                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 0.8 }} exit={{ opacity: 0 }}
-                        onClick={onClose} className="fixed inset-0 bg-[#070b13]/90 z-[999] backdrop-blur-sm" />
+                        onClick={onClose} className="fixed inset-0 bg-[#070b13]/90 z-[999]" />
                     
                     <motion.div 
                         initial={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -503,7 +503,7 @@ export default function BulkUsageModal({ isOpen, onClose, items = [], activeBook
                                 animate={{ opacity: 0.6 }}
                                 exit={{ opacity: 0 }}
                                 onClick={() => setIsCartOpen(false)}
-                                className="absolute inset-0 bg-black"
+                                className="absolute inset-0 bg-[#070b13]/90"
                             />
 
                             {/* Centered Modal Card Container */}

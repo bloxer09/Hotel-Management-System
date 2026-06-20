@@ -27,7 +27,7 @@ class ShiftController extends Controller
         $nowHM = date('H:i');
         $suggestedShift = 'morning';
         if ($nowHM >= '15:00' && $nowHM < '23:00') $suggestedShift = 'evening';
-        if ($nowHM >= '23:00' || $nowHM < '08:30') $suggestedShift = 'night';
+        if ($nowHM >= '23:00' || $nowHM < '07:00') $suggestedShift = 'night';
 
         // 3. Get last closed shift's closing cash to suggest as opening cash
         $lastShift = ShiftSession::where('user_id', $user->id)
@@ -35,6 +35,7 @@ class ShiftController extends Controller
             ->orderBy('id', 'desc')
             ->first();
         $suggestedOpeningCash = $lastShift ? $lastShift->closing_cash : 0.00;
+        $suggestedOpeningDenominations = $lastShift ? $lastShift->closing_denominations : null;
 
         // 4. Calculate live drawer cash if shift is active
         $liveSummary = null;
@@ -65,6 +66,7 @@ class ShiftController extends Controller
             'activeShift' => $activeShift,
             'suggestedShift' => $suggestedShift,
             'suggestedOpeningCash' => $suggestedOpeningCash,
+            'suggestedOpeningDenominations' => $suggestedOpeningDenominations,
             'liveSummary' => $liveSummary,
             'recentShifts' => $recentShifts,
         ]);
@@ -75,6 +77,7 @@ class ShiftController extends Controller
         $request->validate([
             'shift_code' => 'required|in:morning,evening,night',
             'opening_cash' => 'required|numeric|min:0',
+            'opening_denominations' => 'nullable|array',
             'notes' => 'nullable|string',
         ]);
 
@@ -93,9 +96,12 @@ class ShiftController extends Controller
             'user_id' => $user->id,
             'shift_code' => $request->shift_code,
             'opening_cash' => $request->opening_cash,
+            'opening_denominations' => $request->opening_denominations,
             'started_at' => now(),
             'notes' => $request->notes,
         ]);
+
+        \Illuminate\Support\Facades\Cache::forget("active_shift_{$user->id}");
 
         BookingService::auditLog($user->id, 'SHIFT_START', 'shift_sessions', $shift->id, null, $request->shift_code, 'Shift started with opening cash: ' . $request->opening_cash);
 
@@ -106,6 +112,7 @@ class ShiftController extends Controller
     {
         $request->validate([
             'closing_cash' => 'required|numeric|min:0',
+            'closing_denominations' => 'nullable|array',
             'notes' => 'nullable|string',
         ]);
 
@@ -121,10 +128,13 @@ class ShiftController extends Controller
 
         $activeShift->ended_at = now();
         $activeShift->closing_cash = $request->closing_cash;
+        $activeShift->closing_denominations = $request->closing_denominations;
         if ($request->notes) {
             $activeShift->notes = trim($activeShift->notes . "\nClosing Notes: " . $request->notes);
         }
         $activeShift->save();
+
+        \Illuminate\Support\Facades\Cache::forget("active_shift_{$user->id}");
 
         BookingService::auditLog($user->id, 'SHIFT_END', 'shift_sessions', $activeShift->id, null, null, 'Shift ended with closing cash: ' . $request->closing_cash);
 
@@ -214,16 +224,16 @@ class ShiftController extends Controller
 
         return [
             'txn_count' => $transactions->count(),
-            'total_collected' => (float)$transactions->sum('amount'),
-            'cash' => (float)$transactions->sum('cash_amount'),
-            'gcash' => (float)$transactions->sum('gcash_amount'),
-            'card' => (float)$transactions->where('payment_method', 'card')->sum('amount'),
-            'bank_transfer' => (float)$transactions->where('payment_method', 'bank_transfer')->sum('amount'),
-            'split_total' => (float)$transactions->where('payment_method', 'split')->sum('amount'),
-            'checkin_sales' => (float)$transactions->where('transaction_type', 'check_in')->sum('amount'),
-            'checkout_sales' => (float)$transactions->where('transaction_type', 'check_out')->sum('amount'),
-            'extension_sales' => (float)$transactions->where('transaction_type', 'extension')->sum('amount'),
-            'adjustment_sales' => (float)$transactions->where('transaction_type', 'adjustment')->sum('amount'),
+            'total_collected' => round((float)$transactions->sum('amount'), 2),
+            'cash' => round((float)$transactions->sum('cash_amount'), 2),
+            'gcash' => round((float)$transactions->sum('gcash_amount'), 2),
+            'card' => round((float)$transactions->where('payment_method', 'card')->sum('amount'), 2),
+            'bank_transfer' => round((float)$transactions->where('payment_method', 'bank_transfer')->sum('amount'), 2),
+            'split_total' => round((float)$transactions->where('payment_method', 'split')->sum('amount'), 2),
+            'checkin_sales' => round((float)$transactions->where('transaction_type', 'check_in')->sum('amount'), 2),
+            'checkout_sales' => round((float)$transactions->where('transaction_type', 'check_out')->sum('amount'), 2),
+            'extension_sales' => round((float)$transactions->where('transaction_type', 'extension')->sum('amount'), 2),
+            'adjustment_sales' => round((float)$transactions->where('transaction_type', 'adjustment')->sum('amount'), 2),
         ];
     }
 }

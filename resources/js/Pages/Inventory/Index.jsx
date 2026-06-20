@@ -13,12 +13,15 @@ import {
     RefreshCw,
     Edit2,
     X,
-    Trash2
+    Trash2,
+    ChevronRight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import BulkUsageModal from './BulkUsageModal';
+import ActionModal from '@/Components/ActionModal';
+import SortableHeader from '@/Components/SortableHeader';
+import Pagination from '@/Components/Pagination';
 
-export default function Index({ items, activeBookings = [], currentSearch, currentCategory }) {
+export default function Index({ items, activeBookings = [], currentSearch, currentCategory, sortBy, sortDir }) {
     const { auth } = usePage().props;
     const user = auth.user;
     const isAdmin = user.role === 'admin';
@@ -28,7 +31,8 @@ export default function Index({ items, activeBookings = [], currentSearch, curre
     const [isAdjustOpen, setIsAdjustOpen] = useState(false);
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [selectedItem, setSelectedItem] = useState(null);
-    const [isBulkUsageOpen, setIsBulkUsageOpen] = useState(false);
+    const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+    const [actionModalItem, setActionModalItem] = useState(null);
 
     // Search and Filter states
     const [search, setSearch] = useState(currentSearch || '');
@@ -122,6 +126,19 @@ export default function Index({ items, activeBookings = [], currentSearch, curre
         });
     };
 
+    const confirmDelete = (item) => {
+        setSelectedItem(item);
+        setIsDeleteOpen(true);
+    };
+
+    const handleDelete = () => {
+        router.delete(route('inventory.destroy', selectedItem.id), {
+            onSuccess: () => {
+                setIsDeleteOpen(false);
+            }
+        });
+    };
+
     const handleAdjustSubmit = (e) => {
         e.preventDefault();
         adjustForm.post(route('inventory.adjust', selectedItem.id), {
@@ -147,13 +164,6 @@ export default function Index({ items, activeBookings = [], currentSearch, curre
                     </div>
 
                     <div className="flex gap-3 self-start flex-wrap">
-                        <button
-                            onClick={() => setIsBulkUsageOpen(true)}
-                            className="inline-flex items-center gap-2 px-5 py-3 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-slate-50 font-outfit font-extrabold text-xs tracking-wider shadow-lg hover:shadow-indigo-600/20 transition-all"
-                        >
-                            <Package size={16} /> Record Bulk Usage
-                        </button>
-
                         {isAdmin && (
                             <button
                                 onClick={() => setIsAddOpen(true)}
@@ -168,164 +178,171 @@ export default function Index({ items, activeBookings = [], currentSearch, curre
                 {/* Filter and Search Panels */}
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 justify-between">
                     <div className="flex gap-1 bg-[#1e293b] p-1 rounded-xl border border-[#334155] flex-wrap">
-                        {['', 'minibar', 'toiletries', 'laundry', 'amenities', 'supplies'].map((cat) => (
+                        {[
+                            { id: '', name: 'All Items', dot: 'bg-brand-400' },
+                            { id: 'minibar', name: 'Minibar', dot: 'bg-rose-400' },
+                            { id: 'toiletries', name: 'Toiletries', dot: 'bg-teal-400' },
+                            { id: 'laundry', name: 'Laundry', dot: 'bg-sky-400' },
+                            { id: 'amenities', name: 'Amenities', dot: 'bg-purple-400' },
+                            { id: 'supplies', name: 'Supplies', dot: 'bg-amber-400' }
+                        ].map(cat => (
                             <button
-                                key={cat}
-                                onClick={() => handleCategoryChange(cat)}
-                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all capitalize ${
-                                    category === cat
+                                key={cat.id}
+                                onClick={() => handleCategoryChange(cat.id)}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all capitalize ${category === cat.id
                                         ? 'bg-[#0f172a] text-slate-100 shadow'
                                         : 'text-slate-400 hover:text-slate-200'
-                                }`}
+                                    }`}
                             >
-                                {cat === '' ? 'All Items' : cat}
+                                <span className={`w-1.5 h-1.5 rounded-full ${cat.dot} ${category === cat.id ? 'opacity-100' : 'opacity-40'}`} />
+                                {cat.name}
                             </button>
                         ))}
                     </div>
-                    <form onSubmit={triggerSearch} className="relative w-full sm:w-64">
-                        <Search className="absolute left-4 top-3 text-slate-500" size={16} />
-                        <input
-                            type="text"
-                            value={search}
-                            onChange={e => setSearch(e.target.value)}
-                            placeholder="Search inventory..."
-                            className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 pl-11 pr-4 py-2.5 focus:outline-none focus:border-brand-500 text-xs"
-                        />
-                    </form>
+                    <div className="flex items-center gap-2 w-full sm:w-auto">
+                        <form onSubmit={triggerSearch} className="relative w-full sm:w-64">
+                            <Search className="absolute left-4 top-3 text-slate-500" size={16} />
+                            <input
+                                type="text"
+                                value={search}
+                                onChange={e => setSearch(e.target.value)}
+                                placeholder="Search inventory..."
+                                className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 pl-11 pr-4 py-2.5 focus:outline-none focus:border-brand-500 text-xs"
+                            />
+                        </form>
+                        <button type="button" onClick={() => router.reload({ only: ['items'] })} className="p-2.5 rounded-xl border border-[#334155] bg-[#1e293b] text-slate-400 hover:text-slate-200 hover:border-brand-500/40 transition-all shrink-0 shadow-sm" title="Refresh Table">
+                            <RefreshCw size={16} />
+                        </button>
+                    </div>
                 </div>
-                {/* Restock Alerts Warning Hub */}
-                {(() => {
-                    const lowStockItems = items.filter(item => item.current_stock <= item.minimum_stock && item.is_active);
-                    if (lowStockItems.length === 0) return null;
-                    return (
-                        <motion.div
-                            initial={{ opacity: 0, y: -10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            className="p-5 rounded-2xl bg-amber-950/25 border border-amber-500/40 shadow-lg shadow-amber-950/20 flex flex-col gap-3 relative overflow-hidden"
-                        >
-                            {/* Pulse glowing backlight */}
-                            <span className="absolute top-0 right-0 h-24 w-24 bg-amber-500/10 rounded-full blur-2xl animate-pulse"></span>
 
-                            <div className="flex items-center gap-2 text-amber-400 font-bold text-sm">
-                                <AlertTriangle className="shrink-0 animate-bounce" size={18} />
-                                <h2 className="font-outfit font-extrabold uppercase tracking-wider">Restock Alerts Required</h2>
-                            </div>
-                            <p className="text-xs text-slate-300 font-medium leading-relaxed">
-                                The following items are currently at or below their minimum safety stock threshold. Please initiate a restock update immediately.
-                            </p>
-                            <div className="flex flex-wrap gap-2 mt-1 z-10">
-                                {lowStockItems.map(item => (
-                                    <button
-                                        key={item.id}
-                                        onClick={() => openAdjustModal(item)}
-                                        className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-300 text-xs font-bold font-mono transition-all duration-200"
-                                        title={`Instant restock ${item.item_name}`}
-                                    >
-                                        <span>{item.item_name} ({item.current_stock} {item.unit} left)</span>
-                                        <span className="bg-amber-500 text-amber-950 px-2 py-0.5 rounded font-black text-[9px] tracking-wide">RESTOCK</span>
-                                    </button>
-                                ))}
-                            </div>
-                        </motion.div>
-                    );
-                })()}
 
-                {/* Inventory Stock Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {items.length > 0 ? (
-                        items.map((item) => {
-                            const isLow = item.current_stock <= item.minimum_stock;
-                            const progress = Math.min((item.current_stock / (item.minimum_stock * 2 || 10)) * 100, 100);
 
-                            return (
-                                <div
-                                    key={item.id}
-                                    className={`p-6 rounded-2xl bg-[#1e293b] border shadow-xl flex flex-col justify-between gap-4 transition-all hover:scale-[1.01] ${isLow ? 'border-red-950/80 shadow-red-950/10' : 'border-[#334155]'
-                                        }`}
-                                >
-                                    <div>
-                                        {/* Card Image Banner */}
-                                        <div className="relative w-full h-36 bg-[#0f172a] rounded-xl overflow-hidden mb-4 border border-[#334155]/40 flex items-center justify-center group">
-                                            {item.image_path ? (
-                                                <img src={item.image_path} alt={item.item_name} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
-                                            ) : (
-                                                <div className="w-full h-full bg-gradient-to-br from-indigo-950/30 to-slate-900/60 flex flex-col items-center justify-center gap-2">
-                                                    <Package className="text-slate-600 group-hover:text-indigo-400 transition-colors" size={28} />
-                                                </div>
-                                            )}
-                                            {/* Badges */}
-                                            <span className="absolute top-2.5 left-2.5 text-[9px] uppercase font-mono font-bold bg-[#0f172a]/95 backdrop-blur-sm text-slate-300 border border-[#334155]/60 px-2 py-0.5 rounded-lg shadow-sm">
-                                                {item.category}
-                                            </span>
-                                            {isLow && (
-                                                <span className="absolute top-2.5 right-2.5 inline-flex items-center gap-1 text-[9px] bg-red-950/95 backdrop-blur-sm border border-red-800/60 text-red-400 px-2 py-0.5 rounded-lg font-extrabold uppercase animate-pulse shadow-sm">
-                                                    <AlertTriangle size={10} /> Critical Low
-                                                </span>
-                                            )}
-                                        </div>
+                {/* Inventory Stock Table */}
+                <div className="bg-[#1e293b] border border-[#334155] rounded-2xl shadow-xl overflow-hidden mt-2">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse table-fixed">
+                            <thead>
+                                <tr className="bg-[#0f172a]/80 text-[10px] uppercase font-extrabold text-slate-400 tracking-wider border-b border-[#334155]">
+                                    <th className="p-4 pl-6 w-16">Image</th>
+                                    <SortableHeader sortKey="item_name" currentSortBy={sortBy} currentSortDir={sortDir} className="p-4">Item Name</SortableHeader>
+                                    <SortableHeader sortKey="category" currentSortBy={sortBy} currentSortDir={sortDir} className="p-4">Category / Unit</SortableHeader>
+                                    <SortableHeader sortKey="current_stock" currentSortBy={sortBy} currentSortDir={sortDir} className="p-4 w-48">Stock Level</SortableHeader>
+                                    <SortableHeader sortKey="selling_price" currentSortBy={sortBy} currentSortDir={sortDir} className="p-4">Pricing</SortableHeader>
+                                    <th className="p-4 pr-6 text-right w-32">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-[#334155]/60 text-sm text-slate-300">
+                                {items.data.length > 0 ? (
+                                    items.data.map((item) => {
+                                        const isLow = item.current_stock <= item.minimum_stock;
+                                        const progress = Math.min((item.current_stock / (item.minimum_stock * 2 || 10)) * 100, 100);
 
-                                        {/* Body details */}
-                                        <div className="mt-3 flex flex-col gap-1">
-                                            <h3 className="font-outfit font-black text-slate-100 text-base leading-tight">
-                                                {item.item_name}
-                                            </h3>
-                                            <span className="text-[10px] text-slate-500 font-medium">Standard packaging: <span className="font-semibold text-slate-400 capitalize">{item.unit}</span></span>
-                                        </div>
-
-                                        {/* Stock Level Progress Indicator */}
-                                        <div className="mt-5 flex flex-col gap-1.5">
-                                            <div className="flex justify-between text-xs font-semibold">
-                                                <span className="text-slate-400">Stock</span>
-                                                <span className={isLow ? 'text-red-400 font-mono font-bold' : 'text-emerald-400 font-mono font-bold'}>
-                                                    {item.current_stock} / {item.minimum_stock} <span className="text-[9px] text-slate-500 font-medium">min</span>
-                                                </span>
-                                            </div>
-                                            <div className="w-full bg-[#0f172a] h-2 rounded-full overflow-hidden">
-                                                <div
-                                                    className={`h-full ${isLow ? 'bg-red-500' : 'bg-emerald-500'}`}
-                                                    style={{ width: `${progress}%` }}
-                                                ></div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Cost/Pricing & Control Buttons */}
-                                    <div className="pt-3 border-t border-[#334155]/55 flex items-center justify-between">
-                                        <div className="flex flex-col">
-                                            <span className="text-[10px] text-slate-500 font-bold uppercase">Price</span>
-                                            <span className="font-mono text-sm font-black text-brand-300">
-                                                ₱{Number(item.selling_price).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                            </span>
-                                        </div>
-
-                                        <div className="flex gap-2">
-                                            {/* Adjust stock button */}
-                                            <button
-                                                onClick={() => openAdjustModal(item)}
-                                                className="p-2 bg-[#0f172a]/60 hover:bg-[#334155] border border-[#334155] rounded-xl text-slate-300 hover:text-slate-50 transition-colors"
-                                                title="Adjust Stock Level"
+                                        return (
+                                            <tr
+                                                key={item.id}
+                                                className={`transition-all hover:bg-[#0f172a]/40 ${isLow ? 'bg-red-950/5' : ''}`}
                                             >
-                                                <RefreshCw size={14} />
-                                            </button>
+                                                {/* Image */}
+                                                <td className="p-4 pl-6">
+                                                    <div className="relative w-12 h-12 bg-[#0f172a] rounded-lg overflow-hidden border border-[#334155]/60 flex items-center justify-center">
+                                                        {item.image_path ? (
+                                                            <img src={item.image_path} alt={item.item_name} className="w-full h-full object-cover" />
+                                                        ) : (
+                                                            <Package className="text-slate-600" size={16} />
+                                                        )}
+                                                    </div>
+                                                </td>
 
-                                            {/* Edit details button */}
-                                            {isAdmin && (
-                                                <button
-                                                    onClick={() => openEditModal(item)}
-                                                    className="p-2 bg-[#0f172a]/60 hover:bg-[#334155] border border-[#334155] rounded-xl text-slate-300 hover:text-slate-50 transition-colors"
-                                                    title="Edit Specifications"
-                                                >
-                                                    <Edit2 size={14} />
-                                                </button>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-                            );
-                        })
-                    ) : (
-                        <div className="col-span-full py-16 text-center text-slate-500">
-                            No catalog items found matching your filters.
+                                                {/* Details */}
+                                                <td className="p-4">
+                                                    <div className="flex flex-col gap-1">
+                                                        <span className="font-outfit font-bold text-slate-100">{item.item_name}</span>
+                                                        {!item.is_active && (
+                                                            <span className="inline-flex items-center gap-1 text-[9px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded uppercase font-bold w-max">
+                                                                Inactive
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </td>
+
+                                                {/* Category & Unit */}
+                                                <td className="p-4">
+                                                    <div className="flex flex-col gap-1">
+                                                        <span className="text-xs font-semibold capitalize text-brand-300">{item.category}</span>
+                                                        <span className="text-[10px] text-slate-500 font-mono">per {item.unit}</span>
+                                                    </div>
+                                                </td>
+
+                                                {/* Stock */}
+                                                <td className="p-4">
+                                                    <div className="flex flex-col gap-1.5 w-full">
+                                                        <div className="flex justify-between items-end">
+                                                            <span className={`font-mono font-black ${isLow ? 'text-red-400' : 'text-emerald-400'}`}>
+                                                                {item.current_stock}
+                                                            </span>
+                                                            <span className="text-[9px] text-slate-500 uppercase font-bold">Min: {item.minimum_stock}</span>
+                                                        </div>
+                                                        <div className="w-full bg-[#0f172a] h-1.5 rounded-full overflow-hidden">
+                                                            <div
+                                                                className={`h-full ${isLow ? 'bg-red-500' : 'bg-emerald-500'}`}
+                                                                style={{ width: `${progress}%` }}
+                                                            ></div>
+                                                        </div>
+                                                        {isLow && (
+                                                            <span className="text-[9px] text-red-400 font-bold uppercase tracking-wider animate-pulse flex items-center gap-1">
+                                                                <AlertTriangle size={8} /> Restock Needed
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </td>
+
+                                                {/* Pricing */}
+                                                <td className="p-4">
+                                                    <div className="flex flex-col gap-1">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-[9px] text-slate-500 uppercase font-bold w-8">Sell</span>
+                                                            <span className="font-mono text-sm font-black text-slate-200">
+                                                                ₱{Number(item.selling_price).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-[9px] text-slate-500 uppercase font-bold w-8">Cost</span>
+                                                            <span className="font-mono text-[10px] text-slate-400">
+                                                                ₱{Number(item.unit_cost).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </td>
+
+                                                <td className="p-4 pr-6 text-right">
+                                                    <button onClick={() => setActionModalItem(item)} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#0f172a] hover:bg-slate-800 border border-[#334155] rounded-lg text-[10px] font-bold text-slate-300 transition-colors">
+                                                        Manage
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })
+                                ) : (
+                                    <tr>
+                                        <td colSpan="6" className="py-16 text-center text-slate-500">
+                                            <div className="flex flex-col items-center gap-3">
+                                                <Package size={32} className="opacity-20" />
+                                                <span>No catalog items found matching your filters.</span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                    {/* Pagination */}
+                    {items && items.last_page > 1 && (
+                        <div className="px-4 py-3 border-t border-[#334155] flex items-center justify-between bg-[#0f172a]/40">
+                            <span className="text-[10px] text-slate-500">
+                                Showing {items.from}–{items.to} of {items.total} records
+                            </span>
+                            <Pagination links={items.links} />
                         </div>
                     )}
                 </div>
@@ -334,7 +351,7 @@ export default function Index({ items, activeBookings = [], currentSearch, curre
                 <AnimatePresence>
                     {isAddOpen && (
                         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 0.5 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black" onClick={() => setIsAddOpen(false)} />
+                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-[#070b13]/90" onClick={() => setIsAddOpen(false)} />
                             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-[#1e293b] border border-[#334155] rounded-2xl w-full max-w-lg shadow-2xl relative z-10 overflow-hidden">
                                 <div className="p-6 border-b border-[#334155] flex items-center justify-between">
                                     <h2 className="font-outfit font-black text-slate-100 text-lg">Add New Item</h2>
@@ -481,7 +498,7 @@ export default function Index({ items, activeBookings = [], currentSearch, curre
                 <AnimatePresence>
                     {isEditOpen && selectedItem && (
                         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 0.5 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black" onClick={() => setIsEditOpen(false)} />
+                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-[#070b13]/90" onClick={() => setIsEditOpen(false)} />
                             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-[#1e293b] border border-[#334155] rounded-2xl w-full max-w-lg shadow-2xl relative z-10 overflow-hidden">
                                 <div className="p-6 border-b border-[#334155] flex items-center justify-between">
                                     <h2 className="font-outfit font-black text-slate-100 text-lg">Edit Item: {selectedItem.item_name}</h2>
@@ -631,7 +648,7 @@ export default function Index({ items, activeBookings = [], currentSearch, curre
                 <AnimatePresence>
                     {isAdjustOpen && selectedItem && (
                         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 0.5 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black" onClick={() => setIsAdjustOpen(false)} />
+                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-[#070b13]/90" onClick={() => setIsAdjustOpen(false)} />
                             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-[#1e293b] border border-[#334155] rounded-2xl w-full max-w-md shadow-2xl relative z-10 overflow-hidden">
                                 <div className="p-6 border-b border-[#334155] flex items-center justify-between">
                                     <div className="flex flex-col">
@@ -712,15 +729,70 @@ export default function Index({ items, activeBookings = [], currentSearch, curre
                     )}
                 </AnimatePresence>
 
-                {/* MODAL: RECORD BULK USAGE */}
-                <BulkUsageModal 
-                    isOpen={isBulkUsageOpen} 
-                    onClose={() => setIsBulkUsageOpen(false)} 
-                    items={items} 
-                    activeBookings={activeBookings} 
-                />
-
             </div>
+
+            {/* MODAL: DELETE CONFIRMATION */}
+            <AnimatePresence>
+                {isDeleteOpen && selectedItem && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-[#070b13]/90" onClick={() => setIsDeleteOpen(false)} />
+                        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-[#1e293b] border border-red-900/50 rounded-2xl w-full max-w-sm shadow-2xl relative z-10 overflow-hidden">
+                            <div className="p-6 flex flex-col items-center text-center gap-4">
+                                <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center text-red-500 mb-2">
+                                    <Trash2 size={32} />
+                                </div>
+                                <h2 className="font-outfit font-black text-slate-100 text-xl">Delete Item?</h2>
+                                <p className="text-sm text-slate-400">
+                                    Are you sure you want to delete <span className="font-bold text-slate-200">{selectedItem.item_name}</span>?
+                                    This will soft delete the item so historical receipts remain intact.
+                                </p>
+
+                                <div className="flex gap-3 w-full mt-4">
+                                    <button onClick={() => setIsDeleteOpen(false)} className="flex-1 px-4 py-2.5 bg-[#0f172a] hover:bg-[#334155] border border-[#334155] text-slate-300 rounded-xl text-sm font-bold transition-colors">
+                                        Cancel
+                                    </button>
+                                    <button onClick={handleDelete} className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-500 text-slate-50 rounded-xl text-sm font-bold transition-colors shadow-lg shadow-red-900/20">
+                                        Confirm Delete
+                                    </button>
+                                </div>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            <ActionModal
+                isOpen={!!actionModalItem}
+                onClose={() => setActionModalItem(null)}
+                title={`Manage ${actionModalItem?.item_name}`}
+            >
+                {actionModalItem && (
+                    <>
+                        <button
+                            onClick={() => { setActionModalItem(null); openAdjustModal(actionModalItem); }}
+                            className="w-full flex items-center gap-2 px-4 py-3 bg-[#1e293b] hover:bg-emerald-600/20 border border-[#334155] hover:border-emerald-500/40 rounded-xl text-xs font-bold text-emerald-400 transition-colors"
+                        >
+                            <RefreshCw size={16} /> Adjust Stock
+                        </button>
+                        {isAdmin && (
+                            <button
+                                onClick={() => { setActionModalItem(null); openEditModal(actionModalItem); }}
+                                className="w-full flex items-center gap-2 px-4 py-3 bg-[#1e293b] hover:bg-brand-600/20 border border-[#334155] hover:border-brand-500/40 rounded-xl text-xs font-bold text-brand-400 transition-colors"
+                            >
+                                <Edit2 size={16} /> Edit Catalog Details
+                            </button>
+                        )}
+                        {isAdmin && (
+                            <button
+                                onClick={() => { setActionModalItem(null); confirmDelete(actionModalItem); }}
+                                className="w-full flex items-center gap-2 px-4 py-3 bg-[#1e293b] hover:bg-red-900/30 border border-[#334155] hover:border-red-500/40 rounded-xl text-xs font-bold text-red-400 transition-colors"
+                            >
+                                <Trash2 size={16} /> Delete Item
+                            </button>
+                        )}
+                    </>
+                )}
+            </ActionModal>
         </AuthenticatedLayout>
     );
 }

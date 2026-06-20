@@ -14,7 +14,9 @@ class Transaction extends Model
         'payment_method',
         'cash_amount',
         'gcash_amount',
+        'bank_amount',
         'gcash_ref',
+        'bank_ref',
         'processed_by',
         'or_number',
     ];
@@ -23,6 +25,7 @@ class Transaction extends Model
         'amount' => 'float',
         'cash_amount' => 'float',
         'gcash_amount' => 'float',
+        'bank_amount' => 'float',
         'or_number' => 'integer',
     ];
 
@@ -72,5 +75,10 @@ class Transaction extends Model
     public function processedBy()
     {
         return $this->belongsTo(User::class, 'processed_by');
+    }
+
+    public function inventoryUsages()
+    {
+        return $this->hasMany(InventoryUsage::class);
     }
 }
