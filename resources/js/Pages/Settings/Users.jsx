@@ -15,7 +15,8 @@ export default function Users({ users }) {
         username: '',
         password: '',
         role: 'front_desk',
-        is_active: true
+        is_active: true,
+        photo: null
     });
 
     // Form: Edit Staff
@@ -23,7 +24,10 @@ export default function Users({ users }) {
         name: '',
         role: 'front_desk',
         is_active: true,
-        password: '' // Optional password reset
+        password: '', // Optional password reset
+        photo: null,
+        remove_photo: false,
+        _method: 'PATCH'
     });
 
     const openEditModal = (u) => {
@@ -32,7 +36,10 @@ export default function Users({ users }) {
             name: u.name,
             role: u.role,
             is_active: u.is_active ? true : false,
-            password: ''
+            password: '',
+            photo: null,
+            remove_photo: false,
+            _method: 'PATCH'
         });
         setIsEditOpen(true);
     };
@@ -49,7 +56,7 @@ export default function Users({ users }) {
 
     const handleEditSubmit = (e) => {
         e.preventDefault();
-        editForm.patch(route('settings.users.update', selectedUser.id), {
+        editForm.post(route('settings.users.update', selectedUser.id), {
             onSuccess: () => {
                 setIsEditOpen(false);
             }
@@ -103,11 +110,20 @@ export default function Users({ users }) {
                                 </div>
 
                                 {/* Body details */}
-                                <div className="mt-3 flex flex-col gap-1">
-                                    <h3 className="font-outfit font-black text-slate-100 text-base leading-tight">
-                                        {u.name}
-                                    </h3>
-                                    <span className="text-xs text-slate-400 font-mono">Username: <span className="font-bold text-slate-200">@{u.username}</span></span>
+                                <div className="mt-3 flex items-center gap-4">
+                                    {u.avatar_url ? (
+                                        <img src={u.avatar_url} alt={u.name} className="w-12 h-12 rounded-full object-cover border border-[#334155]" />
+                                    ) : (
+                                        <div className="w-12 h-12 rounded-full bg-brand-600/20 border border-brand-500/35 text-brand-400 flex items-center justify-center font-outfit text-sm font-black shrink-0">
+                                            {u.name ? u.name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase() : '?'}
+                                        </div>
+                                    )}
+                                    <div className="flex-1 min-w-0">
+                                        <h3 className="font-outfit font-black text-slate-100 text-base leading-tight truncate">
+                                            {u.name}
+                                        </h3>
+                                        <span className="text-xs text-slate-400 font-mono block mt-1">Username: <span className="font-bold text-slate-200">@{u.username}</span></span>
+                                    </div>
                                 </div>
                             </div>
 
@@ -194,6 +210,25 @@ export default function Users({ users }) {
                                         </select>
                                     </div>
 
+                                    {/* Profile Photo */}
+                                    <div className="flex flex-col gap-1.5 pt-1">
+                                        <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Profile Photo (Optional)</label>
+                                        <div className="flex items-center gap-4">
+                                            {addForm.data.photo ? (
+                                                <img src={URL.createObjectURL(addForm.data.photo)} alt="Preview" className="w-12 h-12 rounded-full object-cover border border-brand-500/40" />
+                                            ) : (
+                                                <div className="w-12 h-12 rounded-full bg-[#0f172a] border border-[#334155] flex items-center justify-center text-slate-500 text-xs font-bold font-mono">None</div>
+                                            )}
+                                            <input
+                                                type="file"
+                                                accept="image/*"
+                                                onChange={e => addForm.setData('photo', e.target.files[0])}
+                                                className="text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-[#0f172a] file:text-brand-400 hover:file:bg-[#334155] cursor-pointer"
+                                            />
+                                        </div>
+                                        {addForm.errors.photo && <span className="text-[10px] text-red-405 font-semibold">{addForm.errors.photo}</span>}
+                                    </div>
+
                                     {/* Active checkbox */}
                                     <label className="flex items-center gap-2 cursor-pointer pt-2">
                                         <input
@@ -267,6 +302,38 @@ export default function Users({ users }) {
                                             placeholder="••••••"
                                             className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-xs text-slate-100 px-4 py-2.5 focus:outline-none focus:border-brand-500"
                                         />
+                                    </div>
+
+                                    {/* Profile Photo */}
+                                    <div className="flex flex-col gap-1.5 pt-1">
+                                        <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Profile Photo</label>
+                                        <div className="flex items-center gap-4">
+                                            {editForm.data.photo ? (
+                                                <img src={URL.createObjectURL(editForm.data.photo)} alt="Preview" className="w-12 h-12 rounded-full object-cover border border-brand-500/40" />
+                                            ) : selectedUser.avatar_url && !editForm.data.remove_photo ? (
+                                                <img src={selectedUser.avatar_url} alt="Current" className="w-12 h-12 rounded-full object-cover border border-brand-500/40" />
+                                            ) : (
+                                                <div className="w-12 h-12 rounded-full bg-[#0f172a] border border-[#334155] flex items-center justify-center text-slate-500 text-xs font-bold font-mono">None</div>
+                                            )}
+                                            <div className="flex flex-col gap-2">
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    onChange={e => editForm.setData(prev => ({ ...prev, photo: e.target.files[0], remove_photo: false }))}
+                                                    className="text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-[#0f172a] file:text-brand-400 hover:file:bg-[#334155] cursor-pointer"
+                                                />
+                                                {(selectedUser.avatar_url || editForm.data.photo) && !editForm.data.remove_photo && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => editForm.setData(prev => ({ ...prev, photo: null, remove_photo: true }))}
+                                                        className="text-[10px] text-red-400 hover:text-red-300 font-bold self-start"
+                                                    >
+                                                        Remove Photo
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                        {editForm.errors.photo && <span className="text-[10px] text-red-405 font-semibold">{editForm.errors.photo}</span>}
                                     </div>
 
                                     {/* Active checkbox */}

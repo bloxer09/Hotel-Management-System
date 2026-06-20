@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-export default function BulkUsage({ items = [], activeBookings = [] }) {
+export default function BulkUsageModal({ isOpen, onClose, items = [], activeBookings = [] }) {
     // Left category menu selection
     const [selectedCategory, setSelectedCategory] = useState('all');
     // Search query for items
@@ -252,28 +252,47 @@ export default function BulkUsage({ items = [], activeBookings = [] }) {
     };
 
     return (
-        <AuthenticatedLayout>
-            <Head title="Bulk Item Usage - Staff POS" />
-
-            <div className="flex flex-col gap-6 h-full text-slate-100 relative">
-                
-                {/* Clean Header matching other PMS pages */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0">
-                    <div className="flex items-center gap-4">
-                        <Link 
-                            href={route('inventory.index')}
-                            className="p-2.5 rounded-xl bg-[#1e293b] border border-[#334155] text-slate-400 hover:text-slate-200 hover:bg-[#334155]/60 transition-all shadow-md"
-                        >
-                            <ArrowLeft size={16} />
-                        </Link>
-                        <div>
-                            <h1 className="text-3xl font-outfit font-extrabold tracking-tight text-slate-100">
-                                Bulk Item Usage
-                            </h1>
-                            <p className="text-sm text-slate-400 font-medium mt-0.5">Quick administrative console to record inventory consumption and charge room stays or log direct sales.</p>
+        <AnimatePresence>
+            {isOpen && (
+                <>
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 0.8 }} exit={{ opacity: 0 }}
+                        onClick={onClose} className="fixed inset-0 bg-[#070b13]/90 z-[999] backdrop-blur-sm" />
+                    
+                    <motion.div 
+                        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                        className="fixed inset-0 z-[1000] flex items-center justify-center p-4 lg:p-8 pointer-events-none"
+                    >
+                        {!checkoutSuccess ? (
+                            <div className="bg-[#0f172a] border border-[#334155] rounded-3xl shadow-2xl w-full max-w-7xl flex flex-col max-h-[95vh] overflow-hidden pointer-events-auto relative">
+                                <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 text-slate-100 relative">
+                        
+                        {/* Clean Header matching other PMS pages */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0 mb-6">
+                            <div className="flex items-center gap-4">
+                                <button 
+                                    type="button"
+                                    onClick={onClose}
+                                    className="p-2.5 rounded-xl bg-[#1e293b] border border-[#334155] text-slate-400 hover:text-slate-200 hover:bg-[#334155]/60 transition-all shadow-md"
+                                >
+                                    <ArrowLeft size={16} />
+                                </button>
+                                <div>
+                                    <h1 className="text-3xl font-outfit font-extrabold tracking-tight text-slate-100">
+                                        Bulk Item Usage
+                                    </h1>
+                                    <p className="text-sm text-slate-400 font-medium mt-0.5">Quick administrative console to record inventory consumption and charge room stays or log direct sales.</p>
+                                </div>
+                            </div>
+                            <button 
+                                type="button"
+                                onClick={onClose}
+                                className="p-2 rounded-xl bg-[#1e293b] border border-[#334155] text-slate-400 hover:text-white hover:bg-red-500/20 hover:border-red-500/50 transition-all"
+                            >
+                                <X size={20} />
+                            </button>
                         </div>
-                    </div>
-                </div>
 
                 {/* Main POS Container - Spacious Catalog first */}
                 <div className="flex flex-col gap-6 w-full pb-24">
@@ -716,103 +735,95 @@ export default function BulkUsage({ items = [], activeBookings = [] }) {
                     )}
                 </AnimatePresence>
 
-            {/* Complete Receipt Modal Overlay */}
-            <AnimatePresence>
-                {checkoutSuccess && lastOrderDetails && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                        {/* Modal Backdrop */}
-                        <motion.div 
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 0.6 }}
-                            exit={{ opacity: 0 }}
-                            onClick={() => setCheckoutSuccess(false)}
-                            className="absolute inset-0 bg-black"
-                        />
-                        
-                        {/* Transaction Receipt Card */}
-                        <motion.div
-                            initial={{ scale: 0.95, opacity: 0, y: 15 }}
-                            animate={{ scale: 1, opacity: 1, y: 0 }}
-                            exit={{ scale: 0.95, opacity: 0, y: 15 }}
-                            transition={{ type: 'spring', damping: 25 }}
-                            className="bg-[#1e293b] border border-[#334155] rounded-2xl p-6 shadow-2xl max-w-sm w-full relative overflow-hidden"
-                        >
-                            <div className="text-center pb-4 mb-4 border-b border-[#334155]/60 flex flex-col items-center">
-                                <div className="h-12 w-12 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-full flex items-center justify-center mb-3">
-                                    <CircleCheck size={26} />
                                 </div>
-                                <h3 className="font-outfit font-extrabold text-base text-emerald-400 uppercase tracking-wider">
-                                    Purchase Logged!
-                                </h3>
-                                <p className="text-[11px] text-slate-400 mt-0.5">Inventory Transaction slip recorded successfully</p>
                             </div>
-
-                            {/* Reference Transaction Number */}
-                            <div className="text-center py-2.5 bg-[#0f172a]/60 rounded-xl mb-4 border border-[#334155]/40 flex flex-col items-center">
-                                <span className="text-[9px] text-slate-500 uppercase tracking-widest font-bold">Transaction Reference ID</span>
-                                <span className="font-mono font-bold text-xl text-brand-400 tracking-wide mt-0.5">
-                                    #TXN-{lastOrderDetails.orderNo}
-                                </span>
-                            </div>
-
-                            {/* Summary Receipt details */}
-                            <div className="space-y-3.5 mb-6 text-xs">
-                                <div className="flex justify-between">
-                                    <span className="text-slate-400 uppercase font-bold text-[9px] tracking-wider">Bill Target</span>
-                                    <span className="text-slate-200 font-bold">{lastOrderDetails.target}</span>
-                                </div>
-                                <div className="space-y-1.5">
-                                    <span className="text-slate-400 uppercase font-bold text-[9px] tracking-wider block">Items Disbursed</span>
-                                    <div className="max-h-32 overflow-y-auto space-y-1.5 pr-1 scrollbar-thin">
-                                        {lastOrderDetails.items.map((line, idx) => (
-                                            <div key={idx} className="flex justify-between items-baseline font-mono text-[11px] text-slate-300">
-                                                <span>{line.name} <span className="text-slate-500 font-bold">x{line.quantity}</span></span>
-                                                <span className="text-slate-400">₱{(line.price * line.quantity).toFixed(2)}</span>
-                                            </div>
-                                        ))}
+                        ) : (
+                            lastOrderDetails && (
+                                <motion.div
+                                    initial={{ scale: 0.95, opacity: 0, y: 15 }}
+                                    animate={{ scale: 1, opacity: 1, y: 0 }}
+                                    exit={{ scale: 0.95, opacity: 0, y: 15 }}
+                                    transition={{ type: 'spring', damping: 25 }}
+                                    className="bg-[#1e293b] border border-[#334155] rounded-2xl p-6 shadow-2xl max-w-sm w-full relative overflow-hidden pointer-events-auto"
+                                >
+                                    <div className="text-center pb-4 mb-4 border-b border-[#334155]/60 flex flex-col items-center">
+                                        <div className="h-12 w-12 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-full flex items-center justify-center mb-3">
+                                            <CircleCheck size={26} />
+                                        </div>
+                                        <h3 className="font-outfit font-extrabold text-base text-emerald-400 uppercase tracking-wider">
+                                            Purchase Logged!
+                                        </h3>
+                                        <p className="text-[11px] text-slate-400 mt-0.5">Inventory Transaction slip recorded successfully</p>
                                     </div>
-                                </div>
-                                <div className="border-t border-[#334155]/60 pt-3.5 flex justify-between items-baseline">
-                                    <span className="text-slate-400 uppercase font-bold text-[9px] tracking-wider">Total Charge Rec.</span>
-                                    <span className="font-mono text-sm font-bold text-brand-400">₱{lastOrderDetails.total.toFixed(2)}</span>
-                                </div>
-                            </div>
 
-                            {/* Done buttons */}
-                            <div className="space-y-2">
-                                <button
-                                    onClick={() => setCheckoutSuccess(false)}
-                                    className="w-full py-2.5 bg-brand-600 hover:bg-brand-500 text-white font-outfit font-extrabold text-xs uppercase tracking-wider rounded-lg shadow transition-colors flex items-center justify-center gap-1.5"
-                                >
-                                    Done
-                                </button>
-                                <Link
-                                    href={route('inventory.index')}
-                                    className="w-full py-2.5 bg-[#0f172a] hover:bg-slate-900 border border-[#334155] text-slate-300 hover:text-slate-100 font-outfit font-bold text-xs uppercase tracking-wider rounded-lg transition-all flex items-center justify-center"
-                                >
-                                    Back to Inventory
-                                </Link>
-                            </div>
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
+                                    {/* Reference Transaction Number */}
+                                    <div className="text-center py-2.5 bg-[#0f172a]/60 rounded-xl mb-4 border border-[#334155]/40 flex flex-col items-center">
+                                        <span className="text-[9px] text-slate-500 uppercase tracking-widest font-bold">Transaction Reference ID</span>
+                                        <span className="font-mono font-bold text-xl text-brand-400 tracking-wide mt-0.5">
+                                            #TXN-{lastOrderDetails.orderNo}
+                                        </span>
+                                    </div>
 
-            {/* Custom Toast Notification Banner */}
-            <AnimatePresence>
-                {toastMessage && (
-                    <motion.div
-                        initial={{ opacity: 0, y: -20, scale: 0.95 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: -20, scale: 0.95 }}
-                        className="fixed top-6 left-1/2 -translate-x-1/2 z-[1100] px-5 py-3.5 bg-red-950/90 border border-red-500/40 text-red-200 rounded-2xl shadow-2xl backdrop-blur-md text-xs font-bold font-outfit flex items-center gap-2.5"
-                    >
-                        <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0" />
-                        <span>{toastMessage}</span>
+                                    {/* Summary Receipt details */}
+                                    <div className="space-y-3.5 mb-6 text-xs">
+                                        <div className="flex justify-between">
+                                            <span className="text-slate-400 uppercase font-bold text-[9px] tracking-wider">Bill Target</span>
+                                            <span className="text-slate-200 font-bold">{lastOrderDetails.target}</span>
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <span className="text-slate-400 uppercase font-bold text-[9px] tracking-wider block">Items Disbursed</span>
+                                            <div className="max-h-32 overflow-y-auto space-y-1.5 pr-1 scrollbar-thin">
+                                                {lastOrderDetails.items.map((line, idx) => (
+                                                    <div key={idx} className="flex justify-between items-baseline font-mono text-[11px] text-slate-300">
+                                                        <span>{line.name} <span className="text-slate-500 font-bold">x{line.quantity}</span></span>
+                                                        <span className="text-slate-400">₱{(line.price * line.quantity).toFixed(2)}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                        <div className="border-t border-[#334155]/60 pt-3.5 flex justify-between items-baseline">
+                                            <span className="text-slate-400 uppercase font-bold text-[9px] tracking-wider">Total Charge Rec.</span>
+                                            <span className="font-mono text-sm font-bold text-brand-400">₱{lastOrderDetails.total.toFixed(2)}</span>
+                                        </div>
+                                    </div>
+
+                                    {/* Done buttons */}
+                                    <div className="space-y-2">
+                                        <button
+                                            onClick={() => setCheckoutSuccess(false)}
+                                            className="w-full py-2.5 bg-brand-600 hover:bg-brand-500 text-white font-outfit font-extrabold text-xs uppercase tracking-wider rounded-lg shadow transition-colors flex items-center justify-center gap-1.5"
+                                        >
+                                            Done
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={onClose}
+                                            className="w-full py-2.5 bg-[#0f172a] hover:bg-slate-900 border border-[#334155] text-slate-300 hover:text-slate-100 font-outfit font-bold text-xs uppercase tracking-wider rounded-lg transition-all flex items-center justify-center"
+                                        >
+                                            Close
+                                        </button>
+                                    </div>
+                                </motion.div>
+                            )
+                        )}
+
+                        {/* Custom Toast Notification Banner */}
+                        <AnimatePresence>
+                            {toastMessage && (
+                                <motion.div
+                                    initial={{ opacity: 0, y: -20, scale: 0.95 }}
+                                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                                    exit={{ opacity: 0, y: -20, scale: 0.95 }}
+                                    className="fixed top-6 left-1/2 -translate-x-1/2 z-[1100] px-5 py-3.5 bg-red-950/90 border border-red-500/40 text-red-200 rounded-2xl shadow-2xl backdrop-blur-md text-xs font-bold font-outfit flex items-center gap-2.5"
+                                >
+                                    <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0" />
+                                    <span>{toastMessage}</span>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
                     </motion.div>
-                )}
-            </AnimatePresence>
-            </div>
-        </AuthenticatedLayout>
+                </>
+            )}
+        </AnimatePresence>
     );
 }

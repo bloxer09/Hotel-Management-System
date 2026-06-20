@@ -63,6 +63,7 @@ class InventoryController extends Controller
             'minimum_stock' => 'required|integer|min:0',
             'unit_cost' => 'required|numeric|min:0',
             'selling_price' => 'required|numeric|min:0',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:2048',
         ]);
 
         $user = $request->user();
@@ -70,7 +71,27 @@ class InventoryController extends Controller
             abort(403, 'Only administrators can add new inventory items.');
         }
 
-        $item = InventoryItem::create($request->all());
+        $imagePath = null;
+        if ($request->hasFile('image')) {
+            $file = $request->file('image');
+            $path = $file->store('inventory', 'public');
+            $imagePath = '/storage/' . $path;
+        }
+
+        $data = $request->only([
+            'item_name',
+            'category',
+            'unit',
+            'current_stock',
+            'minimum_stock',
+            'unit_cost',
+            'selling_price',
+        ]);
+        if ($imagePath) {
+            $data['image_path'] = $imagePath;
+        }
+
+        $item = InventoryItem::create($data);
 
         BookingService::auditLog(
             $user->id,
@@ -95,6 +116,7 @@ class InventoryController extends Controller
             'unit_cost' => 'required|numeric|min:0',
             'selling_price' => 'required|numeric|min:0',
             'is_active' => 'required|boolean',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:2048',
         ]);
 
         $user = $request->user();
@@ -103,7 +125,28 @@ class InventoryController extends Controller
         }
 
         $oldDetails = $inventoryItem->toArray();
-        $inventoryItem->update($request->all());
+
+        $data = $request->only([
+            'item_name',
+            'category',
+            'unit',
+            'minimum_stock',
+            'unit_cost',
+            'selling_price',
+            'is_active',
+        ]);
+
+        if ($request->hasFile('image')) {
+            if ($inventoryItem->image_path) {
+                $oldFile = str_replace('/storage/', '', $inventoryItem->image_path);
+                \Storage::disk('public')->delete($oldFile);
+            }
+            $file = $request->file('image');
+            $path = $file->store('inventory', 'public');
+            $data['image_path'] = '/storage/' . $path;
+        }
+
+        $inventoryItem->update($data);
         $newDetails = $inventoryItem->toArray();
 
         BookingService::auditLog(

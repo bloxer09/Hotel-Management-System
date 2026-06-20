@@ -472,12 +472,18 @@ class ReportController extends Controller
             }
         }
 
-        return Inertia::render('Reports/Analytics', [
+        $responseData = [
             'month' => $monthStr,
             'dailyStats' => $dailyStats,
             'roomsCount' => $roomsCount,
             'rooms' => $rooms,
             'selectedRoomId' => $selectedRoomId ? (int)$selectedRoomId : null,
-        ]);
+        ];
+
+        if ($request->wantsJson()) {
+            return response()->json($responseData);
+        }
+
+        return Inertia::render('Reports/Analytics', $responseData);
     }
 }

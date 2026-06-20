@@ -25,12 +25,14 @@ import {
     TrendingUp
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import ReceiptModal from '@/Components/ReceiptModal';
 
 export default function Show({ booking, vacantRooms = [], inventoryUsages, inventoryItems, calculations }) {
     const { auth } = usePage().props;
     const user = auth.user;
 
     const [activeModal, setActiveModal] = useState(null); // 'extend', 'add_item', 'checkout', 'cancel'
+    const [showReceiptModal, setShowReceiptModal] = useState(false);
 
     // Form: Extend stay
     const extendForm = useForm({
@@ -186,28 +188,20 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
                 {/* Header Back button */}
                 <div className="flex justify-between items-center">
                     <Link
-                        href={route('bookings.index')}
+                        href={route('reservations.index')}
                         className="text-xs font-bold text-slate-400 hover:text-slate-100 flex items-center gap-1 transition-colors"
                     >
-                        <ChevronLeft size={16} /> Back to Stay History
+                        <ChevronLeft size={16} /> Back to Bookings
                     </Link>
 
                     <div className="flex items-center gap-3">
                         {booking.status !== 'cancelled' && (
-                            <>
-                                <button
-                                    onClick={() => setActiveModal('pos_receipt')}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-[#334155]/60 hover:bg-brand-650 border border-[#475569]/30 text-slate-200 hover:text-slate-50 text-xs font-bold rounded-xl transition-all shadow-sm"
-                                >
-                                    <FileText size={14} /> Live POS Preview
-                                </button>
-                                <Link
-                                    href={route('bookings.receipt', booking.id)}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-[#334155]/60 hover:bg-brand-650 border border-[#475569]/30 text-slate-200 hover:text-slate-50 text-xs font-bold rounded-xl transition-all shadow-sm"
-                                >
-                                    <Printer size={14} /> Print Receipt
-                                </Link>
-                            </>
+                            <button
+                                onClick={() => setShowReceiptModal(true)}
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#334155]/60 hover:bg-brand-650 border border-[#475569]/30 text-slate-200 hover:text-slate-50 text-xs font-bold rounded-xl transition-all shadow-sm"
+                            >
+                                <Printer size={14} /> Print Receipt
+                            </button>
                         )}
                         {booking.status === 'active' && (
                             <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-950 text-emerald-400 border border-emerald-500/20 text-xs font-semibold rounded-xl uppercase tracking-wider">
@@ -914,163 +908,11 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
             )}
 
             {/* Modal: Live POS Receipt Preview */}
-            {activeModal === 'pos_receipt' && (
-                <div className="fixed inset-0 bg-[#070b13]/92 z-[9999] flex items-center justify-center p-4">
-                    <motion.div 
-                        initial={{ opacity: 0, y: 30 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="bg-[#1e293b] border border-[#334155] rounded-3xl w-full max-w-md overflow-hidden shadow-2xl p-6 flex flex-col gap-4 text-slate-100 max-h-[90vh]"
-                    >
-                        <div className="flex justify-between items-center border-b border-[#334155] pb-3">
-                            <h3 className="font-outfit font-extrabold text-base text-slate-200 flex items-center gap-2">
-                                <Printer size={16} className="text-brand-400" /> Live POS Thermal Receipt
-                            </h3>
-                            <button onClick={() => setActiveModal(null)} className="p-1 rounded bg-[#0f172a] border border-[#334155] text-slate-400">
-                                <X size={14} />
-                            </button>
-                        </div>
-
-                        {/* Simulated Thermal Receipt Roll */}
-                        <div className="flex-1 overflow-y-auto pr-1">
-                            <div className="bg-white text-black p-5 font-mono text-[10px] leading-tight shadow-2xl rounded-xl mx-auto max-w-[280px] border border-slate-200 relative select-none">
-                                <div className="text-center font-bold text-xs uppercase mb-1">
-                                    UPTOWN PENSION HOUSE
-                                </div>
-                                <div className="text-center text-[9px] mb-3 leading-tight">
-                                    Mansilingan, Bacolod City<br />
-                                    Tel: +63 (34) 434-1234<br />
-                                    --------------------------------
-                                </div>
-
-                                <div className="space-y-1 text-[9px]">
-                                    <div><strong>OR #:</strong> {booking.transactions?.filter(t => t.formatted_or_number).map(t => t.formatted_or_number).join(', ') || `RCP-${booking.booking_ref.replace(/[^A-Z0-9]/gi, '').toUpperCase()}`}</div>
-                                    <div><strong>Ref:</strong> {booking.booking_ref}</div>
-                                    <div><strong>Date:</strong> {new Date().toLocaleString()}</div>
-                                    <div><strong>Guest:</strong> {booking.guest_name}</div>
-                                    <div><strong>Room:</strong> Room {booking.room?.room_number} ({booking.room?.type?.type_name})</div>
-                                    <div><strong>Stay:</strong> {booking.booking_type === 'overnight' ? 'Overnight Stay' : `Short Time (${booking.short_time_hours}h)`}</div>
-                                    <div><strong>Check-In:</strong> {new Date(booking.check_in).toLocaleString()}</div>
-                                    <div><strong>Check-Out:</strong> {new Date(booking.check_out || booking.expected_check_out).toLocaleString()}</div>
-                                </div>
-
-                                <div className="border-t border-dashed border-black my-2"></div>
-                                <div className="text-center font-bold uppercase text-[8px] mb-1">Itemized Room Charges</div>
-                                <table className="w-full text-[9px] text-left border-collapse">
-                                    <tbody>
-                                        <tr>
-                                            <td>Base Room Charge</td>
-                                            <td className="text-right font-bold">₱{Number(booking.base_amount).toLocaleString(undefined, {minimumFractionDigits:2})}</td>
-                                        </tr>
-                                        {Number(booking.peak_surcharge) > 0 && (
-                                            <tr>
-                                                <td>Peak Date Surcharge</td>
-                                                <td className="text-right font-bold">+₱{Number(booking.peak_surcharge).toLocaleString(undefined, {minimumFractionDigits:2})}</td>
-                                            </tr>
-                                        )}
-                                        {Number(booking.extension_fee) > 0 && (
-                                            <tr>
-                                                <td>Extension Stay Fee</td>
-                                                <td className="text-right font-bold">+₱{Number(booking.extension_fee).toLocaleString(undefined, {minimumFractionDigits:2})}</td>
-                                            </tr>
-                                        )}
-                                        {Number(booking.late_checkout_fee) > 0 && (
-                                            <tr>
-                                                <td>Late Checkout Fee {booking.late_hours ? `(${booking.late_hours}h)` : ''}</td>
-                                                <td className="text-right font-bold">+₱{Number(booking.late_checkout_fee).toLocaleString(undefined, {minimumFractionDigits:2})}</td>
-                                            </tr>
-                                        )}
-                                        {Number(booking.discount_amount) > 0 && (
-                                            <tr className="text-red-700 font-bold">
-                                                <td>Discount ({booking.discount_type?.toUpperCase()})</td>
-                                                <td className="text-right font-bold">-₱{Number(booking.discount_amount).toLocaleString(undefined, {minimumFractionDigits:2})}</td>
-                                            </tr>
-                                        )}
-                                    </tbody>
-                                </table>
-
-                                {/* Minibar purchases */}
-                                {inventoryUsages && inventoryUsages.length > 0 && (
-                                    <>
-                                        <div className="border-t border-dashed border-black my-2"></div>
-                                        <div className="text-center font-bold uppercase text-[8px] mb-1">Minibar / Pantry Charges</div>
-                                        <table className="w-full text-[9px] text-left border-collapse">
-                                            <tbody>
-                                                {inventoryUsages.map((u, i) => (
-                                                    <tr key={i}>
-                                                        <td>{u.item?.item_name || 'Item'} x{u.quantity}</td>
-                                                        <td className="text-right font-bold">₱{Number(u.total_price).toLocaleString(undefined, {minimumFractionDigits:2})}</td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </>
-                                )}
-
-                                <div className="border-t border-dashed border-black my-2"></div>
-                                <div className="space-y-0.5 text-[9px]">
-                                    <div className="flex justify-between font-bold">
-                                        <span>TOTAL STAY FEE:</span>
-                                        <span>₱{Number(booking.total_amount).toLocaleString(undefined, {minimumFractionDigits:2})}</span>
-                                    </div>
-                                    {inventoryUsages && inventoryUsages.length > 0 && (
-                                        <div className="flex justify-between font-bold">
-                                            <span>TOTAL SHOP FEE:</span>
-                                            <span>
-                                                ₱{Number(inventoryUsages.reduce((acc, u) => acc + Number(u.total_price), 0)).toLocaleString(undefined, {minimumFractionDigits:2})}
-                                            </span>
-                                        </div>
-                                    )}
-                                    <div className="border-t border-black my-1"></div>
-                                    <div className="flex justify-between font-bold text-[10px]">
-                                        <span>GRAND TOTAL DUE:</span>
-                                        <span>
-                                            ₱{Number(
-                                                Number(booking.total_amount) + 
-                                                Number(inventoryUsages?.reduce((acc, u) => acc + Number(u.total_price), 0) || 0)
-                                            ).toLocaleString(undefined, {minimumFractionDigits:2})}
-                                        </span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span>Amount Paid:</span>
-                                        <span className="font-bold">₱{Number(booking.amount_paid).toLocaleString(undefined, {minimumFractionDigits:2})}</span>
-                                    </div>
-                                    <div className="flex justify-between font-bold text-[9px]">
-                                        <span>Balance Due:</span>
-                                        <span>₱{Math.max(0, (Number(booking.total_amount) + Number(inventoryUsages?.reduce((acc, u) => acc + Number(u.total_price), 0) || 0)) - Number(booking.amount_paid)).toLocaleString(undefined, {minimumFractionDigits:2})}</span>
-                                    </div>
-                                    <div className="flex justify-between text-[8px]">
-                                        <span>Payment Method:</span>
-                                        <span className="uppercase">{booking.payment_method}</span>
-                                    </div>
-                                </div>
-
-                                <div className="border-t border-dashed border-black my-2"></div>
-                                <div className="text-center text-[8px] mb-2 leading-tight">
-                                    Thank you for choosing Uptown!<br />
-                                    Please come again!
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="flex gap-3">
-                            <button
-                                onClick={() => {
-                                    window.open(route('bookings.receipt', booking.id) + '?print=1', '_blank');
-                                }}
-                                className="flex-1 py-2.5 bg-brand-600 hover:bg-brand-500 rounded-xl text-slate-50 font-bold text-xs flex justify-center items-center gap-1.5 transition-all shadow-md shadow-brand-600/10 active:scale-95"
-                            >
-                                <Printer size={14} /> Send to Thermal Printer
-                            </button>
-                            <button
-                                onClick={() => setActiveModal(null)}
-                                className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-slate-400 font-bold text-xs transition-colors"
-                            >
-                                Close
-                            </button>
-                        </div>
-                    </motion.div>
-                </div>
-            )}
+            <ReceiptModal
+                isOpen={showReceiptModal}
+                booking={booking}
+                onClose={() => setShowReceiptModal(false)}
+            />
 
         </AuthenticatedLayout>
     );

@@ -65,6 +65,7 @@ Route::middleware('auth')->group(function () {
             Route::post('/checkin', [CheckInController::class, 'store'])->name('checkin.store');
             Route::post('/checkin/calculate', [CheckInController::class, 'calculate'])->name('checkin.calculate');
             Route::post('/bookings/{booking}/move', [BookingController::class, 'move'])->name('bookings.move');
+            Route::put('/bookings/{booking}', [BookingController::class, 'update'])->name('bookings.update');
         });
 
         // Reservations / Future Bookings (Admin, Front Desk, Cashier)
@@ -74,16 +75,18 @@ Route::middleware('auth')->group(function () {
 
         // Reservation Operations (Admin, Front Desk)
         Route::middleware('role:admin,front_desk')->group(function () {
-            Route::get('/reservations/create', [ReservationController::class, 'create'])->name('reservations.create');
+            // /reservations/create now opens a modal on the index page — redirect old URL
+            Route::get('/reservations/create', fn() => redirect()->route('reservations.index'))->name('reservations.create');
             Route::post('/reservations', [ReservationController::class, 'store'])->name('reservations.store');
             Route::post('/reservations/calculate', [ReservationController::class, 'calculate'])->name('reservations.calculate');
             Route::post('/reservations/{booking}/checkin', [ReservationController::class, 'checkin'])->name('reservations.checkin');
             Route::post('/reservations/{booking}/cancel', [ReservationController::class, 'cancel'])->name('reservations.cancel');
+            Route::post('/reservations/{booking}/noshow', [ReservationController::class, 'noshow'])->name('reservations.noshow');
+            Route::post('/reservations/{booking}/reschedule', [ReservationController::class, 'reschedule'])->name('reservations.reschedule');
         });
 
         // Bookings Operations (Admin, Front Desk, Cashier)
         Route::middleware('role:admin,front_desk,cashier')->group(function () {
-            Route::get('/bookings', [BookingController::class, 'index'])->name('bookings.index');
             Route::get('/bookings/{booking}', [BookingController::class, 'show'])->name('bookings.show');
             Route::post('/bookings/{booking}/checkout', [BookingController::class, 'checkout'])->name('bookings.checkout');
             Route::post('/bookings/{booking}/extend', [BookingController::class, 'extend'])->name('bookings.extend');
@@ -111,7 +114,7 @@ Route::middleware('auth')->group(function () {
     // Inventory & Stock Controls (Admin, Front Desk)
     Route::middleware('role:admin,front_desk')->group(function () {
         Route::get('/inventory', [InventoryController::class, 'index'])->name('inventory.index');
-        Route::get('/inventory/bulk-usage', [InventoryController::class, 'bulkUsageView'])->name('inventory.bulk_usage');
+        Route::get('/inventory/bulk-usage', fn() => redirect()->route('inventory.index'))->name('inventory.bulk_usage');
         Route::post('/inventory', [InventoryController::class, 'store'])->name('inventory.store');
         Route::patch('/inventory/{inventoryItem}', [InventoryController::class, 'update'])->name('inventory.update');
         Route::post('/inventory/{inventoryItem}/adjust', [InventoryController::class, 'adjust'])->name('inventory.adjust');

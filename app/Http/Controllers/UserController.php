@@ -17,7 +17,11 @@ class UserController extends Controller
             abort(403, 'Unauthorized access.');
         }
 
-        $users = User::orderBy('full_name', 'asc')->get(['id', 'username', 'password', 'full_name as name', 'role', 'email', 'phone', 'is_active', 'last_login', 'created_at', 'updated_at']);
+        $users = User::orderBy('full_name', 'asc')->get([
+            'id', 'username', 'password', 'full_name as name', 'role', 
+            'email', 'phone', 'avatar_path', 'is_active', 'last_login', 
+            'created_at', 'updated_at'
+        ]);
 
         return Inertia::render('Settings/Users', [
             'users' => $users,
@@ -32,11 +36,17 @@ class UserController extends Controller
             'password' => 'required|string|min:6',
             'role' => 'required|in:admin,front_desk,cashier,housekeeping',
             'is_active' => 'required|boolean',
+            'photo' => 'nullable|image|max:4096',
         ]);
 
         $admin = $request->user();
         if ($admin->role !== 'admin') {
             abort(403, 'Unauthorized access.');
+        }
+
+        $path = null;
+        if ($request->hasFile('photo')) {
+            $path = $request->file('photo')->store('avatars', 'public');
         }
 
         $user = User::create([
@@ -45,6 +55,7 @@ class UserController extends Controller
             'password' => Hash::make($request->password),
             'role' => $request->role,
             'is_active' => $request->is_active,
+            'avatar_path' => $path,
         ]);
 
         BookingService::auditLog(
@@ -67,6 +78,8 @@ class UserController extends Controller
             'role' => 'required|in:admin,front_desk,cashier,housekeeping',
             'is_active' => 'required|boolean',
             'password' => 'nullable|string|min:6',
+            'photo' => 'nullable|image|max:4096',
+            'remove_photo' => 'nullable|boolean',
         ]);
 
         $admin = $request->user();
@@ -82,6 +95,19 @@ class UserController extends Controller
 
         if ($request->filled('password')) {
             $user->password = Hash::make($request->password);
+        }
+
+        if ($request->boolean('remove_photo')) {
+            if ($user->avatar_path) {
+                \Illuminate\Support\Facades\Storage::disk('public')->delete($user->avatar_path);
+            }
+            $user->avatar_path = null;
+        } elseif ($request->hasFile('photo')) {
+            if ($user->avatar_path) {
+                \Illuminate\Support\Facades\Storage::disk('public')->delete($user->avatar_path);
+            }
+            $path = $request->file('photo')->store('avatars', 'public');
+            $user->avatar_path = $path;
         }
 
         $user->save();

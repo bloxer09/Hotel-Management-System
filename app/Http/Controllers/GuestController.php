@@ -54,12 +54,19 @@ class GuestController extends Controller
         return response()->json($guests);
     }
 
-    public function show(GuestProfile $guest)
+    public function show(GuestProfile $guest, Request $request)
     {
         $bookings = Booking::with(['room', 'room.type'])
             ->where('guest_profile_id', $guest->id)
             ->orderBy('id', 'desc')
             ->get();
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'guest' => $guest,
+                'bookings' => $bookings,
+            ]);
+        }
 
         return Inertia::render('Guests/Show', [
             'guest' => $guest,

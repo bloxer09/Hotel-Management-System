@@ -42,9 +42,15 @@ export default function AuthenticatedLayout({ children }) {
     const user = auth.user;
     const activeShift = auth.active_shift;
 
-    const [isCollapsed, setIsCollapsed] = useState(false);
+    const [isCollapsed, setIsCollapsed] = useState(() => {
+        return localStorage.getItem('sidebar-collapsed') === 'true';
+    });
     const [isMobileOpen, setIsMobileOpen] = useState(false);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+    useEffect(() => {
+        localStorage.setItem('sidebar-collapsed', isCollapsed ? 'true' : 'false');
+    }, [isCollapsed]);
 
     // ─── Toast state ─────────────────────────────────────────────────────────
     const [toast, setToast] = useState(null);
@@ -199,13 +205,7 @@ export default function AuthenticatedLayout({ children }) {
             roles: ['admin', 'front_desk', 'cashier'],
             current: route().current('dashboard')
         },
-        {
-            name: 'Room Availability',
-            icon: CalendarDays,
-            href: route('reports.analytics'),
-            roles: ['admin', 'front_desk', 'cashier'],
-            current: route().current('reports.analytics')
-        },
+
         {
             name: 'Rooms',
             icon: BedDouble,
@@ -214,19 +214,11 @@ export default function AuthenticatedLayout({ children }) {
             current: route().current('rooms.*')
         },
         {
-            name: 'Check-In',
+            name: 'Check In',
             icon: ClipboardList,
             href: route('checkin.index'),
             roles: ['admin', 'front_desk'],
-            current: route().current('checkin.*'),
-            requiresShift: true
-        },
-        {
-            name: 'Stay History',
-            icon: ClipboardList,
-            href: route('bookings.index'),
-            roles: ['admin', 'front_desk', 'cashier'],
-            current: route().current('bookings.*'),
+            current: route().current('checkin.*') || route().current('bookings.*'),
             requiresShift: true
         },
         {
@@ -249,14 +241,7 @@ export default function AuthenticatedLayout({ children }) {
             icon: Package,
             href: route('inventory.index'),
             roles: ['admin', 'front_desk'],
-            current: route().current('inventory.index')
-        },
-        {
-            name: 'Bulk Item Usage',
-            icon: ShoppingCart,
-            href: route('inventory.bulk_usage'),
-            roles: ['admin', 'front_desk'],
-            current: route().current('inventory.bulk_usage')
+            current: route().current('inventory.*')
         },
         {
             name: 'Sales & Reports',
@@ -613,12 +598,24 @@ export default function AuthenticatedLayout({ children }) {
                             </div>
 
                             {/* Staff Card */}
-                            <div className="m-4 p-4 rounded-xl bg-[#0f172a]/60 border border-[#334155] flex flex-col gap-2">
-                                <div className="flex items-center justify-between">
-                                    <span className="text-xs text-slate-400 uppercase font-semibold">User Role</span>
-                                    <span className="text-[10px] bg-[#334155] text-slate-300 px-2 py-0.5 rounded font-mono uppercase font-bold">{user.role}</span>
+                            <div className="m-4 p-4 rounded-xl bg-[#0f172a]/60 border border-[#334155] flex flex-col gap-3">
+                                <div className="flex items-center gap-3">
+                                    {user.avatar_url ? (
+                                        <img
+                                            src={user.avatar_url}
+                                            alt={user.name}
+                                            className="w-10 h-10 rounded-full object-cover border border-brand-500/40 shrink-0"
+                                        />
+                                    ) : (
+                                        <div className="w-10 h-10 rounded-full bg-brand-600/20 border border-brand-500/30 text-brand-400 flex items-center justify-center font-outfit text-sm font-black shrink-0">
+                                            {user.name ? user.name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase() : '?'}
+                                        </div>
+                                    )}
+                                    <div className="flex-1 min-w-0">
+                                        <div className="font-outfit font-bold text-sm text-slate-200 truncate">{user.name}</div>
+                                        <span className="inline-block mt-0.5 text-[9px] bg-[#334155] text-slate-300 px-1.5 py-0.5 rounded font-mono uppercase font-bold">{user.role.replace('_', ' ')}</span>
+                                    </div>
                                 </div>
-                                <div className="font-outfit font-bold text-sm">{user.name}</div>
                                 {user.role !== 'housekeeping' && (
                                     <div className="mt-2 pt-2 border-t border-[#334155]/60 flex items-center gap-2">
                                         {activeShift ? (
@@ -887,10 +884,23 @@ export default function AuthenticatedLayout({ children }) {
                         )}
 
                         {/* Topbar User Indicator */}
-                        <div className="flex items-center gap-3 bg-[#0f172a]/55 border border-[#334155] px-4 py-2 rounded-xl">
-                            <UserSquare2 size={18} className="text-brand-400" />
-                            <span className="font-outfit font-bold text-sm text-slate-200 hidden sm:inline">{user.name}</span>
-                        </div>
+                        <Link
+                            href={route('profile.edit')}
+                            className="flex items-center gap-3 bg-[#0f172a]/55 border border-[#334155] hover:border-brand-500/50 hover:bg-[#1e293b]/65 px-4 py-2 rounded-xl transition-all duration-200 group"
+                        >
+                            {user.avatar_url ? (
+                                <img
+                                    src={user.avatar_url}
+                                    alt={user.name}
+                                    className="w-6 h-6 rounded-full object-cover border border-brand-500/40 shrink-0 group-hover:border-brand-400"
+                                />
+                            ) : (
+                                <div className="w-6 h-6 rounded-full bg-brand-600/20 border border-brand-500/30 text-brand-400 group-hover:bg-brand-600/30 flex items-center justify-center font-outfit text-xs font-black shrink-0 transition-colors">
+                                    {user.name ? user.name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase() : '?'}
+                                </div>
+                            )}
+                            <span className="font-outfit font-bold text-sm text-slate-200 group-hover:text-slate-50 hidden sm:inline">{user.name}</span>
+                        </Link>
                     </div>
                 </header>
 

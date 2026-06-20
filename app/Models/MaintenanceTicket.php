@@ -16,6 +16,7 @@ class MaintenanceTicket extends Model
         'resolved_at',
         'resolved_by',
         'notes',
+        'attachment_path',
     ];
 
     protected $casts = [

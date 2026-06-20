@@ -1,51 +1,116 @@
-import React from 'react';
+import React, { useState } from 'react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, useForm, Link, usePage, router } from '@inertiajs/react';
 import {
-    Search,
-    Star,
-    Calendar,
-    TrendingUp,
-    ChevronRight,
-    UserCheck,
-    RefreshCw,
-    Users,
-    Crown
+    Search, Star, Calendar, ChevronRight, UserCheck, RefreshCw, Users, Crown, CheckCircle,
+    Phone, Mail, CreditCard, Bed, Clock, AlertCircle, FileText, Printer, X, User
 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import axios from 'axios';
+import StayDetailsModal from '@/Components/StayDetailsModal';
+import ImagePreviewModal from '@/Components/ImagePreviewModal';
+
+const FILTER_TABS = [
+    { key: 'all', label: 'All Guests', color: 'text-brand-400', dot: 'bg-brand-400' },
+    { key: '1', label: 'VIP', color: 'text-amber-400', dot: 'bg-amber-400' },
+    { key: '0', label: 'Regular', color: 'text-slate-400', dot: 'bg-slate-400' },
+];
 
 export default function Index({ guests, currentSearch, currentVip, stats }) {
     const { auth } = usePage().props;
+    const flash = usePage().props.flash || {};
     const user = auth.user;
+    const isAdmin = user.role === 'admin';
 
-    const { data, setData, get } = useForm({
-        search: currentSearch || ''
+    const [searchTerm, setSearchTerm] = useState(currentSearch || '');
+    const [activeFilter, setActiveFilter] = useState(currentVip !== null && currentVip !== '' ? currentVip.toString() : 'all');
+
+    const [selectedGuest, setSelectedGuest] = useState(null);
+    const [viewStayId, setViewStayId] = useState(null);
+    const [isImageModalOpen, setIsImageModalOpen] = useState(false);
+    const [previewImage, setPreviewImage] = useState(null);
+    const [selectedGuestBookings, setSelectedGuestBookings] = useState([]);
+    const [loadingBookings, setLoadingBookings] = useState(false);
+
+    const vipForm = useForm({
+        is_vip: false,
+        vip_notes: ''
     });
 
-    const syncForm = useForm({});
+    const openGuestModal = async (guest) => {
+        setSelectedGuest(guest);
+        vipForm.setData({
+            is_vip: guest.is_vip ? true : false,
+            vip_notes: guest.vip_notes || ''
+        });
+        vipForm.clearErrors();
+        setLoadingBookings(true);
+        setSelectedGuestBookings([]);
+        try {
+            const res = await axios.get(route('guests.show', guest.id));
+            setSelectedGuestBookings(res.data.bookings || []);
+        } catch (err) {
+            console.error("Failed to load guest stay history:", err);
+        } finally {
+            setLoadingBookings(false);
+        }
+    };
 
-    const handleSearchSubmit = (e) => {
+    const handleVipSubmit = (e) => {
         e.preventDefault();
-        router.get(route('guests.index'), { search: data.search, vip: currentVip ?? '' }, { preserveState: false });
+        vipForm.post(route('guests.vip', selectedGuest.id), {
+            preserveScroll: true,
+            onSuccess: (page) => {
+                // Update selectedGuest locally with new vip status from the loaded prop
+                const updated = page.props.guests.find(g => g.id === selectedGuest.id);
+                if (updated) {
+                    setSelectedGuest(updated);
+                }
+            }
+        });
     };
 
-    const handleVipFilter = (vipVal) => {
-        router.get(route('guests.index'), { search: data.search, vip: vipVal }, { preserveState: false });
-    };
+    const syncForm = useForm({});
 
     const handleSyncSubmit = (e) => {
         e.preventDefault();
         syncForm.post(route('guests.sync'));
     };
 
+    // Fast frontend live filter
+    const filteredGuests = guests.filter(g => {
+        if (activeFilter === '1' && !g.is_vip) return false;
+        if (activeFilter === '0' && g.is_vip) return false;
+        if (searchTerm.trim() !== '') {
+            const query = searchTerm.toLowerCase();
+            const name = g.full_name?.toLowerCase() || '';
+            const contact = g.contact_number || '';
+            const email = g.email?.toLowerCase() || '';
+            const idNum = g.id_number || '';
+            return name.includes(query) || contact.includes(query) || email.includes(query) || idNum.includes(query);
+        }
+        return true;
+    });
+
+    const activeTab = FILTER_TABS.find(t => t.key === activeFilter) || FILTER_TABS[0];
+
     return (
         <AuthenticatedLayout>
-            <Head title="Guests" />
+            <Head title="Guest History" />
 
-            <div className="flex flex-col gap-8">
+            <AnimatePresence>
+                {flash.success && (
+                    <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
+                        className="mb-4 p-4 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-emerald-300 text-sm font-medium flex items-center gap-2">
+                        <CheckCircle size={16} /> {flash.success}
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            <div className="flex flex-col gap-6">
 
                 {/* Title + Actions */}
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div className="flex items-start justify-between gap-4">
                     <div>
                         <h1 className="text-3xl font-outfit font-extrabold tracking-tight text-slate-100">
                             Guest History
@@ -57,7 +122,7 @@ export default function Index({ guests, currentSearch, currentVip, stats }) {
                             <button
                                 type="submit"
                                 disabled={syncForm.processing}
-                                className="flex items-center gap-2 px-4 py-2.5 bg-slate-800 border border-slate-700/60 hover:bg-slate-700 rounded-xl text-slate-200 text-xs font-bold font-outfit shadow-sm transition-all disabled:opacity-50"
+                                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-800 border border-slate-700/60 hover:bg-slate-700 text-slate-200 text-xs font-bold font-outfit shadow-sm transition-all disabled:opacity-50 active:scale-95 shrink-0"
                             >
                                 <RefreshCw size={14} className={syncForm.processing ? 'animate-spin' : ''} /> Sync from Bookings
                             </button>
@@ -65,136 +130,431 @@ export default function Index({ guests, currentSearch, currentVip, stats }) {
                     )}
                 </div>
 
-                {/* Stats KPI */}
-                {stats && (
-                    <div className="grid grid-cols-3 gap-4">
-                        <button onClick={() => handleVipFilter('')}
-                            className={`p-4 rounded-xl border text-left transition-all ${!currentVip ? 'bg-brand-600/20 border-brand-500/50 text-brand-100' : 'bg-[#1e293b] border-[#334155] text-slate-400 hover:bg-[#334155]/40'}`}>
-                            <span className="text-[10px] uppercase font-bold tracking-wider block mb-1 flex items-center gap-1"><Users size={11} /> All Guests</span>
-                            <span className="text-2xl font-outfit font-bold text-slate-100">{stats.totalCount}</span>
-                        </button>
-                        <button onClick={() => handleVipFilter('1')}
-                            className={`p-4 rounded-xl border text-left transition-all ${currentVip === '1' ? 'bg-amber-600/20 border-amber-500/50 text-amber-100' : 'bg-[#1e293b] border-[#334155] text-slate-400 hover:bg-[#334155]/40'}`}>
-                            <span className="text-[10px] uppercase font-bold tracking-wider block mb-1 flex items-center gap-1"><Crown size={11} /> VIP Guests</span>
-                            <span className="text-2xl font-outfit font-bold text-amber-400">{stats.vipCount}</span>
-                        </button>
-                        <button onClick={() => handleVipFilter('0')}
-                            className={`p-4 rounded-xl border text-left transition-all ${currentVip === '0' ? 'bg-slate-600/20 border-slate-500/50 text-slate-100' : 'bg-[#1e293b] border-[#334155] text-slate-400 hover:bg-[#334155]/40'}`}>
-                            <span className="text-[10px] uppercase font-bold tracking-wider block mb-1 flex items-center gap-1"><Users size={11} /> Regular</span>
-                            <span className="text-2xl font-outfit font-bold text-slate-300">{stats.regularCount}</span>
-                        </button>
-                    </div>
-                )}
+                {/* Tabs + Search */}
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 justify-between">
+                    <div className="flex gap-1 bg-[#1e293b] p-1 rounded-xl border border-[#334155]">
+                        {FILTER_TABS.map(tab => {
+                            const count = tab.key === 'all'
+                                ? stats?.totalCount
+                                : tab.key === '1' ? stats?.vipCount : stats?.regularCount;
 
-                {/* Search panel */}
-                <form onSubmit={handleSearchSubmit} className="p-4 rounded-2xl bg-[#1e293b] border border-[#334155] shadow-lg flex gap-4">
-                    <div className="relative flex-1">
-                        <Search className="absolute left-4 top-3 text-slate-500" size={16} />
-                        <input
-                            type="text"
-                            value={data.search}
-                            onChange={e => setData('search', e.target.value)}
-                            placeholder="Search guests by name, phone number, email..."
-                            className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 pl-11 pr-4 py-2.5 focus:outline-none focus:border-brand-500 text-xs"
-                        />
+                            return (
+                                <button key={tab.key} onClick={() => setActiveFilter(tab.key)}
+                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${activeFilter === tab.key ? 'bg-[#0f172a] text-slate-100 shadow' : 'text-slate-400 hover:text-slate-200'
+                                        }`}>
+                                    <span className={`w-1.5 h-1.5 rounded-full ${tab.dot} ${activeFilter === tab.key ? 'opacity-100' : 'opacity-40'}`} />
+                                    {tab.label}
+                                    {count !== undefined && (
+                                        <span className="text-[10px] bg-[#334155]/60 px-1.5 py-0.5 rounded font-mono font-bold text-slate-400 ml-1">
+                                            {count}
+                                        </span>
+                                    )}
+                                </button>
+                            );
+                        })}
                     </div>
-                    <button
-                        type="submit"
-                        className="px-5 py-2.5 bg-brand-600 hover:bg-brand-500 rounded-xl text-slate-50 text-xs font-bold font-outfit"
-                    >
-                        Search
-                    </button>
-                </form>
+                    <div className="relative w-full sm:w-64">
+                        <Search className="absolute left-4 top-3 text-slate-500" size={16} />
+                        <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+                            placeholder="Search name, phone, email..."
+                            className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 pl-11 pr-4 py-2.5 focus:outline-none focus:border-brand-500 text-xs" />
+                    </div>
+                </div>
 
                 {/* Profiles Table */}
-                <div className="p-6 rounded-2xl bg-[#1e293b] border border-[#334155] shadow-xl">
+                <div className="rounded-2xl bg-[#1e293b] border border-[#334155] overflow-hidden shadow-xl">
                     <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse text-sm">
+                        <table className="w-full text-xs">
                             <thead>
-                                <tr className="border-b border-[#334155] text-xs font-semibold text-slate-400 uppercase tracking-wider pb-3">
-                                    <th className="pb-3">Guest Profile</th>
-                                    <th className="pb-3">Contact info</th>
-                                    <th className="pb-3">Stays</th>
-                                    <th className="pb-3">Total Spent</th>
-                                    <th className="pb-3">Last Visit</th>
-                                    <th className="pb-3 text-right">Actions</th>
+                                <tr className="border-b border-[#334155] bg-[#0f172a]/60">
+                                    <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Guest Profile</th>
+                                    <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Contact Info</th>
+                                    <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Stays Count</th>
+                                    <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Total Spent</th>
+                                    <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Last Visit</th>
+                                    <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-right">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-[#334155]/60 text-slate-300">
-                                {guests.length > 0 ? (
-                                    guests.map((g) => (
-                                        <tr key={g.id} className="hover:bg-[#0f172a]/20 transition-colors">
-
-                                            {/* Full name & VIP flag */}
-                                            <td className="py-4">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="font-outfit font-black text-slate-200">{g.full_name}</span>
-                                                    {g.is_vip && (
-                                                        <span className="inline-flex items-center gap-0.5 text-[9px] bg-amber-950 border border-amber-600/30 text-amber-400 px-1.5 py-0.5 rounded font-bold">
-                                                            <Crown size={9} /> VIP
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                <span className="text-[10px] text-slate-500 font-mono block mt-1">ID: {g.id_type || 'None'} / {g.id_number || '-'}</span>
-                                                {g.is_vip && g.vip_notes && (
-                                                    <span className="text-[10px] text-amber-600/70 italic block mt-0.5 truncate max-w-[200px]">{g.vip_notes}</span>
-                                                )}
-                                            </td>
-
-                                            {/* Contact */}
-                                            <td className="py-4 text-xs">
-                                                <span className="block">{g.contact_number || '-'}</span>
-                                                <span className="text-slate-400 block mt-0.5">{g.email || '-'}</span>
-                                            </td>
-
-                                            {/* Stays count */}
-                                            <td className="py-4 text-xs font-mono font-bold text-slate-300">
-                                                {g.total_stays} stay(s)
-                                            </td>
-
-                                            {/* Spent */}
-                                            <td className="py-4 text-xs font-mono font-bold text-brand-300">
-                                                ₱{Number(g.total_spent).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                            </td>
-
-                                            {/* Last Visit */}
-                                            <td className="py-4 text-xs font-mono text-slate-400">
-                                                {g.last_visit ? new Date(g.last_visit).toLocaleDateString() : '-'}
-                                            </td>
-
-                                            {/* Actions */}
-                                            <td className="py-4 text-right">
-                                                <div className="flex items-center justify-end gap-2 flex-wrap">
-                                                    <Link
-                                                        href={route('checkin.index', { guest_id: g.id })}
-                                                        className="inline-flex items-center gap-1.5 px-3 py-2 bg-emerald-950/45 hover:bg-emerald-900/60 border border-emerald-900/40 rounded-xl text-xs font-bold text-emerald-400 hover:text-emerald-300 transition-colors shadow-sm"
-                                                    >
-                                                        <UserCheck size={14} /> Quick Check-In
-                                                    </Link>
-                                                    <Link
-                                                        href={route('guests.show', g.id)}
-                                                        className="inline-flex items-center gap-1 px-3 py-2 bg-[#0f172a]/60 hover:bg-[#334155] border border-[#334155] rounded-xl text-xs font-bold text-brand-400 hover:text-brand-300 transition-colors"
-                                                    >
-                                                        View Details <ChevronRight size={14} />
-                                                    </Link>
-                                                </div>
-                                            </td>
-
-                                        </tr>
-                                    ))
-                                ) : (
+                            <tbody>
+                                {filteredGuests.length === 0 ? (
                                     <tr>
-                                        <td colSpan="6" className="py-10 text-center text-slate-500">
-                                            {currentVip === '1' ? 'No VIP guests found.' : currentVip === '0' ? 'No regular guests found.' : 'No guest profiles found matching query.'}
+                                        <td colSpan={6} className="px-4 py-12 text-center text-slate-500">
+                                            {searchTerm ? `No results for "${searchTerm}"` : `No ${activeTab.label.toLowerCase()} profiles found.`}
                                         </td>
                                     </tr>
-                                )}
+                                ) : filteredGuests.map((g, i) => (
+                                    <motion.tr key={g.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}
+                                        className="border-b border-[#334155]/50 hover:bg-[#0f172a]/40 transition-colors">
+
+                                        {/* Full name & VIP flag */}
+                                        <td className="px-4 py-4">
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-outfit font-black text-slate-200 text-sm">{g.full_name}</span>
+                                                {g.is_vip && (
+                                                    <span className="inline-flex items-center gap-1 text-[9px] bg-amber-950 border border-amber-600/30 text-amber-400 px-1.5 py-0.5 rounded font-black uppercase">
+                                                        <Crown size={9} /> VIP
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <span className="text-[10px] text-slate-500 font-mono block mt-1">Govt ID: {g.id_type || 'None'} / {g.id_number || '—'}</span>
+                                            {g.is_vip && g.vip_notes && (
+                                                <span className="text-[10px] text-amber-600/70 italic block mt-0.5 truncate max-w-[220px]" title={g.vip_notes}>{g.vip_notes}</span>
+                                            )}
+                                        </td>
+
+                                        {/* Contact */}
+                                        <td className="px-4 py-4 leading-normal">
+                                            <div className="font-mono text-slate-300">{g.contact_number || '—'}</div>
+                                            <div className="text-slate-500 text-[10px] mt-0.5">{g.email || '—'}</div>
+                                        </td>
+
+                                        {/* Stays count */}
+                                        <td className="px-4 py-4">
+                                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-[#0f172a] border border-[#334155] text-slate-300 text-[10px] rounded-full font-bold uppercase">
+                                                {g.total_stays} stay(s)
+                                            </span>
+                                        </td>
+
+                                        {/* Spent */}
+                                        <td className="px-4 py-4 font-mono font-bold text-brand-400">
+                                            ₱{Number(g.total_spent).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                        </td>
+
+                                        {/* Last Visit */}
+                                        <td className="px-4 py-4 font-mono text-slate-400">
+                                            {g.last_visit ? new Date(g.last_visit).toLocaleDateString(undefined, { dateStyle: 'medium' }) : '—'}
+                                        </td>
+
+                                        {/* Actions */}
+                                        <td className="px-4 py-4 text-right">
+                                             <div className="inline-flex items-center gap-1.5">
+                                                 <Link
+                                                     href={route('checkin.index', { guest_id: g.id })}
+                                                     className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-[10px] font-bold text-white transition-colors"
+                                                 >
+                                                     <UserCheck size={11} /> Quick Check-In
+                                                 </Link>
+                                                 <button
+                                                     onClick={() => openGuestModal(g)}
+                                                     className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-[#0f172a] hover:bg-brand-600/20 border border-[#334155] hover:border-brand-500/40 rounded-lg text-[10px] font-bold text-brand-400 transition-all cursor-pointer"
+                                                 >
+                                                     Details <ChevronRight size={11} />
+                                                 </button>
+                                             </div>
+                                        </td>
+
+                                    </motion.tr>
+                                ))}
                             </tbody>
                         </table>
                     </div>
                 </div>
 
             </div>
+
+            {/* ── GUEST DETAILS MODAL ── */}
+            <AnimatePresence>
+                {selectedGuest && (
+                    <>
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setSelectedGuest(null)}
+                            className="fixed inset-0 bg-[#070b13]/90 z-[999]"
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: 16 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 16 }}
+                            transition={{ type: 'spring', damping: 26, stiffness: 320 }}
+                            className="fixed inset-0 z-[1000] flex items-center justify-center p-4"
+                        >
+                            <div className="bg-[#1e293b] border border-[#334155] rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden">
+                                
+                                {/* Header */}
+                                <div className="flex items-center justify-between border-b border-[#334155] px-6 py-4 shrink-0 bg-[#0f172a]/40">
+                                    <div className="flex flex-col gap-1">
+                                        <div className="flex items-center gap-3">
+                                            <h2 className="text-2xl font-outfit font-black text-slate-100">{selectedGuest.full_name}</h2>
+                                            {selectedGuest.is_vip && (
+                                                <span className="inline-flex items-center gap-1 text-[10px] bg-amber-950 border border-amber-600/40 text-amber-400 px-2 py-0.5 rounded-full font-bold shadow">
+                                                    <Star size={10} className="fill-amber-400 text-amber-400" /> VIP Status
+                                                </span>
+                                            )}
+                                        </div>
+                                        <p className="text-[10px] text-slate-400 font-mono">Profile Reference: GUST-{selectedGuest.id.toString().padStart(5, '0')}</p>
+                                    </div>
+                                    <button 
+                                        onClick={() => setSelectedGuest(null)}
+                                        className="p-1.5 rounded-lg bg-[#0f172a] border border-[#334155] text-slate-400 hover:text-slate-100 transition-colors"
+                                    >
+                                        <X size={18} />
+                                    </button>
+                                </div>
+
+                                {/* Body */}
+                                <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                                    {/* Quick Stats Grid */}
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                        {/* Stay Stats */}
+                                        <div className="p-4 rounded-xl bg-[#0f172a]/40 border border-[#334155]/60 flex flex-col justify-between relative overflow-hidden group">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Stay Record</span>
+                                                <Calendar size={14} className="text-brand-400" />
+                                            </div>
+                                            <div className="mt-2 flex items-baseline gap-1.5">
+                                                <span className="text-3xl font-outfit font-black text-slate-50">{selectedGuest.total_stays}</span>
+                                                <span className="text-[10px] font-semibold text-slate-400">Total Booking Stays</span>
+                                            </div>
+                                            <div className="mt-1 text-[10px] text-slate-400 truncate">
+                                                Last visit on <span className="font-mono text-slate-300">{selectedGuest.last_visit ? new Date(selectedGuest.last_visit).toLocaleDateString(undefined, { dateStyle: 'medium' }) : 'Never'}</span>
+                                            </div>
+                                        </div>
+
+                                        {/* Spent */}
+                                        <div className="p-4 rounded-xl bg-[#0f172a]/40 border border-[#334155]/60 flex flex-col justify-between relative overflow-hidden group">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Revenue Contribution</span>
+                                                <CreditCard size={14} className="text-emerald-400" />
+                                            </div>
+                                            <div className="mt-2 flex items-baseline gap-1">
+                                                <span className="text-[10px] font-bold text-slate-450 font-mono">₱</span>
+                                                <span className="text-3xl font-outfit font-black text-slate-50 font-mono">
+                                                    {Number(selectedGuest.total_spent).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                </span>
+                                            </div>
+                                            <div className="mt-1 text-[10px] text-slate-400">
+                                                Lifetime stay payments & extensions.
+                                            </div>
+                                        </div>
+
+                                        {/* Contact & ID */}
+                                        <div className="p-4 rounded-xl bg-[#0f172a]/40 border border-[#334155]/60 flex flex-col justify-between">
+                                            <div className="flex items-center justify-between border-b border-[#334155]/40 pb-1.5">
+                                                <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Contact & Credentials</span>
+                                                <User size={14} className="text-indigo-400" />
+                                            </div>
+                                            <div className="space-y-1 mt-2 text-[10px] text-slate-300">
+                                                <div className="flex items-center gap-2">
+                                                    <Phone size={12} className="text-slate-500 shrink-0" />
+                                                    <span className="font-mono">{selectedGuest.contact_number || 'No Contact Number'}</span>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <Mail size={12} className="text-slate-500 shrink-0 animate-pulse" />
+                                                    <span className="truncate">{selectedGuest.email || 'No Registered Email'}</span>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <FileText size={12} className="text-slate-500 shrink-0" />
+                                                    <span>Govt ID: <span className="font-mono text-brand-300 font-bold">{selectedGuest.id_type || 'None'} / {selectedGuest.id_number || '-'}</span></span>
+                                                </div>
+                                                {selectedGuest.id_image_path && (
+                                                    <div className="mt-3">
+                                                        <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">Attached ID Image</label>
+                                                        <div className="cursor-pointer" onClick={() => { setPreviewImage(`/storage/${selectedGuest.id_image_path}`); setIsImageModalOpen(true); }}>
+                                                            <img src={`/storage/${selectedGuest.id_image_path}`} alt="Guest ID Document" className="w-full h-24 object-contain bg-[#0f172a] border border-[#334155]/60 rounded-xl hover:opacity-80 transition-opacity" />
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Columns for Stay History & VIP Form */}
+                                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+                                        {/* Stay History Table (Span 2) */}
+                                        <div className="lg:col-span-2 p-5 rounded-xl bg-[#0f172a]/20 border border-[#334155]/60 flex flex-col gap-3">
+                                            <h3 className="text-sm font-outfit font-black text-slate-200 flex items-center gap-1.5">
+                                                <Bed className="text-brand-400" size={16} /> Booking Stays Ledger
+                                            </h3>
+
+                                            {loadingBookings ? (
+                                                <div className="py-12 flex flex-col items-center justify-center gap-2 text-slate-500">
+                                                    <RefreshCw size={24} className="animate-spin text-brand-500" />
+                                                    <span className="text-xs font-mono">Fetching stay registry...</span>
+                                                </div>
+                                            ) : (
+                                                <div className="overflow-x-auto">
+                                                    <table className="w-full text-left border-collapse text-[11px]">
+                                                        <thead>
+                                                            <tr className="border-b border-[#334155]/80 text-slate-400 uppercase tracking-wider font-semibold">
+                                                                <th className="pb-2">Ref Code</th>
+                                                                <th className="pb-2">Room Details</th>
+                                                                <th className="pb-2">Type</th>
+                                                                <th className="pb-2">Dates</th>
+                                                                <th className="pb-2">Billing</th>
+                                                                <th className="pb-2">Status</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody className="divide-y divide-[#334155]/40 text-slate-300">
+                                                            {selectedGuestBookings.length > 0 ? (
+                                                                selectedGuestBookings.map((b) => (
+                                                                    <tr key={b.id} className="hover:bg-[#0f172a]/20 transition-colors">
+                                                                        <td className="py-2.5 font-mono font-bold text-slate-400">
+                                                                            <button onClick={() => setViewStayId(b.id)} className="text-brand-400 hover:underline">
+                                                                                {b.booking_ref}
+                                                                            </button>
+                                                                        </td>
+                                                                        <td className="py-2.5">
+                                                                            <span className="font-outfit font-extrabold text-slate-200 block">Room {b.room ? b.room.room_number : '-'}</span>
+                                                                            <span className="text-[9px] text-slate-500 block">{b.room?.room_type?.type_name || '-'}</span>
+                                                                        </td>
+                                                                        <td className="py-2.5 capitalize font-mono text-[9px]">
+                                                                            {b.booking_type === 'short_time' ? (
+                                                                                <span className="bg-indigo-950 text-indigo-400 border border-indigo-900/40 px-1.5 py-0.5 rounded-full font-bold">
+                                                                                    ST ({b.short_time_hours}h)
+                                                                                </span>
+                                                                            ) : (
+                                                                                <span className="bg-sky-950 text-sky-400 border border-sky-900/40 px-1.5 py-0.5 rounded-full font-bold">
+                                                                                    Overnight
+                                                                                </span>
+                                                                            )}
+                                                                        </td>
+                                                                        <td className="py-2.5 text-[10px]">
+                                                                            <div className="flex items-center gap-1 text-slate-400">
+                                                                                <span>{new Date(b.check_in).toLocaleDateString(undefined, { dateStyle: 'short' })}</span>
+                                                                                <span>→</span>
+                                                                                <span>{b.check_out ? new Date(b.check_out).toLocaleDateString(undefined, { dateStyle: 'short' }) : new Date(b.expected_check_out).toLocaleDateString(undefined, { dateStyle: 'short' })}</span>
+                                                                            </div>
+                                                                        </td>
+                                                                        <td className="py-2.5 font-mono">
+                                                                            <span className="font-bold text-brand-300">₱{Number(b.total_amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                                                            <span className="text-[9px] text-slate-500 block">via {b.payment_method}</span>
+                                                                        </td>
+                                                                        <td className="py-2.5">
+                                                                            {b.status === 'active' ? (
+                                                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-950 border border-emerald-800 text-emerald-450 text-[9px] rounded-full font-black uppercase">
+                                                                                    Active
+                                                                                </span>
+                                                                            ) : b.status === 'checked_out' ? (
+                                                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-[#0f172a] border border-[#334155] text-slate-400 text-[9px] rounded-full font-black uppercase">
+                                                                                    Resolved
+                                                                                </span>
+                                                                            ) : (
+                                                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-rose-950 border border-rose-800/60 text-rose-405 text-[9px] rounded-full font-black uppercase">
+                                                                                    Cancelled
+                                                                                </span>
+                                                                            )}
+                                                                        </td>
+                                                                    </tr>
+                                                                ))
+                                                            ) : (
+                                                                <tr>
+                                                                    <td colSpan="6" className="py-8 text-center text-slate-500">
+                                                                        No stay records found under this profile.
+                                                                    </td>
+                                                                </tr>
+                                                            )}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Right Sidebar: VIP Controls & checkin */}
+                                        <div className="space-y-6">
+                                            {/* VIP Config panel */}
+                                            <div className="p-5 rounded-xl bg-[#0f172a]/20 border border-[#334155]/60 flex flex-col gap-4">
+                                                <div className="flex items-center justify-between border-b border-[#334155]/40 pb-2">
+                                                    <h3 className="text-xs font-outfit font-black uppercase tracking-wider text-slate-350">VIP Credentials Settings</h3>
+                                                    <Star size={14} className={selectedGuest.is_vip ? 'text-amber-400 fill-amber-400' : 'text-slate-500'} />
+                                                </div>
+
+                                                {user.role === 'admin' ? (
+                                                    <form onSubmit={handleVipSubmit} className="space-y-4">
+                                                        {/* VIP Switch Toggle */}
+                                                        <div className="flex items-center justify-between p-3 rounded-xl bg-[#0f172a] border border-[#334155]/60">
+                                                            <div className="flex flex-col gap-0.5">
+                                                                <span className="text-[11px] font-bold text-slate-200">VIP Privilege Status</span>
+                                                                <span className="text-[9px] text-slate-550">Banners appear at guest check-in</span>
+                                                            </div>
+                                                            <label className="relative inline-flex items-center cursor-pointer">
+                                                                <input 
+                                                                    type="checkbox" 
+                                                                    checked={vipForm.data.is_vip}
+                                                                    onChange={e => vipForm.setData('is_vip', e.target.checked)}
+                                                                    className="sr-only peer" 
+                                                                />
+                                                                <div className="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-200 after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-600"></div>
+                                                            </label>
+                                                        </div>
+
+                                                        {/* Notes input */}
+                                                        <div className="flex flex-col gap-1">
+                                                            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">VIP Admin Remarks & Preferences</label>
+                                                            <textarea
+                                                                value={vipForm.data.vip_notes}
+                                                                onChange={e => vipForm.setData('vip_notes', e.target.value)}
+                                                                placeholder="Specify special requirements, billing setups, discounts, room numbers preference..."
+                                                                className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 text-xs p-3 min-h-[90px] focus:outline-none focus:border-brand-500 placeholder-slate-650 resize-none"
+                                                            />
+                                                            {vipForm.errors.vip_notes && <span className="text-[9px] text-rose-450 font-bold">{vipForm.errors.vip_notes}</span>}
+                                                        </div>
+
+                                                        <button
+                                                            type="submit"
+                                                            disabled={vipForm.processing}
+                                                            className="w-full py-2 bg-brand-600 hover:bg-brand-500 disabled:opacity-50 text-slate-50 font-outfit font-extrabold text-[11px] uppercase tracking-wider rounded-xl shadow transition-all active:scale-95 cursor-pointer"
+                                                        >
+                                                            {vipForm.processing ? 'Saving...' : 'Save Configuration'}
+                                                        </button>
+                                                    </form>
+                                                ) : (
+                                                    <div className="space-y-3">
+                                                        <div className="flex items-center gap-2.5 p-3 rounded-xl bg-slate-900/40 border border-[#334155] text-slate-400 text-[10px]">
+                                                            <AlertCircle size={14} className="text-amber-500 shrink-0" />
+                                                            <span>Only system administrators are authorized to toggle guest VIP credentials.</span>
+                                                        </div>
+
+                                                        {selectedGuest.vip_notes && (
+                                                            <div className="p-3.5 rounded-xl bg-[#0f172a] border border-[#334155] text-[10px]">
+                                                                <span className="font-bold text-slate-400 block mb-1 uppercase tracking-wider">VIP Privileges Notes</span>
+                                                                <p className="text-slate-300 leading-relaxed italic">{selectedGuest.vip_notes}</p>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Quick Check-in launcher */}
+                                            {user.role !== 'cashier' && user.role !== 'housekeeping' && (
+                                                <div className="p-5 rounded-xl bg-gradient-to-br from-brand-950/40 to-[#0f172a]/20 border border-brand-900/30 flex flex-col gap-2.5 shadow">
+                                                    <h3 className="font-outfit font-extrabold text-slate-100 text-xs uppercase tracking-wider">Check-In Guest</h3>
+                                                    <p className="text-[10px] text-slate-400 leading-relaxed">
+                                                        Launch a fresh stay instantly. The guest details, phone, and VIP privilege profiles will automatically populate inside the Check-In registry.
+                                                    </p>
+                                                    <Link
+                                                        href={route('checkin.index', { guest_id: selectedGuest.id })}
+                                                        onClick={() => {
+                                                            sessionStorage.setItem('quickCheckinGuest', JSON.stringify(selectedGuest));
+                                                        }}
+                                                        className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 rounded-xl text-slate-50 text-[11px] font-outfit font-black text-center uppercase tracking-wider shadow active:scale-95 transition-all mt-1"
+                                                    >
+                                                        Initiate Check-In
+                                                    </Link>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </motion.div>
+                    </>
+                )}
+            </AnimatePresence>
+
+            <StayDetailsModal 
+                isOpen={!!viewStayId}
+                onClose={() => setViewStayId(null)}
+                bookingId={viewStayId}
+                viewMode="bookings"
+            />
+
+            <ImagePreviewModal 
+                isOpen={isImageModalOpen}
+                imageUrl={previewImage}
+                onClose={() => { setIsImageModalOpen(false); setPreviewImage(null); }}
+            />
         </AuthenticatedLayout>
     );
 }

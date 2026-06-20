@@ -15,24 +15,8 @@ use DB;
 
 class BookingController extends Controller
 {
-    public function index(Request $request)
-    {
-        $status = $request->input('status', 'active');
 
-        $bookings = Booking::with(['room', 'room.type'])
-            ->when($status, function ($query, $status) {
-                return $query->where('status', $status);
-            })
-            ->orderBy('id', 'desc')
-            ->get();
-
-        return Inertia::render('Bookings/Index', [
-            'bookings' => $bookings,
-            'currentFilter' => $status,
-        ]);
-    }
-
-    public function show(Booking $booking)
+    public function show(Booking $booking, Request $request)
     {
         $booking->load(['room', 'room.type', 'guestProfile', 'transactions.processedBy']);
         
@@ -59,7 +43,7 @@ class BookingController extends Controller
             ->orderBy('room_number', 'asc')
             ->get();
 
-        return Inertia::render('Bookings/Show', [
+        $data = [
             'booking' => $booking,
             'inventoryUsages' => $inventoryUsages,
             'inventoryItems' => $inventoryItems,
@@ -72,7 +56,13 @@ class BookingController extends Controller
                 'additional_due' => $additionalDue,
                 'total_estimated' => $totalEstimatedBill,
             ]
-        ]);
+        ];
+
+        if ($request->query('json') || (($request->wantsJson() || $request->ajax()) && !$request->hasHeader('X-Inertia'))) {
+            return response()->json($data);
+        }
+
+        return Inertia::render('Bookings/Show', $data);
     }
 
     public function receipt(Booking $booking)
@@ -579,5 +569,234 @@ class BookingController extends Controller
             'is_peak' => $peakDate ? true : false,
             'peak_label' => $peakDate ? $peakDate->label : null,
         ]);
+    }
+
+    public function update(Booking $booking, Request $request)
+    {
+        $request->validate([
+            'room_id' => 'required|exists:rooms,id',
+            'guest_name' => 'required|string|max:100',
+            'guest_contact' => 'nullable|string|max:20',
+            'guest_id_type' => 'nullable|string|max:50',
+            'guest_id_number' => 'nullable|string|max:50',
+            'id_image' => 'nullable|image|max:5120',
+            'guest_email' => 'nullable|email|max:100',
+            'guest_address' => 'nullable|string',
+            'num_guests' => 'required|integer|min:1',
+            
+            'booking_type' => 'required|in:overnight,short_time',
+            'num_nights' => 'nullable|integer|min:1',
+            'short_time_hours' => 'nullable|integer|in:3,6,12,24',
+            
+            'discount_type' => 'nullable|string',
+            'discount_amount' => 'nullable|numeric|min:0',
+            'promo_code' => 'nullable|string',
+            
+            'payment_ratio' => 'nullable|in:full,half',
+            'payment_method' => 'required|in:cash,gcash,card,bank_transfer,split',
+            'cash_amount' => 'nullable|numeric|min:0',
+            'gcash_amount' => 'nullable|numeric|min:0',
+            'gcash_ref' => 'nullable|string|max:50',
+            'reference_number' => 'nullable|string|max:50',
+            'notes' => 'nullable|string',
+        ]);
+
+        $user = $request->user();
+        $room = Room::with('type')->findOrFail($request->room_id);
+
+        $idImagePath = null;
+        if ($request->hasFile('id_image')) {
+            $idImagePath = $request->file('id_image')->store('id_images', 'public');
+        }
+
+        return DB::transaction(function () use ($booking, $request, $room, $user, $idImagePath) {
+            $oldRoomId = $booking->room_id;
+            $newRoomId = $room->id;
+            
+            $checkInTime = $request->has('check_in') ? \Carbon\Carbon::parse($request->check_in) : \Carbon\Carbon::parse($booking->check_in);
+            
+            if ($booking->status === 'reserved' && $request->booking_type === 'overnight' && $request->has('check_in')) {
+                $checkInTime = $checkInTime->copy()->setTime(BookingService::OVERNIGHT_CHECKIN_HOUR, 0, 0);
+            }
+            
+            $reqDiscountType = $request->discount_type ?: '';
+            $reqDiscountAmount = (float)($request->discount_amount ?: 0);
+
+            if ($request->filled('promo_code')) {
+                $promoCodeModel = \App\Models\PromoCode::where('code', $request->promo_code)->first();
+                if ($promoCodeModel && $promoCodeModel->isValid()) {
+                    $reqDiscountType = 'promo';
+                    
+                    $tempAmounts = BookingService::calculateBookingAmounts(
+                        $room,
+                        $request->booking_type,
+                        $checkInTime->format('Y-m-d H:i:s'),
+                        $request->num_nights ?: 1,
+                        $request->short_time_hours ?: 3,
+                        '',
+                        0
+                    );
+                    
+                    $subtotal = $tempAmounts['base_amount'] + $tempAmounts['peak_surcharge'];
+                    if ($promoCodeModel->discount_type === 'percent') {
+                        $reqDiscountAmount = round($subtotal * ($promoCodeModel->discount_value / 100), 2);
+                    } else {
+                        $reqDiscountAmount = min($subtotal, (float)$promoCodeModel->discount_value);
+                    }
+                }
+            }
+
+            // Calculate precise amounts
+            $pricing = BookingService::calculateBookingAmounts(
+                $room,
+                $request->booking_type,
+                $checkInTime->format('Y-m-d H:i:s'),
+                $request->num_nights ?: 1,
+                $request->short_time_hours ?: 3,
+                $reqDiscountType,
+                $reqDiscountAmount
+            );
+
+            // Overlap safety check in transaction (excluding current booking being edited)
+            $expectedCheckOut = $pricing['expected_check_out'];
+            $overlap = Booking::where('room_id', $room->id)
+                ->where('id', '!=', $booking->id)
+                ->whereIn('status', ['active', 'reserved'])
+                ->where('check_in', '<', $expectedCheckOut)
+                ->where('expected_check_out', '>', $checkInTime->format('Y-m-d H:i:s'))
+                ->first();
+
+            if ($overlap) {
+                throw new \Exception("Double-booking conflict: Room is already booked by {$overlap->guest_name} from {$overlap->check_in} to {$overlap->expected_check_out}.");
+            }
+
+            // Room status transitions
+            if ($oldRoomId != $newRoomId) {
+                if ($booking->status === 'active') {
+                    // Update old room status and notes
+                    $oldRoom = Room::findOrFail($oldRoomId);
+                    $oldRoom->status = 'cleaning';
+                    $oldRoom->notes = "Moved guest to Room {$room->room_number}";
+                    $oldRoom->save();
+
+                    // Update new room status and notes
+                    $room->status = 'occupied';
+                    $room->notes = '';
+                    $room->save();
+                }
+            }
+
+            // Update Guest profile details
+            $guestProfile = $booking->guestProfile;
+            if ($guestProfile) {
+                $guestProfile->full_name = trim($request->guest_name);
+                $guestProfile->contact_number = $request->guest_contact ?: $guestProfile->contact_number;
+                $guestProfile->id_type = $request->guest_id_type ?: $guestProfile->id_type;
+                $guestProfile->id_number = $request->guest_id_number ?: $guestProfile->id_number;
+                if ($idImagePath) {
+                    $guestProfile->id_image_path = $idImagePath;
+                }
+                $guestProfile->email = $request->guest_email ?: $guestProfile->email;
+                $guestProfile->address = $request->guest_address ?: $guestProfile->address;
+                $guestProfile->save();
+            }
+
+            // Update Booking details
+            $booking->room_id = $room->id;
+            $booking->guest_name = trim($request->guest_name);
+            $booking->guest_contact = $request->guest_contact;
+            $booking->guest_id_type = $request->guest_id_type;
+            $booking->guest_id_number = $request->guest_id_number;
+            if ($idImagePath) {
+                $booking->guest_id_image_path = $idImagePath;
+            }
+            $booking->num_guests = $request->num_guests;
+            $booking->booking_type = $request->booking_type;
+            $booking->short_time_hours = $request->booking_type !== 'overnight' ? $request->short_time_hours : null;
+            $booking->check_in = $checkInTime->format('Y-m-d H:i:s');
+            $booking->expected_check_out = $pricing['expected_check_out'];
+            
+            // Re-calculate pricing fields
+            $booking->base_amount = $pricing['base_amount'];
+            $booking->peak_surcharge = $pricing['peak_surcharge'];
+            $booking->discount_type = $reqDiscountType ?: null;
+            $booking->discount_amount = $pricing['discount_amount'];
+            
+            // Adjust paid totals if different
+            $oldTotal = $booking->total_amount;
+            $newTotal = $pricing['total_amount'];
+            $booking->total_amount = $newTotal;
+
+            $oldPaid = $booking->amount_paid;
+            $oldCash = $booking->cash_amount;
+            $oldGcash = $booking->gcash_amount;
+
+            $paymentRatio = $request->input('payment_ratio', 'full');
+            $collectedAmount = ($paymentRatio === 'half') ? round($newTotal / 2, 2) : $newTotal;
+            $booking->amount_paid = $collectedAmount;
+            $booking->payment_status = ($collectedAmount >= $newTotal) ? 'paid' : 'partially_paid';
+
+            // Adjust guest total spent if amount_paid changed
+            if ($guestProfile && $collectedAmount != $oldPaid) {
+                $guestProfile->total_spent += ($collectedAmount - $oldPaid);
+                $guestProfile->save();
+            }
+
+            $paymentMethod = $request->payment_method;
+            $cashAmount = 0.00;
+            $gcashAmount = 0.00;
+            $refNum = $request->gcash_ref ?: $request->reference_number ?: null;
+
+            if ($paymentMethod === 'cash') {
+                $cashAmount = $collectedAmount;
+            } elseif ($paymentMethod === 'gcash') {
+                $gcashAmount = $collectedAmount;
+            } elseif ($paymentMethod === 'card' || $paymentMethod === 'bank_transfer') {
+                // Card / Bank
+            } else { // split
+                $cashAmount = (float)($request->cash_amount ?: 0);
+                $gcashAmount = (float)($request->gcash_amount ?: 0);
+                if (abs(($cashAmount + $gcashAmount) - $collectedAmount) > 0.01) {
+                    throw new \Exception("Split amounts must equal the collected deposit amount ₱{$collectedAmount}.");
+                }
+            }
+
+            $booking->payment_method = $paymentMethod;
+            $booking->cash_amount = $cashAmount;
+            $booking->gcash_amount = $gcashAmount;
+            $booking->gcash_ref = $refNum;
+            $booking->is_peak = $pricing['is_peak'];
+            
+            if ($request->notes) {
+                $booking->notes = $request->notes;
+            }
+            $booking->save();
+
+            // Transaction update or adjustment log
+            Transaction::create([
+                'booking_id' => $booking->id,
+                'transaction_type' => 'adjustment',
+                'description' => "Booking details edited/updated. Ref: {$booking->booking_ref}. Old Total: ₱{$oldTotal} -> New Total: ₱{$newTotal}",
+                'amount' => round($collectedAmount - $oldPaid, 2),
+                'payment_method' => $paymentMethod,
+                'cash_amount' => round($cashAmount - $oldCash, 2),
+                'gcash_amount' => round($gcashAmount - $oldGcash, 2),
+                'gcash_ref' => $refNum,
+                'processed_by' => $user->id,
+            ]);
+
+            BookingService::auditLog(
+                $user->id,
+                'BOOKING_UPDATE',
+                'bookings',
+                $booking->id,
+                $oldTotal,
+                $newTotal,
+                "Updated booking details for {$booking->guest_name} (Ref: {$booking->booking_ref})."
+            );
+
+            $redirectRoute = $booking->status === 'reserved' ? 'reservations.index' : 'checkin.index';
+            return redirect()->route($redirectRoute)->with('success', "Booking {$booking->booking_ref} updated successfully!");
+        });
     }
 }

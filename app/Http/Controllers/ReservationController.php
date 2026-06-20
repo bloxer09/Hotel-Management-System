@@ -21,15 +21,33 @@ class ReservationController extends Controller
         $status = $request->input('status', 'reserved');
 
         $reservations = Booking::with(['room', 'room.type'])
-            ->when($status, function ($query, $status) {
-                return $query->where('status', $status);
-            })
+            ->when($status && $status !== 'all', fn($q) => $q->where('status', $status))
             ->orderBy('id', 'desc')
+            ->paginate(15)
+            ->withQueryString();
+
+        // Wizard data for the New Booking modal
+        $rooms = Room::with('type')
+            ->orderBy('room_number', 'asc')
             ->get();
 
+        $promoCodes = \App\Models\PromoCode::where('is_active', true)
+            ->where(function($query) {
+                $query->whereNull('expires_at')
+                      ->orWhere('expires_at', '>', now());
+            })
+            ->where(function($query) {
+                $query->whereNull('max_uses')
+                      ->orWhereColumn('used_count', '<', 'max_uses');
+            })
+            ->orderBy('code', 'asc')
+            ->get(['code', 'discount_type', 'discount_value']);
+
         return Inertia::render('Reservations/Index', [
-            'reservations' => $reservations,
+            'reservations'  => $reservations,
             'currentFilter' => $status,
+            'rooms'         => $rooms,
+            'promoCodes'    => $promoCodes,
         ]);
     }
 
@@ -169,6 +187,7 @@ class ReservationController extends Controller
             'guest_contact' => 'nullable|string|max:20',
             'guest_id_type' => 'nullable|string|max:50',
             'guest_id_number' => 'nullable|string|max:50',
+            'id_image' => 'nullable|image|max:5120',
             'guest_email' => 'nullable|email|max:100',
             'guest_address' => 'nullable|string',
             'num_guests' => 'required|integer|min:1',
@@ -181,6 +200,7 @@ class ReservationController extends Controller
             'discount_amount' => 'nullable|numeric|min:0',
             'promo_code' => 'nullable|string',
             
+            'payment_ratio' => 'nullable|in:full,half',
             'payment_method' => 'required|in:cash,gcash,card,bank_transfer,split',
             'cash_amount' => 'nullable|numeric|min:0',
             'gcash_amount' => 'nullable|numeric|min:0',
@@ -206,7 +226,12 @@ class ReservationController extends Controller
 
         $room = Room::with('type')->findOrFail($request->room_id);
 
-        return DB::transaction(function () use ($request, $room, $user) {
+        $idImagePath = null;
+        if ($request->hasFile('id_image')) {
+            $idImagePath = $request->file('id_image')->store('id_images', 'public');
+        }
+
+        return DB::transaction(function () use ($request, $room, $user, $idImagePath) {
             $checkInRaw = Carbon::parse($request->check_in);
             if ($request->booking_type === 'overnight') {
                 $checkInTime = $checkInRaw->copy()->setTime(BookingService::OVERNIGHT_CHECKIN_HOUR, 0, 0);
@@ -269,22 +294,26 @@ class ReservationController extends Controller
 
             // Payment verification
             $totalAmount = $pricing['total_amount'];
+            
+            $paymentRatio = $request->input('payment_ratio', 'full');
+            $collectedAmount = ($paymentRatio === 'half') ? round($totalAmount / 2, 2) : $totalAmount;
+
             $paymentMethod = $request->payment_method;
             $cashAmount = 0.00;
             $gcashAmount = 0.00;
             $refNum = $request->gcash_ref ?: $request->reference_number ?: null;
 
             if ($paymentMethod === 'cash') {
-                $cashAmount = $totalAmount;
+                $cashAmount = $collectedAmount;
             } elseif ($paymentMethod === 'gcash') {
-                $gcashAmount = $totalAmount;
+                $gcashAmount = $collectedAmount;
             } elseif ($paymentMethod === 'card' || $paymentMethod === 'bank_transfer') {
                 // Card / Bank
             } else { // split
                 $cashAmount = (float)($request->cash_amount ?: 0);
                 $gcashAmount = (float)($request->gcash_amount ?: 0);
-                if (abs(($cashAmount + $gcashAmount) - $totalAmount) > 0.01) {
-                    throw new \Exception("Split amounts must equal the total amount ₱{$totalAmount}.");
+                if (abs(($cashAmount + $gcashAmount) - $collectedAmount) > 0.01) {
+                    throw new \Exception("Split amounts must equal the collected deposit amount ₱{$collectedAmount}.");
                 }
             }
 
@@ -296,6 +325,7 @@ class ReservationController extends Controller
                     'contact_number' => $request->guest_contact,
                     'id_type' => $request->guest_id_type,
                     'id_number' => $request->guest_id_number,
+                    'id_image_path' => $idImagePath,
                     'email' => $request->guest_email,
                     'address' => $request->guest_address,
                 ]);
@@ -303,12 +333,15 @@ class ReservationController extends Controller
                 $guestProfile->contact_number = $request->guest_contact ?: $guestProfile->contact_number;
                 $guestProfile->id_type = $request->guest_id_type ?: $guestProfile->id_type;
                 $guestProfile->id_number = $request->guest_id_number ?: $guestProfile->id_number;
+                if ($idImagePath) {
+                    $guestProfile->id_image_path = $idImagePath;
+                }
                 $guestProfile->email = $request->guest_email ?: $guestProfile->email;
                 $guestProfile->address = $request->guest_address ?: $guestProfile->address;
             }
 
             // Note: Stays count updates upon actual checkin. Spend updates immediately since payment is collected.
-            $guestProfile->total_spent += $totalAmount;
+            $guestProfile->total_spent += $collectedAmount;
             $guestProfile->save();
 
             // Create Booking
@@ -322,25 +355,26 @@ class ReservationController extends Controller
                 'guest_contact' => $guestProfile->contact_number,
                 'guest_id_type' => $guestProfile->id_type,
                 'guest_id_number' => $guestProfile->id_number,
+                'guest_id_image_path' => $idImagePath ?: $guestProfile->id_image_path,
                 'num_guests' => $request->num_guests,
                 'booking_type' => $request->booking_type,
                 'short_time_hours' => $request->booking_type !== 'overnight' ? $request->short_time_hours : null,
                 'check_in' => $checkInTime->format('Y-m-d H:i:s'),
                 'expected_check_out' => $pricing['expected_check_out'],
                 'status' => 'reserved',
-                'payment_status' => 'paid',
+                'payment_status' => ($collectedAmount >= $totalAmount) ? 'paid' : 'partially_paid',
                 'base_amount' => $pricing['base_amount'],
                 'peak_surcharge' => $pricing['peak_surcharge'],
                 'discount_type' => $reqDiscountType ?: null,
                 'discount_amount' => $pricing['discount_amount'],
                 'total_amount' => $totalAmount,
-                'amount_paid' => $totalAmount,
+                'amount_paid' => $collectedAmount,
                 'payment_method' => $paymentMethod,
                 'cash_amount' => $cashAmount,
                 'gcash_amount' => $gcashAmount,
                 'gcash_ref' => $refNum,
                 'is_peak' => $pricing['is_peak'],
-                'notes' => $request->notes ? trim($request->notes . ($request->filled('promo_code') ? "\nApplied Promo: " . $request->promo_code : '')) : ($request->filled('promo_code') ? "Applied Promo: " . $request->promo_code : null),
+                'notes' => $request->notes ? trim($request->notes . ($request->filled('promo_code') ? "\nApplied Promo: " . $request->promo_code : '') . ($paymentRatio === 'half' ? "\nPartial 50% deposit paid." : '')) : ($request->filled('promo_code') ? "Applied Promo: " . $request->promo_code : ($paymentRatio === 'half' ? "Partial 50% deposit paid." : null)),
                 'checked_in_by' => $user->id,
             ]);
 
@@ -348,8 +382,8 @@ class ReservationController extends Controller
             Transaction::create([
                 'booking_id' => $booking->id,
                 'transaction_type' => 'check_in',
-                'description' => "Initial reservation payment for Ref: {$bookingRef}. Room {$room->room_number}" . ($request->filled('promo_code') ? " (Promo: {$request->promo_code})" : ""),
-                'amount' => $totalAmount,
+                'description' => "Initial reservation payment (Ratio: {$paymentRatio}) for Ref: {$bookingRef}. Room {$room->room_number}" . ($request->filled('promo_code') ? " (Promo: {$request->promo_code})" : ""),
+                'amount' => $collectedAmount,
                 'payment_method' => $paymentMethod,
                 'cash_amount' => $cashAmount,
                 'gcash_amount' => $gcashAmount,
@@ -391,6 +425,10 @@ class ReservationController extends Controller
 
         if ($booking->status !== 'reserved') {
             return back()->with('error', 'Only reserved bookings can be checked in.');
+        }
+
+        if ($booking->amount_paid < $booking->total_amount) {
+            return back()->with('error', "Cannot check in. Remaining balance of ₱" . number_format($booking->total_amount - $booking->amount_paid, 2) . " must be paid first. Edit the booking to settle full payment.");
         }
 
         $room = $booking->room;
@@ -498,6 +536,138 @@ class ReservationController extends Controller
             );
 
             return redirect()->route('reservations.index')->with('success', "Reservation {$booking->booking_ref} cancelled successfully.");
+        });
+    }
+
+    public function noshow(Booking $booking, Request $request)
+    {
+        $user = $request->user();
+
+        if ($booking->status !== 'reserved') {
+            return back()->with('error', 'Only pending reservations can be marked as No Show.');
+        }
+
+        return DB::transaction(function () use ($booking, $user) {
+            $booking->status = 'no_show';
+            $booking->notes = trim($booking->notes . "\nReservation marked as No Show on " . now()->format('Y-m-d H:i:s'));
+            $booking->save();
+
+            // Create adjustment/log transaction
+            Transaction::create([
+                'booking_id' => $booking->id,
+                'transaction_type' => 'adjustment',
+                'description' => "Reservation marked as No-Show. Ref: {$booking->booking_ref}.",
+                'amount' => 0.00,
+                'payment_method' => 'na',
+                'processed_by' => $user->id,
+            ]);
+
+            BookingService::auditLog(
+                $user->id,
+                'BOOKING_RESERVATION_NOSHOW',
+                'bookings',
+                $booking->id,
+                'reserved',
+                'no_show',
+                "Marked reservation {$booking->booking_ref} as No-Show."
+            );
+
+            return redirect()->route('reservations.index')->with('success', "Reservation {$booking->booking_ref} marked as No Show.");
+        });
+    }
+
+    public function reschedule(Booking $booking, Request $request)
+    {
+        $request->validate([
+            'room_id' => 'required|exists:rooms,id',
+            'check_in' => 'required|date',
+            'booking_type' => 'required|in:overnight,short_time',
+            'num_nights' => 'nullable|integer|min:1',
+            'short_time_hours' => 'nullable|integer|in:3,6,12,24',
+        ]);
+
+        $user = $request->user();
+
+        if ($booking->status !== 'reserved') {
+            return back()->with('error', 'Only pending reservations can be rescheduled.');
+        }
+
+        $room = Room::findOrFail($request->room_id);
+
+        return DB::transaction(function () use ($booking, $request, $room, $user) {
+            $checkInRaw = Carbon::parse($request->check_in);
+            if ($request->booking_type === 'overnight') {
+                $checkInTime = $checkInRaw->copy()->setTime(BookingService::OVERNIGHT_CHECKIN_HOUR, 0, 0);
+            } else {
+                $checkInTime = $checkInRaw;
+            }
+
+            // Calculate precise amounts
+            $pricing = BookingService::calculateBookingAmounts(
+                $room,
+                $request->booking_type,
+                $checkInTime->format('Y-m-d H:i:s'),
+                $request->num_nights ?: 1,
+                $request->short_time_hours ?: 3,
+                $booking->discount_type ?: '',
+                $booking->discount_amount ?: 0
+            );
+
+            // Double-booking check excluding this booking
+            $expectedCheckOut = $pricing['expected_check_out'];
+            $overlap = Booking::where('room_id', $room->id)
+                ->where('id', '!=', $booking->id)
+                ->whereIn('status', ['active', 'reserved'])
+                ->where('check_in', '<', $expectedCheckOut)
+                ->where('expected_check_out', '>', $checkInTime->format('Y-m-d H:i:s'))
+                ->first();
+
+            if ($overlap) {
+                return back()->with('error', "Double-booking conflict: Room is already booked by {$overlap->guest_name} from {$overlap->check_in} to {$overlap->expected_check_out}.");
+            }
+
+            $oldBooking = $booking->toArray();
+
+            // Update Booking details
+            $booking->room_id = $room->id;
+            $booking->check_in = $checkInTime->format('Y-m-d H:i:s');
+            $booking->expected_check_out = $pricing['expected_check_out'];
+            $booking->booking_type = $request->booking_type;
+            $booking->short_time_hours = $request->booking_type !== 'overnight' ? $request->short_time_hours : null;
+            $booking->num_nights = $request->booking_type === 'overnight' ? $request->num_nights : null;
+            
+            $booking->base_amount = $pricing['base_amount'];
+            $booking->peak_surcharge = $pricing['peak_surcharge'];
+            $booking->discount_amount = $pricing['discount_amount'];
+            $booking->total_amount = $pricing['total_amount'];
+            $booking->is_peak = $pricing['is_peak'];
+            
+            // Adjust payment status
+            $booking->payment_status = ($booking->amount_paid >= $pricing['total_amount']) ? 'paid' : 'partially_paid';
+            $booking->notes = trim($booking->notes . "\nRescheduled on " . now()->format('Y-m-d H:i:s') . " to " . $booking->check_in . " in Room " . $room->room_number);
+            $booking->save();
+
+            // Transaction log for the adjustment
+            Transaction::create([
+                'booking_id' => $booking->id,
+                'transaction_type' => 'adjustment',
+                'description' => "Reservation rescheduled. New date: {$booking->check_in}. New Room: {$room->room_number}.",
+                'amount' => 0.00,
+                'payment_method' => 'na',
+                'processed_by' => $user->id,
+            ]);
+
+            BookingService::auditLog(
+                $user->id,
+                'BOOKING_RESERVATION_RESCHEDULE',
+                'bookings',
+                $booking->id,
+                $oldBooking,
+                $booking->toArray(),
+                "Rescheduled reservation {$booking->booking_ref} to Room {$room->room_number} on {$booking->check_in}."
+            );
+
+            return redirect()->route('reservations.index')->with('success', "Reservation {$booking->booking_ref} rescheduled successfully to Room {$room->room_number}!");
         });
     }
 }

@@ -147,7 +147,6 @@ export default function Show({ guest, bookings }) {
                                         <th className="pb-3">Dates & Stays</th>
                                         <th className="pb-3">Billing</th>
                                         <th className="pb-3">Status</th>
-                                        <th className="pb-3">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-[#334155]/60 text-slate-300">
@@ -201,22 +200,11 @@ export default function Show({ guest, bookings }) {
                                                         </span>
                                                     )}
                                                 </td>
-                                                <td className="py-3.5">
-                                                    {b.status !== 'cancelled' && (
-                                                        <Link
-                                                            href={route('bookings.receipt', b.id)}
-                                                            className="inline-flex items-center justify-center p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-slate-100 transition-colors"
-                                                            title="Print Receipt"
-                                                        >
-                                                            <Printer size={14} />
-                                                        </Link>
-                                                    )}
-                                                </td>
                                             </tr>
                                         ))
                                     ) : (
                                         <tr>
-                                            <td colSpan="7" className="py-8 text-center text-slate-500">
+                                            <td colSpan="6" className="py-8 text-center text-slate-500">
                                                 No stay records found under this profile.
                                             </td>
                                         </tr>

@@ -24,6 +24,7 @@ class User extends Authenticatable
         'role',
         'email',
         'phone',
+        'avatar_path',
         'is_active',
         'last_login',
     ];
@@ -35,7 +36,13 @@ class User extends Authenticatable
      */
     protected $appends = [
         'name',
+        'avatar_url',
     ];
+
+    public function getAvatarUrlAttribute()
+    {
+        return $this->avatar_path ? asset('storage/' . $this->avatar_path) : null;
+    }
 
     /**
      * The attributes that should be hidden for serialization.

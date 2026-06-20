@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link } from '@inertiajs/react';
 import {
@@ -29,84 +29,47 @@ import {
     Legend
 } from 'recharts';
 
-export default function Dashboard({ stats, charts, recentBookings, lowStockItems, activeShift }) {
+export default function Dashboard({ stats, charts, recentBookings, lowStockItems, activeShift, liveUpdates = [] }) {
+    const [revenuePeriod, setRevenuePeriod] = useState('today');
+
+    const roomStats = stats?.rooms || { total: 0, occupied: 0, vacant: 0, cleaning: 0, out_of_order: 0 };
+
     // Math indicators
-    const occupancyRate = stats.rooms.total > 0
-        ? Math.round((stats.rooms.occupied / stats.rooms.total) * 100)
+    const occupancyRate = roomStats.total > 0
+        ? Math.round((roomStats.occupied / roomStats.total) * 100)
         : 0;
 
     // Sparkline data for RevPAR (daily revenue divided by rooms)
     const revparSparklineData = (charts?.dailyRevenue || []).map(d => ({
         date: d.date,
-        revpar: stats.rooms.total > 0 ? Math.round((d.total / stats.rooms.total) * 10) / 10 : 0
+        revpar: roomStats.total > 0 ? Math.round((d.total / roomStats.total) * 10) / 10 : 0
     }));
+
+    const currentRev = stats?.revenue_periods?.[revenuePeriod] || stats?.revenue || { total: 0, room: 0, product: 0, label: "Income Breakdown" };
+    const updates = liveUpdates || [];
 
     const cards = [
         {
             title: "Occupancy Rate",
             value: `${occupancyRate}%`,
-            desc: `${stats.rooms.occupied} of ${stats.rooms.total} Rooms Occupied`,
+            desc: `${roomStats.occupied} of ${roomStats.total} Rooms Occupied`,
             icon: Bed,
-            color: "from-brand-500 to-indigo-600 bg-brand-500/10 text-brand-400",
-            sparkline: (
-                <div className="h-10 w-24 shrink-0">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={charts?.dailyOccupancy || []}>
-                            <defs>
-                                <linearGradient id="colorOcc" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.4} />
-                                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
-                                </linearGradient>
-                            </defs>
-                            <Area type="monotone" dataKey="occupancy_rate" stroke="#6366f1" strokeWidth={1.5} fillOpacity={1} fill="url(#colorOcc)" dot={false} />
-                        </AreaChart>
-                    </ResponsiveContainer>
-                </div>
-            )
+            baseColor: "brand",
         },
         {
-            title: "Today's Income",
-            value: `₱${(stats.revenue.total).toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
-            desc: `Rooms: ₱${(stats.revenue.room || 0).toLocaleString(undefined, {minimumFractionDigits:2})} | Products: ₱${(stats.revenue.product || 0).toLocaleString(undefined, {minimumFractionDigits:2})}`,
+            title: currentRev.label || "Income Breakdown",
+            value: `₱${(currentRev.total || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+            desc: `Rooms: ₱${(currentRev.room || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} | Products: ₱${(currentRev.product || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}`,
             icon: Coins,
-            color: "from-emerald-500 to-teal-600 bg-emerald-500/10 text-emerald-400",
-            sparkline: (
-                <div className="h-10 w-24 shrink-0">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={charts?.dailyRevenue || []}>
-                            <defs>
-                                <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
-                                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                                </linearGradient>
-                            </defs>
-                            <Area type="monotone" dataKey="total" stroke="#10b981" strokeWidth={1.5} fillOpacity={1} fill="url(#colorRev)" dot={false} />
-                        </AreaChart>
-                    </ResponsiveContainer>
-                </div>
-            )
+            baseColor: "emerald",
+            isRevenue: true,
         },
         {
             title: "RevPAR (30 Days)",
-            value: `₱${(stats.revpar || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
-            desc: `Avg Room Yield: ₱${(stats.revpar || 0).toLocaleString()}`,
+            value: `₱${(stats?.revpar || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+            desc: `Avg Room Yield: ₱${(stats?.revpar || 0).toLocaleString()}`,
             icon: TrendingUp,
-            color: "from-amber-500 to-orange-600 bg-amber-500/10 text-amber-400",
-            sparkline: (
-                <div className="h-10 w-24 shrink-0">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={revparSparklineData}>
-                            <defs>
-                                <linearGradient id="colorRevpar" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.4} />
-                                    <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
-                                </linearGradient>
-                            </defs>
-                            <Area type="monotone" dataKey="revpar" stroke="#f59e0b" strokeWidth={1.5} fillOpacity={1} fill="url(#colorRevpar)" dot={false} />
-                        </AreaChart>
-                    </ResponsiveContainer>
-                </div>
-            )
+            baseColor: "amber",
         }
     ];
 
@@ -128,11 +91,11 @@ export default function Dashboard({ stats, charts, recentBookings, lowStockItems
             color: "bg-indigo-500/20 border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/30"
         },
         {
-            name: "Active Bookings Directory",
-            desc: "Check-out or extend stays",
-            icon: ClipboardList,
-            href: route('bookings.index'),
-            requiresShift: true,
+            name: "Guest Directory",
+            desc: "View guest stay history",
+            icon: Users2,
+            href: route('guests.index'),
+            requiresShift: false,
             color: "bg-emerald-500/20 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/30"
         },
         {
@@ -187,19 +150,44 @@ export default function Dashboard({ stats, charts, recentBookings, lowStockItems
                             initial={{ opacity: 0, y: 15 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: idx * 0.1 }}
-                            className="p-6 rounded-2xl bg-[#1e293b] border border-[#334155] shadow-xl flex items-center justify-between gap-4 group hover:border-[#475569] transition-all duration-300"
+                            className="p-5 rounded-2xl bg-[#1e293b] border border-[#334155] shadow-xl flex flex-col justify-between"
                         >
-                            <div className="flex-1 flex flex-col gap-1 min-w-0">
-                                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{card.title}</span>
-                                <span className="text-2xl font-outfit font-extrabold text-slate-100 mt-1 truncate">{card.value}</span>
-                                <span className="text-[11px] text-slate-400 mt-1 font-medium truncate">{card.desc}</span>
-                            </div>
-                            <div className="flex flex-col items-end gap-2 shrink-0">
-                                <div className={`p-2.5 rounded-xl ${card.color.split(' ').slice(2).join(' ')}`}>
-                                    <card.icon className="h-5 w-5" />
+                            <div>
+                                <div className="flex items-center justify-between mb-3">
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{card.title}</span>
+                                    <card.icon size={15} className={`text-${card.baseColor}-400`} />
                                 </div>
-                                {card.sparkline}
+
+                                {card.isRevenue && (
+                                    <div className="flex gap-1 bg-[#0f172a] p-0.5 rounded-lg border border-[#334155] mb-3.5 w-fit">
+                                        {[
+                                            { key: 'today', label: 'Today' },
+                                            { key: 'last_7_days', label: '7D' },
+                                            { key: 'this_month', label: 'Month' },
+                                            { key: 'this_year', label: 'Year' },
+                                        ].map(tab => (
+                                            <button
+                                                key={tab.key}
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setRevenuePeriod(tab.key);
+                                                }}
+                                                className={`px-2.5 py-1 rounded text-[9px] font-extrabold uppercase transition-all ${
+                                                    revenuePeriod === tab.key
+                                                        ? 'bg-[#1e293b] text-slate-100 shadow border border-[#334155]/60'
+                                                        : 'text-slate-450 hover:text-slate-200'
+                                                }`}
+                                            >
+                                                {tab.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+
+                                <div className={`font-mono font-black text-xl tracking-tight text-${card.baseColor}-300`}>{card.value}</div>
                             </div>
+                            <div className="text-[10px] text-slate-500 mt-2">{card.desc}</div>
                         </motion.div>
                     ))}
                 </div>
@@ -326,10 +314,10 @@ export default function Dashboard({ stats, charts, recentBookings, lowStockItems
                             <div className="flex justify-between items-center mb-6">
                                 <h2 className="text-lg font-outfit font-bold text-slate-200">Recent Check-In Stay Records</h2>
                                 <Link
-                                    href={route('bookings.index')}
+                                    href={route('guests.index')}
                                     className="text-xs font-bold text-brand-400 hover:text-brand-300 flex items-center gap-1"
                                 >
-                                    View All Stay History <ChevronRight size={14} />
+                                    View Guest Directory <ChevronRight size={14} />
                                 </Link>
                             </div>
 
@@ -387,6 +375,67 @@ export default function Dashboard({ stats, charts, recentBookings, lowStockItems
                     {/* Right Column (1/3) */}
                     <div className="flex flex-col gap-8">
 
+                        {/* Operational Alerts Feed */}
+                        <div className="p-6 rounded-2xl bg-[#1e293b] border border-[#334155] shadow-xl flex flex-col gap-4">
+                            <div className="flex items-center justify-between">
+                                <h2 className="text-sm font-outfit font-bold text-slate-250 flex items-center gap-2 uppercase tracking-wide">
+                                    Operational Alerts
+                                    <span className="relative flex h-2.5 w-2.5">
+                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500"></span>
+                                    </span>
+                                </h2>
+                                <span className="text-[9px] text-slate-500 font-mono font-bold tracking-widest uppercase">LIVE FEED</span>
+                            </div>
+
+                            <div className="flex flex-col gap-3 max-h-[380px] overflow-y-auto pr-1">
+                                {updates.length > 0 ? (
+                                    updates.map((update) => {
+                                        let statusCls = "";
+                                        let typeLabel = "";
+                                        if (update.status === 'critical') {
+                                            statusCls = "border-red-500/25 bg-red-950/15 text-red-400 hover:border-red-500/40";
+                                            typeLabel = "CRITICAL";
+                                        } else if (update.status === 'warning') {
+                                            statusCls = "border-amber-500/25 bg-amber-950/15 text-amber-400 hover:border-amber-500/40";
+                                            typeLabel = "WARNING";
+                                        } else if (update.status === 'pending') {
+                                            statusCls = "border-indigo-500/25 bg-indigo-950/15 text-indigo-400 hover:border-indigo-500/40";
+                                            typeLabel = "PENDING";
+                                        } else {
+                                            statusCls = "border-[#334155] bg-[#0f172a]/30 text-slate-400 hover:border-indigo-550/20";
+                                            typeLabel = "INFO";
+                                        }
+
+                                        return (
+                                            <Link
+                                                key={`${update.type}-${update.id}`}
+                                                href={update.link}
+                                                className={`p-3.5 rounded-xl border flex flex-col gap-1 transition-all hover:scale-[1.01] ${statusCls}`}
+                                            >
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <span className="font-outfit font-extrabold text-slate-200 text-xs leading-snug">{update.title}</span>
+                                                    <span className="text-[8px] font-black tracking-wider uppercase px-1.5 py-0.5 rounded bg-[#0f172a]/75 shrink-0">
+                                                        {typeLabel}
+                                                    </span>
+                                                </div>
+                                                <p className="text-[10px] text-slate-400 leading-normal">{update.description}</p>
+                                                {update.time && (
+                                                    <span className="text-[9px] text-slate-500 font-mono mt-1 font-semibold">
+                                                        {new Date(update.time).toLocaleString('en-US', { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                                                    </span>
+                                                )}
+                                            </Link>
+                                        );
+                                    })
+                                ) : (
+                                    <div className="p-8 rounded-xl border border-dashed border-[#334155] text-center text-xs text-slate-500">
+                                        No active operational alerts today.
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
                         {/* Occupancy Status Breakdowns */}
                         <div className="p-6 rounded-2xl bg-[#1e293b] border border-[#334155] shadow-xl flex flex-col gap-6">
                             <h2 className="text-lg font-outfit font-bold text-slate-200">Rooms</h2>
@@ -399,12 +448,12 @@ export default function Dashboard({ stats, charts, recentBookings, lowStockItems
                                             <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
                                             Vacant / Available
                                         </span>
-                                        <span>{stats.rooms.vacant} / {stats.rooms.total}</span>
+                                        <span>{roomStats.vacant} / {roomStats.total}</span>
                                     </div>
                                     <div className="h-2 w-full bg-[#0f172a] rounded-full overflow-hidden">
                                         <div
                                             className="h-full bg-emerald-500 transition-all duration-500"
-                                            style={{ width: `${(stats.rooms.vacant / stats.rooms.total) * 100 || 0}%` }}
+                                            style={{ width: `${(roomStats.vacant / roomStats.total) * 100 || 0}%` }}
                                         />
                                     </div>
                                 </div>
@@ -416,12 +465,12 @@ export default function Dashboard({ stats, charts, recentBookings, lowStockItems
                                             <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0" />
                                             Occupied
                                         </span>
-                                        <span>{stats.rooms.occupied} / {stats.rooms.total}</span>
+                                        <span>{roomStats.occupied} / {roomStats.total}</span>
                                     </div>
                                     <div className="h-2 w-full bg-[#0f172a] rounded-full overflow-hidden">
                                         <div
                                             className="h-full bg-rose-500 transition-all duration-500"
-                                            style={{ width: `${(stats.rooms.occupied / stats.rooms.total) * 100 || 0}%` }}
+                                            style={{ width: `${(roomStats.occupied / roomStats.total) * 100 || 0}%` }}
                                         />
                                     </div>
                                 </div>
@@ -433,12 +482,12 @@ export default function Dashboard({ stats, charts, recentBookings, lowStockItems
                                             <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
                                             Cleaning Required
                                         </span>
-                                        <span>{stats.rooms.cleaning} / {stats.rooms.total}</span>
+                                        <span>{roomStats.cleaning} / {roomStats.total}</span>
                                     </div>
                                     <div className="h-2 w-full bg-[#0f172a] rounded-full overflow-hidden">
                                         <div
                                             className="h-full bg-amber-500 transition-all duration-500"
-                                            style={{ width: `${(stats.rooms.cleaning / stats.rooms.total) * 100 || 0}%` }}
+                                            style={{ width: `${(roomStats.cleaning / roomStats.total) * 100 || 0}%` }}
                                         />
                                     </div>
                                 </div>
@@ -450,12 +499,12 @@ export default function Dashboard({ stats, charts, recentBookings, lowStockItems
                                             <span className="w-2 h-2 rounded-full bg-slate-500 shrink-0" />
                                             Out of Order
                                         </span>
-                                        <span>{stats.rooms.out_of_order} / {stats.rooms.total}</span>
+                                        <span>{roomStats.out_of_order} / {roomStats.total}</span>
                                     </div>
                                     <div className="h-2 w-full bg-[#0f172a] rounded-full overflow-hidden">
                                         <div
                                             className="h-full bg-slate-500 transition-all duration-500"
-                                            style={{ width: `${(stats.rooms.out_of_order / stats.rooms.total) * 100 || 0}%` }}
+                                            style={{ width: `${(roomStats.out_of_order / roomStats.total) * 100 || 0}%` }}
                                         />
                                     </div>
                                 </div>

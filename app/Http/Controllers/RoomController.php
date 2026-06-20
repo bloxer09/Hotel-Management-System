@@ -97,7 +97,13 @@ class RoomController extends Controller
             'room_type_id' => 'required|exists:room_types,id',
             'floor'        => 'required|integer|min:1|max:99',
             'notes'        => 'nullable|string',
+            'photo'        => 'nullable|image|max:4096',
         ]);
+
+        $path = null;
+        if ($request->hasFile('photo')) {
+            $path = $request->file('photo')->store('rooms', 'public');
+        }
 
         $room = Room::create([
             'room_number'  => strtoupper(trim($request->room_number)),
@@ -105,6 +111,7 @@ class RoomController extends Controller
             'floor'        => $request->floor,
             'status'       => 'vacant',
             'notes'        => $request->notes ?? '',
+            'photo_path'   => $path,
         ]);
 
         BookingService::auditLog(
@@ -136,6 +143,8 @@ class RoomController extends Controller
             'notes'        => 'nullable|string',
             'perm_ooo'     => 'nullable|boolean',
             'status'       => 'nullable|in:vacant,occupied,cleaning,out_of_order',
+            'photo'        => 'nullable|image|max:4096',
+            'remove_photo' => 'nullable|boolean',
         ]);
 
         $oldData   = $room->toArray();
@@ -143,6 +152,19 @@ class RoomController extends Controller
         $newStatus = $request->boolean('perm_ooo')
             ? 'out_of_order'
             : ($request->filled('status') ? $request->status : $room->status);
+
+        if ($request->boolean('remove_photo')) {
+            if ($room->photo_path) {
+                \Illuminate\Support\Facades\Storage::disk('public')->delete($room->photo_path);
+            }
+            $room->photo_path = null;
+        } elseif ($request->hasFile('photo')) {
+            if ($room->photo_path) {
+                \Illuminate\Support\Facades\Storage::disk('public')->delete($room->photo_path);
+            }
+            $path = $request->file('photo')->store('rooms', 'public');
+            $room->photo_path = $path;
+        }
 
         $room->update([
             'room_type_id' => $request->room_type_id,

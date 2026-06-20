@@ -16,6 +16,7 @@ import {
     Trash2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import BulkUsageModal from './BulkUsageModal';
 
 export default function Index({ items, activeBookings = [], currentSearch, currentCategory }) {
     const { auth } = usePage().props;
@@ -41,7 +42,8 @@ export default function Index({ items, activeBookings = [], currentSearch, curre
         current_stock: 0,
         minimum_stock: 5,
         unit_cost: 0,
-        selling_price: 0
+        selling_price: 0,
+        image: null
     });
 
     // Form: Edit Item
@@ -52,7 +54,9 @@ export default function Index({ items, activeBookings = [], currentSearch, curre
         minimum_stock: 5,
         unit_cost: 0,
         selling_price: 0,
-        is_active: true
+        is_active: true,
+        image: null,
+        _method: 'PATCH'
     });
 
     // Form: Adjust Stock
@@ -62,62 +66,6 @@ export default function Index({ items, activeBookings = [], currentSearch, curre
         reason: ''
     });
 
-    // Form: Bulk Usage
-    const bulkUsageForm = useForm({
-        target_type: 'booking', // 'booking' or 'walk_in'
-        booking_id: '',
-        consumer_name: '',
-        items: [{ item_id: '', quantity: 1 }]
-    });
-
-    const addUsageRow = () => {
-        bulkUsageForm.setData('items', [
-            ...bulkUsageForm.data.items,
-            { item_id: '', quantity: 1 }
-        ]);
-    };
-
-    const removeUsageRow = (index) => {
-        const list = [...bulkUsageForm.data.items];
-        list.splice(index, 1);
-        bulkUsageForm.setData('items', list);
-    };
-
-    const handleRowChange = (index, field, value) => {
-        const list = [...bulkUsageForm.data.items];
-        list[index] = {
-            ...list[index],
-            [field]: value
-        };
-        bulkUsageForm.setData('items', list);
-    };
-
-    const handleBulkUsageSubmit = (e) => {
-        e.preventDefault();
-        const filteredItems = bulkUsageForm.data.items.filter(i => i.item_id !== '');
-        if (filteredItems.length === 0) {
-            alert('Please select at least one item.');
-            return;
-        }
-
-        const payload = {
-            booking_id: bulkUsageForm.data.target_type === 'booking' ? bulkUsageForm.data.booking_id : null,
-            consumer_name: bulkUsageForm.data.target_type === 'walk_in' ? bulkUsageForm.data.consumer_name : null,
-            items: filteredItems.map(i => ({ item_id: i.item_id, quantity: Number(i.quantity) }))
-        };
-
-        router.post(route('inventory.use'), payload, {
-            onSuccess: () => {
-                setIsBulkUsageOpen(false);
-                bulkUsageForm.reset({
-                    target_type: 'booking',
-                    booking_id: '',
-                    consumer_name: '',
-                    items: [{ item_id: '', quantity: 1 }]
-                });
-            }
-        });
-    };
 
     const triggerSearch = (e) => {
         e.preventDefault();
@@ -148,7 +96,9 @@ export default function Index({ items, activeBookings = [], currentSearch, curre
             minimum_stock: item.minimum_stock,
             unit_cost: item.unit_cost,
             selling_price: item.selling_price,
-            is_active: item.is_active ? true : false
+            is_active: item.is_active ? true : false,
+            image: null,
+            _method: 'PATCH'
         });
         setIsEditOpen(true);
     };
@@ -165,7 +115,7 @@ export default function Index({ items, activeBookings = [], currentSearch, curre
 
     const handleEditSubmit = (e) => {
         e.preventDefault();
-        editForm.patch(route('inventory.update', selectedItem.id), {
+        editForm.post(route('inventory.update', selectedItem.id), {
             onSuccess: () => {
                 setIsEditOpen(false);
             }
@@ -197,12 +147,12 @@ export default function Index({ items, activeBookings = [], currentSearch, curre
                     </div>
 
                     <div className="flex gap-3 self-start flex-wrap">
-                        <Link
-                            href={route('inventory.bulk_usage')}
+                        <button
+                            onClick={() => setIsBulkUsageOpen(true)}
                             className="inline-flex items-center gap-2 px-5 py-3 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-slate-50 font-outfit font-extrabold text-xs tracking-wider shadow-lg hover:shadow-indigo-600/20 transition-all"
                         >
                             <Package size={16} /> Record Bulk Usage
-                        </Link>
+                        </button>
 
                         {isAdmin && (
                             <button
@@ -216,8 +166,23 @@ export default function Index({ items, activeBookings = [], currentSearch, curre
                 </div>
 
                 {/* Filter and Search Panels */}
-                <div className="p-4 rounded-2xl bg-[#1e293b] border border-[#334155] shadow-lg flex flex-col md:flex-row gap-4 justify-between items-center">
-                    <form onSubmit={triggerSearch} className="relative w-full md:max-w-md">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 justify-between">
+                    <div className="flex gap-1 bg-[#1e293b] p-1 rounded-xl border border-[#334155] flex-wrap">
+                        {['', 'minibar', 'toiletries', 'laundry', 'amenities', 'supplies'].map((cat) => (
+                            <button
+                                key={cat}
+                                onClick={() => handleCategoryChange(cat)}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all capitalize ${
+                                    category === cat
+                                        ? 'bg-[#0f172a] text-slate-100 shadow'
+                                        : 'text-slate-400 hover:text-slate-200'
+                                }`}
+                            >
+                                {cat === '' ? 'All Items' : cat}
+                            </button>
+                        ))}
+                    </div>
+                    <form onSubmit={triggerSearch} className="relative w-full sm:w-64">
                         <Search className="absolute left-4 top-3 text-slate-500" size={16} />
                         <input
                             type="text"
@@ -227,23 +192,6 @@ export default function Index({ items, activeBookings = [], currentSearch, curre
                             className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 pl-11 pr-4 py-2.5 focus:outline-none focus:border-brand-500 text-xs"
                         />
                     </form>
-
-                    {/* Category quick selectors */}
-                    <div className="flex gap-2 flex-wrap items-center">
-                        <span className="text-[10px] uppercase font-bold text-slate-500 mr-2">Category:</span>
-                        {['', 'minibar', 'toiletries', 'laundry', 'amenities', 'supplies'].map((cat) => (
-                            <button
-                                key={cat}
-                                onClick={() => handleCategoryChange(cat)}
-                                className={`px-3.5 py-1.5 rounded-lg text-xs font-outfit font-extrabold capitalize transition-all ${category === cat
-                                    ? 'bg-[#334155] text-brand-300 border border-brand-500/20'
-                                    : 'text-slate-400 hover:text-slate-200'
-                                    }`}
-                            >
-                                {cat === '' ? 'All Items' : cat}
-                            </button>
-                        ))}
-                    </div>
                 </div>
                 {/* Restock Alerts Warning Hub */}
                 {(() => {
@@ -296,14 +244,21 @@ export default function Index({ items, activeBookings = [], currentSearch, curre
                                         }`}
                                 >
                                     <div>
-                                        {/* Row Header */}
-                                        <div className="flex items-center justify-between border-b border-[#334155]/60 pb-3">
-                                            <span className="text-[9px] uppercase font-mono font-bold bg-[#0f172a] text-slate-400 border border-[#334155]/50 px-2 py-0.5 rounded">
+                                        {/* Card Image Banner */}
+                                        <div className="relative w-full h-36 bg-[#0f172a] rounded-xl overflow-hidden mb-4 border border-[#334155]/40 flex items-center justify-center group">
+                                            {item.image_path ? (
+                                                <img src={item.image_path} alt={item.item_name} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                                            ) : (
+                                                <div className="w-full h-full bg-gradient-to-br from-indigo-950/30 to-slate-900/60 flex flex-col items-center justify-center gap-2">
+                                                    <Package className="text-slate-600 group-hover:text-indigo-400 transition-colors" size={28} />
+                                                </div>
+                                            )}
+                                            {/* Badges */}
+                                            <span className="absolute top-2.5 left-2.5 text-[9px] uppercase font-mono font-bold bg-[#0f172a]/95 backdrop-blur-sm text-slate-300 border border-[#334155]/60 px-2 py-0.5 rounded-lg shadow-sm">
                                                 {item.category}
                                             </span>
-
                                             {isLow && (
-                                                <span className="inline-flex items-center gap-1 text-[9px] bg-red-950 border border-red-800/40 text-red-400 px-2 py-0.5 rounded font-extrabold uppercase animate-pulse">
+                                                <span className="absolute top-2.5 right-2.5 inline-flex items-center gap-1 text-[9px] bg-red-950/95 backdrop-blur-sm border border-red-800/60 text-red-400 px-2 py-0.5 rounded-lg font-extrabold uppercase animate-pulse shadow-sm">
                                                     <AlertTriangle size={10} /> Critical Low
                                                 </span>
                                             )}
@@ -472,6 +427,44 @@ export default function Index({ items, activeBookings = [], currentSearch, curre
                                                 required
                                             />
                                         </div>
+
+                                        <div className="col-span-2 flex flex-col gap-1">
+                                            <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Product Image</label>
+                                            <div className="flex items-center gap-4 bg-[#0f172a] p-4 rounded-xl border border-[#334155] mt-1">
+                                                {createForm.data.image ? (
+                                                    <div className="relative w-16 h-16 rounded-lg overflow-hidden border border-[#334155]">
+                                                        <img src={URL.createObjectURL(createForm.data.image)} alt="Preview" className="w-full h-full object-cover" />
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => createForm.setData('image', null)}
+                                                            className="absolute -top-1 -right-1 bg-red-600 text-white rounded-full p-0.5 hover:bg-red-505"
+                                                        >
+                                                            <X size={12} />
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <div className="w-16 h-16 rounded-lg bg-[#1e293b] border border-dashed border-[#334155] flex items-center justify-center text-slate-500">
+                                                        <Package size={20} />
+                                                    </div>
+                                                )}
+                                                <div className="flex-1">
+                                                    <input
+                                                        type="file"
+                                                        accept="image/*"
+                                                        onChange={e => createForm.setData('image', e.target.files[0])}
+                                                        className="hidden"
+                                                        id="add-item-image"
+                                                    />
+                                                    <label
+                                                        htmlFor="add-item-image"
+                                                        className="inline-flex items-center gap-2 px-3 py-1.5 bg-[#1e293b] hover:bg-[#334155] border border-[#334155] text-slate-300 hover:text-slate-100 rounded-lg text-xs font-bold cursor-pointer transition-colors"
+                                                    >
+                                                        Choose Image
+                                                    </label>
+                                                    <p className="text-[10px] text-slate-500 mt-1">PNG, JPG, WEBP up to 2MB</p>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
 
                                     <div className="pt-4 border-t border-[#334155]/60 flex justify-end gap-3">
@@ -580,6 +573,48 @@ export default function Index({ items, activeBookings = [], currentSearch, curre
                                                 <span className="text-xs font-semibold text-slate-300">Active</span>
                                             </label>
                                         </div>
+
+                                        <div className="col-span-2 flex flex-col gap-1">
+                                            <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Product Image</label>
+                                            <div className="flex items-center gap-4 bg-[#0f172a] p-4 rounded-xl border border-[#334155] mt-1">
+                                                {editForm.data.image ? (
+                                                    <div className="relative w-16 h-16 rounded-lg overflow-hidden border border-[#334155]">
+                                                        <img src={URL.createObjectURL(editForm.data.image)} alt="Preview" className="w-full h-full object-cover" />
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => editForm.setData('image', null)}
+                                                            className="absolute -top-1 -right-1 bg-red-600 text-white rounded-full p-0.5 hover:bg-red-505"
+                                                        >
+                                                            <X size={12} />
+                                                        </button>
+                                                    </div>
+                                                ) : selectedItem.image_path ? (
+                                                    <div className="relative w-16 h-16 rounded-lg overflow-hidden border border-[#334155]">
+                                                        <img src={selectedItem.image_path} alt="Current" className="w-full h-full object-cover" />
+                                                    </div>
+                                                ) : (
+                                                    <div className="w-16 h-16 rounded-lg bg-[#1e293b] border border-dashed border-[#334155] flex items-center justify-center text-slate-500">
+                                                        <Package size={20} />
+                                                    </div>
+                                                )}
+                                                <div className="flex-1">
+                                                    <input
+                                                        type="file"
+                                                        accept="image/*"
+                                                        onChange={e => editForm.setData('image', e.target.files[0])}
+                                                        className="hidden"
+                                                        id="edit-item-image"
+                                                    />
+                                                    <label
+                                                        htmlFor="edit-item-image"
+                                                        className="inline-flex items-center gap-2 px-3 py-1.5 bg-[#1e293b] hover:bg-[#334155] border border-[#334155] text-slate-300 hover:text-slate-100 rounded-lg text-xs font-bold cursor-pointer transition-colors"
+                                                    >
+                                                        Change Image
+                                                    </label>
+                                                    <p className="text-[10px] text-slate-500 mt-1">PNG, JPG, WEBP up to 2MB</p>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
 
                                     <div className="pt-4 border-t border-[#334155]/60 flex justify-end gap-3">
@@ -678,147 +713,12 @@ export default function Index({ items, activeBookings = [], currentSearch, curre
                 </AnimatePresence>
 
                 {/* MODAL: RECORD BULK USAGE */}
-                <AnimatePresence>
-                    {isBulkUsageOpen && (
-                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 0.5 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black" onClick={() => setIsBulkUsageOpen(false)} />
-                            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-[#1e293b] border border-[#334155] rounded-2xl w-full max-w-2xl shadow-2xl relative z-10 overflow-hidden max-h-[90vh] flex flex-col">
-                                <div className="p-6 border-b border-[#334155] flex items-center justify-between shrink-0">
-                                    <h2 className="font-outfit font-black text-slate-100 text-lg">Record Bulk Item Usage</h2>
-                                    <button onClick={() => setIsBulkUsageOpen(false)} className="text-slate-400 hover:text-slate-100"><X size={18} /></button>
-                                </div>
-
-                                <form onSubmit={handleBulkUsageSubmit} className="p-6 flex-1 overflow-y-auto space-y-6">
-                                    {/* Target booking type toggle */}
-                                    <div className="flex flex-col gap-2">
-                                        <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Charge To</label>
-                                        <div className="grid grid-cols-2 gap-2 p-1 bg-[#0f172a] rounded-xl border border-[#334155]">
-                                            <button
-                                                type="button"
-                                                onClick={() => bulkUsageForm.setData('target_type', 'booking')}
-                                                className={`py-2.5 rounded-lg font-outfit font-extrabold text-xs flex items-center justify-center gap-1.5 transition-all ${bulkUsageForm.data.target_type === 'booking'
-                                                    ? 'bg-brand-950 border border-brand-500/40 text-brand-400'
-                                                    : 'text-slate-400'
-                                                    }`}
-                                            >
-                                                Charged to Booking
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => bulkUsageForm.setData('target_type', 'walk_in')}
-                                                className={`py-2.5 rounded-lg font-outfit font-extrabold text-xs flex items-center justify-center gap-1.5 transition-all ${bulkUsageForm.data.target_type === 'walk_in'
-                                                    ? 'bg-brand-950 border border-brand-500/40 text-brand-400'
-                                                    : 'text-slate-400'
-                                                    }`}
-                                            >
-                                                Walk-in Cash Sale
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    {/* Selection based on toggle */}
-                                    {bulkUsageForm.data.target_type === 'booking' ? (
-                                        <div className="flex flex-col gap-1.5">
-                                            <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Select Active Room Booking</label>
-                                            <select
-                                                value={bulkUsageForm.data.booking_id}
-                                                onChange={e => bulkUsageForm.setData('booking_id', e.target.value)}
-                                                required
-                                                className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-xs text-slate-100 px-4 py-2.5 focus:outline-none focus:border-brand-500 font-bold"
-                                            >
-                                                <option value="">-- Choose Active Booking --</option>
-                                                {activeBookings.map(b => (
-                                                    <option key={b.id} value={b.id}>
-                                                        Room {b.room ? b.room.room_number : '-'} — {b.guest_name} ({b.booking_ref})
-                                                    </option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                    ) : (
-                                        <div className="flex flex-col gap-1.5">
-                                            <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Walk-in Customer Name</label>
-                                            <input
-                                                type="text"
-                                                value={bulkUsageForm.data.consumer_name}
-                                                onChange={e => bulkUsageForm.setData('consumer_name', e.target.value)}
-                                                placeholder="e.g. John Doe, Cash Customer..."
-                                                required
-                                                className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-xs text-slate-100 px-4 py-2.5 focus:outline-none focus:border-brand-500 font-bold"
-                                            />
-                                        </div>
-                                    )}
-
-                                    {/* Dynamic lines items list */}
-                                    <div className="flex flex-col gap-3">
-                                        <div className="flex justify-between items-center border-b border-[#334155]/60 pb-2">
-                                            <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Items Used</label>
-                                            <button
-                                                type="button"
-                                                onClick={addUsageRow}
-                                                className="text-xs text-brand-400 hover:text-brand-300 font-bold font-outfit"
-                                            >
-                                                + Add Line Item
-                                            </button>
-                                        </div>
-
-                                        <div className="space-y-3">
-                                            {bulkUsageForm.data.items.map((line, idx) => (
-                                                <div key={idx} className="flex gap-3 items-center">
-                                                    {/* Select item */}
-                                                    <div className="flex-1">
-                                                        <select
-                                                            value={line.item_id}
-                                                            onChange={e => handleRowChange(idx, 'item_id', e.target.value)}
-                                                            required
-                                                            className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-xs text-slate-100 px-3 py-2 focus:outline-none focus:border-brand-500 font-medium"
-                                                        >
-                                                            <option value="">-- Choose Item --</option>
-                                                            {items.map(i => (
-                                                                <option key={i.id} value={i.id} disabled={i.current_stock <= 0}>
-                                                                    {i.item_name} ({i.category}) [Stock: {i.current_stock} {i.unit}] — ₱{Number(i.selling_price).toFixed(2)}
-                                                                </option>
-                                                            ))}
-                                                        </select>
-                                                    </div>
-
-                                                    {/* Quantity */}
-                                                    <div className="w-24">
-                                                        <input
-                                                            type="number"
-                                                            min="1"
-                                                            value={line.quantity}
-                                                            onChange={e => handleRowChange(idx, 'quantity', parseInt(e.target.value) || 1)}
-                                                            required
-                                                            className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-xs text-slate-100 px-3 py-2 focus:outline-none focus:border-brand-500 text-center font-mono font-bold"
-                                                        />
-                                                    </div>
-
-                                                    {/* Trash button */}
-                                                    {bulkUsageForm.data.items.length > 1 && (
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => removeUsageRow(idx)}
-                                                            className="p-2 rounded-lg bg-red-950/20 hover:bg-red-950 border border-red-900/35 hover:border-red-800 text-red-400 transition-colors"
-                                                            title="Delete Line"
-                                                        >
-                                                            <Trash2 size={14} />
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    {/* Action buttons */}
-                                    <div className="pt-4 border-t border-[#334155]/60 flex justify-end gap-3 shrink-0">
-                                        <button type="button" onClick={() => setIsBulkUsageOpen(false)} className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold font-outfit">Cancel</button>
-                                        <button type="submit" disabled={bulkUsageForm.processing} className="px-5 py-2.5 bg-brand-600 hover:bg-brand-500 text-slate-50 rounded-xl text-xs font-bold font-outfit shadow-md">Record Item Usage</button>
-                                    </div>
-                                </form>
-                            </motion.div>
-                        </div>
-                    )}
-                </AnimatePresence>
+                <BulkUsageModal 
+                    isOpen={isBulkUsageOpen} 
+                    onClose={() => setIsBulkUsageOpen(false)} 
+                    items={items} 
+                    activeBookings={activeBookings} 
+                />
 
             </div>
         </AuthenticatedLayout>

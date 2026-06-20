@@ -14,6 +14,7 @@ class InventoryItem extends Model
         'minimum_stock',
         'unit_cost',
         'selling_price',
+        'image_path',
         'is_active',
     ];
 

@@ -27,6 +27,7 @@ import {
     Search
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import RoomAvailabilityModal from './RoomAvailabilityModal';
 
 const STATUS_LABELS = { vacant: 'Vacant', occupied: 'Occupied', cleaning: 'Cleaning', out_of_order: 'Out of Order' };
 const STATUS_COLORS = {
@@ -36,6 +37,20 @@ const STATUS_COLORS = {
     out_of_order: 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-500 shadow-slate-950/20',
 };
 
+function formatMinsToReadable(totalMins) {
+    if (totalMins < 60) {
+        return `${totalMins}m`;
+    }
+    const hours = Math.floor(totalMins / 60);
+    const mins = totalMins % 60;
+    if (hours < 24) {
+        return `${hours}h ${mins}m`;
+    }
+    const days = Math.floor(hours / 24);
+    const remHours = hours % 24;
+    return `${days}d ${remHours}h ${mins}m`;
+}
+
 function getCheckoutAlertState(room) {
     if (room.status !== 'occupied' || !room.active_booking?.expected_check_out) return null;
     const now = Date.now();
@@ -43,11 +58,11 @@ function getCheckoutAlertState(room) {
     const diffMs = expectedTs - now;
     if (diffMs < 0) {
         const minsOver = Math.max(1, Math.ceil(Math.abs(diffMs) / 60000));
-        return { state: 'overdue', label: `Overdue ${minsOver} min` };
+        return { state: 'overdue', label: `Overdue ${formatMinsToReadable(minsOver)}` };
     }
     if (diffMs <= 5 * 60 * 1000) {
         const minsLeft = Math.max(1, Math.ceil(diffMs / 60000));
-        return { state: 'upcoming', label: `${minsLeft} min left` };
+        return { state: 'upcoming', label: `${formatMinsToReadable(minsLeft)} left` };
     }
     return null;
 }
@@ -69,6 +84,20 @@ export default function Board({ rooms, roomTypes, housekeepers = [] }) {
         const start = new Date(startedAt).getTime();
         const diff = currentTime - start;
         return Math.max(0, Math.floor(diff / 60000));
+    };
+
+    const formatElapsedMinutes = (totalMins) => {
+        if (totalMins < 60) return `${totalMins}m`;
+        const days = Math.floor(totalMins / 1440);
+        const hours = Math.floor((totalMins % 1440) / 60);
+        const mins = totalMins % 60;
+        
+        let parts = [];
+        if (days > 0) parts.push(`${days}d`);
+        if (hours > 0 || days > 0) parts.push(`${hours}h`);
+        parts.push(`${mins}m`);
+        
+        return parts.join(' ');
     };
 
     const getStayProgress = (room) => {
@@ -114,9 +143,11 @@ export default function Board({ rooms, roomTypes, housekeepers = [] }) {
     // Bulk clean selection
     const [bulkSelected, setBulkSelected] = useState([]);
 
+    const [isAvailabilityOpen, setIsAvailabilityOpen] = useState(false);
+
     const statusForm = useForm({ status: '', notes: '' });
-    const addForm = useForm({ room_number: '', room_type_id: '', floor: 1, notes: '' });
-    const editForm = useForm({ room_type_id: '', floor: 1, notes: '', perm_ooo: false, status: 'vacant' });
+    const addForm = useForm({ room_number: '', room_type_id: '', floor: 1, notes: '', photo: null });
+    const editForm = useForm({ room_type_id: '', floor: 1, notes: '', perm_ooo: false, status: 'vacant', photo: null, remove_photo: false, _method: 'PUT' });
 
     const handleRoomClick = (room) => {
         setSelectedRoom(room);
@@ -236,7 +267,8 @@ export default function Board({ rooms, roomTypes, housekeepers = [] }) {
 
     const handleEditSubmit = (e) => {
         e.preventDefault();
-        editForm.put(route('rooms.update', selectedRoom.id), {
+        // POST to support file uploads with Laravel simulated spoofing
+        editForm.post(route('rooms.update', selectedRoom.id), {
             onSuccess: () => { setActiveModal(null); setSelectedRoom(null); editForm.reset(); }
         });
     };
@@ -257,6 +289,9 @@ export default function Board({ rooms, roomTypes, housekeepers = [] }) {
             notes: room.notes || '',
             perm_ooo: false,
             status: room.status === 'occupied' ? 'occupied' : room.status,
+            photo: null,
+            remove_photo: false,
+            _method: 'PUT'
         });
         setActiveModal('edit');
     };
@@ -324,6 +359,14 @@ export default function Board({ rooms, roomTypes, housekeepers = [] }) {
                             </button>
                         )}
                         {user.role !== 'housekeeping' && (
+                            <button
+                                onClick={() => setIsAvailabilityOpen(true)}
+                                className="flex items-center gap-2 px-4 py-2 bg-indigo-700/30 border border-indigo-600/40 hover:bg-indigo-600/40 text-indigo-300 rounded-xl text-xs font-bold transition-all"
+                            >
+                                <Calendar size={15} /> Room Availability
+                            </button>
+                        )}
+                        {user.role !== 'housekeeping' && (
                             <Link
                                 href={route('checkin.index')}
                                 className="flex items-center gap-2 px-4 py-2 bg-emerald-700/30 border border-emerald-600/40 hover:bg-emerald-600/40 text-emerald-300 rounded-xl text-xs font-bold transition-all"
@@ -334,78 +377,51 @@ export default function Board({ rooms, roomTypes, housekeepers = [] }) {
                     </div>
                 </div>
 
-                {/* Status KPI Bar */}
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                    {[
-                        { key: 'all', label: 'All Rooms', count: rooms.length, color: 'brand' },
-                        { key: 'vacant', label: 'Vacant', count: countStatus('vacant'), color: 'emerald' },
-                        { key: 'occupied', label: 'Occupied', count: countStatus('occupied'), color: 'rose' },
-                        { key: 'cleaning', label: 'Cleaning', count: countStatus('cleaning'), color: 'amber' },
-                        { key: 'out_of_order', label: 'Out of Order', count: countStatus('out_of_order'), color: 'slate' },
-                    ].map(({ key, label, count, color }) => (
-                        <button
-                            key={key}
-                            onClick={() => setStatusFilter(key)}
-                            className={`p-4 rounded-xl border text-left transition-all ${statusFilter === key
-                                ? `bg-${color}-600/30 border-${color}-500 text-${color}-100 shadow-lg`
-                                : 'bg-[#1e293b] border-[#334155] text-slate-400 hover:bg-[#334155]/40'
-                                }`}
-                        >
-                            <span className="text-[10px] uppercase font-bold tracking-wider block">{label}</span>
-                            <span className={`text-2xl font-outfit font-bold block mt-1 text-${color}-400`}>{count}</span>
-                        </button>
-                    ))}
-                </div>
-
-                {/* Filter bar */}
-                <div className="p-4 rounded-2xl bg-[#1e293b] border border-[#334155] flex flex-wrap gap-4 items-center shadow-lg">
-                    <div className="flex items-center gap-2 text-xs font-semibold text-slate-400 uppercase tracking-wider mr-2">
-                        <Filter size={16} /> Filters
+                {/* Tabs + Search & Filters */}
+                <div className="flex flex-col md:flex-row md:items-center gap-4 justify-between">
+                    {/* Status Tabs */}
+                    <div className="flex gap-1 bg-[#1e293b] p-1 rounded-xl border border-[#334155] flex-wrap shrink-0">
+                        {[
+                            { key: 'all',          label: 'All Rooms',    dot: 'bg-brand-400',   count: rooms.length },
+                            { key: 'vacant',       label: 'Vacant',       dot: 'bg-emerald-400', count: countStatus('vacant') },
+                            { key: 'occupied',     label: 'Occupied',     dot: 'bg-rose-450',    count: countStatus('occupied') },
+                            { key: 'cleaning',     label: 'Cleaning',     dot: 'bg-amber-400',   count: countStatus('cleaning') },
+                            { key: 'out_of_order',  label: 'Out of Order', dot: 'bg-slate-400',   count: countStatus('out_of_order') },
+                        ].map(tab => (
+                            <button key={tab.key} onClick={() => setStatusFilter(tab.key)}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                    statusFilter === tab.key ? 'bg-[#0f172a] text-slate-100 shadow' : 'text-slate-400 hover:text-slate-200'
+                                }`}>
+                                <span className={`w-1.5 h-1.5 rounded-full ${tab.dot} ${statusFilter === tab.key ? 'opacity-100' : 'opacity-40'}`} />
+                                {tab.label}
+                                <span className="text-[10px] opacity-60 ml-1 font-mono">({tab.count})</span>
+                            </button>
+                        ))}
                     </div>
-                    <div className="flex items-center gap-2 bg-[#0f172a] border border-[#334155] px-3 py-1.5 rounded-xl text-xs flex-1 max-w-xs min-w-[180px]">
-                        <Search size={14} className="text-slate-500 shrink-0" />
+
+                    {/* Search beside status tabs */}
+                    <div className="relative w-full md:w-64">
+                        <Search className="absolute left-4 top-3 text-slate-500" size={16} />
                         <input
                             type="text"
                             value={roomSearch}
                             onChange={e => setRoomSearch(e.target.value)}
                             placeholder="Search room #, guest, type..."
-                            className="bg-transparent border-none text-slate-200 focus:ring-0 py-0 px-0 placeholder:text-slate-600 text-xs w-full focus:outline-none ml-1.5"
+                            className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 pl-11 pr-4 py-2.5 focus:outline-none focus:border-brand-500 text-xs placeholder:text-slate-500"
                         />
                         {roomSearch && (
-                            <button onClick={() => setRoomSearch('')} className="text-slate-500 hover:text-slate-350 shrink-0 ml-1">
-                                <X size={12} />
+                            <button onClick={() => setRoomSearch('')} className="absolute right-4 top-3.5 text-slate-500 hover:text-slate-300">
+                                <X size={14} />
                             </button>
                         )}
                     </div>
-                    <div className="flex items-center gap-2 bg-[#0f172a] border border-[#334155] px-3 py-1.5 rounded-xl text-xs">
-                        <Layers size={14} className="text-slate-500" />
-                        <select value={floorFilter} onChange={e => setFloorFilter(e.target.value)}
-                            className="bg-transparent border-none text-slate-200 focus:ring-0 py-0 pr-8">
-                            <option value="all">All Floors</option>
-                            {uniqueFloors.map(f => <option key={f} value={f.toString()}>Floor {f}</option>)}
-                        </select>
-                    </div>
-                    <div className="flex items-center gap-2 bg-[#0f172a] border border-[#334155] px-3 py-1.5 rounded-xl text-xs">
-                        <Home size={14} className="text-slate-500" />
-                        <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)}
-                            className="bg-transparent border-none text-slate-200 focus:ring-0 py-0 pr-8">
-                            <option value="all">All Room Types</option>
-                            {roomTypes.map(t => <option key={t.id} value={t.id.toString()}>{t.type_name}</option>)}
-                        </select>
-                    </div>
-                    {(statusFilter !== 'all' || floorFilter !== 'all' || typeFilter !== 'all' || roomSearch) && (
-                        <button onClick={() => { setStatusFilter('all'); setFloorFilter('all'); setTypeFilter('all'); setRoomSearch(''); }}
-                            className="ml-auto text-xs text-slate-550 hover:text-slate-300 flex items-center gap-1">
-                            <X size={13} /> Clear filters
-                        </button>
-                    )}
                 </div>
 
                 {/* Visual Floor Selector Tabs */}
-                <div className="flex flex-wrap gap-2 p-1.5 rounded-2xl bg-[#1e293b] border border-[#334155] w-fit shadow-lg">
+                <div className="flex gap-1 bg-[#1e293b] p-1 rounded-xl border border-[#334155] w-fit shadow-md">
                     <button
                         onClick={() => setFloorFilter('all')}
-                        className={`px-4 py-2 rounded-xl text-xs font-outfit font-extrabold transition-all duration-200 ${floorFilter === 'all' ? 'bg-brand-600 text-slate-50 shadow-lg shadow-brand-600/20' : 'text-slate-400 hover:text-slate-200 hover:bg-[#334155]/30'}`}
+                        className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${floorFilter === 'all' ? 'bg-[#0f172a] text-slate-100 shadow' : 'text-slate-400 hover:text-slate-200'}`}
                     >
                         All Floors ({rooms.length})
                     </button>
@@ -415,7 +431,7 @@ export default function Board({ rooms, roomTypes, housekeepers = [] }) {
                             <button
                                 key={f}
                                 onClick={() => setFloorFilter(f.toString())}
-                                className={`px-4 py-2 rounded-xl text-xs font-outfit font-extrabold transition-all duration-200 ${floorFilter === f.toString() ? 'bg-brand-600 text-slate-50 shadow-lg shadow-brand-600/20' : 'text-slate-400 hover:text-slate-200 hover:bg-[#334155]/30'}`}
+                                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${floorFilter === f.toString() ? 'bg-[#0f172a] text-slate-100 shadow' : 'text-slate-400 hover:text-slate-200'}`}
                             >
                                 Floor {f} ({floorRoomCount})
                             </button>
@@ -447,10 +463,10 @@ export default function Board({ rooms, roomTypes, housekeepers = [] }) {
                                             <span className="text-[10px] font-mono capitalize opacity-70 truncate text-center">
                                                 {room.type?.type_name}
                                             </span>
-                                            {room.type?.photo_url && (
+                                            {room.photo_url && (
                                                 <img
-                                                    src={room.type.photo_url}
-                                                    alt={room.type.type_name}
+                                                    src={room.photo_url}
+                                                    alt={room.type?.type_name}
                                                     className="w-6 h-6 rounded-md object-cover border border-[#334155] shrink-0"
                                                     onError={(e) => { e.currentTarget.style.display = 'none'; }}
                                                 />
@@ -476,7 +492,7 @@ export default function Board({ rooms, roomTypes, housekeepers = [] }) {
 
                                             {room.status === 'cleaning' && (
                                                 <div className="text-[9px] text-amber-300 font-mono mt-1 flex flex-col gap-0.5 leading-none">
-                                                    <div>{getCleaningDuration(room.cleaning_started_at)}m elapsed</div>
+                                                    <div>{formatElapsedMinutes(getCleaningDuration(room.cleaning_started_at))} elapsed</div>
                                                     {room.assigned_housekeeper && <div className="text-[8px] text-slate-400 truncate max-w-[100px] mx-auto mt-0.5">👤 {room.assigned_housekeeper}</div>}
                                                 </div>
                                             )}
@@ -498,33 +514,7 @@ export default function Board({ rooms, roomTypes, housekeepers = [] }) {
                                                     <User size={9} /> {room.active_booking.guest_name}
                                                 </div>
 
-                                                {/* Short-time Hourly Stay Progress Bar */}
-                                                {(room.active_booking.booking_type === 'short_time' || room.active_booking.booking_type === 'hourly') && (() => {
-                                                    const progress = getStayProgress(room);
-                                                    if (!progress) return null;
-                                                    const { pct, minsLeft } = progress;
-                                                    const hours = Math.floor(minsLeft / 60);
-                                                    const mins = minsLeft % 60;
-                                                    const timeLeftLabel = hours > 0 ? `${hours}h ${mins}m left` : `${mins}m left`;
-                                                    const isCritical = minsLeft <= 30;
 
-                                                    return (
-                                                        <div className="w-full flex flex-col gap-0.5 mt-0.5">
-                                                            <div className="flex justify-between items-center text-[8px] font-bold text-slate-400 leading-none">
-                                                                <span>Progress</span>
-                                                                <span className={isCritical ? 'text-red-400 animate-pulse font-black' : 'text-slate-300 font-extrabold'}>
-                                                                    {timeLeftLabel}
-                                                                </span>
-                                                            </div>
-                                                            <div className="w-full bg-[#0f172a]/60 border border-[#334155]/40 h-1 rounded-full overflow-hidden">
-                                                                <div
-                                                                    className={`h-full transition-all duration-500 ${isCritical ? 'bg-red-500' : pct >= 80 ? 'bg-amber-400' : 'bg-emerald-500'}`}
-                                                                    style={{ width: `${pct}%` }}
-                                                                />
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })()}
                                             </div>
                                         )}
 
@@ -615,9 +605,9 @@ export default function Board({ rooms, roomTypes, housekeepers = [] }) {
                                 {/* Scrollable body */}
                                 <div className="flex-1 overflow-y-auto p-6 space-y-4">
 
-                                    {selectedRoom.type?.photo_url && (
+                                    {selectedRoom.photo_url && (
                                         <div className="w-full h-48 rounded-xl overflow-hidden border border-[#334155] relative shrink-0">
-                                            <img src={selectedRoom.type.photo_url} alt={selectedRoom.type.type_name} className="w-full h-full object-cover" />
+                                            <img src={selectedRoom.photo_url} alt={selectedRoom.type?.type_name} className="w-full h-full object-cover" />
                                         </div>
                                     )}
 
@@ -651,7 +641,7 @@ export default function Board({ rooms, roomTypes, housekeepers = [] }) {
                                                 <div className="flex justify-between">
                                                     <span>Duration:</span>
                                                     <span className="text-slate-200 font-bold">
-                                                        {getCleaningDuration(selectedRoom.cleaning_started_at)} minutes elapsed
+                                                        {formatElapsedMinutes(getCleaningDuration(selectedRoom.cleaning_started_at))} elapsed
                                                     </span>
                                                 </div>
                                                 <div className="flex justify-between">
@@ -1035,6 +1025,25 @@ export default function Board({ rooms, roomTypes, housekeepers = [] }) {
                                             ))}
                                         </select>
                                     </div>
+                                    {/* Room Photo */}
+                                    <div className="flex flex-col gap-1.5 pt-1">
+                                        <label className="text-xs font-semibold text-slate-400 mb-1 block">Room Photo (Optional)</label>
+                                        <div className="flex items-center gap-4">
+                                            {addForm.data.photo ? (
+                                                <img src={URL.createObjectURL(addForm.data.photo)} alt="Preview" className="w-12 h-12 rounded-lg object-cover border border-[#334155]" />
+                                            ) : (
+                                                <div className="w-12 h-12 rounded-lg bg-[#0f172a] border border-[#334155] flex items-center justify-center text-slate-500 text-[10px] font-bold font-mono">None</div>
+                                            )}
+                                            <input
+                                                type="file"
+                                                accept="image/*"
+                                                onChange={e => addForm.setData('photo', e.target.files[0])}
+                                                className="text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-[#0f172a] file:text-brand-400 hover:file:bg-[#334155] cursor-pointer"
+                                            />
+                                        </div>
+                                        {addForm.errors.photo && <span className="text-[10px] text-red-450 font-semibold">{addForm.errors.photo}</span>}
+                                    </div>
+
                                     <div>
                                         <label className="text-xs font-semibold text-slate-400 mb-1 block">Notes (optional)</label>
                                         <textarea value={addForm.data.notes}
@@ -1121,9 +1130,9 @@ export default function Board({ rooms, roomTypes, housekeepers = [] }) {
                                 {/* Scrollable body */}
                                 <div className="flex-1 overflow-y-auto p-6 space-y-4">
 
-                                    {selectedRoom.type?.photo_url && (
+                                    {selectedRoom.photo_url && (
                                         <div className="w-full h-48 rounded-xl overflow-hidden border border-[#334155] relative shrink-0">
-                                            <img src={selectedRoom.type.photo_url} alt={selectedRoom.type.type_name} className="w-full h-full object-cover" />
+                                            <img src={selectedRoom.photo_url} alt={selectedRoom.type?.type_name} className="w-full h-full object-cover" />
                                         </div>
                                     )}
 
@@ -1174,6 +1183,39 @@ export default function Board({ rooms, roomTypes, housekeepers = [] }) {
                                                 <option value="out_of_order">Out of Order</option>
                                             </select>
                                         </div>
+
+                                        {/* Room Photo */}
+                                        <div className="flex flex-col gap-1.5 pt-1">
+                                            <label className="text-xs font-semibold text-slate-400 mb-1 block">Room Photo</label>
+                                            <div className="flex items-center gap-4">
+                                                {editForm.data.photo ? (
+                                                    <img src={URL.createObjectURL(editForm.data.photo)} alt="Preview" className="w-12 h-12 rounded-lg object-cover border border-[#334155]" />
+                                                ) : selectedRoom.photo_path && !editForm.data.remove_photo ? (
+                                                    <img src={selectedRoom.photo_url} alt="Current" className="w-12 h-12 rounded-lg object-cover border border-[#334155]" />
+                                                ) : (
+                                                    <div className="w-12 h-12 rounded-lg bg-[#0f172a] border border-[#334155] flex items-center justify-center text-slate-500 text-[10px] font-bold font-mono">None</div>
+                                                )}
+                                                <div className="flex flex-col gap-2">
+                                                    <input
+                                                        type="file"
+                                                        accept="image/*"
+                                                        onChange={e => editForm.setData(prev => ({ ...prev, photo: e.target.files[0], remove_photo: false }))}
+                                                        className="text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-[#0f172a] file:text-brand-400 hover:file:bg-[#334155] cursor-pointer"
+                                                    />
+                                                    {(selectedRoom.photo_path || editForm.data.photo) && !editForm.data.remove_photo && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => editForm.setData(prev => ({ ...prev, photo: null, remove_photo: true }))}
+                                                            className="text-[10px] text-red-400 hover:text-red-300 font-bold self-start"
+                                                        >
+                                                            Remove Photo
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            {editForm.errors.photo && <span className="text-[10px] text-red-450 font-semibold">{editForm.errors.photo}</span>}
+                                        </div>
+
                                         <div>
                                             <label className="text-xs font-semibold text-slate-400 mb-1 block">Room Notes</label>
                                             <textarea value={editForm.data.notes}
@@ -1275,6 +1317,11 @@ export default function Board({ rooms, roomTypes, housekeepers = [] }) {
                     </>
                 )}
             </AnimatePresence>
+
+            <RoomAvailabilityModal 
+                isOpen={isAvailabilityOpen} 
+                onClose={() => setIsAvailabilityOpen(false)} 
+            />
 
         </AuthenticatedLayout>
     );

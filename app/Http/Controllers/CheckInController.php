@@ -17,6 +17,7 @@ class CheckInController extends Controller
 {
     public function index(Request $request)
     {
+        // Wizard data (for the Check-In modal)
         $rooms = Room::with('type')
             ->where('status', 'vacant')
             ->orderBy('room_number', 'asc')
@@ -41,11 +42,21 @@ class CheckInController extends Controller
             ->orderBy('code', 'asc')
             ->get(['code', 'discount_type', 'discount_value']);
 
+        // Stay list data (paginated)
+        $status = $request->input('status', 'active');
+        $bookings = Booking::with(['room', 'room.type'])
+            ->when($status && $status !== 'all', fn($q) => $q->where('status', $status))
+            ->orderBy('id', 'desc')
+            ->paginate(15)
+            ->withQueryString();
+
         return Inertia::render('CheckIn/Index', [
-            'vacantRooms' => $rooms,
-            'roomTypes' => $roomTypes,
-            'prefilledGuest' => $prefilledGuest,
-            'promoCodes' => $promoCodes,
+            'vacantRooms'   => $rooms,
+            'roomTypes'     => $roomTypes,
+            'prefilledGuest'=> $prefilledGuest,
+            'promoCodes'    => $promoCodes,
+            'bookings'      => $bookings,
+            'currentFilter' => $status,
         ]);
     }
 
@@ -126,6 +137,7 @@ class CheckInController extends Controller
             'guest_contact' => 'nullable|string|max:20',
             'guest_id_type' => 'nullable|string|max:50',
             'guest_id_number' => 'nullable|string|max:50',
+            'id_image' => 'nullable|image|max:5120',
             'guest_email' => 'nullable|email|max:100',
             'guest_address' => 'nullable|string',
             'num_guests' => 'required|integer|min:1',
@@ -167,7 +179,12 @@ class CheckInController extends Controller
             return back()->with('error', 'Room is not vacant.');
         }
 
-        return DB::transaction(function () use ($request, $room, $user) {
+        $idImagePath = null;
+        if ($request->hasFile('id_image')) {
+            $idImagePath = $request->file('id_image')->store('id_images', 'public');
+        }
+
+        return DB::transaction(function () use ($request, $room, $user, $idImagePath) {
             $checkInTime = now();
             
             $reqDiscountType = $request->discount_type ?: '';
@@ -240,6 +257,7 @@ class CheckInController extends Controller
                     'contact_number' => $request->guest_contact,
                     'id_type' => $request->guest_id_type,
                     'id_number' => $request->guest_id_number,
+                    'id_image_path' => $idImagePath,
                     'email' => $request->guest_email,
                     'address' => $request->guest_address,
                 ]);
@@ -248,6 +266,9 @@ class CheckInController extends Controller
                 $guestProfile->contact_number = $request->guest_contact ?: $guestProfile->contact_number;
                 $guestProfile->id_type = $request->guest_id_type ?: $guestProfile->id_type;
                 $guestProfile->id_number = $request->guest_id_number ?: $guestProfile->id_number;
+                if ($idImagePath) {
+                    $guestProfile->id_image_path = $idImagePath;
+                }
                 $guestProfile->email = $request->guest_email ?: $guestProfile->email;
                 $guestProfile->address = $request->guest_address ?: $guestProfile->address;
             }
@@ -268,6 +289,7 @@ class CheckInController extends Controller
                 'guest_contact' => $guestProfile->contact_number,
                 'guest_id_type' => $guestProfile->id_type,
                 'guest_id_number' => $guestProfile->id_number,
+                'guest_id_image_path' => $idImagePath ?: $guestProfile->id_image_path,
                 'num_guests' => $request->num_guests,
                 'booking_type' => $request->booking_type,
                 'short_time_hours' => $request->booking_type !== 'overnight' ? $request->short_time_hours : null,
@@ -323,7 +345,7 @@ class CheckInController extends Controller
                 "Checked in guest {$guestProfile->full_name} into Room {$room->room_number} (Ref: {$bookingRef}). Payment: ₱{$totalAmount} via {$paymentMethod}."
             );
 
-            return redirect()->route('rooms.index')->with('success', "Guest {$guestProfile->full_name} successfully checked into Room {$room->room_number}. Reference: {$bookingRef}");
+            return redirect()->route('checkin.index')->with('success', "Guest {$guestProfile->full_name} successfully checked into Room {$room->room_number}. Reference: {$bookingRef}");
         });
     }
 }

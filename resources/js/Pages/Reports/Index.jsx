@@ -101,29 +101,74 @@ export default function Index({ dateFrom, dateTo, summary, byCashier, byRoomType
                 </div>
 
                 {/* Date Range Filter */}
-                <div className="p-4 rounded-2xl bg-[#1e293b] border border-[#334155] flex flex-wrap items-center gap-3 print:hidden">
-                    <Calendar size={15} className="text-slate-500" />
-                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Date Range:</span>
-                    <input type="date" value={from} onChange={e => setFrom(e.target.value)}
-                        className="bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 px-3 py-1.5 text-xs focus:outline-none focus:border-brand-500" />
-                    <span className="text-slate-500 text-xs">to</span>
-                    <input type="date" value={to} onChange={e => setTo(e.target.value)}
-                        className="bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 px-3 py-1.5 text-xs focus:outline-none focus:border-brand-500" />
-                    <button onClick={applyDateFilter}
-                        className="px-4 py-1.5 bg-brand-600 hover:bg-brand-500 text-white rounded-xl text-xs font-bold transition-all">
-                        Apply
-                    </button>
-                    <div className="flex items-center gap-1 ml-2">
-                        {['today', 'week', 'month'].map(r => (
-                            <button key={r} onClick={() => quickRange(r)}
-                                className="px-3 py-1.5 bg-[#0f172a] border border-[#334155] hover:border-brand-500/40 text-slate-400 hover:text-slate-200 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all capitalize">
-                                {r}
-                            </button>
-                        ))}
+                <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 p-4 rounded-2xl bg-[#1e293b] border border-[#334155] shadow-lg print:hidden">
+                    {/* Left: Quick Ranges Segmented Tabs */}
+                    <div className="flex gap-1 bg-[#0f172a] p-1 rounded-xl border border-[#334155] w-fit shrink-0">
+                        {[
+                            { key: 'today', label: 'Today' },
+                            { key: 'week', label: 'This Week' },
+                            { key: 'month', label: 'This Month' },
+                        ].map(tab => {
+                            const todayStr = new Date().toISOString().split('T')[0];
+                            const firstOfWeek = new Date();
+                            firstOfWeek.setDate(firstOfWeek.getDate() - firstOfWeek.getDay());
+                            const weekStartStr = firstOfWeek.toISOString().split('T')[0];
+                            const firstOfMonthStr = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-01`;
+
+                            const isActive = 
+                                (tab.key === 'today' && dateFrom === todayStr && dateTo === todayStr) ||
+                                (tab.key === 'week' && dateFrom === weekStartStr && dateTo === todayStr) ||
+                                (tab.key === 'month' && dateFrom === firstOfMonthStr && dateTo === todayStr);
+
+                            return (
+                                <button
+                                    key={tab.key}
+                                    type="button"
+                                    onClick={() => quickRange(tab.key)}
+                                    className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all uppercase tracking-wider ${
+                                        isActive
+                                            ? 'bg-[#1e293b] text-slate-100 shadow border border-[#334155]/60'
+                                            : 'text-slate-400 hover:text-slate-200'
+                                    }`}
+                                >
+                                    {tab.label}
+                                </button>
+                            );
+                        })}
                     </div>
-                    <span className="ml-auto text-xs text-slate-500 font-mono">
-                        {from === to ? from : `${from} → ${to}`}
-                    </span>
+
+                    {/* Right: Custom Date Range Picker */}
+                    <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
+                        <div className="flex items-center gap-2">
+                            <Calendar size={14} className="text-slate-500" />
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">Custom Range</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <input
+                                type="date"
+                                value={from}
+                                onChange={e => setFrom(e.target.value)}
+                                className="bg-[#0f172a] border border-[#334155] rounded-xl text-slate-200 px-3 py-2 text-xs focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500/20 font-medium transition-all"
+                            />
+                            <span className="text-slate-500 text-xs font-medium">to</span>
+                            <input
+                                type="date"
+                                value={to}
+                                onChange={e => setTo(e.target.value)}
+                                className="bg-[#0f172a] border border-[#334155] rounded-xl text-slate-200 px-3 py-2 text-xs focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500/20 font-medium transition-all"
+                            />
+                        </div>
+                        <button
+                            type="button"
+                            onClick={applyDateFilter}
+                            className="px-5 py-2 bg-brand-600 hover:bg-brand-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-brand-600/10 hover:shadow-brand-600/20 transition-all font-outfit"
+                        >
+                            Apply Filter
+                        </button>
+                        <span className="text-xs text-slate-400 font-mono font-bold bg-[#0f172a] px-3.5 py-2 rounded-xl border border-[#334155]/60 min-w-[180px] text-center xl:ml-2">
+                            {dateFrom === dateTo ? dateFrom : `${dateFrom} → ${dateTo}`}
+                        </span>
+                    </div>
                 </div>
 
                 {/* Summary KPI Cards */}

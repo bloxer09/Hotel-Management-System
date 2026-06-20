@@ -12,7 +12,7 @@ class MaintenanceController extends Controller
 {
     public function index(Request $request)
     {
-        $tickets = MaintenanceTicket::with(['room.roomType', 'reportedBy', 'resolvedBy'])
+        $tickets = MaintenanceTicket::with(['room.type', 'reportedBy', 'resolvedBy'])
             ->orderBy('id', 'desc')
             ->get();
 
@@ -31,10 +31,17 @@ class MaintenanceController extends Controller
             'title' => 'required|string|max:100',
             'description' => 'nullable|string',
             'priority' => 'required|in:low,medium,high,critical',
+            'attachment' => 'nullable|file|max:10240', // Max 10MB
         ]);
 
         $validated['reported_by'] = $request->user()->id;
         $validated['status'] = 'open';
+
+        if ($request->hasFile('attachment')) {
+            $file = $request->file('attachment');
+            $path = $file->store('maintenance', 'public');
+            $validated['attachment_path'] = '/storage/' . $path;
+        }
 
         $ticket = MaintenanceTicket::create($validated);
 
@@ -59,6 +66,11 @@ class MaintenanceController extends Controller
             'status' => 'nullable|in:open,in_progress,closed',
             'notes' => 'nullable|string',
             'priority' => 'nullable|in:low,medium,high,critical',
+            'room_id' => 'nullable|exists:rooms,id',
+            'title' => 'nullable|string|max:100',
+            'description' => 'nullable|string',
+            'attachment' => 'nullable|file|max:10240', // Max 10MB
+            'remove_attachment' => 'nullable|boolean',
         ]);
 
         // Authorization checks for closing tickets
@@ -81,6 +93,22 @@ class MaintenanceController extends Controller
             // Reopening or moving to in progress
             $validated['resolved_by'] = null;
             $validated['resolved_at'] = null;
+        }
+
+        if ($request->hasFile('attachment')) {
+            if ($ticket->attachment_path) {
+                $oldFile = str_replace('/storage/', '', $ticket->attachment_path);
+                \Storage::disk('public')->delete($oldFile);
+            }
+            $file = $request->file('attachment');
+            $path = $file->store('maintenance', 'public');
+            $validated['attachment_path'] = '/storage/' . $path;
+        } elseif ($request->boolean('remove_attachment')) {
+            if ($ticket->attachment_path) {
+                $oldFile = str_replace('/storage/', '', $ticket->attachment_path);
+                \Storage::disk('public')->delete($oldFile);
+            }
+            $validated['attachment_path'] = null;
         }
 
         $oldVal = $ticket->toArray();

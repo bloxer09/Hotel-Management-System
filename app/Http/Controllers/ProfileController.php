@@ -29,13 +29,32 @@ class ProfileController extends Controller
      */
     public function update(ProfileUpdateRequest $request): RedirectResponse
     {
-        $request->user()->fill($request->validated());
+        $request->validate([
+            'photo' => 'nullable|image|max:4096',
+            'remove_photo' => 'nullable|boolean',
+        ]);
 
-        if ($request->user()->isDirty('email')) {
-            $request->user()->email_verified_at = null;
+        $user = $request->user();
+        $user->fill($request->validated());
+
+        if ($user->isDirty('email')) {
+            $user->email_verified_at = null;
         }
 
-        $request->user()->save();
+        if ($request->boolean('remove_photo')) {
+            if ($user->avatar_path) {
+                \Illuminate\Support\Facades\Storage::disk('public')->delete($user->avatar_path);
+            }
+            $user->avatar_path = null;
+        } elseif ($request->hasFile('photo')) {
+            if ($user->avatar_path) {
+                \Illuminate\Support\Facades\Storage::disk('public')->delete($user->avatar_path);
+            }
+            $path = $request->file('photo')->store('avatars', 'public');
+            $user->avatar_path = $path;
+        }
+
+        $user->save();
 
         return Redirect::route('profile.edit');
     }
