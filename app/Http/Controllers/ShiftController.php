@@ -339,6 +339,30 @@ class ShiftController extends Controller
             }
         }
 
+        $incomes = \App\Models\Income::where('recorded_by', $userId)
+            ->whereBetween('created_at', [$start, $end])
+            ->get();
+
+        $expenses = \App\Models\Expense::where('recorded_by', $userId)
+            ->whereBetween('created_at', [$start, $end])
+            ->get();
+
+        foreach ($incomes as $inc) {
+            if ($inc->cash_drawer === 'minibar') {
+                $minibarCash += (float)$inc->amount;
+            } else {
+                $roomsCash += (float)$inc->amount;
+            }
+        }
+
+        foreach ($expenses as $exp) {
+            if ($exp->cash_drawer === 'minibar') {
+                $minibarCash -= (float)$exp->amount;
+            } else {
+                $roomsCash -= (float)$exp->amount;
+            }
+        }
+
         return [
             'txn_count' => $transactions->count(),
             'total_collected' => round((float)$transactions->sum('amount'), 2),

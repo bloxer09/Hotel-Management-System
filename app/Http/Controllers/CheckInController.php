@@ -221,6 +221,7 @@ class CheckInController extends Controller
             'gcash_ref' => 'nullable|string|max:50',
             'reference_number' => 'nullable|string|max:50',
             'notes' => 'nullable|string',
+            'transaction_notes' => 'nullable|string',
         ]);
 
         $user = $request->user();
@@ -413,6 +414,7 @@ class CheckInController extends Controller
                         'gcash_ref' => $gcashRef,
                         'bank_ref' => $bankRef,
                         'processed_by' => $user->id,
+                        'notes' => $request->transaction_notes,
                     ]);
 
                     // Set room status to occupied

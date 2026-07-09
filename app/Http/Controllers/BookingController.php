@@ -166,6 +166,7 @@ class BookingController extends Controller
                     'gcash_amount' => $gcashAmount,
                     'gcash_ref' => $refNum,
                     'processed_by' => $user->id,
+                    'notes' => $request->transaction_notes,
                 ]);
 
                 // Update Guest Profile spending
@@ -259,6 +260,7 @@ class BookingController extends Controller
             'gcash_ref' => 'nullable|string|max:50',
             'reference_number' => 'nullable|string|max:50',
             'notes' => 'nullable|string',
+            'transaction_notes' => 'nullable|string',
             'waive_late_fee' => 'nullable|boolean',
         ]);
 
@@ -351,6 +353,7 @@ class BookingController extends Controller
                         'gcash_amount' => $gcashAmount,
                         'gcash_ref' => $refNum,
                         'processed_by' => $user->id,
+                        'notes' => $request->transaction_notes ?: $request->notes,
                     ]);
 
                     // Link inventory usages to this check_out transaction
@@ -374,6 +377,7 @@ class BookingController extends Controller
                         'cash_amount' => 0.00,
                         'gcash_amount' => 0.00,
                         'processed_by' => $user->id,
+                        'notes' => $request->transaction_notes ?: $request->notes,
                     ]);
                 }
 

@@ -221,4 +221,142 @@ class SeparateCashDrawersTest extends TestCase
         $this->assertStringContainsString('Waived late fee for VIP', $booking->notes);
         $this->assertStringContainsString('waived by Test Cashier 2', $booking->notes);
     }
+
+    public function test_shift_sales_summary_with_operational_incomes_and_expenses()
+    {
+        $user = User::create([
+            'username' => 'cashier_ops_test',
+            'password' => bcrypt('password'),
+            'full_name' => 'Ops Cashier',
+            'role' => 'cashier',
+            'is_active' => true,
+        ]);
+
+        $shift = ShiftSession::create([
+            'user_id' => $user->id,
+            'shift_code' => 'morning',
+            'started_at' => now(),
+            'opening_cash' => 1000.00,
+            'opening_cash_minibar' => 500.00,
+        ]);
+
+        // Record income targeting Room drawer
+        \App\Models\Income::create([
+            'income_date' => now()->format('Y-m-d'),
+            'amount' => 300.00,
+            'cash_drawer' => 'room',
+            'notes' => 'Float topup',
+            'recorded_by' => $user->id
+        ]);
+
+        // Record expense targeting Minibar drawer
+        \App\Models\Expense::create([
+            'expense_date' => now()->format('Y-m-d'),
+            'amount' => 100.00,
+            'cash_drawer' => 'minibar',
+            'notes' => 'Minibar supplies',
+            'recorded_by' => $user->id
+        ]);
+
+        $shiftController = new ShiftController();
+        $salesStats = $shiftController->getShiftSalesSummary($user->id, $shift->started_at, now());
+
+        // rooms_cash should have +300.00
+        // minibar_cash should have -100.00
+        $this->assertEquals(300.00, $salesStats['rooms_cash']);
+        $this->assertEquals(-100.00, $salesStats['minibar_cash']);
+    }
+
+    public function test_transaction_notes_storing()
+    {
+        $user = User::create([
+            'username' => 'cashier_notes_test',
+            'password' => bcrypt('password'),
+            'full_name' => 'Notes Cashier',
+            'role' => 'admin',
+            'is_active' => true,
+        ]);
+
+        $shift = ShiftSession::create([
+            'user_id' => $user->id,
+            'shift_code' => 'morning',
+            'started_at' => now(),
+            'opening_cash' => 1000.00,
+            'opening_cash_minibar' => 500.00,
+        ]);
+
+        $roomType = RoomType::create([
+            'type_name' => 'Deluxe Room Notes',
+            'base_rate' => 1500.00,
+            'hourly_rate' => 300.00,
+            'max_occupancy' => 2,
+        ]);
+
+        $room = Room::create([
+            'room_number' => '109',
+            'room_type_id' => $roomType->id,
+            'status' => 'vacant',
+        ]);
+
+        // Check in room with transaction notes
+        $response = $this->actingAs($user)->post(route('checkin.store'), [
+            'room_ids' => [$room->id],
+            'check_in' => now()->format('Y-m-d\TH:i'),
+            'guest_name' => 'Guest Notes',
+            'guest_contact' => '09123456789',
+            'guest_id_type' => 'Driver License',
+            'guest_id_number' => '123-456',
+            'booking_type' => 'overnight',
+            'num_nights' => 1,
+            'discount_type' => 'none',
+            'payment_method' => 'cash',
+            'cash_amount' => 1500.00,
+            'transaction_notes' => 'Tendered exact cash amount',
+        ]);
+
+        $response->assertRedirect();
+
+        $booking = Booking::where('guest_name', 'Guest Notes')->first();
+        $this->assertNotNull($booking);
+
+        // Assert check-in transaction notes
+        $this->assertDatabaseHas('transactions', [
+            'booking_id' => $booking->id,
+            'transaction_type' => 'check_in',
+            'notes' => 'Tendered exact cash amount',
+        ]);
+
+        // Extend booking with transaction notes
+        $response2 = $this->actingAs($user)->post(route('bookings.extend', $booking->id), [
+            'hours' => 3,
+            'payment_method' => 'cash',
+            'cash_amount' => 900.00,
+            'transaction_notes' => 'Extended stay by 3 hours cash payment',
+        ]);
+
+        $response2->assertRedirect();
+
+        // Assert extension transaction notes
+        $this->assertDatabaseHas('transactions', [
+            'booking_id' => $booking->id,
+            'transaction_type' => 'extension',
+            'notes' => 'Extended stay by 3 hours cash payment',
+        ]);
+
+        // Checkout booking with notes
+        $response3 = $this->actingAs($user)->post(route('bookings.checkout', $booking->id), [
+            'payment_method' => 'cash',
+            'cash_amount' => 0.00,
+            'notes' => 'Checked out guest completely',
+        ]);
+
+        $response3->assertRedirect();
+
+        // Assert checkout transaction notes
+        $this->assertDatabaseHas('transactions', [
+            'booking_id' => $booking->id,
+            'transaction_type' => 'check_out',
+            'notes' => 'Checked out guest completely',
+        ]);
+    }
 }

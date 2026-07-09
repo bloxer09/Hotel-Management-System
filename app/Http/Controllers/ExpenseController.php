@@ -16,7 +16,7 @@ class ExpenseController extends Controller
         $sortBy = $request->input('sort_by', 'expense_date');
         $sortDir = $request->input('sort_dir', 'desc');
 
-        $allowedSorts = ['id', 'expense_date', 'amount', 'notes', 'recorded_by'];
+        $allowedSorts = ['id', 'expense_date', 'amount', 'cash_drawer', 'notes', 'recorded_by'];
         if (!in_array($sortBy, $allowedSorts)) $sortBy = 'expense_date';
         if (!in_array($sortDir, ['asc', 'desc'])) $sortDir = 'desc';
 
@@ -63,6 +63,7 @@ class ExpenseController extends Controller
         $validated = $request->validate([
             'expense_date' => 'required|date',
             'amount' => 'required|numeric|min:0.01',
+            'cash_drawer' => 'required|in:room,minibar',
             'notes' => 'nullable|string|max:1000',
             'receipt' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
         ]);
@@ -75,6 +76,7 @@ class ExpenseController extends Controller
         \App\Models\Expense::create([
             'expense_date' => $validated['expense_date'],
             'amount' => $validated['amount'],
+            'cash_drawer' => $validated['cash_drawer'],
             'notes' => $validated['notes'],
             'receipt_path' => $receiptPath,
             'recorded_by' => $user->id,
@@ -93,6 +95,7 @@ class ExpenseController extends Controller
         $validated = $request->validate([
             'expense_date' => 'required|date',
             'amount' => 'required|numeric|min:0.01',
+            'cash_drawer' => 'required|in:room,minibar',
             'notes' => 'nullable|string|max:1000',
             'receipt' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
         ]);
@@ -108,6 +111,7 @@ class ExpenseController extends Controller
         $expense->update([
             'expense_date' => $validated['expense_date'],
             'amount' => $validated['amount'],
+            'cash_drawer' => $validated['cash_drawer'],
             'notes' => $validated['notes'],
             'receipt_path' => $receiptPath,
         ]);
@@ -164,7 +168,7 @@ class ExpenseController extends Controller
         $rows[] = [];
 
         $rows[] = ['=== EXPENSE DETAILS ==='];
-        $rows[] = ['ID', 'Date', 'Amount', 'Recorded By', 'Has Receipt', 'Notes'];
+        $rows[] = ['ID', 'Date', 'Amount', 'Cash Drawer', 'Recorded By', 'Has Receipt', 'Notes'];
 
         $total = 0;
         foreach ($expenses as $exp) {
@@ -172,6 +176,7 @@ class ExpenseController extends Controller
                 $exp->id,
                 $exp->expense_date->format('Y-m-d'),
                 $exp->amount,
+                ucfirst($exp->cash_drawer),
                 $exp->user ? $exp->user->full_name : 'Unknown',
                 $exp->receipt_path ? 'Yes' : 'No',
                 $exp->notes

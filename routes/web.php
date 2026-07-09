@@ -122,10 +122,7 @@ Route::middleware('auth')->group(function () {
         });
     });
 
-    // Real-time Notifications API (Admin, Front Desk, Cashier)
-    Route::middleware('role:admin,front_desk,cashier')->group(function () {
-        Route::get('/api/notifications', [NotificationController::class, 'getNotifications'])->name('api.notifications');
-    });
+
 
     // Guest Directory (Admin, Front Desk, Cashier)
     Route::middleware('role:admin,front_desk,cashier')->group(function () {
@@ -196,5 +193,7 @@ Route::middleware('auth')->group(function () {
     });
 
 });
+
+Route::get('/api/notifications', [App\Http\Controllers\NotificationController::class, 'getNotifications'])->name('api.notifications');
 
 require __DIR__.'/auth.php';

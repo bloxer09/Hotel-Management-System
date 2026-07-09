@@ -320,6 +320,7 @@ class ReservationController extends Controller
             'gcash_ref' => 'nullable|string|max:50',
             'reference_number' => 'nullable|string|max:50',
             'notes' => 'nullable|string',
+            'transaction_notes' => 'nullable|string',
         ]);
 
         $user = $request->user();
@@ -519,6 +520,7 @@ class ReservationController extends Controller
                         'gcash_amount' => $gcashPerRoom,
                         'gcash_ref' => $refNum,
                         'processed_by' => $user->id,
+                        'notes' => $request->transaction_notes,
                     ]);
                     
                     $createdBookingIds[] = $booking->id;
@@ -980,6 +982,7 @@ class ReservationController extends Controller
             'gcash_ref' => 'nullable|string|max:50',
             'bank_amount' => 'nullable|numeric|min:0',
             'bank_ref' => 'nullable|string|max:50',
+            'transaction_notes' => 'nullable|string',
         ]);
 
         $user = $request->user();
@@ -1120,6 +1123,7 @@ class ReservationController extends Controller
                     'bank_amount' => $roomBank,
                     'bank_ref' => $request->bank_ref,
                     'processed_by' => $user->id,
+                    'notes' => $request->transaction_notes,
                 ]);
 
                 $roomNumbers[] = $room->room_number;

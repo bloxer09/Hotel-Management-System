@@ -32,12 +32,14 @@ class IncomesTest extends TestCase
         $response = $this->actingAs($admin)->post('/incomes', [
             'income_date' => '2026-06-29',
             'amount' => 5000.00,
+            'cash_drawer' => 'room',
             'notes' => 'Top up drawer cash float',
         ]);
 
         $response->assertRedirect();
         $this->assertDatabaseHas('incomes', [
             'amount' => 5000.00,
+            'cash_drawer' => 'room',
             'notes' => 'Top up drawer cash float',
         ]);
     }
@@ -49,10 +51,11 @@ class IncomesTest extends TestCase
         $response = $this->actingAs($admin)->post('/incomes', [
             'income_date' => '',
             'amount' => -100,
+            'cash_drawer' => 'invalid_drawer',
             'notes' => '',
         ]);
 
-        $response->assertSessionHasErrors(['income_date', 'amount']);
+        $response->assertSessionHasErrors(['income_date', 'amount', 'cash_drawer']);
     }
 
     public function test_authorized_users_can_update_income()
@@ -61,6 +64,7 @@ class IncomesTest extends TestCase
         $income = Income::create([
             'income_date' => '2026-06-29',
             'amount' => 1200.00,
+            'cash_drawer' => 'room',
             'notes' => 'Initial Income Notes',
             'recorded_by' => $admin->id
         ]);
@@ -68,6 +72,7 @@ class IncomesTest extends TestCase
         $response = $this->actingAs($admin)->post("/incomes/{$income->id}", [
             'income_date' => '2026-06-30',
             'amount' => 1500.00,
+            'cash_drawer' => 'minibar',
             'notes' => 'Updated Income Notes',
         ]);
 
@@ -75,6 +80,7 @@ class IncomesTest extends TestCase
         $this->assertDatabaseHas('incomes', [
             'id' => $income->id,
             'amount' => 1500.00,
+            'cash_drawer' => 'minibar',
             'notes' => 'Updated Income Notes',
         ]);
     }

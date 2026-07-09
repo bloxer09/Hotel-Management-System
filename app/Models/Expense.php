@@ -9,6 +9,7 @@ class Expense extends Model
     protected $fillable = [
         'expense_date',
         'amount',
+        'cash_drawer',
         'notes',
         'receipt_path',
         'recorded_by'

@@ -16,7 +16,7 @@ class IncomeController extends Controller
         $sortBy = $request->input('sort_by', 'income_date');
         $sortDir = $request->input('sort_dir', 'desc');
 
-        $allowedSorts = ['id', 'income_date', 'amount', 'notes', 'recorded_by'];
+        $allowedSorts = ['id', 'income_date', 'amount', 'cash_drawer', 'notes', 'recorded_by'];
         if (!in_array($sortBy, $allowedSorts)) $sortBy = 'income_date';
         if (!in_array($sortDir, ['asc', 'desc'])) $sortDir = 'desc';
 
@@ -63,6 +63,7 @@ class IncomeController extends Controller
         $validated = $request->validate([
             'income_date' => 'required|date',
             'amount' => 'required|numeric|min:0.01',
+            'cash_drawer' => 'required|in:room,minibar',
             'notes' => 'nullable|string|max:1000',
             'receipt' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
         ]);
@@ -75,6 +76,7 @@ class IncomeController extends Controller
         \App\Models\Income::create([
             'income_date' => $validated['income_date'],
             'amount' => $validated['amount'],
+            'cash_drawer' => $validated['cash_drawer'],
             'notes' => $validated['notes'],
             'receipt_path' => $receiptPath,
             'recorded_by' => $user->id,
@@ -93,6 +95,7 @@ class IncomeController extends Controller
         $validated = $request->validate([
             'income_date' => 'required|date',
             'amount' => 'required|numeric|min:0.01',
+            'cash_drawer' => 'required|in:room,minibar',
             'notes' => 'nullable|string|max:1000',
             'receipt' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
         ]);
@@ -108,6 +111,7 @@ class IncomeController extends Controller
         $income->update([
             'income_date' => $validated['income_date'],
             'amount' => $validated['amount'],
+            'cash_drawer' => $validated['cash_drawer'],
             'notes' => $validated['notes'],
             'receipt_path' => $receiptPath,
         ]);
@@ -164,7 +168,7 @@ class IncomeController extends Controller
         $rows[] = [];
 
         $rows[] = ['=== INCOME INJECTION DETAILS ==='];
-        $rows[] = ['ID', 'Date', 'Amount', 'Recorded By', 'Has Attachment', 'Notes'];
+        $rows[] = ['ID', 'Date', 'Amount', 'Cash Drawer', 'Recorded By', 'Has Attachment', 'Notes'];
 
         $total = 0;
         foreach ($incomes as $inc) {
@@ -172,6 +176,7 @@ class IncomeController extends Controller
                 $inc->id,
                 $inc->income_date->format('Y-m-d'),
                 $inc->amount,
+                ucfirst($inc->cash_drawer),
                 $inc->user ? $inc->user->full_name : 'Unknown',
                 $inc->receipt_path ? 'Yes' : 'No',
                 $inc->notes

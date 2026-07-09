@@ -17,6 +17,14 @@ class NotificationController extends Controller
      */
     public function getNotifications(Request $request)
     {
+        $user = auth()->user();
+        if (!$user || !in_array($user->role, ['admin', 'front_desk', 'cashier'], true)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthenticated.'
+            ], 401);
+        }
+
         $minutesAhead = 5;
         $now = Carbon::now();
 

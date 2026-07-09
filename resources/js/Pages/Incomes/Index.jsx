@@ -33,6 +33,7 @@ export default function IncomesIndex({ incomes, filters, summary, sortBy, sortDi
     // Form states
     const [incomeDate, setIncomeDate] = useState('');
     const [amount, setAmount] = useState('');
+    const [cashDrawer, setCashDrawer] = useState('room');
     const [notes, setNotes] = useState('');
     const [receipt, setReceipt] = useState(null);
 
@@ -64,6 +65,7 @@ export default function IncomesIndex({ incomes, filters, summary, sortBy, sortDi
     const openAddModal = () => {
         setIncomeDate(new Date().toISOString().split('T')[0]);
         setAmount('');
+        setCashDrawer('room');
         setNotes('');
         setReceipt(null);
         setIsAddModalOpen(true);
@@ -73,6 +75,7 @@ export default function IncomesIndex({ incomes, filters, summary, sortBy, sortDi
         setSelectedIncome(inc);
         setIncomeDate(inc.income_date.split('T')[0]);
         setAmount(inc.amount);
+        setCashDrawer(inc.cash_drawer || 'room');
         setNotes(inc.notes || '');
         setReceipt(null);
         setIsEditModalOpen(true);
@@ -90,6 +93,7 @@ export default function IncomesIndex({ incomes, filters, summary, sortBy, sortDi
         const formData = new FormData();
         formData.append('income_date', incomeDate);
         formData.append('amount', amount);
+        formData.append('cash_drawer', cashDrawer);
         formData.append('notes', notes);
         if (receipt) formData.append('receipt', receipt);
 
@@ -107,6 +111,7 @@ export default function IncomesIndex({ incomes, filters, summary, sortBy, sortDi
         formData.append('_method', 'post'); // Using post with _method for file uploads
         formData.append('income_date', incomeDate);
         formData.append('amount', amount);
+        formData.append('cash_drawer', cashDrawer);
         formData.append('notes', notes);
         if (receipt) formData.append('receipt', receipt);
 
@@ -222,6 +227,7 @@ export default function IncomesIndex({ incomes, filters, summary, sortBy, sortDi
                                 <tr className="border-b border-[#334155] bg-[#0f172a]/60">
                                     <SortableHeader sortKey="income_date" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Date</SortableHeader>
                                     <SortableHeader sortKey="notes" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Notes / Description</SortableHeader>
+                                    <SortableHeader sortKey="cash_drawer" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Drawer</SortableHeader>
                                     <SortableHeader sortKey="amount" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Amount</SortableHeader>
                                     <SortableHeader sortKey="recorded_by" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Recorded By</SortableHeader>
                                     <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-center">Receipt</th>
@@ -231,7 +237,7 @@ export default function IncomesIndex({ incomes, filters, summary, sortBy, sortDi
                             <tbody>
                                 {incomes.data.length === 0 ? (
                                     <tr>
-                                        <td colSpan={6} className="px-4 py-12 text-center text-slate-500">
+                                        <td colSpan={7} className="px-4 py-12 text-center text-slate-500">
                                             No incomes found matching the criteria.
                                         </td>
                                     </tr>
@@ -244,6 +250,15 @@ export default function IncomesIndex({ incomes, filters, summary, sortBy, sortDi
                                         <td className="px-4 py-3">
                                             <span className="font-semibold text-slate-200 whitespace-normal min-w-[200px] block">
                                                 {inc.notes || <span className="text-slate-500 italic font-normal">No description</span>}
+                                            </span>
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border ${
+                                                inc.cash_drawer === 'minibar' 
+                                                    ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' 
+                                                    : 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'
+                                            }`}>
+                                                {inc.cash_drawer === 'minibar' ? 'Minibar' : 'Room'}
                                             </span>
                                         </td>
                                         <td className="px-4 py-3">
@@ -337,6 +352,17 @@ export default function IncomesIndex({ incomes, filters, summary, sortBy, sortDi
                                         />
                                     </div>
                                     <div className="flex flex-col gap-1">
+                                        <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Cash Drawer *</label>
+                                        <select
+                                            value={cashDrawer}
+                                            onChange={e => setCashDrawer(e.target.value)}
+                                            className={inputCls}
+                                        >
+                                            <option value="room">Room Cash Drawer</option>
+                                            <option value="minibar">Minibar Cash Drawer</option>
+                                        </select>
+                                    </div>
+                                    <div className="flex flex-col gap-1">
                                         <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Notes / Description</label>
                                         <textarea
                                             value={notes}
@@ -420,6 +446,17 @@ export default function IncomesIndex({ incomes, filters, summary, sortBy, sortDi
                                             onChange={e => setAmount(e.target.value)}
                                             className={`${inputCls} font-mono`}
                                         />
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                        <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Cash Drawer *</label>
+                                        <select
+                                            value={cashDrawer}
+                                            onChange={e => setCashDrawer(e.target.value)}
+                                            className={inputCls}
+                                        >
+                                            <option value="room">Room Cash Drawer</option>
+                                            <option value="minibar">Minibar Cash Drawer</option>
+                                        </select>
                                     </div>
                                     <div className="flex flex-col gap-1">
                                         <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Notes / Description</label>

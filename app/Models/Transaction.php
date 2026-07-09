@@ -19,6 +19,7 @@ class Transaction extends Model
         'bank_ref',
         'processed_by',
         'or_number',
+        'notes',
     ];
 
     protected $casts = [

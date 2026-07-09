@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, useForm, Link } from '@inertiajs/react';
 import {
@@ -15,8 +15,10 @@ import {
     PackageOpen
 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import ConfirmModal from '@/Components/ConfirmModal';
 
 export default function Index({ activeShift, suggestedShift, suggestedOpeningCash, suggestedOpeningDenominations, suggestedOpeningCashMinibar, suggestedOpeningDenominationsMinibar, liveSummary, recentShifts }) {
+    const [showShutdownConfirm, setShowShutdownConfirm] = useState(false);
 
     const COINS = [0.01, 0.05, 0.25, 1, 5, 10, 20];
     const BILLS = [20, 50, 100, 200, 500, 1000];
@@ -102,6 +104,11 @@ export default function Index({ activeShift, suggestedShift, suggestedOpeningCas
 
     const handleEndShift = (e) => {
         e.preventDefault();
+        setShowShutdownConfirm(true);
+    };
+
+    const executeEndShift = () => {
+        setShowShutdownConfirm(false);
         endForm.post(route('shifts.end'));
     };
 
@@ -730,6 +737,16 @@ export default function Index({ activeShift, suggestedShift, suggestedOpeningCas
                         </table>
                     </div>
                 </div>
+
+                <ConfirmModal
+                    isOpen={showShutdownConfirm}
+                    onClose={() => setShowShutdownConfirm(false)}
+                    onConfirm={executeEndShift}
+                    title="Confirm Register Shutdown"
+                    message="Are you sure you want to shut down the register and log off your shift session?"
+                    confirmText="Shutdown & Log Off"
+                    isDanger={true}
+                />
 
             </div>
         </AuthenticatedLayout>

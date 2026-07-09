@@ -12,6 +12,7 @@ class Income extends Model
     protected $fillable = [
         'income_date',
         'amount',
+        'cash_drawer',
         'notes',
         'receipt_path',
         'recorded_by',

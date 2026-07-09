@@ -10,6 +10,7 @@ export default function GroupSettleModal({ isOpen, groupRef, onClose, onSuccess 
     const [loading, setLoading] = useState(true);
     const [data, setData] = useState(null);
     const [error, setError] = useState(null);
+    const [cashReceived, setCashReceived] = useState('');
 
     const { data: form, setData: setFormData, post, processing, errors } = useForm({
         waive_late_fee: false,
@@ -19,6 +20,8 @@ export default function GroupSettleModal({ isOpen, groupRef, onClose, onSuccess 
         gcash_ref: '',
         bank_amount: 0.00,
         bank_ref: '',
+        reference_number: '',
+        transaction_notes: ''
     });
 
     useEffect(() => {
@@ -40,6 +43,10 @@ export default function GroupSettleModal({ isOpen, groupRef, onClose, onSuccess 
                 setLoading(false);
             });
     }, [groupRef]);
+
+    useEffect(() => {
+        setCashReceived('');
+    }, [groupRef, isOpen]);
 
     // Recalculate totals client-side when waiving late fees
     const getActiveTotals = () => {
@@ -318,9 +325,24 @@ export default function GroupSettleModal({ isOpen, groupRef, onClose, onSuccess 
                                                         </select>
                                                     </div>
 
+                                                    {['cash', 'split'].includes(form.payment_method) && (
+                                                        <div className="flex flex-col gap-1">
+                                                            <label className="text-[10px] font-semibold text-slate-400 uppercase text-emerald-450">Cash Received (₱)</label>
+                                                            <input
+                                                                type="number"
+                                                                step="any"
+                                                                min="0"
+                                                                value={cashReceived}
+                                                                onChange={e => setCashReceived(e.target.value)}
+                                                                placeholder="0.00"
+                                                                className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-emerald-450 px-3 py-2 focus:outline-none focus:border-brand-500 font-mono text-xs font-bold"
+                                                            />
+                                                        </div>
+                                                    )}
+
                                                     {(form.payment_method === 'cash' || form.payment_method === 'split') && (
                                                         <div className="flex flex-col gap-1">
-                                                            <label className="text-[10px] font-semibold text-slate-400 uppercase">Cash Tendered (₱)</label>
+                                                            <label className="text-[10px] font-semibold text-slate-400 uppercase">Cash Amount Tendered (₱)</label>
                                                             <input
                                                                 type="number"
                                                                 step="0.01"
@@ -378,12 +400,32 @@ export default function GroupSettleModal({ isOpen, groupRef, onClose, onSuccess 
                                                             </div>
                                                         </div>
                                                     )}
+                                                    {activeData.totals.balance > 0 && ['cash', 'split'].includes(form.payment_method) && (
+                                                        <div className="p-3 bg-[#0f172a]/55 border border-[#334155] rounded-xl flex justify-between items-center mt-1">
+                                                            <span className="text-[10px] font-semibold text-slate-400 uppercase">
+                                                                Change
+                                                            </span>
+                                                            <span className="text-sm font-mono font-bold text-emerald-400">
+                                                                ₱{(cashReceived ? Math.max(0, Number(cashReceived) - (form.payment_method === 'split' ? (form.cash_amount || 0) : activeData.totals.balance)) : 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                            </span>
+                                                        </div>
+                                                    )}
                                                 </>
                                             ) : (
                                                 <div className="py-6 text-center text-slate-400 font-bold bg-[#0f172a]/55 border border-[#334155] rounded-xl">
                                                     Group is fully paid. No additional payments required.
                                                 </div>
                                             )}
+
+                                            <div className="flex flex-col gap-1.5">
+                                                <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Transaction Notes</label>
+                                                <textarea 
+                                                    value={form.transaction_notes}
+                                                    onChange={e => setFormData('transaction_notes', e.target.value)}
+                                                    placeholder="E.g., paid in 1000s bill, client checkout notes..."
+                                                    className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 px-3 py-2 resize-none h-16 focus:outline-none focus:border-brand-500"
+                                                />
+                                            </div>
 
                                             <button
                                                 type="submit"

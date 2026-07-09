@@ -53,6 +53,12 @@ function formatMinsToReadable(totalMins) {
     return `${days}d ${remHours}h ${mins}m`;
 }
 
+function formatExpectedCheckout(dateStr) {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    return d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
 function getCheckoutAlertState(room) {
     if (room.status !== 'occupied' || !room.active_booking?.expected_check_out) return null;
     const now = Date.now();
@@ -515,10 +521,21 @@ export default function Board({ rooms, roomTypes, housekeepers = [] }) {
                                             </button>
                                         </div>
 
-                                        {room.status === 'occupied' && room.active_booking?.guest_name && (
-                                            <div className="flex flex-col gap-1.5 w-full">
-                                                <div className="text-[9px] opacity-75 truncate flex items-center gap-1">
-                                                    <User size={9} /> {room.active_booking.guest_name}
+                                        {room.status === 'occupied' && room.active_booking && (
+                                            <div className="flex flex-col gap-1 w-full text-[9px] border-t border-[#334155]/60 pt-2 mt-1 bg-[#0f172a]/20 p-1.5 rounded-lg text-slate-350">
+                                                <div className="flex justify-between items-center gap-1.5">
+                                                    <span className="opacity-50">Guest:</span>
+                                                    <span className="font-bold truncate max-w-[80px]" title={room.active_booking.guest_name}>{room.active_booking.guest_name}</span>
+                                                </div>
+                                                <div className="flex justify-between items-center gap-1.5">
+                                                    <span className="opacity-50">Type:</span>
+                                                    <span className="font-semibold uppercase text-brand-400">
+                                                        {room.active_booking.booking_type === 'overnight' ? 'Overnight' : `${room.active_booking.short_time_hours} Hours`}
+                                                    </span>
+                                                </div>
+                                                <div className="flex justify-between items-center gap-1.5">
+                                                    <span className="opacity-50">Checkout:</span>
+                                                    <span className="font-mono font-bold text-rose-350">{formatExpectedCheckout(room.active_booking.expected_check_out)}</span>
                                                 </div>
                                             </div>
                                         )}
@@ -661,11 +678,15 @@ export default function Board({ rooms, roomTypes, housekeepers = [] }) {
                                     {selectedRoom.status === 'occupied' && selectedRoom.active_booking && (
                                         <div className="p-4 rounded-xl bg-rose-950/20 border border-rose-500/20 text-xs flex flex-col gap-3">
                                             <h3 className="font-bold text-rose-400 uppercase tracking-wider flex items-center gap-1.5 text-xs">
-                                                <User size={13} /> Active Occupant
+                                                <User size={13} /> Active Occupant Details
                                             </h3>
                                             <div className="space-y-1.5">
                                                 <div className="flex justify-between"><span className="text-slate-400">Guest:</span><span className="font-bold text-slate-200">{selectedRoom.active_booking.guest_name}</span></div>
                                                 <div className="flex justify-between"><span className="text-slate-400">Ref:</span><span className="font-mono text-slate-300">{selectedRoom.active_booking.booking_ref}</span></div>
+                                                {selectedRoom.active_booking.group_ref && <div className="flex justify-between"><span className="text-slate-400">Group Ref:</span><span className="font-mono text-indigo-400 font-bold">{selectedRoom.active_booking.group_ref}</span></div>}
+                                                <div className="flex justify-between"><span className="text-slate-400">Check-In Type:</span><span className="font-bold text-brand-400 uppercase">{selectedRoom.active_booking.booking_type === 'overnight' ? 'Overnight' : `${selectedRoom.active_booking.short_time_hours} Hours`}</span></div>
+                                                <div className="flex justify-between"><span className="text-slate-400">Check-In Time:</span><span className="font-mono text-slate-200">{new Date(selectedRoom.active_booking.check_in).toLocaleString()}</span></div>
+                                                <div className="flex justify-between"><span className="text-slate-400">Checkout Time:</span><span className="font-mono text-rose-400 font-bold">{new Date(selectedRoom.active_booking.expected_check_out).toLocaleString()}</span></div>
                                             </div>
                                             <button
                                                 type="button"

@@ -29,6 +29,13 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
     const [vacantRooms, setVacantRooms] = useState([]);
     const [calculations, setCalculations] = useState({});
     const [activeSubModal, setActiveSubModal] = useState(null); // 'extend', 'checkout', 'cancel', 'move', 'pos_receipt'
+    const [extendCashReceived, setExtendCashReceived] = useState('');
+    const [checkoutCashReceived, setCheckoutCashReceived] = useState('');
+
+    useEffect(() => {
+        setExtendCashReceived('');
+        setCheckoutCashReceived('');
+    }, [activeSubModal, isOpen]);
 
     // Form: Extend stay
     const extendForm = useForm({
@@ -37,7 +44,8 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
         payment_method: 'cash',
         cash_amount: 0.00,
         gcash_amount: 0.00,
-        gcash_ref: ''
+        gcash_ref: '',
+        transaction_notes: ''
     });
 
     // Form: Checkout
@@ -612,6 +620,20 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
                                                     />
                                                 </div>
                                             )}
+                                            {['cash', 'split'].includes(extendForm.data.payment_method) && (
+                                                <div className="flex flex-col gap-1.5">
+                                                    <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider text-emerald-450">Cash Received (₱)</label>
+                                                    <input 
+                                                        type="number" 
+                                                        step="any"
+                                                        min="0"
+                                                        value={extendCashReceived}
+                                                        onChange={e => setExtendCashReceived(e.target.value)}
+                                                        placeholder="0.00"
+                                                        className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-emerald-450 px-3 py-2.5 focus:outline-none focus:border-brand-500 font-mono font-bold"
+                                                    />
+                                                </div>
+                                            )}
                                         </div>
 
                                         {extendForm.data.payment_method === 'split' && (
@@ -646,6 +668,25 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
                                         )}
                                     </div>
                                 )}
+
+                                {getExtensionFeeEstimate() > 0 && ['cash', 'split'].includes(extendForm.data.payment_method) && (
+                                    <div className="p-4 rounded-xl bg-[#0f172a]/60 border border-[#334155] flex justify-between items-center shadow-inner mt-2">
+                                        <span className="font-bold text-slate-400">Change:</span>
+                                        <span className="font-mono text-emerald-400 font-black text-base">
+                                            ₱{(extendCashReceived ? Math.max(0, Number(extendCashReceived) - (extendForm.data.payment_method === 'split' ? (extendForm.data.cash_amount || 0) : getExtensionFeeEstimate())) : 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                        </span>
+                                    </div>
+                                )}
+
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Transaction Notes</label>
+                                    <textarea 
+                                        value={extendForm.data.transaction_notes || ''}
+                                        onChange={e => extendForm.setData('transaction_notes', e.target.value)}
+                                        placeholder="E.g., guest paid cash, reference notes..."
+                                        className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 px-3 py-2 resize-none h-16 focus:outline-none focus:border-brand-500"
+                                    />
+                                </div>
 
                                 <button
                                     type="submit"
@@ -750,6 +791,20 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
                                                         />
                                                     </div>
                                                 )}
+                                                {['cash', 'split'].includes(checkoutForm.data.payment_method) && (
+                                                    <div className="flex flex-col gap-1.5">
+                                                        <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider text-emerald-450">Cash Received (₱)</label>
+                                                        <input 
+                                                            type="number" 
+                                                            step="any"
+                                                            min="0"
+                                                            value={checkoutCashReceived}
+                                                            onChange={e => setCheckoutCashReceived(e.target.value)}
+                                                            placeholder="0.00"
+                                                            className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-emerald-450 px-3 py-2.5 focus:outline-none focus:border-brand-500 font-mono font-bold"
+                                                        />
+                                                    </div>
+                                                )}
                                             </div>
 
                                             {checkoutForm.data.payment_method === 'split' && (
@@ -782,6 +837,15 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
                                                     </div>
                                                 </div>
                                             )}
+                                        </div>
+                                    )}
+
+                                    {actualAdditionalDue > 0 && ['cash', 'split'].includes(checkoutForm.data.payment_method) && (
+                                        <div className="p-4 rounded-xl bg-[#0f172a]/60 border border-[#334155] flex justify-between items-center shadow-inner mt-2">
+                                            <span className="font-bold text-slate-400">Change:</span>
+                                            <span className="font-mono text-emerald-400 font-black text-base">
+                                                ₱{(checkoutCashReceived ? Math.max(0, Number(checkoutCashReceived) - (checkoutForm.data.payment_method === 'split' ? (checkoutForm.data.cash_amount || 0) : actualAdditionalDue)) : 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                            </span>
                                         </div>
                                     )}
 

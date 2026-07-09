@@ -61,6 +61,7 @@ export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCod
 
     // ── Search state ──
     const [searchQuery, setSearchQuery] = useState('');
+    const [cashReceived, setCashReceived] = useState('');
 
     // ── Guest autocomplete ──
     const [guestSearch, setGuestSearch] = useState('');
@@ -181,12 +182,14 @@ export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCod
     };
 
     const handleEditCashInput = (e) => {
-        const cash = Math.min(editCalc.total_amount, Math.max(0, Number(e.target.value) || 0));
-        editForm.setData(prev => ({ ...prev, cash_amount: cash, gcash_amount: Math.max(0, editCalc.total_amount - cash) }));
+        const totalVal = editCalc.totals?.total_amount ?? editCalc.total_amount ?? 0;
+        const cash = Math.min(totalVal, Math.max(0, Number(e.target.value) || 0));
+        editForm.setData(prev => ({ ...prev, cash_amount: cash, gcash_amount: Math.max(0, totalVal - cash) }));
     };
     const handleEditGCashInput = (e) => {
-        const gcash = Math.min(editCalc.total_amount, Math.max(0, Number(e.target.value) || 0));
-        editForm.setData(prev => ({ ...prev, gcash_amount: gcash, cash_amount: Math.max(0, editCalc.total_amount - gcash) }));
+        const totalVal = editCalc.totals?.total_amount ?? editCalc.total_amount ?? 0;
+        const gcash = Math.min(totalVal, Math.max(0, Number(e.target.value) || 0));
+        editForm.setData(prev => ({ ...prev, gcash_amount: gcash, cash_amount: Math.max(0, totalVal - gcash) }));
     };
 
     const handleEditFormSubmit = (e) => {
@@ -382,9 +385,13 @@ export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCod
         setCalc({ base_amount: 0, peak_surcharge: 0, discount_amount: 0, total_amount: 0, expected_check_out: '', is_peak: false, peak_label: null });
         setIsVip(false); setVipNotes(''); setSelectedGuestStays(0);
         setGuestSearch(''); setSuggestions([]); setPromoInput(''); setPromoError('');
+        setCashReceived('');
         setShowModal(true);
     };
-    const closeModal = () => setShowModal(false);
+    const closeModal = () => {
+        setCashReceived('');
+        setShowModal(false);
+    };
 
     // Filter list locally by search
     const items = bookings?.data || [];
@@ -656,7 +663,10 @@ export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCod
                                             transition={{ delay: i * 0.03 }}
                                             className="border-b border-[#334155]/50 hover:bg-[#0f172a]/40 transition-colors"
                                         >
-                                            <td className="px-4 py-3 font-mono text-brand-400 font-bold">{booking.booking_ref}</td>
+                                            <td className="px-4 py-3 font-mono text-brand-400 font-bold">
+                                                <span>{booking.booking_ref}</span>
+                                                {booking.group_ref && <span className="text-[9px] bg-indigo-500/20 text-indigo-300 px-1.5 py-0.5 rounded font-bold uppercase block mt-1 w-fit">Group: {booking.group_ref}</span>}
+                                            </td>
                                             <td className="px-4 py-3">
                                                 <div className="font-semibold text-slate-200">{booking.guest_name}</div>
                                                 {booking.guest_contact && <div className="text-slate-500 text-[10px]">{booking.guest_contact}</div>}
@@ -975,6 +985,12 @@ export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCod
                                                         <option value="split">Split (Cash + GCash)</option>
                                                     </select>
                                                 </div>
+                                                {['cash', 'split'].includes(data.payment_method) && (
+                                                    <div className="flex flex-col gap-1">
+                                                        <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-emerald-400">Cash Received (₱)</label>
+                                                        <input type="number" step="any" min="0" value={cashReceived} onChange={e => setCashReceived(e.target.value)} placeholder="0.00" className={`${inputCls} font-mono text-emerald-400 font-bold`} />
+                                                    </div>
+                                                )}
                                                 {['gcash', 'split'].includes(data.payment_method) && (
                                                     <div className="flex flex-col gap-1">
                                                         <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">GCash 13-Digit Ref #</label>
@@ -989,6 +1005,10 @@ export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCod
                                                             placeholder={data.payment_method === 'card' ? 'Auth Code...' : 'BDO-9821...'} className={`${inputCls} font-mono font-bold`} />
                                                     </div>
                                                 )}
+                                            </div>
+                                            <div className="flex flex-col gap-1">
+                                                <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Transaction Notes</label>
+                                                <textarea value={data.transaction_notes || ''} onChange={e => setData('transaction_notes', e.target.value)} rows="2" placeholder="E.g., paid in 100s, guest requested receipt..." className={inputCls} />
                                             </div>
                                             {data.payment_method === 'split' && (
                                                 <div className="p-4 rounded-xl bg-[#0f172a]/60 border border-[#334155] grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1018,54 +1038,56 @@ export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCod
                                                 <h3 className="font-outfit font-extrabold text-slate-200 text-sm uppercase tracking-wide">Billing</h3>
                                             </div>
                                             {data.room_ids.length > 0 ? (
-                                                <div className="flex flex-col gap-4 text-xs max-h-40 overflow-y-auto custom-scrollbar pr-2">
-                                                    {data.room_ids.map(roomId => {
-                                                        const room = vacantRooms.find(v => v.id === roomId);
-                                                        if (!room) return null;
-                                                        const activeCalc = calc.room_breakdown ? calc.room_breakdown[roomId] : calc.totals || calc;
-                                                        return (
-                                                            <div key={roomId} className="bg-[#0f172a] rounded-xl border border-[#334155] p-3 flex flex-col gap-2">
-                                                                <div className="flex justify-between items-start border-b border-[#334155] pb-2">
-                                                                    <div>
-                                                                        <div className="text-sm font-bold text-slate-200">{room.room_number} <span className="text-[10px] text-slate-400 font-normal uppercase tracking-wider ml-1">{room.type.name}</span></div>
-                                                                        <div className="text-[10px] text-slate-500">Base Limit: {room.type.max_occupancy} pax</div>
-                                                                    </div>
-                                                                    <div className="text-right">
-                                                                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Extra Pax</div>
-                                                                        <div className="flex items-center justify-end gap-1.5">
-                                                                            <button type="button" onClick={() => setData('extra_pax', { ...data.extra_pax, [roomId]: Math.max(0, (data.extra_pax[roomId] || 0) - 1) })} className="w-6 h-6 rounded bg-[#1e293b] border border-[#334155] text-slate-300 flex items-center justify-center hover:bg-brand-500 hover:text-white transition-colors">-</button>
-                                                                            <span className="text-xs font-mono font-bold text-slate-200 w-4 text-center">{data.extra_pax[roomId] || 0}</span>
-                                                                            <button type="button" onClick={() => setData('extra_pax', { ...data.extra_pax, [roomId]: (data.extra_pax[roomId] || 0) + 1 })} className="w-6 h-6 rounded bg-[#1e293b] border border-[#334155] text-slate-300 flex items-center justify-center hover:bg-brand-500 hover:text-white transition-colors">+</button>
+                                                <>
+                                                    <div className="flex flex-col gap-3 text-xs max-h-60 overflow-y-auto custom-scrollbar pr-2 mb-2">
+                                                        {data.room_ids.map(roomId => {
+                                                            const room = vacantRooms.find(v => v.id === roomId);
+                                                            if (!room) return null;
+                                                            const activeCalc = calc.room_breakdown ? calc.room_breakdown[roomId] : calc.totals || calc;
+                                                            return (
+                                                                <div key={roomId} className="bg-[#0f172a] rounded-xl border border-[#334155] p-3 flex flex-col gap-2">
+                                                                    <div className="flex justify-between items-start border-b border-[#334155] pb-2">
+                                                                        <div>
+                                                                            <div className="text-sm font-bold text-slate-200">{room.room_number} <span className="text-[10px] text-slate-400 font-normal uppercase tracking-wider ml-1">{room.type.name}</span></div>
+                                                                            <div className="text-[10px] text-slate-500">Base Limit: {room.type.max_occupancy} pax</div>
+                                                                        </div>
+                                                                        <div className="text-right">
+                                                                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Extra Pax</div>
+                                                                            <div className="flex items-center justify-end gap-1.5">
+                                                                                <button type="button" onClick={() => setData('extra_pax', { ...data.extra_pax, [roomId]: Math.max(0, (data.extra_pax[roomId] || 0) - 1) })} className="w-6 h-6 rounded bg-[#1e293b] border border-[#334155] text-slate-300 flex items-center justify-center hover:bg-brand-500 hover:text-white transition-colors">-</button>
+                                                                                <span className="text-xs font-mono font-bold text-slate-200 w-4 text-center">{data.extra_pax[roomId] || 0}</span>
+                                                                                <button type="button" onClick={() => setData('extra_pax', { ...data.extra_pax, [roomId]: (data.extra_pax[roomId] || 0) + 1 })} className="w-6 h-6 rounded bg-[#1e293b] border border-[#334155] text-slate-300 flex items-center justify-center hover:bg-brand-500 hover:text-white transition-colors">+</button>
+                                                                            </div>
                                                                         </div>
                                                                     </div>
-                                                                </div>
-                                                                <div className="flex flex-col gap-1 pt-1">
-                                                                    <div className="flex justify-between">
-                                                                        <span className="text-slate-400 text-[10px]">Base Charge:</span>
-                                                                        <span className="font-mono text-slate-300 font-bold text-[10px]">₱{(activeCalc?.base_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                                                                    </div>
-                                                                    {(activeCalc?.peak_surcharge || 0) > 0 && (
+                                                                    <div className="flex flex-col gap-1 pt-1">
                                                                         <div className="flex justify-between">
-                                                                            <span className="text-amber-400/80 text-[10px]">Peak Surcharge:</span>
-                                                                            <span className="font-mono text-amber-400 font-bold text-[10px]">+ ₱{(activeCalc.peak_surcharge || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                                                            <span className="text-slate-400 text-[10px]">Base Charge:</span>
+                                                                            <span className="font-mono text-slate-300 font-bold text-[10px]">₱{(activeCalc?.base_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                                                         </div>
-                                                                    )}
-                                                                    {(activeCalc?.extra_pax_charges || 0) > 0 && (
-                                                                        <div className="flex justify-between">
-                                                                            <span className="text-amber-400/80 text-[10px]">Extra Pax Charge:</span>
-                                                                            <span className="font-mono text-amber-400 font-bold text-[10px]">+ ₱{(activeCalc.extra_pax_charges || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                                                                        </div>
-                                                                    )}
+                                                                        {(activeCalc?.peak_surcharge || 0) > 0 && (
+                                                                            <div className="flex justify-between">
+                                                                                <span className="text-amber-400/80 text-[10px]">Peak Surcharge:</span>
+                                                                                <span className="font-mono text-amber-400 font-bold text-[10px]">+ ₱{(activeCalc.peak_surcharge || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                                                            </div>
+                                                                        )}
+                                                                        {(activeCalc?.extra_pax_charges || 0) > 0 && (
+                                                                            <div className="flex justify-between">
+                                                                                <span className="text-amber-400/80 text-[10px]">Extra Pax Charge:</span>
+                                                                                <span className="font-mono text-amber-400 font-bold text-[10px]">+ ₱{(activeCalc.extra_pax_charges || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                    <div className="flex justify-between items-baseline border-t border-[#334155] pt-2 mt-1">
+                                                                        <span className="font-outfit font-extrabold text-slate-400 uppercase text-[9px] tracking-wider">Room Subtotal:</span>
+                                                                        <span className="font-mono text-xs font-black text-emerald-400">₱{(activeCalc?.total_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                                                    </div>
                                                                 </div>
-                                                                <div className="flex justify-between items-baseline border-t border-[#334155] pt-2 mt-1">
-                                                                    <span className="font-outfit font-extrabold text-slate-400 uppercase text-[9px] tracking-wider">Room Subtotal:</span>
-                                                                    <span className="font-mono text-xs font-black text-emerald-400">₱{(activeCalc?.total_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                                                                </div>
-                                                            </div>
-                                                        );
-                                                    })}
+                                                            );
+                                                        })}
+                                                    </div>
 
-                                                    <div className="bg-[#1e293b] p-4 rounded-xl border border-brand-500/20 shadow-lg mt-2 flex flex-col gap-2 relative overflow-hidden">
+                                                    <div className="bg-[#1e293b] p-4 rounded-xl border border-brand-500/20 shadow-lg flex flex-col gap-2 relative overflow-hidden">
                                                         <div className="absolute top-0 right-0 w-24 h-24 bg-brand-500/5 rounded-full blur-xl -mr-10 -mt-10" />
                                                         <div className="flex items-center gap-2 mb-1">
                                                             <h4 className="font-outfit font-black text-slate-100 text-xs uppercase tracking-wider">Global Totals</h4>
@@ -1097,6 +1119,14 @@ export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCod
                                                             <span className="font-outfit font-black text-slate-100 uppercase tracking-widest text-xs">Grand Total:</span>
                                                             <span className="font-mono text-xl font-black text-emerald-400 drop-shadow-md">₱{(calc.totals?.total_amount || calc.total_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                                         </div>
+                                                        {['cash', 'split'].includes(data.payment_method) && (
+                                                            <div className="flex justify-between items-baseline mt-2 pt-2 border-t border-[#334155]/60">
+                                                                <span className="font-outfit font-black text-slate-100 uppercase tracking-widest text-xs">Change:</span>
+                                                                <span className="font-mono text-base font-black text-emerald-400">
+                                                                    ₱{(cashReceived ? Math.max(0, Number(cashReceived) - (data.payment_method === 'split' ? (data.cash_amount || 0) : (calc.totals?.total_amount || calc.total_amount || 0))) : 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                                </span>
+                                                            </div>
+                                                        )}
                                                     </div>
 
                                                     <div className="flex flex-col gap-1 bg-[#0f172a]/65 p-3 rounded-xl border border-[#334155] mt-1">
@@ -1105,7 +1135,7 @@ export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCod
                                                             {calc.expected_check_out || calc.totals?.expected_check_out ? new Date(calc.expected_check_out || calc.totals?.expected_check_out).toLocaleString() : '-'}
                                                         </span>
                                                     </div>
-                                                </div>
+                                                </>
                                             ) : (
                                                 <div className="py-8 text-center text-xs text-slate-500">Select rooms to load bill summary.</div>
                                             )}
@@ -1398,11 +1428,11 @@ export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCod
                                                 <div className="p-4 rounded-xl bg-[#0f172a]/60 border border-[#334155] grid grid-cols-1 sm:grid-cols-2 gap-3">
                                                     <div className="flex flex-col gap-1">
                                                         <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Cash (₱)</label>
-                                                        <input type="number" min="0" max={editCalc.total_amount} step="any" value={editForm.data.cash_amount} onChange={handleEditCashInput} className={`${inputCls} font-mono font-bold`} />
+                                                        <input type="number" min="0" max={editCalc.totals?.total_amount ?? editCalc.total_amount ?? 0} step="any" value={editForm.data.cash_amount} onChange={handleEditCashInput} className={`${inputCls} font-mono font-bold`} />
                                                     </div>
                                                     <div className="flex flex-col gap-1">
                                                         <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">GCash (₱)</label>
-                                                        <input type="number" min="0" max={editCalc.total_amount} step="any" value={editForm.data.gcash_amount} onChange={handleEditGCashInput} className={`${inputCls} font-mono font-bold`} />
+                                                        <input type="number" min="0" max={editCalc.totals?.total_amount ?? editCalc.total_amount ?? 0} step="any" value={editForm.data.gcash_amount} onChange={handleEditGCashInput} className={`${inputCls} font-mono font-bold`} />
                                                     </div>
                                                 </div>
                                             )}
@@ -1412,12 +1442,12 @@ export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCod
                                     {/* Right — Bill Summary */}
                                     <div className="flex flex-col gap-4">
                                         <div className="p-5 rounded-2xl bg-[#1e293b] border border-[#334155] flex flex-col gap-4 relative overflow-hidden">
-                                            {editCalc.is_peak && (
+                                            {(editCalc.totals?.is_peak ?? editCalc.is_peak) && (
                                                 <div className="absolute top-0 left-0 right-0 py-1 bg-amber-500 text-slate-950 text-[9px] uppercase font-black tracking-widest text-center flex items-center justify-center gap-1">
-                                                    <TrendingUp size={9} /> Peak: {editCalc.peak_label}
+                                                    <TrendingUp size={9} /> Peak: {editCalc.totals?.peak_label ?? editCalc.peak_label}
                                                 </div>
                                             )}
-                                            <div className={`flex items-center gap-2.5 border-b border-[#334155] pb-3 ${editCalc.is_peak ? 'pt-5' : 'pt-1'}`}>
+                                            <div className={`flex items-center gap-2.5 border-b border-[#334155] pb-3 ${(editCalc.totals?.is_peak ?? editCalc.is_peak) ? 'pt-5' : 'pt-1'}`}>
                                                 <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-xl"><Coins size={16} /></div>
                                                 <h3 className="font-outfit font-extrabold text-slate-200 text-sm uppercase tracking-wide">Billing</h3>
                                             </div>
@@ -1425,29 +1455,29 @@ export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCod
                                                 <div className="flex flex-col gap-3 text-xs">
                                                     <div className="flex justify-between">
                                                         <span className="text-slate-400">Base charges:</span>
-                                                        <span className="font-mono text-slate-200 font-bold">₱{editCalc.base_amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                                        <span className="font-mono text-slate-200 font-bold">₱{(editCalc.totals?.base_amount ?? editCalc.base_amount ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                                     </div>
-                                                    {editCalc.peak_surcharge > 0 && (
+                                                    {(editCalc.totals?.peak_surcharge ?? editCalc.peak_surcharge ?? 0) > 0 && (
                                                         <div className="flex justify-between">
                                                             <span className="text-slate-400">Peak surcharge:</span>
-                                                            <span className="font-mono text-amber-400 font-bold">+ ₱{editCalc.peak_surcharge.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                                            <span className="font-mono text-amber-400 font-bold">+ ₱{(editCalc.totals?.peak_surcharge ?? editCalc.peak_surcharge ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                                         </div>
                                                     )}
-                                                    {editCalc.discount_amount > 0 && (
+                                                    {(editCalc.totals?.discount_amount ?? editCalc.discount_amount ?? 0) > 0 && (
                                                         <div className="flex justify-between">
                                                             <span className="text-slate-400 capitalize">{editForm.data.discount_type} discount:</span>
-                                                            <span className="font-mono text-emerald-400 font-bold">- ₱{editCalc.discount_amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                                            <span className="font-mono text-emerald-400 font-bold">- ₱{(editCalc.totals?.discount_amount ?? editCalc.discount_amount ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                                         </div>
                                                     )}
                                                     <div className="h-px bg-[#334155]" />
                                                     <div className="flex justify-between items-baseline">
                                                         <span className="font-outfit font-extrabold text-slate-100 uppercase">Total:</span>
-                                                        <span className="font-mono text-xl font-black text-emerald-400">₱{editCalc.total_amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                                        <span className="font-mono text-xl font-black text-emerald-400">₱{(editCalc.totals?.total_amount ?? editCalc.total_amount ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                                     </div>
                                                     <div className="flex flex-col gap-1 bg-[#0f172a]/65 p-3 rounded-xl border border-[#334155]">
                                                         <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1"><Calendar size={10} /> Expected Out</span>
                                                         <span className="text-xs text-slate-300 font-bold font-mono">
-                                                            {editCalc.expected_check_out ? new Date(editCalc.expected_check_out).toLocaleString() : '-'}
+                                                            {(editCalc.totals?.expected_check_out ?? editCalc.expected_check_out) ? new Date(editCalc.totals?.expected_check_out ?? editCalc.expected_check_out).toLocaleString() : '-'}
                                                         </span>
                                                     </div>
                                                 </div>
@@ -1621,7 +1651,7 @@ export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCod
                         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-[#1e293b] border border-brand-500/30 rounded-2xl w-full max-w-sm shadow-2xl relative z-10 overflow-hidden">
                             <div className="p-6 flex flex-col items-center text-center gap-4">
                                 <div className="w-16 h-16 rounded-full bg-brand-500/10 flex items-center justify-center text-brand-500 mb-2">
-                                    <CheckCircle2 size={32} />
+                                    <CheckCircle size={32} />
                                 </div>
                                 <h2 className="font-outfit font-black text-slate-100 text-xl">Confirm Check In?</h2>
                                 <p className="text-sm text-slate-400">

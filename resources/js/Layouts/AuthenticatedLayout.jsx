@@ -35,6 +35,7 @@ import {
     Coins
 } from 'lucide-react';
 import ProfileModal from '@/Components/ProfileModal';
+import ConfirmModal from '@/Components/ConfirmModal';
 
 
 export default function AuthenticatedLayout({ children }) {
@@ -49,6 +50,7 @@ export default function AuthenticatedLayout({ children }) {
     const [isMobileOpen, setIsMobileOpen] = useState(false);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [isProfileOpen, setIsProfileOpen] = useState(false);
+    const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
     // ─── Toast state ─────────────────────────────────────────────────────────
     const [toast, setToast] = useState(null);
@@ -187,7 +189,7 @@ export default function AuthenticatedLayout({ children }) {
 
     const handleLogout = (e) => {
         e.preventDefault();
-        router.post(route('logout'));
+        setShowLogoutConfirm(true);
     };
 
     const hasRole = (roles) => {
@@ -916,6 +918,20 @@ export default function AuthenticatedLayout({ children }) {
 
             {/* ─── Profile Settings Modal ────────────────────────────────────── */}
             <ProfileModal show={isProfileOpen} onClose={() => setIsProfileOpen(false)} />
+
+            {/* ─── Logout Confirmation Modal ─────────────────────────────────── */}
+            <ConfirmModal
+                isOpen={showLogoutConfirm}
+                onClose={() => setShowLogoutConfirm(false)}
+                onConfirm={() => {
+                    setShowLogoutConfirm(false);
+                    router.post(route('logout'));
+                }}
+                title="Confirm Logout"
+                message="Are you sure you want to log out of your session?"
+                confirmText="Logout"
+                isDanger={true}
+            />
 
         </div>
     );
