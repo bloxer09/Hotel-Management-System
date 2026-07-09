@@ -222,5 +222,70 @@ class InventoryController extends Controller
         return back()->with('success', "Stock for {$inventoryItem->item_name} adjusted. New level: {$inventoryItem->current_stock}.");
     }
 
+    public function export(Request $request)
+    {
+        $user = $request->user();
+        if (!in_array($user->role, ['admin', 'front_desk'], true)) {
+            abort(403);
+        }
+
+        $search = $request->input('search');
+        $category = $request->input('category');
+
+        $query = InventoryItem::orderBy('item_name', 'asc')
+            ->when($search, function ($query, $search) {
+                return $query->where('item_name', 'like', "%{$search}%");
+            })
+            ->when($category, function ($query, $category) {
+                return $query->where('category', $category);
+            });
+
+        $items = $query->get();
+
+        $rows = [];
+        $rows[] = ['Hotel Management System — Inventory Stock Status Report'];
+        $rows[] = ['Category:', $category ?: 'All', 'Search:', $search ?: 'None'];
+        $rows[] = ['Generated:', date('Y-m-d H:i:s'), 'By:', $user->full_name];
+        $rows[] = [];
+
+        $rows[] = ['Item ID', 'Item Name', 'Category', 'Unit', 'Current Stock', 'Min. Stock Alert Limit', 'Unit Cost (₱)', 'Selling Price (₱)', 'Active Status', 'Total Cost Value (₱)', 'Total Retail Value (₱)'];
+
+        $totalItems = 0;
+        $totalCostVal = 0;
+        $totalRetailVal = 0;
+
+        foreach ($items as $item) {
+            $costVal = $item->current_stock * $item->unit_cost;
+            $retailVal = $item->current_stock * $item->selling_price;
+
+            $rows[] = [
+                $item->id,
+                $item->item_name,
+                ucfirst($item->category),
+                $item->unit,
+                $item->current_stock,
+                $item->minimum_stock,
+                $item->unit_cost,
+                $item->selling_price,
+                $item->is_active ? 'Active' : 'Inactive',
+                $costVal,
+                $retailVal
+            ];
+
+            $totalItems += $item->current_stock;
+            $totalCostVal += $costVal;
+            $totalRetailVal += $retailVal;
+        }
+
+        $rows[] = [];
+        $rows[] = ['Total Stocks Available:', $totalItems];
+        $rows[] = ['Total Cost Valuation:', $totalCostVal];
+        $rows[] = ['Total Retail Valuation:', $totalRetailVal];
+
+        $filename = "inventory_report_" . date('Y-m-d_H-i-s') . ".xlsx";
+        \Shuchkin\SimpleXLSXGen::fromArray($rows)->downloadAs($filename);
+        exit;
+    }
+
     // useItems removed
 }

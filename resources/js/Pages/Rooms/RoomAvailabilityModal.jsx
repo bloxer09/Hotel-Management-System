@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Fragment } from 'react';
+import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
 import axios from 'axios';
 import { 
     Calendar, 
@@ -235,19 +236,33 @@ export default function RoomAvailabilityModal({ isOpen, onClose, initialRoomId =
     });
 
     return (
-        <AnimatePresence>
-            {isOpen && (
-                <>
-                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 0.8 }} exit={{ opacity: 0 }}
-                        onClick={onClose} className="fixed inset-0 bg-[#070b13]/90 z-[999]" />
-                    
-                    <motion.div 
-                        initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                        className="fixed inset-0 z-[1000] flex items-center justify-center p-4 lg:p-8 pointer-events-none"
+        <Transition show={isOpen} as={Fragment}>
+            <Dialog onClose={onClose} className="relative z-[999]">
+                {/* Backdrop transition */}
+                <TransitionChild
+                    as={Fragment}
+                    enter="ease-out duration-300"
+                    enterFrom="opacity-0"
+                    enterTo="opacity-100"
+                    leave="ease-in duration-200"
+                    leaveFrom="opacity-100"
+                    leaveTo="opacity-0"
+                >
+                    <div className="fixed inset-0 bg-[#070b13]/80 backdrop-blur-sm" />
+                </TransitionChild>
+
+                {/* Dialog Panel wrapper */}
+                <div className="fixed inset-0 flex items-center justify-center p-4 lg:p-8 overflow-y-auto">
+                    <TransitionChild
+                        as={Fragment}
+                        enter="ease-out duration-300"
+                        enterFrom="opacity-0 scale-95"
+                        enterTo="opacity-100 scale-100"
+                        leave="ease-in duration-200"
+                        leaveFrom="opacity-100 scale-100"
+                        leaveTo="opacity-0 scale-95"
                     >
-                        <div className="bg-[#0f172a] border border-[#334155] rounded-3xl shadow-2xl w-full max-w-7xl flex flex-col max-h-[95vh] overflow-hidden pointer-events-auto relative">
+                        <DialogPanel className="bg-[#0f172a] border border-[#334155] rounded-3xl shadow-2xl w-full max-w-7xl flex flex-col max-h-[95vh] overflow-hidden relative z-10">
                             <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 text-slate-100 relative">
                         {isLoading && (
                             <div className="absolute inset-0 bg-[#0f172a]/50 z-50 flex items-center justify-center">
@@ -408,12 +423,12 @@ export default function RoomAvailabilityModal({ isOpen, onClose, initialRoomId =
                         </div>
                     </div>
                 </div>
-                                </div>
                             </div>
                         </div>
-                    </motion.div>
-                </>
-            )}
-        </AnimatePresence>
+                        </DialogPanel>
+                    </TransitionChild>
+                </div>
+            </Dialog>
+        </Transition>
     );
 }

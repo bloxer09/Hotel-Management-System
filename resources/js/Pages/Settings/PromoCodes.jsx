@@ -1,12 +1,16 @@
 import React, { useState } from 'react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, useForm, router } from '@inertiajs/react';
-import { Ticket, Plus, Trash2, Calendar, Edit3, X, Eye, BadgePercent, Check, AlertCircle } from 'lucide-react';
+import { Ticket, Plus, Trash2, Calendar, Edit3, X, Eye, BadgePercent, Check, AlertCircle, Settings2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import ActionModal from '@/Components/ActionModal';
+import ConfirmModal from '@/Components/ConfirmModal';
 
 export default function PromoCodes({ promoCodes }) {
     const [isOpen, setIsOpen] = useState(false);
     const [editingPromo, setEditingPromo] = useState(null);
+    const [actionModalItem, setActionModalItem] = useState(null);
+    const [confirmDelete, setConfirmDelete] = useState(null);
 
     const form = useForm({
         code: '',
@@ -68,9 +72,10 @@ export default function PromoCodes({ promoCodes }) {
         }
     };
 
-    const handleDelete = (promo) => {
-        if (confirm(`Are you absolutely sure you want to delete promo code '${promo.code}'?`)) {
-            router.delete(route('settings.promo_codes.destroy', promo.id));
+    const handleDelete = () => {
+        if (confirmDelete) {
+            router.delete(route('settings.promo_codes.destroy', confirmDelete.id));
+            setConfirmDelete(null);
         }
     };
 
@@ -80,47 +85,55 @@ export default function PromoCodes({ promoCodes }) {
 
             <div className="flex flex-col gap-8">
                 {/* Header Section */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                     <div>
-                        <h1 className="text-3xl font-outfit font-extrabold tracking-tight text-slate-100">
+                        <h1 className="text-2xl sm:text-3xl font-outfit font-extrabold tracking-tight text-slate-100">
                             Promo & Discount Codes
                         </h1>
-                        <p className="text-sm text-slate-400 font-medium mt-1">Manage transactional promo codes, marketing discount vouchers, and specialized VIP incentives.</p>
+                        <p className="text-xs sm:text-sm text-slate-400 font-medium mt-1">Manage transactional promo codes, marketing discount vouchers, and specialized VIP incentives.</p>
                     </div>
 
-                    <button
-                        onClick={handleOpenAdd}
-                        className="inline-flex items-center gap-2 px-5 py-3 bg-brand-600 hover:bg-brand-500 rounded-xl text-slate-50 font-outfit font-extrabold text-xs tracking-wider shadow-lg hover:shadow-brand-600/20 transition-all self-start"
-                    >
-                        <Plus size={16} /> Add Promo Code
-                    </button>
+                    <div className="w-full sm:w-auto mt-2 sm:mt-0">
+                        <button
+                            onClick={handleOpenAdd}
+                            className="flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 bg-brand-600 hover:bg-brand-500 rounded-xl text-slate-50 font-outfit font-extrabold text-xs tracking-wider shadow-lg hover:shadow-brand-600/20 transition-all w-full sm:w-auto"
+                        >
+                            <Plus size={16} /> Add Promo Code
+                        </button>
+                    </div>
                 </div>
 
                 {/* Table Listing */}
-                <div className="p-6 rounded-2xl bg-[#1e293b] border border-[#334155] shadow-xl">
+                <div className="rounded-2xl bg-[#1e293b] border border-[#334155] overflow-hidden shadow-xl">
                     <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse text-xs table-fixed">
+                        <table className="w-full text-xs min-w-[850px]">
                             <thead>
-                                <tr className="border-b border-[#334155] text-slate-400 uppercase tracking-wider font-semibold">
-                                    <th className="pb-3">Code / Label</th>
-                                    <th className="pb-3">Discount Rate</th>
-                                    <th className="pb-3">Redemption Limit</th>
-                                    <th className="pb-3">Expiry Date</th>
-                                    <th className="pb-3">Created By</th>
-                                    <th className="pb-3">Status</th>
-                                    <th className="pb-3 text-right">Actions</th>
+                                <tr className="border-b border-[#334155] bg-[#0f172a]/60">
+                                    <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Code / Label</th>
+                                    <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Discount Rate</th>
+                                    <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Redemption Limit</th>
+                                    <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Expiry Date</th>
+                                    <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Created By</th>
+                                    <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Status</th>
+                                    <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-right">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-[#334155]/60 text-slate-300">
+                            <tbody>
                                 {promoCodes.length > 0 ? (
-                                    promoCodes.map((promo) => {
+                                    promoCodes.map((promo, i) => {
                                         const isExpired = promo.expires_at && new Date(promo.expires_at) < new Date();
                                         const isLimitReached = promo.max_uses !== null && promo.used_count >= promo.max_uses;
                                         const isValid = promo.is_active && !isExpired && !isLimitReached;
 
                                         return (
-                                            <tr key={promo.id} className="hover:bg-[#0f172a]/20 transition-colors">
-                                                <td className="py-4">
+                                            <motion.tr 
+                                                key={promo.id} 
+                                                initial={{ opacity: 0, y: 6 }} 
+                                                animate={{ opacity: 1, y: 0 }} 
+                                                transition={{ delay: i * 0.03 }}
+                                                className="border-b border-[#334155]/50 hover:bg-[#0f172a]/40 transition-colors"
+                                            >
+                                                <td className="px-4 py-3">
                                                     <div className="flex flex-col gap-0.5">
                                                         <span className="font-outfit font-black text-slate-100 text-sm tracking-wider uppercase">
                                                             {promo.code}
@@ -130,7 +143,7 @@ export default function PromoCodes({ promoCodes }) {
                                                         </span>
                                                     </div>
                                                 </td>
-                                                <td className="py-4 font-mono font-bold text-emerald-400">
+                                                <td className="px-4 py-3 font-mono font-bold text-emerald-400">
                                                     {promo.discount_type === 'percent' ? (
                                                         <span className="flex items-center gap-1">
                                                             <BadgePercent size={14} className="text-emerald-400" />
@@ -142,7 +155,7 @@ export default function PromoCodes({ promoCodes }) {
                                                         </span>
                                                     )}
                                                 </td>
-                                                <td className="py-4 font-mono">
+                                                <td className="px-4 py-3 font-mono">
                                                     <div className="flex flex-col">
                                                         <span>{promo.used_count} used</span>
                                                         <span className="text-[10px] text-slate-500">
@@ -150,7 +163,7 @@ export default function PromoCodes({ promoCodes }) {
                                                         </span>
                                                     </div>
                                                 </td>
-                                                <td className="py-4 font-mono">
+                                                <td className="px-4 py-3 font-mono">
                                                     {promo.expires_at ? (
                                                         <span className={isExpired ? 'text-red-400 font-semibold' : 'text-slate-300'}>
                                                             {new Date(promo.expires_at).toLocaleDateString(undefined, { dateStyle: 'medium' })}
@@ -159,10 +172,10 @@ export default function PromoCodes({ promoCodes }) {
                                                         <span className="text-slate-500 font-medium">Never Expires</span>
                                                     )}
                                                 </td>
-                                                <td className="py-4 font-medium text-slate-400">
+                                                <td className="px-4 py-3 font-medium text-slate-400">
                                                     {promo.creator?.name || 'Admin'}
                                                 </td>
-                                                <td className="py-4">
+                                                <td className="px-4 py-3">
                                                     <span className={`inline-flex items-center gap-1 px-2.5 py-1 text-[10px] uppercase font-bold rounded-lg border ${isValid
                                                             ? 'bg-emerald-950/40 border-emerald-800 text-emerald-400'
                                                             : 'bg-red-950/40 border-red-800 text-red-400'
@@ -181,25 +194,15 @@ export default function PromoCodes({ promoCodes }) {
                                                     {isExpired && <span className="block text-[9px] text-red-400 mt-0.5 font-bold">Expired</span>}
                                                     {isLimitReached && <span className="block text-[9px] text-red-400 mt-0.5 font-bold">Max Uses Reached</span>}
                                                 </td>
-                                                <td className="py-4 text-right">
-                                                    <div className="inline-flex gap-2">
-                                                        <button
-                                                            onClick={() => handleOpenEdit(promo)}
-                                                            className="p-2 bg-indigo-950/20 border border-indigo-900/30 hover:bg-indigo-900/30 text-indigo-400 hover:text-indigo-300 rounded-xl transition-all"
-                                                            title="Edit Details"
-                                                        >
-                                                            <Edit3 size={14} />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleDelete(promo)}
-                                                            className="p-2 bg-red-950/20 border border-red-900/30 hover:bg-red-900/30 text-red-400 hover:text-red-300 rounded-xl transition-all"
-                                                            title="Delete Promo"
-                                                        >
-                                                            <Trash2 size={14} />
-                                                        </button>
-                                                    </div>
+                                                <td className="px-4 py-3 text-right">
+                                                    <button
+                                                        onClick={() => setActionModalItem(promo)}
+                                                        className="px-4 py-2 bg-[#0f172a] hover:bg-[#334155] border border-[#334155] rounded-xl text-slate-300 hover:text-white transition-all text-xs font-bold flex items-center gap-2 ml-auto"
+                                                    >
+                                                        <Settings2 size={14} /> Manage
+                                                    </button>
                                                 </td>
-                                            </tr>
+                                            </motion.tr>
                                         );
                                     })
                                 ) : (
@@ -382,6 +385,44 @@ export default function PromoCodes({ promoCodes }) {
                         </div>
                     )}
                 </AnimatePresence>
+                <ActionModal
+                    isOpen={!!actionModalItem}
+                    onClose={() => setActionModalItem(null)}
+                    title={`Manage Promo Code ${actionModalItem?.code}`}
+                >
+                    {actionModalItem && (
+                        <>
+                            <button
+                                onClick={() => {
+                                    setActionModalItem(null);
+                                    handleOpenEdit(actionModalItem);
+                                }}
+                                className="w-full flex items-center gap-2 px-4 py-3 bg-[#1e293b] hover:bg-indigo-600/20 border border-[#334155] hover:border-indigo-500/40 rounded-xl text-xs font-bold text-indigo-400 transition-colors"
+                            >
+                                <Edit3 size={16} /> Edit Details
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setConfirmDelete(actionModalItem);
+                                    setActionModalItem(null);
+                                }}
+                                className="w-full flex items-center gap-2 px-4 py-3 bg-[#1e293b] hover:bg-rose-900/30 border border-[#334155] hover:border-rose-500/40 rounded-xl text-xs font-bold text-rose-400 transition-colors"
+                            >
+                                <Trash2 size={16} /> Delete Promo Code
+                            </button>
+                        </>
+                    )}
+                </ActionModal>
+
+                <ConfirmModal
+                    isOpen={!!confirmDelete}
+                    onClose={() => setConfirmDelete(null)}
+                    onConfirm={handleDelete}
+                    title="Delete Promo Code"
+                    message={`Are you absolutely sure you want to delete promo code '${confirmDelete?.code}'?`}
+                    confirmText="Delete"
+                    isDanger={true}
+                />
             </div>
         </AuthenticatedLayout>
     );

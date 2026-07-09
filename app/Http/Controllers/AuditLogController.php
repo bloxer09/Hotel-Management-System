@@ -53,7 +53,7 @@ class AuditLogController extends Controller
         if (!in_array($sortBy, $allowedSorts)) $sortBy = 'id';
         if (!in_array($sortDir, ['asc', 'desc'])) $sortDir = 'desc';
 
-        $logs = $query->orderBy($sortBy, $sortDir)->paginate(100)->withQueryString();
+        $logs = $query->orderBy($sortBy, $sortDir)->paginate(15)->withQueryString();
 
         $users = User::orderBy('username', 'asc')->get(['id', 'username', 'full_name', 'role']);
         $modules = AuditLog::select('module')->distinct()->whereNotNull('module')->pluck('module');

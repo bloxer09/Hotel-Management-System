@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import AlertModal from '@/Components/AlertModal';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, useForm, Link, usePage } from '@inertiajs/react';
 import axios from 'axios';
@@ -13,11 +14,16 @@ import {
     CheckCircle,
     Crown,
     TrendingUp,
-    ArrowLeft
+    ArrowLeft,
+    Plus,
+    X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import ConfirmModal from '@/Components/ConfirmModal';
+import ActionModal from '@/Components/ActionModal';
 
 export default function Create({ rooms = [], roomTypes = [], prefilledGuest, promoCodes = [] }) {
+    const [conflictAlert, setConflictAlert] = useState(false);
     const { auth } = usePage().props;
     const isAdmin = auth?.user?.role === 'admin';
 
@@ -52,8 +58,14 @@ export default function Create({ rooms = [], roomTypes = [], prefilledGuest, pro
         conflict: null // holds conflict info if there's double-booking
     });
 
+    const [showRoomSelectModal, setShowRoomSelectModal] = useState(false);
+    const [roomFilter, setRoomFilter] = useState('all');
+    const [availableRooms, setAvailableRooms] = useState(rooms);
+    const [isLoadingRooms, setIsLoadingRooms] = useState(false);
+    const [showConfirmModal, setShowConfirmModal] = useState(false);
+
     const { data, setData, post, processing, errors } = useForm({
-        room_id: '',
+        room_ids: [],
         check_in: defaultCheckInStr,
         guest_name: '',
         guest_contact: '',
@@ -61,7 +73,7 @@ export default function Create({ rooms = [], roomTypes = [], prefilledGuest, pro
         guest_id_number: '',
         guest_email: '',
         guest_address: '',
-        num_guests: 1,
+        extra_pax: {},
         booking_type: 'overnight',
         num_nights: 1,
         short_time_hours: 3,
@@ -144,7 +156,7 @@ export default function Create({ rooms = [], roomTypes = [], prefilledGuest, pro
             setPromoError('Please enter a promo code.');
             return;
         }
-        if (!data.room_id) {
+        if (!data.room_ids || data.room_ids.length === 0) {
             setPromoError('Please select a room first.');
             return;
         }
@@ -167,16 +179,32 @@ export default function Create({ rooms = [], roomTypes = [], prefilledGuest, pro
             });
     };
 
+    useEffect(() => {
+        if (data.check_in) {
+            setIsLoadingRooms(true);
+            axios.post(route('reservations.available_rooms'), {
+                check_in: data.check_in,
+                booking_type: data.booking_type,
+                num_nights: data.num_nights,
+                short_time_hours: data.short_time_hours,
+            }).then(res => {
+                setAvailableRooms(res.data.available_rooms);
+                setIsLoadingRooms(false);
+            }).catch(() => { setIsLoadingRooms(false); });
+        }
+    }, [data.check_in, data.booking_type, data.num_nights, data.short_time_hours]);
+
     // Dynamic price estimation and overlap verification
     useEffect(() => {
-        if (data.room_id && data.check_in) {
+        if (data.room_ids && data.room_ids.length > 0 && data.check_in) {
             axios.post(route('reservations.calculate'), {
-                room_id: data.room_id,
+                room_ids: data.room_ids,
                 check_in: data.check_in,
                 booking_type: data.booking_type,
                 num_nights: data.num_nights,
                 short_time_hours: data.short_time_hours,
                 discount_type: data.discount_type,
+                extra_pax: data.extra_pax,
                 discount_amount: data.discount_amount,
                 promo_code: data.promo_code
             })
@@ -185,7 +213,7 @@ export default function Create({ rooms = [], roomTypes = [], prefilledGuest, pro
 
                     // Adjust payment defaults
                     setData(prev => {
-                        const total = res.data.total_amount;
+                        const total = res.data.totals ? res.data.totals.total_amount : res.data.total_amount;
                         if (prev.payment_method === 'cash') {
                             return { ...prev, cash_amount: total, gcash_amount: 0 };
                         } else if (prev.payment_method === 'gcash') {
@@ -199,27 +227,31 @@ export default function Create({ rooms = [], roomTypes = [], prefilledGuest, pro
                 })
                 .catch(err => console.error(err));
         }
-    }, [data.room_id, data.check_in, data.booking_type, data.num_nights, data.short_time_hours, data.discount_type, data.discount_amount, data.promo_code]);
+    }, [JSON.stringify(data.room_ids), data.check_in, data.booking_type, data.num_nights, data.short_time_hours, data.discount_type, data.discount_amount, data.promo_code, JSON.stringify(data.extra_pax)]);
+
+    const getActiveCalc = () => calc.totals || calc;
 
     const handleCashInput = (e) => {
-        const cash = Math.min(calc.total_amount, Math.max(0, Number(e.target.value) || 0));
-        const gcash = Math.max(0, calc.total_amount - cash);
+        const total = getActiveCalc().total_amount;
+        const cash = Math.min(total, Math.max(0, Number(e.target.value) || 0));
+        const gcash = Math.max(0, total - cash);
         setData(prev => ({ ...prev, cash_amount: cash, gcash_amount: gcash }));
     };
 
     const handleGCashInput = (e) => {
-        const gcash = Math.min(calc.total_amount, Math.max(0, Number(e.target.value) || 0));
-        const cash = Math.max(0, calc.total_amount - gcash);
+        const total = getActiveCalc().total_amount;
+        const gcash = Math.min(total, Math.max(0, Number(e.target.value) || 0));
+        const cash = Math.max(0, total - gcash);
         setData(prev => ({ ...prev, cash_amount: cash, gcash_amount: gcash }));
     };
 
     const handleFormSubmit = (e) => {
         e.preventDefault();
-        if (calc.conflict) {
-            alert("Cannot submit. There is a double-booking conflict for this room during this period.");
+        if (getActiveCalc().conflict) {
+            setConflictAlert(true);
             return;
         }
-        post(route('reservations.store'));
+        setShowConfirmModal(true);
     };
 
     return (
@@ -400,7 +432,7 @@ export default function Create({ rooms = [], roomTypes = [], prefilledGuest, pro
                                 <div className="p-2.5 bg-indigo-500/10 text-indigo-400 rounded-xl">
                                     <Calendar size={20} />
                                 </div>
-                                <h2 className="text-lg font-outfit font-bold text-slate-200">Reservation Dates & Room</h2>
+                                <h2 className="text-lg font-outfit font-bold text-slate-200">Check In Details</h2>
                             </div>
 
                             {/* Check-In Date selector */}
@@ -419,21 +451,22 @@ export default function Create({ rooms = [], roomTypes = [], prefilledGuest, pro
 
                                 {/* Room Selector */}
                                 <div className="flex flex-col gap-1.5">
-                                    <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Room Selection</label>
-                                    <select
-                                        value={data.room_id}
-                                        onChange={e => setData('room_id', e.target.value)}
-                                        required
-                                        className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 px-3 py-2.5 focus:outline-none focus:border-brand-500 text-xs font-bold font-outfit"
+                                    <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Rooms (Multiple) *</label>
+                                    <button 
+                                        type="button" 
+                                        onClick={() => setShowRoomSelectModal(true)}
+                                        className="w-full text-left flex items-center justify-between px-3 py-2 border border-[#334155] hover:border-[#475569] rounded-xl transition-all font-bold"
                                     >
-                                        <option value="">Select Room</option>
-                                        {rooms.map(r => (
-                                            <option key={r.id} value={r.id}>
-                                                Room {r.room_number} ({r.type?.type_name}) - Current status: {r.status}
-                                            </option>
-                                        ))}
-                                    </select>
-                                    {errors.room_id && <span className="text-[10px] text-red-400 mt-1">{errors.room_id}</span>}
+                                        <span className={data.room_ids.length ? 'text-slate-200' : 'text-slate-500'}>
+                                            {data.room_ids.length > 0 
+                                                ? `${data.room_ids.length} Room${data.room_ids.length > 1 ? 's' : ''} Selected` 
+                                                : 'Select Rooms...'}
+                                        </span>
+                                        <div className="w-5 h-5 rounded bg-[#1e293b] flex items-center justify-center border border-[#334155] text-slate-400">
+                                            <Plus size={12} />
+                                        </div>
+                                    </button>
+                                    {errors.room_ids && <span className="text-[10px] text-red-400 mt-1">{errors.room_ids}</span>}
                                 </div>
                             </div>
 
@@ -481,7 +514,7 @@ export default function Create({ rooms = [], roomTypes = [], prefilledGuest, pro
 
                             {/* Double Booking Overlap Conflict Alert Banner */}
                             <AnimatePresence>
-                                {calc.conflict && (
+                                {getActiveCalc().conflict && (
                                     <motion.div
                                         initial={{ opacity: 0, y: -8 }}
                                         animate={{ opacity: 1, y: 0 }}
@@ -492,12 +525,12 @@ export default function Create({ rooms = [], roomTypes = [], prefilledGuest, pro
                                         <div className="flex-1">
                                             <span className="font-outfit font-black uppercase tracking-wider block text-rose-400">⚠️ DOUBLE-BOOKING CONFLICT DETECTED</span>
                                             <p className="mt-1.5 leading-relaxed text-rose-200">
-                                                This room is already reserved/occupied by <strong className="text-slate-50 font-black">{calc.conflict.guest_name}</strong> during this range.
+                                                This room is already reserved/occupied by <strong className="text-slate-50 font-black">{getActiveCalc().conflict.guest_name}</strong> during this range.
                                             </p>
                                             <div className="mt-2 text-[10px] bg-rose-950/80 border border-rose-500/20 p-3 rounded-xl font-mono leading-normal space-y-1">
-                                                <div>Conflict Ref: {calc.conflict.booking_ref} ({calc.conflict.status})</div>
-                                                <div>Scheduled Check-In: {calc.conflict.check_in}</div>
-                                                <div>Scheduled Check-Out: {calc.conflict.expected_check_out}</div>
+                                                <div>Conflict Ref: {getActiveCalc().conflict.booking_ref} ({getActiveCalc().conflict.status})</div>
+                                                <div>Scheduled Check-In: {getActiveCalc().conflict.check_in}</div>
+                                                <div>Scheduled Check-Out: {getActiveCalc().conflict.expected_check_out}</div>
                                             </div>
                                             <p className="mt-2 text-rose-400/90 font-medium">Please choose another room or stay duration to resolve the conflict.</p>
                                         </div>
@@ -554,7 +587,7 @@ export default function Create({ rooms = [], roomTypes = [], prefilledGuest, pro
                                                         type="button"
                                                         onClick={() => {
                                                             setPromoInput(pc.code);
-                                                            if (!data.room_id) {
+                                                            if (!data.room_ids || data.room_ids.length === 0) {
                                                                 setPromoError('Select a room first.');
                                                                 return;
                                                             }
@@ -734,22 +767,72 @@ export default function Create({ rooms = [], roomTypes = [], prefilledGuest, pro
                                 </h3>
                             </div>
 
-                            {data.room_id ? (
+                            {data.room_ids.length > 0 ? (
                                 <div className="flex flex-col gap-4 text-xs">
-                                    <div className="flex justify-between">
-                                        <span className="text-slate-400 font-medium">Room Base charges:</span>
-                                        <span className="font-mono text-slate-200 font-bold">₱{calc.base_amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                    <div className="flex flex-col gap-4 max-h-40 overflow-y-auto custom-scrollbar pr-2">
+                                        {data.room_ids.map(roomId => {
+                                            const room = rooms.find(v => String(v.id) === String(roomId));
+                                            if (!room) return null;
+                                            const activeCalc = calc.room_breakdown ? calc.room_breakdown[roomId] : getActiveCalc();
+                                            return (
+                                                <div key={roomId} className="bg-[#0f172a] rounded-xl border border-[#334155] p-3 flex flex-col gap-2">
+                                                    <div className="flex justify-between items-start border-b border-[#334155] pb-2">
+                                                        <div>
+                                                            <div className="text-sm font-bold text-slate-200">{room.room_number} <span className="text-[10px] text-slate-400 font-normal uppercase tracking-wider ml-1">{room.type.name}</span></div>
+                                                            <div className="text-[10px] text-slate-500">Base Limit: {room.type.max_occupancy} pax</div>
+                                                        </div>
+                                                        <div className="text-right">
+                                                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Extra Pax</div>
+                                                            <div className="flex items-center justify-end gap-1.5">
+                                                                <button type="button" onClick={() => setData('extra_pax', { ...data.extra_pax, [roomId]: Math.max(0, (data.extra_pax[roomId] || 0) - 1) })} className="w-6 h-6 rounded bg-[#1e293b] border border-[#334155] text-slate-300 flex items-center justify-center hover:bg-brand-500 hover:text-white transition-colors">-</button>
+                                                                <span className="text-xs font-mono font-bold text-slate-200 w-4 text-center">{data.extra_pax[roomId] || 0}</span>
+                                                                <button type="button" onClick={() => setData('extra_pax', { ...data.extra_pax, [roomId]: (data.extra_pax[roomId] || 0) + 1 })} className="w-6 h-6 rounded bg-[#1e293b] border border-[#334155] text-slate-300 flex items-center justify-center hover:bg-brand-500 hover:text-white transition-colors">+</button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex flex-col gap-1 pt-1">
+                                                        <div className="flex justify-between">
+                                                            <span className="text-slate-400 text-[10px]">Base Charge:</span>
+                                                            <span className="font-mono text-slate-300 font-bold text-[10px]">₱{(activeCalc?.base_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                                        </div>
+                                                        {(activeCalc?.peak_surcharge || 0) > 0 && (
+                                                            <div className="flex justify-between">
+                                                                <span className="text-amber-400/80 text-[10px]">Peak Surcharge:</span>
+                                                                <span className="font-mono text-amber-400 font-bold text-[10px]">+ ₱{(activeCalc.peak_surcharge || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                                            </div>
+                                                        )}
+                                                        {(activeCalc?.extra_pax_charges || 0) > 0 && (
+                                                            <div className="flex justify-between">
+                                                                <span className="text-amber-400/80 text-[10px]">Extra Pax:</span>
+                                                                <span className="font-mono text-amber-400 font-bold text-[10px]">+ ₱{(activeCalc.extra_pax_charges || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
-                                    {calc.peak_surcharge > 0 && (
+
+                                    <div className="flex justify-between mt-2 pt-4 border-t border-[#334155]">
+                                        <span className="text-slate-400 font-medium">Subtotal Base:</span>
+                                        <span className="font-mono text-slate-200 font-bold">₱{getActiveCalc().base_amount?.toLocaleString(undefined, { minimumFractionDigits: 2 }) || '0.00'}</span>
+                                    </div>
+                                    {getActiveCalc().peak_surcharge > 0 && (
                                         <div className="flex justify-between">
                                             <span className="text-slate-400 font-medium">Holiday peak surcharge:</span>
-                                            <span className="font-mono text-slate-200 font-bold text-amber-400">+ ₱{calc.peak_surcharge.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                            <span className="font-mono text-slate-200 font-bold text-amber-400">+ ₱{getActiveCalc().peak_surcharge.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                         </div>
                                     )}
-                                    {calc.discount_amount > 0 && (
+                                    {getActiveCalc().extra_pax_charges > 0 && (
+                                        <div className="flex justify-between">
+                                            <span className="text-slate-400 font-medium">Total Extra Pax:</span>
+                                            <span className="font-mono text-slate-200 font-bold text-amber-400">+ ₱{getActiveCalc().extra_pax_charges.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                        </div>
+                                    )}
+                                    {getActiveCalc().discount_amount > 0 && (
                                         <div className="flex justify-between">
                                             <span className="text-slate-400 font-medium capitalize">{data.discount_type} discount:</span>
-                                            <span className="font-mono text-emerald-400 font-bold">- ₱{calc.discount_amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                            <span className="font-mono text-emerald-400 font-bold">- ₱{getActiveCalc().discount_amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                         </div>
                                     )}
 
@@ -758,18 +841,18 @@ export default function Create({ rooms = [], roomTypes = [], prefilledGuest, pro
                                     <div className="flex justify-between items-baseline">
                                         <span className="font-outfit font-extrabold text-slate-100 text-sm uppercase">Total Due:</span>
                                         <span className="text-2xl font-mono text-emerald-400 font-black">
-                                            ₱{calc.total_amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                            ₱{getActiveCalc().total_amount?.toLocaleString(undefined, { minimumFractionDigits: 2 }) || '0.00'}
                                         </span>
                                     </div>
 
-                                    {calc.expected_check_out && (
+                                    {getActiveCalc().expected_check_out && (
                                         <div className="bg-[#0f172a]/60 border border-[#334155]/60 rounded-xl p-3.5 mt-2 space-y-1.5 leading-normal">
                                             <div className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Expected Stay Duration</div>
                                             <div className="text-xs text-slate-200 font-medium font-mono">
                                                 IN: {new Date(data.check_in).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
                                             </div>
                                             <div className="text-xs text-slate-300 font-semibold font-mono">
-                                                OUT: {new Date(calc.expected_check_out).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
+                                                OUT: {new Date(getActiveCalc().expected_check_out).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
                                             </div>
                                         </div>
                                     )}
@@ -795,13 +878,14 @@ export default function Create({ rooms = [], roomTypes = [], prefilledGuest, pro
 
                         {/* Submit Button */}
                         <button
-                            type="submit"
-                            disabled={processing || !data.room_id || !!calc.conflict}
+                            type="button"
+                            onClick={handleFormSubmit}
+                            disabled={processing || data.room_ids.length === 0 || !!getActiveCalc().conflict}
                             className="w-full py-4 rounded-2xl text-xs font-black uppercase tracking-wider text-white bg-brand-600 hover:bg-brand-500 disabled:bg-[#334155]/30 disabled:text-slate-500 border border-brand-500/30 hover:border-brand-400/40 transition-all shadow-xl shadow-brand-950/20 flex items-center justify-center gap-2 cursor-pointer"
                         >
                             {processing ? (
                                 <span>Registering...</span>
-                            ) : calc.conflict ? (
+                            ) : getActiveCalc().conflict ? (
                                 <span>⚠️ Overlap Conflict</span>
                             ) : (
                                 <>
@@ -812,6 +896,119 @@ export default function Create({ rooms = [], roomTypes = [], prefilledGuest, pro
                     </div>
                 </form>
             </div>
+            
+            {/* Modal Room Selection */}
+            <ActionModal 
+                isOpen={showRoomSelectModal} 
+                onClose={() => setShowRoomSelectModal(false)}
+                title="Select Rooms"
+            >
+                <div className="flex gap-1 overflow-x-auto custom-scrollbar pb-2 mb-2 border-b border-[#334155]/50">
+                    <button 
+                        onClick={() => setRoomFilter('all')}
+                        className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${roomFilter === 'all' ? 'bg-brand-600 text-white shadow' : 'bg-[#1e293b] text-slate-400 hover:text-slate-200 border border-[#334155]'}`}
+                    >
+                        All Rooms
+                    </button>
+                    <button 
+                        onClick={() => setRoomFilter('vacant')}
+                        className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${roomFilter === 'vacant' ? 'bg-emerald-600 text-white shadow' : 'bg-[#1e293b] text-slate-400 hover:text-slate-200 border border-[#334155]'}`}
+                    >
+                        Vacant Only
+                    </button>
+                    {[...new Set(availableRooms.map(r => r.floor))].filter(Boolean).sort((a,b) => a - b).map(f => (
+                        <button 
+                            key={`floor-${f}`}
+                            onClick={() => setRoomFilter(`floor-${f}`)}
+                            className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${roomFilter === `floor-${f}` ? 'bg-indigo-600 text-white shadow' : 'bg-[#1e293b] text-slate-400 hover:text-slate-200 border border-[#334155]'}`}
+                        >
+                            Floor {f}
+                        </button>
+                    ))}
+                    {[...new Set(availableRooms.map(r => r.type?.type_name))].filter(Boolean).sort().map(type => (
+                        <button 
+                            key={`type-${type}`}
+                            onClick={() => setRoomFilter(`type-${type}`)}
+                            className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${roomFilter === `type-${type}` ? 'bg-amber-600 text-white shadow' : 'bg-[#1e293b] text-slate-400 hover:text-slate-200 border border-[#334155]'}`}
+                        >
+                            {type}
+                        </button>
+                    ))}
+                </div>
+
+                <div className="flex flex-col gap-2 max-h-72 overflow-y-auto pr-1 custom-scrollbar">
+                    {isLoadingRooms && <div className="text-center p-4 text-xs text-brand-400 font-bold">Refreshing availability...</div>}
+                    {!isLoadingRooms && availableRooms.filter(r => {
+                        if (roomFilter === 'all') return true;
+                        if (roomFilter === 'vacant') return r.status === 'vacant';
+                        if (roomFilter.startsWith('floor-')) return r.floor?.toString() === roomFilter.replace('floor-', '');
+                        if (roomFilter.startsWith('type-')) return r.type?.type_name === roomFilter.replace('type-', '');
+                        return true;
+                    }).map(r => (
+                        <label key={r.id} className="flex items-center gap-3 p-3 rounded-xl bg-[#0f172a]/60 border border-[#334155] cursor-pointer hover:bg-[#1e293b]/60 transition-colors">
+                            <input 
+                                type="checkbox" 
+                                className="rounded bg-[#1e293b] border-[#475569] text-brand-500 focus:ring-brand-500"
+                                checked={data.room_ids.some(id => id.toString() === r.id.toString())}
+                                onChange={(e) => {
+                                    const val = r.id.toString();
+                                    if (e.target.checked) {
+                                        setData('room_ids', [...data.room_ids, val]);
+                                    } else {
+                                        setData('room_ids', data.room_ids.filter(id => id.toString() !== val));
+                                    }
+                                }}
+                            />
+                            <div className="flex flex-col">
+                                <span className="font-outfit font-bold text-slate-200 text-sm flex items-center gap-2">
+                                    Room {r.room_number}
+                                    {r.status !== 'vacant' && (
+                                        <span className={`text-[8px] uppercase px-1.5 py-0.5 rounded-full ${
+                                            r.status === 'occupied' ? 'bg-rose-500/20 text-rose-400' :
+                                            r.status === 'cleaning' ? 'bg-amber-500/20 text-amber-400' :
+                                            'bg-slate-500/20 text-slate-400'
+                                        }`}>{r.status}</span>
+                                    )}
+                                </span>
+                                <span className="text-[10px] text-slate-400 font-medium">{r.type?.type_name}</span>
+                            </div>
+                        </label>
+                    ))}
+                    {availableRooms.length === 0 && !isLoadingRooms && (
+                        <div className="text-center p-4 text-xs text-slate-500">No rooms available for the selected dates.</div>
+                    )}
+                </div>
+                <div className="mt-4 pt-3 border-t border-[#334155] flex justify-between items-center">
+                    <span className="text-xs font-bold text-slate-400">{data.room_ids.length} selected</span>
+                    <button 
+                        type="button" 
+                        onClick={() => setShowRoomSelectModal(false)}
+                        className="px-6 py-2 bg-brand-600 hover:bg-brand-500 text-white rounded-xl text-sm font-bold transition-all"
+                    >
+                        Done
+                    </button>
+                </div>
+            </ActionModal>
+
+            <ConfirmModal
+                isOpen={showConfirmModal}
+                onClose={() => setShowConfirmModal(false)}
+                onConfirm={() => {
+                    setShowConfirmModal(false);
+                    post(route('reservations.store'));
+                }}
+                title="Confirm Check-In"
+                message={`Are you sure you want to finalize this Check-In for ${data.guest_name}? Ensure that payment references and room assignments are correct.`}
+                confirmText="Confirm Check-In"
+                confirmColor="emerald"
+            />
+
+            <AlertModal
+                isOpen={conflictAlert}
+                onClose={() => setConflictAlert(false)}
+                title="Double-Booking Conflict"
+                message="Cannot submit. There is a double-booking conflict for this room during this period."
+            />
         </AuthenticatedLayout>
     );
 }

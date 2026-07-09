@@ -7,6 +7,7 @@ use App\Models\Room;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use App\Services\BookingService;
+use Carbon\Carbon;
 
 class MaintenanceController extends Controller
 {
@@ -16,6 +17,8 @@ class MaintenanceController extends Controller
         $sortDir = $request->input('sort_dir', 'desc');
         $search = $request->input('search');
         $status = $request->input('status', 'all');
+        $from = $request->input('from');
+        $to = $request->input('to');
 
         $allowedSorts = ['id', 'room_id', 'title', 'status', 'priority', 'created_at'];
         if (!in_array($sortBy, $allowedSorts)) $sortBy = 'id';
@@ -25,6 +28,13 @@ class MaintenanceController extends Controller
 
         if ($status && $status !== 'all') {
             $query->where('status', $status);
+        }
+
+        if ($from) {
+            $query->whereDate('created_at', '>=', $from);
+        }
+        if ($to) {
+            $query->whereDate('created_at', '<=', $to);
         }
 
         if ($search) {
@@ -46,7 +56,7 @@ class MaintenanceController extends Controller
         return Inertia::render('Maintenance/Index', [
             'tickets' => $tickets,
             'rooms' => $rooms,
-            'filters' => ['search' => $search, 'status' => $status],
+            'filters' => ['search' => $search, 'status' => $status, 'from' => $from, 'to' => $to],
             'sortBy' => $sortBy,
             'sortDir' => $sortDir,
         ]);
@@ -60,10 +70,15 @@ class MaintenanceController extends Controller
             'description' => 'nullable|string',
             'priority' => 'required|in:low,medium,high,critical',
             'attachment' => 'nullable|file|max:10240', // Max 10MB
+            'created_at' => 'nullable|date',
         ]);
 
         $validated['reported_by'] = $request->user()->id;
         $validated['status'] = 'open';
+
+        if ($request->filled('created_at')) {
+            $validated['created_at'] = Carbon::parse($request->created_at);
+        }
 
         if ($request->hasFile('attachment')) {
             $file = $request->file('attachment');

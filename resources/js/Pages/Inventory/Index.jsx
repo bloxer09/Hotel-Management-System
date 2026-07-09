@@ -14,7 +14,8 @@ import {
     Edit2,
     X,
     Trash2,
-    ChevronRight
+    ChevronRight,
+    Download
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ActionModal from '@/Components/ActionModal';
@@ -74,6 +75,17 @@ export default function Index({ items, activeBookings = [], currentSearch, curre
     const triggerSearch = (e) => {
         e.preventDefault();
         router.get(route('inventory.index'), { search, category }, { preserveState: true });
+    };
+
+    const handleExport = () => {
+        let url = route('inventory.export');
+        const params = new URLSearchParams();
+        if (search) params.append('search', search);
+        if (category) params.append('category', category);
+        if (params.toString()) {
+            url += '?' + params.toString();
+        }
+        window.location.href = url;
     };
 
     const handleCategoryChange = (cat) => {
@@ -155,19 +167,25 @@ export default function Index({ items, activeBookings = [], currentSearch, curre
             <div className="flex flex-col gap-8">
 
                 {/* Title Section */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                     <div>
-                        <h1 className="text-3xl font-outfit font-extrabold tracking-tight text-slate-100">
+                        <h1 className="text-2xl sm:text-3xl font-outfit font-extrabold tracking-tight text-slate-100">
                             Inventory Catalog
                         </h1>
-                        <p className="text-sm text-slate-400 font-medium mt-1">Manage minibar stocks, in-room amenities catalog, and operational hotel tracking supplies.</p>
+                        <p className="text-xs sm:text-sm text-slate-400 font-medium mt-1">Manage minibar stocks, in-room amenities catalog, and operational hotel tracking supplies.</p>
                     </div>
 
-                    <div className="flex gap-3 self-start flex-wrap">
+                    <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto mt-2 sm:mt-0">
+                        <button
+                            onClick={handleExport}
+                            className="flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 bg-slate-700 hover:bg-slate-600 rounded-xl text-slate-50 font-outfit font-extrabold text-xs tracking-wider shadow-lg hover:shadow-slate-700/20 transition-all w-full sm:w-auto"
+                        >
+                            <Download size={16} /> Export Stocks
+                        </button>
                         {isAdmin && (
                             <button
                                 onClick={() => setIsAddOpen(true)}
-                                className="inline-flex items-center gap-2 px-5 py-3 bg-brand-600 hover:bg-brand-500 rounded-xl text-slate-50 font-outfit font-extrabold text-xs tracking-wider shadow-lg hover:shadow-brand-600/20 transition-all"
+                                className="flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 bg-brand-600 hover:bg-brand-500 rounded-xl text-slate-50 font-outfit font-extrabold text-xs tracking-wider shadow-lg hover:shadow-brand-600/20 transition-all w-full sm:w-auto"
                             >
                                 <PlusCircle size={16} /> Add Item
                             </button>
@@ -177,7 +195,7 @@ export default function Index({ items, activeBookings = [], currentSearch, curre
 
                 {/* Filter and Search Panels */}
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 justify-between">
-                    <div className="flex gap-1 bg-[#1e293b] p-1 rounded-xl border border-[#334155] flex-wrap">
+                    <div className="flex gap-1 bg-[#1e293b] p-1 rounded-xl border border-[#334155] overflow-x-auto mobile-scroll-tabs w-full sm:w-auto">
                         {[
                             { id: '', name: 'All Items', dot: 'bg-brand-400' },
                             { id: 'minibar', name: 'Minibar', dot: 'bg-rose-400' },
@@ -223,16 +241,16 @@ export default function Index({ items, activeBookings = [], currentSearch, curre
                     <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse table-fixed">
                             <thead>
-                                <tr className="bg-[#0f172a]/80 text-[10px] uppercase font-extrabold text-slate-400 tracking-wider border-b border-[#334155]">
-                                    <th className="p-4 pl-6 w-16">Image</th>
-                                    <SortableHeader sortKey="item_name" currentSortBy={sortBy} currentSortDir={sortDir} className="p-4">Item Name</SortableHeader>
-                                    <SortableHeader sortKey="category" currentSortBy={sortBy} currentSortDir={sortDir} className="p-4">Category / Unit</SortableHeader>
-                                    <SortableHeader sortKey="current_stock" currentSortBy={sortBy} currentSortDir={sortDir} className="p-4 w-48">Stock Level</SortableHeader>
-                                    <SortableHeader sortKey="selling_price" currentSortBy={sortBy} currentSortDir={sortDir} className="p-4">Pricing</SortableHeader>
-                                    <th className="p-4 pr-6 text-right w-32">Actions</th>
+                                <tr className="border-b border-[#334155] bg-[#0f172a]/60">
+                                    <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left w-16">Image</th>
+                                    <SortableHeader sortKey="item_name" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Item Name</SortableHeader>
+                                    <SortableHeader sortKey="category" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Category / Unit</SortableHeader>
+                                    <SortableHeader sortKey="current_stock" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left w-48">Stock Level</SortableHeader>
+                                    <SortableHeader sortKey="selling_price" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Pricing</SortableHeader>
+                                    <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-right w-32">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-[#334155]/60 text-sm text-slate-300">
+                            <tbody>
                                 {items.data.length > 0 ? (
                                     items.data.map((item) => {
                                         const isLow = item.current_stock <= item.minimum_stock;
@@ -241,7 +259,7 @@ export default function Index({ items, activeBookings = [], currentSearch, curre
                                         return (
                                             <tr
                                                 key={item.id}
-                                                className={`transition-all hover:bg-[#0f172a]/40 ${isLow ? 'bg-red-950/5' : ''}`}
+                                                className={`border-b border-[#334155]/50 transition-all hover:bg-[#0f172a]/40 ${isLow ? 'bg-red-950/5' : ''}`}
                                             >
                                                 {/* Image */}
                                                 <td className="p-4 pl-6">
@@ -338,7 +356,7 @@ export default function Index({ items, activeBookings = [], currentSearch, curre
                     </div>
                     {/* Pagination */}
                     {items && items.last_page > 1 && (
-                        <div className="px-4 py-3 border-t border-[#334155] flex items-center justify-between bg-[#0f172a]/40">
+                        <div className="px-4 py-3 border-t border-[#334155] flex flex-col sm:flex-row items-center justify-between gap-2 bg-[#0f172a]/40">
                             <span className="text-[10px] text-slate-500">
                                 Showing {items.from}–{items.to} of {items.total} records
                             </span>

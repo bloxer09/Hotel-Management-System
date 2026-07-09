@@ -37,10 +37,6 @@ class ProfileController extends Controller
         $user = $request->user();
         $user->fill($request->validated());
 
-        if ($user->isDirty('email')) {
-            $user->email_verified_at = null;
-        }
-
         if ($request->boolean('remove_photo')) {
             if ($user->avatar_path) {
                 \Illuminate\Support\Facades\Storage::disk('public')->delete($user->avatar_path);

@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
+use Illuminate\Support\Facades\Cache;
+
 class Setting extends Model
 {
     protected $fillable = ['key', 'value'];
@@ -13,8 +15,10 @@ class Setting extends Model
      */
     public static function getValue(string $key, $default = null)
     {
-        $setting = self::where('key', $key)->first();
-        return $setting ? $setting->value : $default;
+        return Cache::rememberForever("settings.{$key}", function () use ($key, $default) {
+            $setting = self::where('key', $key)->first();
+            return $setting ? $setting->value : $default;
+        });
     }
 
     /**
@@ -22,6 +26,7 @@ class Setting extends Model
      */
     public static function setValue(string $key, $value)
     {
+        Cache::forget("settings.{$key}");
         return self::updateOrCreate(
             ['key' => $key],
             ['value' => (string) $value]

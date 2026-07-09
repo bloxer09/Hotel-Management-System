@@ -19,6 +19,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import ActionModal from '@/Components/ActionModal';
 import SortableHeader from '@/Components/SortableHeader';
 import Pagination from '@/Components/Pagination';
+import ConfirmModal from '@/Components/ConfirmModal';
 
 export default function ExpensesIndex({ expenses, filters, summary, sortBy, sortDir }) {
     const { auth } = usePage().props;
@@ -26,6 +27,7 @@ export default function ExpensesIndex({ expenses, filters, summary, sortBy, sort
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [selectedExpense, setSelectedExpense] = useState(null);
     const [actionModalExpense, setActionModalExpense] = useState(null);
+    const [confirmDeleteExpense, setConfirmDeleteExpense] = useState(null);
     const [searchQuery, setSearchQuery] = useState(filters.search || '');
     const [dateFrom, setDateFrom] = useState(filters.from || '');
     const [dateTo, setDateTo] = useState(filters.to || '');
@@ -78,9 +80,10 @@ export default function ExpensesIndex({ expenses, filters, summary, sortBy, sort
         setIsEditModalOpen(true);
     };
 
-    const handleDelete = (exp) => {
-        if (confirm('Are you sure you want to delete this expense?')) {
-            router.delete(route('expenses.destroy', exp.id), { preserveScroll: true });
+    const handleDelete = () => {
+        if (confirmDeleteExpense) {
+            router.delete(route('expenses.destroy', confirmDeleteExpense.id), { preserveScroll: true });
+            setConfirmDeleteExpense(null);
         }
     };
 
@@ -130,18 +133,18 @@ export default function ExpensesIndex({ expenses, filters, summary, sortBy, sort
             <div className="flex flex-col gap-6">
 
                 {/* Header */}
-                <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                     <div>
-                        <h1 className="text-3xl font-outfit font-extrabold tracking-tight text-slate-100">Expenses</h1>
-                        <p className="text-sm text-slate-400 font-medium mt-1">Manage operational expenses and record receipts.</p>
+                        <h1 className="text-2xl sm:text-3xl font-outfit font-extrabold tracking-tight text-slate-100">Expenses</h1>
+                        <p className="text-xs sm:text-sm text-slate-400 font-medium mt-1">Manage operational expenses and record receipts.</p>
                     </div>
-                    <div className="flex gap-3">
+                    <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto mt-2 sm:mt-0">
                         <button onClick={handleExport}
-                            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-white font-outfit font-bold text-sm transition-all shadow-lg shadow-slate-700/20 active:scale-95 shrink-0">
+                            className="flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-white font-outfit font-bold text-sm transition-all shadow-lg shadow-slate-700/20 active:scale-95 shrink-0 w-full sm:w-auto">
                             <Download size={16} /> Export XLSX
                         </button>
                         <button onClick={openAddModal}
-                            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-outfit font-bold text-sm transition-all shadow-lg shadow-brand-600/20 active:scale-95 shrink-0">
+                            className="flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-outfit font-bold text-sm transition-all shadow-lg shadow-brand-600/20 active:scale-95 shrink-0 w-full sm:w-auto">
                             <Plus size={16} /> Record Expense
                         </button>
                     </div>
@@ -173,21 +176,21 @@ export default function ExpensesIndex({ expenses, filters, summary, sortBy, sort
 
                 {/* Toolbar */}
                 <form onSubmit={handleSearch} className="flex flex-col sm:flex-row items-start sm:items-center gap-3 justify-between">
-                    <div className="flex items-center gap-2 bg-[#1e293b] p-1 rounded-xl border border-[#334155]">
+                    <div className="flex flex-wrap items-center gap-2 bg-[#1e293b] p-1.5 rounded-xl border border-[#334155] w-full sm:w-auto">
                         <input
                             type="date"
                             value={dateFrom}
                             onChange={e => setDateFrom(e.target.value)}
-                            className="bg-[#0f172a] border border-[#334155] rounded-lg text-slate-100 px-3 py-1.5 focus:outline-none focus:border-brand-500 text-xs"
+                            className="bg-[#0f172a] border border-[#334155] rounded-lg text-slate-100 px-2 sm:px-3 py-1.5 focus:outline-none focus:border-brand-500 text-xs flex-1 sm:flex-none min-w-[100px]"
                         />
                         <span className="text-slate-500 text-[10px] font-bold px-1">TO</span>
                         <input
                             type="date"
                             value={dateTo}
                             onChange={e => setDateTo(e.target.value)}
-                            className="bg-[#0f172a] border border-[#334155] rounded-lg text-slate-100 px-3 py-1.5 focus:outline-none focus:border-brand-500 text-xs"
+                            className="bg-[#0f172a] border border-[#334155] rounded-lg text-slate-100 px-2 sm:px-3 py-1.5 focus:outline-none focus:border-brand-500 text-xs flex-1 sm:flex-none min-w-[100px]"
                         />
-                        <button type="submit" className="px-3 py-1.5 bg-brand-600 hover:bg-brand-500 text-white font-bold text-xs rounded-lg transition-all ml-1">
+                        <button type="submit" className="px-3 py-1.5 bg-brand-600 hover:bg-brand-500 text-white font-bold text-xs rounded-lg transition-all ml-auto sm:ml-1">
                             Filter
                         </button>
                         {(searchQuery || dateFrom || dateTo) && (
@@ -275,7 +278,7 @@ export default function ExpensesIndex({ expenses, filters, summary, sortBy, sort
                     </div>
                     {/* Pagination */}
                     {expenses && expenses.last_page > 1 && (
-                        <div className="px-4 py-3 border-t border-[#334155] flex items-center justify-between bg-[#0f172a]/40">
+                        <div className="px-4 py-3 border-t border-[#334155] flex flex-col sm:flex-row items-center justify-between gap-2 bg-[#0f172a]/40">
                             <span className="text-[10px] text-slate-500">
                                 Showing {expenses.from}–{expenses.to} of {expenses.total} records
                             </span>
@@ -472,7 +475,7 @@ export default function ExpensesIndex({ expenses, filters, summary, sortBy, sort
                             <Edit size={16} /> Edit Expense
                         </button>
                         <button
-                            onClick={() => { setActionModalExpense(null); handleDelete(actionModalExpense); }}
+                            onClick={() => { setActionModalExpense(null); setConfirmDeleteExpense(actionModalExpense); }}
                             className="w-full flex items-center gap-2 px-4 py-3 bg-[#1e293b] hover:bg-rose-900/30 border border-[#334155] hover:border-rose-500/40 rounded-xl text-xs font-bold text-rose-400 transition-colors uppercase"
                         >
                             <Trash2 size={16} /> Delete Expense
@@ -480,6 +483,16 @@ export default function ExpensesIndex({ expenses, filters, summary, sortBy, sort
                     </>
                 )}
             </ActionModal>
+
+            <ConfirmModal
+                isOpen={!!confirmDeleteExpense}
+                onClose={() => setConfirmDeleteExpense(null)}
+                onConfirm={handleDelete}
+                title="Delete Expense"
+                message="Are you sure you want to delete this expense?"
+                confirmText="Delete"
+                isDanger={true}
+            />
         </AuthenticatedLayout>
     );
 }

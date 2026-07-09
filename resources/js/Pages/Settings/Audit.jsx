@@ -127,11 +127,13 @@ export default function Audit({ logs, users = [], modules = [], filters = {}, so
             <div className="flex flex-col gap-6">
 
                 {/* Header title */}
-                <div>
-                    <h1 className="text-3xl font-outfit font-extrabold tracking-tight text-slate-100 flex items-center gap-3">
-                        <Shield className="text-brand-500" /> Audit Logs
-                    </h1>
-                    <p className="text-sm text-slate-400 font-medium mt-1">Audit administrative action trails, user operation histories, and system configuration modifications.</p>
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                    <div>
+                        <h1 className="text-2xl sm:text-3xl font-outfit font-extrabold tracking-tight text-slate-100 flex items-center gap-3">
+                            <Shield className="text-brand-500" /> Audit Logs
+                        </h1>
+                        <p className="text-xs sm:text-sm text-slate-400 font-medium mt-1">Audit administrative action trails, user operation histories, and system configuration modifications.</p>
+                    </div>
                 </div>
 
                 {/* Filters card */}
@@ -228,28 +230,28 @@ export default function Audit({ logs, users = [], modules = [], filters = {}, so
                 </form>
 
                 {/* Audit logs listing table */}
-                <div className="p-6 rounded-2xl bg-[#1e293b] border border-[#334155] shadow-xl flex flex-col gap-6">
+                <div className="rounded-2xl bg-[#1e293b] border border-[#334155] overflow-hidden shadow-xl flex flex-col gap-6">
                     <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse text-xs table-fixed">
+                        <table className="w-full text-xs table-fixed">
                             <thead>
-                                <tr className="border-b border-[#334155] text-slate-400 uppercase tracking-wider font-semibold">
-                                    <SortableHeader sortKey="created_at" currentSortBy={sortBy} currentSortDir={sortDir} className="pb-3 text-left">Date</SortableHeader>
-                                    <SortableHeader sortKey="user_id" currentSortBy={sortBy} currentSortDir={sortDir} className="pb-3 text-left">Staff</SortableHeader>
-                                    <SortableHeader sortKey="action" currentSortBy={sortBy} currentSortDir={sortDir} className="pb-3 text-left">Action</SortableHeader>
-                                    <SortableHeader sortKey="module" currentSortBy={sortBy} currentSortDir={sortDir} className="pb-3 text-left">Module</SortableHeader>
-                                    <th className="pb-3 text-left">Description</th>
-                                    <th className="pb-3 text-right">Details</th>
+                                <tr className="border-b border-[#334155] bg-[#0f172a]/60">
+                                    <SortableHeader sortKey="created_at" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Date</SortableHeader>
+                                    <SortableHeader sortKey="user_id" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Staff</SortableHeader>
+                                    <SortableHeader sortKey="action" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Action</SortableHeader>
+                                    <SortableHeader sortKey="module" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Module</SortableHeader>
+                                    <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Description</th>
+                                    <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-right">Details</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-[#334155]/65 text-slate-300">
+                            <tbody>
                                 {logs.data.length > 0 ? (
                                     logs.data.map((log) => (
                                         <React.Fragment key={log.id}>
                                             <tr
                                                 onClick={() => (log.old_values || log.new_values) && toggleExpandRow(log.id)}
-                                                className={`transition-colors cursor-pointer select-none ${expandedLogId === log.id
+                                                className={`transition-colors cursor-pointer select-none border-b border-[#334155]/50 ${expandedLogId === log.id
                                                         ? 'bg-[#0f172a]/50 border-l-2 border-brand-500'
-                                                        : 'hover:bg-[#0f172a]/20'
+                                                        : 'hover:bg-[#0f172a]/40'
                                                     }`}
                                             >
                                                 <td className="py-3.5 font-mono text-slate-400">
@@ -331,8 +333,8 @@ export default function Audit({ logs, users = [], modules = [], filters = {}, so
 
                     {/* Pagination control bar */}
                     {logs && logs.last_page > 1 && (
-                        <div className="pt-4 border-t border-[#334155]/60 flex items-center justify-between">
-                            <span className="text-xs text-slate-400">
+                        <div className="pt-4 border-t border-[#334155]/60 flex flex-col sm:flex-row items-center justify-between gap-4">
+                            <span className="text-[10px] sm:text-xs text-slate-400 text-center sm:text-left">
                                 Showing records <span className="font-bold font-mono text-slate-300">{logs.from || 0}</span> to <span className="font-bold font-mono text-slate-300">{logs.to || 0}</span> of <span className="font-bold font-mono text-slate-300">{logs.total}</span> entries
                             </span>
                             <Pagination links={logs.links} />

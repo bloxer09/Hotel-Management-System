@@ -136,4 +136,76 @@ class PosController extends Controller
             return back()->with('error', $e->getMessage());
         }
     }
+
+    public function export(Request $request)
+    {
+        $user = $request->user();
+        if (!in_array($user->role, ['admin', 'front_desk', 'cashier'], true)) {
+            abort(403);
+        }
+
+        $query = \App\Models\InventoryUsage::with(['item', 'recorder', 'transaction', 'booking.room'])
+            ->whereHas('transaction', function ($q) {
+                $q->where('transaction_type', 'pos_sale');
+            });
+
+        if ($request->filled('from')) {
+            $query->whereDate('created_at', '>=', $request->from);
+        }
+        if ($request->filled('to')) {
+            $query->whereDate('created_at', '<=', $request->to);
+        }
+
+        $items = $query->orderBy('created_at', 'desc')->get();
+
+        $rows = [];
+        $rows[] = ['Hotel Management System — POS Sold Items Daily Report'];
+        
+        $from = $request->input('from', 'All Time');
+        $to = $request->input('to', 'All Time');
+        $rows[] = ['Period:', "{$from} to {$to}"];
+        $rows[] = ['Generated:', date('Y-m-d H:i:s'), 'By:', $user->full_name];
+        $rows[] = [];
+
+        $rows[] = ['Date & Time', 'OR Number', 'Item Name', 'Quantity', 'Unit Price (₱)', 'Total Price (₱)', 'Payment Method', 'Recipient Detail', 'Processed By', 'Notes'];
+
+        $totalRevenue = 0;
+        $totalQty = 0;
+
+        foreach ($items as $usage) {
+            $txn = $usage->transaction;
+            $payMethod = $txn ? $txn->payment_method : 'N/A';
+            $orNumber = $txn ? $txn->or_number : 'N/A';
+            
+            $recipientDetail = 'Walk-in / Direct';
+            if ($usage->booking_id) {
+                $rNum = $usage->booking && $usage->booking->room ? $usage->booking->room->room_number : '?';
+                $gName = $usage->booking ? $usage->booking->guest_name : '?';
+                $recipientDetail = "Room {$rNum} / {$gName}";
+            }
+
+            $rows[] = [
+                $usage->created_at->format('Y-m-d H:i:s'),
+                $orNumber,
+                $usage->item ? $usage->item->item_name : 'Deleted Item',
+                $usage->quantity,
+                $usage->unit_price,
+                $usage->total_price,
+                strtoupper($payMethod),
+                $recipientDetail,
+                $usage->recorder ? $usage->recorder->full_name : 'Unknown',
+                $usage->notes
+            ];
+            $totalRevenue += $usage->total_price;
+            $totalQty += $usage->quantity;
+        }
+
+        $rows[] = [];
+        $rows[] = ['Total Sold Items:', $totalQty];
+        $rows[] = ['Total POS Sales Revenue:', $totalRevenue];
+
+        $filename = "pos_sold_items_" . date('Y-m-d_H-i-s') . ".xlsx";
+        \Shuchkin\SimpleXLSXGen::fromArray($rows)->downloadAs($filename);
+        exit;
+    }
 }

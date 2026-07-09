@@ -115,19 +115,19 @@ export default function Index({ guests, currentSearch, currentVip, stats, sortBy
             <div className="flex flex-col gap-6">
 
                 {/* Title + Actions */}
-                <div className="flex items-start justify-between gap-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                     <div>
-                        <h1 className="text-3xl font-outfit font-extrabold tracking-tight text-slate-100">
+                        <h1 className="text-2xl sm:text-3xl font-outfit font-extrabold tracking-tight text-slate-100">
                             Guest History
                         </h1>
-                        <p className="text-sm text-slate-400 font-medium mt-1">Query unified guest profiles, track transaction histories, and manage privileged VIP classifications.</p>
+                        <p className="text-xs sm:text-sm text-slate-400 font-medium mt-1">Query unified guest profiles, track transaction histories, and manage privileged VIP classifications.</p>
                     </div>
                     {user.role === 'admin' && (
                         <form onSubmit={handleSyncSubmit}>
                             <button
                                 type="submit"
                                 disabled={syncForm.processing}
-                                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-800 border border-slate-700/60 hover:bg-slate-700 text-slate-200 text-xs font-bold font-outfit shadow-sm transition-all disabled:opacity-50 active:scale-95 shrink-0"
+                                className="flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl bg-slate-800 border border-slate-700/60 hover:bg-slate-700 text-slate-200 text-xs font-bold font-outfit shadow-sm transition-all disabled:opacity-50 active:scale-95 shrink-0 w-full sm:w-auto justify-center"
                             >
                                 <RefreshCw size={14} className={syncForm.processing ? 'animate-spin' : ''} /> Sync from Bookings
                             </button>
@@ -137,7 +137,7 @@ export default function Index({ guests, currentSearch, currentVip, stats, sortBy
 
                 {/* Tabs + Search */}
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 justify-between">
-                    <div className="flex gap-1 bg-[#1e293b] p-1 rounded-xl border border-[#334155]">
+                    <div className="flex gap-1 bg-[#1e293b] p-1 rounded-xl border border-[#334155] overflow-x-auto mobile-scroll-tabs">
                         {FILTER_TABS.map(tab => {
                             const count = tab.key === 'all'
                                 ? stats?.totalCount
@@ -243,7 +243,7 @@ export default function Index({ guests, currentSearch, currentVip, stats, sortBy
                     </div>
                     {/* Pagination */}
                     {guests && guests.last_page > 1 && (
-                        <div className="px-4 py-3 border-t border-[#334155] flex items-center justify-between bg-[#0f172a]/40">
+                        <div className="px-4 py-3 border-t border-[#334155] flex flex-col sm:flex-row items-center justify-between gap-2 bg-[#0f172a]/40">
                             <span className="text-[10px] text-slate-500">
                                 Showing {guests.from}–{guests.to} of {guests.total} records
                             </span>
@@ -377,31 +377,31 @@ export default function Index({ guests, currentSearch, currentVip, stats, sortBy
                                                 </div>
                                             ) : (
                                                 <div className="overflow-x-auto">
-                                                    <table className="w-full text-left border-collapse text-[11px] table-fixed">
+                                                    <table className="w-full text-xs table-fixed">
                                                         <thead>
-                                                            <tr className="border-b border-[#334155]/80 text-slate-400 uppercase tracking-wider font-semibold">
-                                                                <th className="pb-2">Ref Code</th>
-                                                                <th className="pb-2">Room Details</th>
-                                                                <th className="pb-2">Type</th>
-                                                                <th className="pb-2">Dates</th>
-                                                                <th className="pb-2">Billing</th>
-                                                                <th className="pb-2">Status</th>
+                                                            <tr className="border-b border-[#334155] bg-[#0f172a]/60">
+                                                                <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Ref Code</th>
+                                                                <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Room Details</th>
+                                                                <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Type</th>
+                                                                <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Dates</th>
+                                                                <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Billing</th>
+                                                                <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Status</th>
                                                             </tr>
                                                         </thead>
-                                                        <tbody className="divide-y divide-[#334155]/40 text-slate-300">
+                                                        <tbody>
                                                             {selectedGuestBookings.length > 0 ? (
                                                                 selectedGuestBookings.map((b) => (
-                                                                    <tr key={b.id} className="hover:bg-[#0f172a]/20 transition-colors">
-                                                                        <td className="py-2.5 font-mono font-bold text-slate-400">
+                                                                    <tr key={b.id} className="border-b border-[#334155]/50 hover:bg-[#0f172a]/40 transition-colors">
+                                                                        <td className="px-4 py-3 font-mono font-bold text-slate-400">
                                                                             <button onClick={() => setViewStayId(b.id)} className="text-brand-400 hover:underline">
                                                                                 {b.booking_ref}
                                                                             </button>
                                                                         </td>
-                                                                        <td className="py-2.5">
+                                                                        <td className="px-4 py-3">
                                                                             <span className="font-outfit font-extrabold text-slate-200 block">Room {b.room ? b.room.room_number : '-'}</span>
                                                                             <span className="text-[9px] text-slate-500 block">{b.room?.room_type?.type_name || '-'}</span>
                                                                         </td>
-                                                                        <td className="py-2.5 capitalize font-mono text-[9px]">
+                                                                        <td className="px-4 py-3 capitalize font-mono text-[9px]">
                                                                             {b.booking_type === 'short_time' ? (
                                                                                 <span className="bg-indigo-950 text-indigo-400 border border-indigo-900/40 px-1.5 py-0.5 rounded-full font-bold">
                                                                                     ST ({b.short_time_hours}h)
@@ -412,18 +412,18 @@ export default function Index({ guests, currentSearch, currentVip, stats, sortBy
                                                                                 </span>
                                                                             )}
                                                                         </td>
-                                                                        <td className="py-2.5 text-[10px]">
+                                                                        <td className="px-4 py-3 text-[10px]">
                                                                             <div className="flex items-center gap-1 text-slate-400">
                                                                                 <span>{new Date(b.check_in).toLocaleDateString(undefined, { dateStyle: 'short' })}</span>
                                                                                 <span>→</span>
                                                                                 <span>{b.check_out ? new Date(b.check_out).toLocaleDateString(undefined, { dateStyle: 'short' }) : new Date(b.expected_check_out).toLocaleDateString(undefined, { dateStyle: 'short' })}</span>
                                                                             </div>
                                                                         </td>
-                                                                        <td className="py-2.5 font-mono">
+                                                                        <td className="px-4 py-3 font-mono">
                                                                             <span className="font-bold text-brand-300">₱{Number(b.total_amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                                                             <span className="text-[9px] text-slate-500 block">via {b.payment_method}</span>
                                                                         </td>
-                                                                        <td className="py-2.5">
+                                                                        <td className="px-4 py-3">
                                                                             {b.status === 'active' ? (
                                                                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-950 border border-emerald-800 text-emerald-450 text-[9px] rounded-full font-black uppercase">
                                                                                     Active
@@ -442,7 +442,7 @@ export default function Index({ guests, currentSearch, currentVip, stats, sortBy
                                                                 ))
                                                             ) : (
                                                                 <tr>
-                                                                    <td colSpan="6" className="py-8 text-center text-slate-500">
+                                                                    <td colSpan="6" className="px-4 py-8 text-center text-slate-500">
                                                                         No stay records found under this profile.
                                                                     </td>
                                                                 </tr>

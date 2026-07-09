@@ -31,7 +31,8 @@ import {
     Wrench,
     Ticket,
     Sliders,
-    Receipt
+    Receipt,
+    Coins
 } from 'lucide-react';
 import ProfileModal from '@/Components/ProfileModal';
 
@@ -44,16 +45,10 @@ export default function AuthenticatedLayout({ children }) {
     const user = auth.user;
     const activeShift = auth.active_shift;
 
-    const [isCollapsed, setIsCollapsed] = useState(() => {
-        return localStorage.getItem('sidebar-collapsed') === 'true';
-    });
+    const isCollapsed = false;
     const [isMobileOpen, setIsMobileOpen] = useState(false);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [isProfileOpen, setIsProfileOpen] = useState(false);
-
-    useEffect(() => {
-        localStorage.setItem('sidebar-collapsed', isCollapsed ? 'true' : 'false');
-    }, [isCollapsed]);
 
     // ─── Toast state ─────────────────────────────────────────────────────────
     const [toast, setToast] = useState(null);
@@ -247,7 +242,7 @@ export default function AuthenticatedLayout({ children }) {
             current: route().current('inventory.*')
         },
         {
-            name: 'POS & Sales',
+            name: 'POS',
             icon: ShoppingCart,
             href: route('pos.index'),
             roles: ['admin', 'front_desk', 'cashier'],
@@ -269,6 +264,13 @@ export default function AuthenticatedLayout({ children }) {
             current: route().current('expenses.*')
         },
         {
+            name: 'Additional Incomes',
+            icon: Coins,
+            href: route('incomes.index'),
+            roles: ['admin', 'front_desk', 'cashier'],
+            current: route().current('incomes.*')
+        },
+        {
             name: 'Maintenance Tickets',
             icon: Wrench,
             href: route('maintenance.index'),
@@ -285,12 +287,6 @@ export default function AuthenticatedLayout({ children }) {
     ];
 
     const adminSettings = [
-        {
-            name: 'General Settings',
-            icon: Sliders,
-            href: route('settings.general'),
-            current: route().current('settings.general*')
-        },
         {
             name: 'Promo/Discount Codes',
             icon: Ticket,
@@ -380,51 +376,31 @@ export default function AuthenticatedLayout({ children }) {
 
             {/* Desktop Sidebar */}
             <aside
-                className={`hidden md:flex flex-col bg-[#1e293b] border-r border-[#334155] shadow-2xl transition-all duration-300 print:hidden ${isCollapsed ? 'w-20' : 'w-72'
-                    }`}
+                className="hidden md:flex flex-col bg-[#1e293b] border-r border-[#334155] shadow-2xl transition-all duration-300 print:hidden w-72"
             >
                 {/* Header Logo */}
-                <div className="h-20 flex items-center justify-between px-4 border-b border-[#334155]">
+                <div className="h-20 flex items-center px-6 border-b border-[#334155]">
                     <div className="flex items-center gap-3 overflow-hidden min-w-0">
-                        {isCollapsed ? (
-                            /* Collapsed: circular logo thumbnail */
-                            <img
-                                src="/images/logo.jpg"
-                                alt="Logo"
-                                className="h-10 w-10 object-contain rounded-lg shrink-0 bg-white p-0.5"
-                                onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                            />
-                        ) : (
-                            /* Expanded: logo and app name side-by-side */
-                            <>
-                                <img
-                                    src="/images/logo.jpg"
-                                    alt={app_name || 'Uptown Pension House'}
-                                    className="h-12 w-12 object-contain rounded-lg shrink-0 bg-white p-0.5"
-                                    onError={(e) => {
-                                        e.currentTarget.style.display = 'none';
-                                    }}
-                                />
-                                <div className="flex flex-col justify-center min-w-0 leading-tight">
-                                    <span className="font-outfit font-extrabold text-sm tracking-wider uppercase text-slate-100 truncate">
-                                        {firstWord}
-                                    </span>
-                                    {remainingWords && (
-                                        <span className="font-outfit font-bold text-[10px] tracking-widest uppercase text-brand-400 mt-0.5 truncate">
-                                            {remainingWords}
-                                        </span>
-                                    )}
-                                </div>
-                            </>
-                        )}
+                        {/* Expanded: logo and app name side-by-side */}
+                        <img
+                            src="/images/logo.jpg"
+                            alt={app_name || 'Uptown Pension House'}
+                            className="h-12 w-12 object-contain rounded-lg shrink-0 bg-white p-0.5"
+                            onError={(e) => {
+                                e.currentTarget.style.display = 'none';
+                            }}
+                        />
+                        <div className="flex flex-col justify-center min-w-0 leading-tight">
+                            <span className="font-outfit font-extrabold text-sm tracking-wider uppercase text-slate-100 truncate">
+                                {firstWord}
+                            </span>
+                            {remainingWords && (
+                                <span className="font-outfit font-bold text-[10px] tracking-widest uppercase text-brand-400 mt-0.5 truncate">
+                                    {remainingWords}
+                                </span>
+                            )}
+                        </div>
                     </div>
-
-                    <button
-                        onClick={() => setIsCollapsed(!isCollapsed)}
-                        className="p-1.5 rounded-lg bg-[#0f172a]/40 border border-[#475569]/30 hover:bg-[#334155] text-slate-400 hover:text-slate-100 transition-colors"
-                    >
-                        {isCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
-                    </button>
                 </div>
 
                 {/* Staff Shift Card */}
@@ -605,7 +581,7 @@ export default function AuthenticatedLayout({ children }) {
                             </div>
 
                             {/* Staff Card */}
-                            <div 
+                            <div
                                 onClick={() => { setIsMobileOpen(false); setIsProfileOpen(true); }}
                                 className="m-4 p-4 rounded-xl bg-[#0f172a]/60 border border-[#334155] hover:border-brand-500/50 flex flex-col gap-3 cursor-pointer transition-all active:scale-[0.98]"
                             >
@@ -716,7 +692,7 @@ export default function AuthenticatedLayout({ children }) {
             <div className="flex-1 flex flex-col min-w-0 bg-[#0f172a]">
 
                 {/* Global Mobile Header / Topbar */}
-                <header className="h-20 bg-[#1e293b] border-b border-[#334155] flex items-center justify-between px-6 shrink-0 md:px-8 print:hidden">
+                <header className="h-16 sm:h-20 bg-[#1e293b] border-b border-[#334155] flex items-center justify-between px-3 sm:px-6 md:px-8 shrink-0 print:hidden">
                     <button
                         onClick={() => setIsMobileOpen(true)}
                         className="p-2 rounded-lg bg-[#0f172a]/60 border border-[#334155]/60 md:hidden text-slate-300"
@@ -778,22 +754,17 @@ export default function AuthenticatedLayout({ children }) {
                                             animate={{ opacity: 1, y: 0, scale: 1 }}
                                             exit={{ opacity: 0, y: -8, scale: 0.97 }}
                                             transition={{ type: 'spring', damping: 25, stiffness: 350 }}
-                                            className="absolute right-0 top-12 z-[200] w-96 max-w-[calc(100vw-1.5rem)] bg-[#1e293b]/95 backdrop-blur-xl border border-[#334155] rounded-2xl shadow-2xl overflow-hidden"
+                                            className="fixed sm:absolute left-2 right-2 sm:left-auto sm:right-0 top-16 sm:top-12 z-[200] sm:w-96 max-w-[calc(100vw-1rem)] sm:max-w-none bg-[#1e293b]/95 backdrop-blur-xl border border-[#334155] rounded-2xl shadow-2xl overflow-hidden"
                                         >
                                             {/* Dropdown Header */}
                                             <div className="px-4 py-3 border-b border-[#334155] flex items-center justify-between">
                                                 <div className="flex items-center gap-2">
                                                     <BellRing size={15} className="text-brand-400" />
-                                                    <span className="font-outfit font-bold text-sm text-slate-200">Live Notifications</span>
-                                                    {totalAlerts > 0 && (
-                                                        <span className="text-[10px] bg-rose-500/20 border border-rose-500/40 text-rose-300 px-1.5 py-0.5 rounded font-black">
-                                                            {totalAlerts} Active
-                                                        </span>
-                                                    )}
+                                                    <span className="font-outfit font-bold text-sm text-slate-200">Notifications</span>
                                                 </div>
                                             </div>
 
-                                            <div className="max-h-[420px] overflow-y-auto scrollbar-thin">
+                                            <div className="max-h-[calc(100vh-120px)] sm:max-h-[420px] overflow-y-auto scrollbar-thin">
                                                 {/* Empty state */}
                                                 {totalAlerts === 0 && (
                                                     <div className="flex flex-col items-center justify-center gap-3 py-10 px-4 text-center">
@@ -802,7 +773,7 @@ export default function AuthenticatedLayout({ children }) {
                                                         </div>
                                                         <div>
                                                             <p className="text-sm font-bold text-slate-300 font-outfit">All Clear</p>
-                                                            <p className="text-xs text-slate-500 mt-0.5">No active checkout or inventory alerts.</p>
+                                                            <p className="text-xs text-slate-500 mt-0.5">No active notifications.</p>
                                                         </div>
                                                     </div>
                                                 )}
@@ -810,12 +781,6 @@ export default function AuthenticatedLayout({ children }) {
                                                 {/* Inventory Alerts Section */}
                                                 {inventoryAlerts.length > 0 && (
                                                     <div>
-                                                        <div className="px-4 py-2 bg-[#0f172a]/60 border-b border-[#334155] flex items-center gap-2">
-                                                            <ShoppingCart size={12} className="text-amber-400" />
-                                                            <span className="text-[10px] uppercase font-black tracking-wider text-amber-400">
-                                                                Inventory Alerts ({inventoryAlerts.length})
-                                                            </span>
-                                                        </div>
                                                         {inventoryAlerts.map(item => (
                                                             <Link
                                                                 key={item.alert_key}
@@ -843,12 +808,6 @@ export default function AuthenticatedLayout({ children }) {
                                                 {/* Checkout Alerts Section */}
                                                 {checkoutAlerts.length > 0 && (
                                                     <div>
-                                                        <div className="px-4 py-2 bg-[#0f172a]/60 border-b border-[#334155] flex items-center gap-2">
-                                                            <Timer size={12} className="text-rose-400" />
-                                                            <span className="text-[10px] uppercase font-black tracking-wider text-rose-400">
-                                                                Checkout Alerts ({checkoutAlerts.length})
-                                                            </span>
-                                                        </div>
                                                         {checkoutAlerts.map(item => (
                                                             <Link
                                                                 key={item.alert_key}
@@ -905,7 +864,7 @@ export default function AuthenticatedLayout({ children }) {
                 </header>
 
                 {/* Main Content */}
-                <main className="flex-1 overflow-y-auto p-6 md:p-8 scrollbar-thin relative print:p-0 print:overflow-visible print:bg-white">
+                <main className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 lg:p-8 scrollbar-thin relative print:p-0 print:overflow-visible print:bg-white">
                     {children}
                 </main>
             </div>
@@ -917,7 +876,7 @@ export default function AuthenticatedLayout({ children }) {
                         initial={{ opacity: 0, y: 50, scale: 0.95 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 20, scale: 0.95 }}
-                        className="fixed bottom-6 right-6 z-[9999] max-w-md w-full"
+                        className="fixed bottom-6 right-3 sm:right-6 z-[9999] max-w-[calc(100vw-1.5rem)] sm:max-w-md w-full"
                     >
                         <div className={`p-4 rounded-xl border flex gap-3.5 shadow-2xl backdrop-blur-xl ${toast.type === 'success'
                             ? 'bg-emerald-950/90 border-emerald-500/40 text-emerald-100 shadow-emerald-950/30'
@@ -945,7 +904,7 @@ export default function AuthenticatedLayout({ children }) {
             </AnimatePresence>
 
             {/* ─── Sliding Alert Toast Popups (bottom-left) ───────────────────── */}
-            <div className="fixed bottom-6 left-6 z-[9998] flex flex-col gap-3 items-start pointer-events-none print:hidden">
+            <div className="fixed bottom-6 left-3 sm:left-6 z-[9998] flex flex-col gap-3 items-start pointer-events-none print:hidden">
                 <AnimatePresence mode="popLayout">
                     {alertToasts.map(item => (
                         <div key={item.id} className="pointer-events-auto">

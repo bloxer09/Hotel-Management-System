@@ -81,20 +81,20 @@ export default function Index({ dateFrom, dateTo, summary, byCashier, byRoomType
             <div className="flex flex-col gap-8 print:gap-4">
 
                 {/* Header */}
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 print:hidden">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 print:hidden">
                     <div>
-                        <h1 className="text-3xl font-outfit font-extrabold tracking-tight text-slate-100">
+                        <h1 className="text-2xl sm:text-3xl font-outfit font-extrabold tracking-tight text-slate-100">
                             Sales & Remittance Reports
                         </h1>
-                        <p className="text-sm text-slate-400 font-medium mt-1">Audit daily payment collections, close shift register remittances, and review financial metrics.</p>
+                        <p className="text-xs sm:text-sm text-slate-400 font-medium mt-1">Audit daily payment collections, close shift register remittances, and review financial metrics.</p>
                     </div>
-                    <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto mt-2 sm:mt-0">
                         <button onClick={() => setShowEOD(true)}
-                            className="flex items-center gap-2 px-4 py-2 bg-indigo-600/20 border border-indigo-500/40 hover:bg-indigo-600/30 text-indigo-300 rounded-xl text-xs font-bold transition-all">
+                            className="flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600/20 border border-indigo-500/40 hover:bg-indigo-600/30 text-indigo-300 rounded-xl text-xs font-bold transition-all w-full sm:w-auto">
                             <Printer size={14} /> EOD Summary
                         </button>
                         <button onClick={exportExcel}
-                            className="flex items-center gap-2 px-4 py-2 bg-emerald-600/20 border border-emerald-500/40 hover:bg-emerald-600/30 text-emerald-300 rounded-xl text-xs font-bold transition-all">
+                            className="flex items-center justify-center gap-2 px-4 py-2 bg-emerald-600/20 border border-emerald-500/40 hover:bg-emerald-600/30 text-emerald-300 rounded-xl text-xs font-bold transition-all w-full sm:w-auto">
                             <Download size={14} /> Export Excel
                         </button>
                     </div>
@@ -103,7 +103,7 @@ export default function Index({ dateFrom, dateTo, summary, byCashier, byRoomType
                 {/* Date Range Filter */}
                 <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 p-4 rounded-2xl bg-[#1e293b] border border-[#334155] shadow-lg print:hidden">
                     {/* Left: Quick Ranges Segmented Tabs */}
-                    <div className="flex gap-1 bg-[#0f172a] p-1 rounded-xl border border-[#334155] w-fit shrink-0">
+                    <div className="flex gap-1 bg-[#0f172a] p-1 rounded-xl border border-[#334155] w-full xl:w-fit shrink-0 overflow-x-auto mobile-scroll-tabs">
                         {[
                             { key: 'today', label: 'Today' },
                             { key: 'week', label: 'This Week' },
@@ -244,33 +244,35 @@ export default function Index({ dateFrom, dateTo, summary, byCashier, byRoomType
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
 
                     {/* Cashier Remittance */}
-                    <div className="p-6 rounded-2xl bg-[#1e293b] border border-[#334155] shadow-xl flex flex-col gap-4">
-                        <h2 className="text-sm font-outfit font-black uppercase tracking-wider text-slate-300 flex items-center gap-2">
-                            <Users size={15} className="text-brand-400" /> Cashier Remittance Summary
-                        </h2>
+                    <div className="rounded-2xl bg-[#1e293b] border border-[#334155] overflow-hidden shadow-xl flex flex-col gap-4">
+                        <div className="px-6 py-4 border-b border-[#334155]">
+                            <h2 className="text-sm font-outfit font-black uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                                <Users size={15} className="text-brand-400" /> Cashier Remittance Summary
+                            </h2>
+                        </div>
                         {byCashier.length > 0 ? (
                             <div className="overflow-x-auto">
-                                <table className="w-full text-xs text-left border-collapse table-fixed">
+                                <table className="w-full text-xs table-fixed">
                                     <thead>
-                                        <tr className="border-b border-[#334155] text-[10px] text-slate-500 uppercase tracking-wider">
-                                            <th className="pb-2">Staff</th>
-                                            <th className="pb-2 text-right">Txns</th>
-                                            <th className="pb-2 text-right">Cash</th>
-                                            <th className="pb-2 text-right">GCash</th>
-                                            <th className="pb-2 text-right font-bold text-slate-300">Total</th>
+                                        <tr className="border-b border-[#334155] bg-[#0f172a]/60">
+                                            <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Staff</th>
+                                            <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-right">Txns</th>
+                                            <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-right">Cash</th>
+                                            <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-right">GCash</th>
+                                            <th className="px-4 py-3 text-[10px] font-semibold text-slate-300 uppercase tracking-wider text-right font-bold">Total</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-[#334155]/40 text-slate-300">
+                                    <tbody>
                                         {byCashier.map((c, i) => (
-                                            <tr key={i} className="hover:bg-[#0f172a]/20">
-                                                <td className="py-2">
+                                            <tr key={i} className="border-b border-[#334155]/50 hover:bg-[#0f172a]/40 transition-colors">
+                                                <td className="px-4 py-3">
                                                     <div className="font-bold text-slate-200">{c.full_name}</div>
                                                     <div className="text-[9px] text-slate-500 capitalize">{c.role}</div>
                                                 </td>
-                                                <td className="py-2 text-right font-mono">{c.txn_count}</td>
-                                                <td className="py-2 text-right font-mono text-emerald-400">{fmt(c.cash)}</td>
-                                                <td className="py-2 text-right font-mono text-blue-400">{fmt(c.gcash)}</td>
-                                                <td className="py-2 text-right font-mono font-black text-slate-100">{fmt(c.total_collected)}</td>
+                                                <td className="px-4 py-3 text-right font-mono">{c.txn_count}</td>
+                                                <td className="px-4 py-3 text-right font-mono text-emerald-400">{fmt(c.cash)}</td>
+                                                <td className="px-4 py-3 text-right font-mono text-blue-400">{fmt(c.gcash)}</td>
+                                                <td className="px-4 py-3 text-right font-mono font-black text-slate-100">{fmt(c.total_collected)}</td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -327,59 +329,61 @@ export default function Index({ dateFrom, dateTo, summary, byCashier, byRoomType
                 </div>
 
                 {/* Full Transactions Table */}
-                <div className="p-6 rounded-2xl bg-[#1e293b] border border-[#334155] shadow-xl flex flex-col gap-4">
-                    <h2 className="text-sm font-outfit font-black uppercase tracking-wider text-slate-300 flex items-center gap-2">
-                        <Receipt size={15} className="text-teal-400" /> Transactions ({transactions.length} records)
-                    </h2>
+                <div className="rounded-2xl bg-[#1e293b] border border-[#334155] overflow-hidden shadow-xl flex flex-col gap-4">
+                    <div className="px-6 py-4 border-b border-[#334155]">
+                        <h2 className="text-sm font-outfit font-black uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                            <Receipt size={15} className="text-teal-400" /> Transactions ({transactions.length} records)
+                        </h2>
+                    </div>
                     <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse text-[11px] table-fixed">
+                        <table className="w-full text-xs table-fixed">
                             <thead>
-                                <tr className="border-b border-[#334155] text-[10px] text-slate-500 uppercase tracking-wider">
-                                    <th className="pb-3">Ref / Guest</th>
-                                    <th className="pb-3">Room</th>
-                                    <th className="pb-3">Check-In</th>
-                                    <th className="pb-3">Type</th>
-                                    <th className="pb-3">Base</th>
-                                    <th className="pb-3">Extras</th>
-                                    <th className="pb-3">Discount</th>
-                                    <th className="pb-3">Total</th>
-                                    <th className="pb-3">Payment</th>
-                                    <th className="pb-3">Cashier</th>
-                                    <th className="pb-3">Status</th>
+                                <tr className="border-b border-[#334155] bg-[#0f172a]/60">
+                                    <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Ref / Guest</th>
+                                    <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Room</th>
+                                    <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Check-In</th>
+                                    <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Type</th>
+                                    <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Base</th>
+                                    <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Extras</th>
+                                    <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Discount</th>
+                                    <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Total</th>
+                                    <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Payment</th>
+                                    <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Cashier</th>
+                                    <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Status</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-[#334155]/50 text-slate-300">
-                                {transactions.length > 0 ? transactions.map((tx) => {
+                            <tbody>
+                                {transactions.length > 0 ? transactions.map((tx, i) => {
                                     const pm = paymentMethodLabel(tx.payment_method);
                                     const extras = (Number(tx.extension_fee || 0) + Number(tx.late_checkout_fee || 0) + Number(tx.peak_surcharge || 0));
                                     return (
-                                        <tr key={tx.id} className="hover:bg-[#0f172a]/20 transition-colors">
-                                            <td className="py-2.5">
+                                        <tr key={tx.id} className="border-b border-[#334155]/50 hover:bg-[#0f172a]/40 transition-colors">
+                                            <td className="px-4 py-3">
                                                 <div className="font-mono text-brand-300 text-[10px]">{tx.booking_ref}</div>
                                                 <div className="font-bold text-slate-200">{tx.guest_name}</div>
                                             </td>
-                                            <td className="py-2.5">
+                                            <td className="px-4 py-3">
                                                 <div className="font-bold text-slate-300">Rm {tx.room_number}</div>
                                                 <div className="text-[9px] text-slate-500">{tx.type_name}</div>
                                             </td>
-                                            <td className="py-2.5 font-mono text-slate-400 text-[10px]">
+                                            <td className="px-4 py-3 font-mono text-slate-400 text-[10px]">
                                                 {tx.check_in ? new Date(tx.check_in).toLocaleDateString() : '—'}
                                             </td>
-                                            <td className="py-2.5">
+                                            <td className="px-4 py-3">
                                                 <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase ${tx.booking_type === 'overnight' ? 'bg-brand-900/40 text-brand-300' : 'bg-amber-900/30 text-amber-300'}`}>
                                                     {tx.booking_type === 'overnight' ? 'Overnight' : `${tx.booking_type}`}
                                                 </span>
                                             </td>
-                                            <td className="py-2.5 font-mono">{fmt(tx.base_amount)}</td>
-                                            <td className="py-2.5 font-mono text-amber-300">{extras > 0 ? fmt(extras) : '—'}</td>
-                                            <td className="py-2.5 font-mono text-rose-400">{Number(tx.discount_amount || 0) > 0 ? `-${fmt(tx.discount_amount)}` : '—'}</td>
-                                            <td className="py-2.5 font-mono font-black text-slate-100">{fmt(tx.amount_paid)}</td>
-                                            <td className="py-2.5">
+                                            <td className="px-4 py-3 font-mono">{fmt(tx.base_amount)}</td>
+                                            <td className="px-4 py-3 font-mono text-amber-300">{extras > 0 ? fmt(extras) : '—'}</td>
+                                            <td className="px-4 py-3 font-mono text-rose-400">{Number(tx.discount_amount || 0) > 0 ? `-${fmt(tx.discount_amount)}` : '—'}</td>
+                                            <td className="px-4 py-3 font-mono font-black text-slate-100">{fmt(tx.amount_paid)}</td>
+                                            <td className="px-4 py-3">
                                                 <span className={`font-bold ${pm.color}`}>{pm.label}</span>
                                                 {tx.gcash_ref && <div className="text-[9px] text-slate-500 font-mono">{tx.gcash_ref}</div>}
                                             </td>
-                                            <td className="py-2.5 text-[10px] text-slate-400">{tx.cashier_name || '—'}</td>
-                                            <td className="py-2.5">
+                                            <td className="px-4 py-3 text-[10px] text-slate-400">{tx.cashier_name || '—'}</td>
+                                            <td className="px-4 py-3">
                                                 <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase ${tx.status === 'checked_out' ? 'bg-blue-900/30 text-blue-300' : tx.status === 'active' ? 'bg-emerald-900/30 text-emerald-300' : 'bg-slate-800 text-slate-400'}`}>
                                                     {tx.status}
                                                 </span>

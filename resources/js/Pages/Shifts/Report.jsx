@@ -103,35 +103,94 @@ export default function Report({ shift, report }) {
                         </div>
                     </div>
 
+                    {/* Handover Operations Snapshot */}
+                    <div className="mb-8">
+                        <h2 className="text-sm font-outfit font-bold text-slate-200 uppercase tracking-wider mb-4 print:text-black">Handover Operations Snapshot</h2>
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div className="bg-[#0f172a]/20 border border-[#334155] p-4 rounded-xl flex flex-col gap-1 print:bg-slate-50 print:border-slate-200">
+                                <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Rooms Checked In</span>
+                                <span className="text-xl font-outfit font-black text-slate-200 mt-1 print:text-black">{report.checkins} rooms</span>
+                            </div>
+                            <div className="bg-[#0f172a]/20 border border-[#334155] p-4 rounded-xl flex flex-col gap-1 print:bg-slate-50 print:border-slate-200">
+                                <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Rooms Checked Out</span>
+                                <span className="text-xl font-outfit font-black text-slate-200 mt-1 print:text-black">{report.checkouts} rooms</span>
+                            </div>
+                            <div className="bg-[#0f172a]/20 border border-[#334155] p-4 rounded-xl flex flex-col gap-1 print:bg-slate-50 print:border-slate-200">
+                                <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Active Stays (In-House)</span>
+                                <span className="text-xl font-outfit font-black text-emerald-400 mt-1 print:text-black">{report.active_rooms_count} stays</span>
+                            </div>
+                            <div className="bg-[#0f172a]/20 border border-[#334155] p-4 rounded-xl flex flex-col gap-1 print:bg-slate-50 print:border-slate-200">
+                                <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Pending Cleaning (Dirty)</span>
+                                <span className="text-xl font-outfit font-black text-amber-400 mt-1 print:text-black">{report.cleaning_rooms_count} rooms</span>
+                            </div>
+                        </div>
+                    </div>
+
                     {/* Financial Reconciliation Audit */}
                     <div className="mb-8">
-                        <h2 className="text-sm font-outfit font-bold text-slate-200 uppercase tracking-wider mb-4 print:text-black">Financial Reconciliation Audit</h2>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                        <h2 className="text-sm font-outfit font-bold text-slate-200 uppercase tracking-wider mb-6 print:text-black">Financial Reconciliation Audit</h2>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                             
-                            <div className="p-4 rounded-xl bg-[#0f172a]/30 border border-[#334155] text-xs flex flex-col gap-2 print:bg-slate-50 print:border-slate-200">
-                                <span className="text-slate-400 font-medium">Register Starting Capital</span>
-                                <span className="text-2xl font-mono font-bold text-slate-200 print:text-black">₱{shift.opening_cash.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                                <span className="text-[10px] text-slate-500">Base drawer cash reserves at logon</span>
-                            </div>
-
-                            <div className="p-4 rounded-xl bg-[#0f172a]/30 border border-[#334155] text-xs flex flex-col gap-2 print:bg-slate-50 print:border-slate-200">
-                                <span className="text-slate-400 font-medium">Expected Drawer Cash</span>
-                                <span className="text-2xl font-mono font-bold text-brand-300 print:text-black">₱{report.expectedDrawerCash.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                                <span className="text-[10px] text-slate-500">Starting Capital + Cash collections (₱{report.sales.cash.toLocaleString()})</span>
-                            </div>
-
-                            <div className="p-4 rounded-xl bg-[#0f172a]/30 border border-[#334155] text-xs flex flex-col gap-2 print:bg-slate-50 print:border-slate-200">
-                                <span className="text-slate-400 font-medium">Actual Closing Count</span>
-                                <span className="text-2xl font-mono font-bold text-slate-200 print:text-black">
-                                    {shift.ended_at ? `₱${shift.closing_cash.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : 'Register open'}
-                                </span>
-                                {shift.ended_at && (
-                                    <div className="flex items-center gap-1 mt-0.5">
-                                        <span className={`text-[10px] uppercase font-bold ${report.cashVariance === 0 ? 'text-emerald-400' : report.cashVariance > 0 ? 'text-blue-400' : 'text-rose-400'}`}>
-                                            Variance: ₱{report.cashVariance.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                            {/* Rooms Drawer Audit */}
+                            <div className="flex flex-col gap-4 bg-[#0f172a]/20 p-5 rounded-2xl border border-[#334155] print:bg-white print:border-slate-350 print:p-4">
+                                <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider border-b border-[#334155] pb-2 print:text-black print:border-slate-300 flex items-center gap-2">
+                                    <Hotel size={16} className="text-brand-400 print:text-black" /> Rooms Cash Drawer Audit
+                                </h3>
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                    <div className="p-3.5 rounded-xl bg-[#0f172a]/30 border border-[#334155]/60 text-xs flex flex-col gap-1.5 print:bg-slate-50 print:border-slate-200">
+                                        <span className="text-slate-400 font-medium print:text-slate-600">Starting Capital</span>
+                                        <span className="text-lg font-mono font-bold text-slate-200 print:text-black">₱{shift.opening_cash.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                    </div>
+                                    <div className="p-3.5 rounded-xl bg-[#0f172a]/30 border border-[#334155]/60 text-xs flex flex-col gap-1.5 print:bg-slate-50 print:border-slate-200">
+                                        <span className="text-slate-400 font-medium print:text-slate-600">Expected Drawer</span>
+                                        <span className="text-lg font-mono font-bold text-brand-300 print:text-black">₱{report.expectedDrawerCash.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                        <span className="text-[9px] text-slate-500 font-medium print:text-slate-600 leading-tight block mt-0.5">
+                                            Rooms Cash: ₱{report.sales.rooms_cash.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                            {report.incomes_sum > 0 && ` | Incomes: +₱${report.incomes_sum.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
+                                            {report.expenses_sum > 0 && ` | Expenses: -₱${report.expenses_sum.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
                                         </span>
                                     </div>
-                                )}
+                                    <div className="p-3.5 rounded-xl bg-[#0f172a]/30 border border-[#334155]/60 text-xs flex flex-col gap-1.5 print:bg-slate-50 print:border-slate-200">
+                                        <span className="text-slate-400 font-medium print:text-slate-600">Actual Closing</span>
+                                        <span className="text-lg font-mono font-bold text-slate-200 print:text-black">
+                                            {shift.ended_at ? `₱${shift.closing_cash.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : 'Open'}
+                                        </span>
+                                        {shift.ended_at && (
+                                            <span className={`text-[9px] font-bold uppercase ${report.cashVariance === 0 ? 'text-emerald-400' : report.cashVariance > 0 ? 'text-blue-400' : 'text-rose-400'}`}>
+                                                Variance: {report.cashVariance >= 0 ? '+' : ''}{report.cashVariance.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Minibar Drawer Audit */}
+                            <div className="flex flex-col gap-4 bg-[#0f172a]/20 p-5 rounded-2xl border border-[#334155] print:bg-white print:border-slate-350 print:p-4">
+                                <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider border-b border-[#334155] pb-2 print:text-black print:border-slate-300 flex items-center gap-2">
+                                    <PackageOpen size={16} className="text-brand-400 print:text-black" /> Minibar Cash Drawer Audit
+                                </h3>
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                    <div className="p-3.5 rounded-xl bg-[#0f172a]/30 border border-[#334155]/60 text-xs flex flex-col gap-1.5 print:bg-slate-50 print:border-slate-200">
+                                        <span className="text-slate-400 font-medium print:text-slate-600">Starting Capital</span>
+                                        <span className="text-lg font-mono font-bold text-slate-200 print:text-black">₱{shift.opening_cash_minibar.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                    </div>
+                                    <div className="p-3.5 rounded-xl bg-[#0f172a]/30 border border-[#334155]/60 text-xs flex flex-col gap-1.5 print:bg-slate-50 print:border-slate-200">
+                                        <span className="text-slate-400 font-medium print:text-slate-600">Expected Drawer</span>
+                                        <span className="text-lg font-mono font-bold text-brand-300 print:text-black">₱{report.expectedDrawerCashMinibar.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                        <span className="text-[9px] text-slate-500">Collected: ₱{report.sales.minibar_cash.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                    </div>
+                                    <div className="p-3.5 rounded-xl bg-[#0f172a]/30 border border-[#334155]/60 text-xs flex flex-col gap-1.5 print:bg-slate-50 print:border-slate-200">
+                                        <span className="text-slate-400 font-medium print:text-slate-600">Actual Closing</span>
+                                        <span className="text-lg font-mono font-bold text-slate-200 print:text-black">
+                                            {shift.ended_at ? `₱${shift.closing_cash_minibar.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : 'Open'}
+                                        </span>
+                                        {shift.ended_at && (
+                                            <span className={`text-[9px] font-bold uppercase ${report.cashVarianceMinibar === 0 ? 'text-emerald-400' : report.cashVarianceMinibar > 0 ? 'text-blue-400' : 'text-rose-400'}`}>
+                                                Variance: {report.cashVarianceMinibar >= 0 ? '+' : ''}{report.cashVarianceMinibar.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
 
                         </div>
@@ -144,33 +203,57 @@ export default function Report({ shift, report }) {
                         <div className="p-5 rounded-2xl bg-[#0f172a]/20 border border-[#334155]/60 print:bg-slate-50 print:border-slate-200">
                             <h3 className="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-4 print:text-black">Collection Channels Summary</h3>
                             
-                            <div className="space-y-3.5 text-xs text-slate-400 leading-normal">
+                            <div className="space-y-3 text-xs text-slate-400 leading-normal">
                                 <div className="flex justify-between font-medium">
                                     <span>Total Collected Sales</span>
                                     <span className="font-mono text-slate-200 font-bold print:text-black">₱{report.sales.total_collected.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                 </div>
-                                <div className="flex justify-between font-medium">
+                                <div className="flex justify-between font-medium border-t border-[#334155]/30 pt-2 print:border-slate-300">
                                     <span className="flex items-center gap-1.5">Cash Remittances</span>
                                     <span className="font-mono text-slate-200 font-bold print:text-black">₱{report.sales.cash.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                 </div>
-                                <div className="flex justify-between font-medium">
+                                <div className="pl-4 space-y-1 text-[10px] text-slate-500">
+                                    <div className="flex justify-between">
+                                        <span>• Rooms Cash Drawer</span>
+                                        <span className="font-mono font-bold">₱{report.sales.rooms_cash.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span>• Minibar Cash Drawer</span>
+                                        <span className="font-mono font-bold">₱{report.sales.minibar_cash.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                    </div>
+                                </div>
+                                <div className="flex justify-between font-medium border-t border-[#334155]/30 pt-2 print:border-slate-300">
                                     <span className="flex items-center gap-1.5">GCash Electronic Receipts</span>
                                     <span className="font-mono text-slate-200 font-bold print:text-black">₱{report.sales.gcash.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                </div>
+                                <div className="pl-4 space-y-1 text-[10px] text-slate-500">
+                                    <div className="flex justify-between">
+                                        <span>• Rooms GCash</span>
+                                        <span className="font-mono font-bold">₱{report.sales.rooms_gcash.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span>• Minibar GCash</span>
+                                        <span className="font-mono font-bold">₱{report.sales.minibar_gcash.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                    </div>
                                 </div>
                                 
                                 <div className="h-px bg-[#334155] my-2 print:bg-slate-300" />
 
                                 <div className="flex justify-between font-medium">
                                     <span>Stay Check-In Fees</span>
-                                    <span className="font-mono text-slate-300">₱{report.sales.checkin_sales.toLocaleString()}</span>
+                                    <span className="font-mono text-slate-300">₱{report.sales.checkin_sales.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                 </div>
                                 <div className="flex justify-between font-medium">
                                     <span>Extension Overtime Fees</span>
-                                    <span className="font-mono text-slate-300">₱{report.sales.extension_sales.toLocaleString()}</span>
+                                    <span className="font-mono text-slate-300">₱{report.sales.extension_sales.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                 </div>
                                 <div className="flex justify-between font-medium">
                                     <span>Checkout Surcharge & Stock Fees</span>
-                                    <span className="font-mono text-slate-300">₱{report.sales.checkout_sales.toLocaleString()}</span>
+                                    <span className="font-mono text-slate-300">₱{report.sales.checkout_sales.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                </div>
+                                <div className="flex justify-between font-medium border-t border-[#334155]/30 pt-2 print:border-slate-300">
+                                    <span>Minibar Direct Walk-in Sales</span>
+                                    <span className="font-mono text-slate-300">₱{report.sales.possale_sales.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                 </div>
                             </div>
                         </div>
@@ -195,6 +278,131 @@ export default function Report({ shift, report }) {
                                         No minibar / pantry item sales recorded.
                                     </div>
                                 )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Expenses and Additional Incomes Breakdown */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                        
+                        {/* Additional Incomes List */}
+                        <div className="p-5 rounded-2xl bg-[#0f172a]/20 border border-[#334155]/60 print:bg-slate-50 print:border-slate-200">
+                            <h3 className="text-xs font-semibold text-slate-350 border-b border-[#334155]/30 pb-2 mb-4 print:text-black flex justify-between items-center">
+                                <span>Additional Incomes Added</span>
+                                <span className="text-emerald-400 font-bold font-mono">Total: +₱{report.incomes_sum.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                            </h3>
+                            
+                            <div className="overflow-y-auto max-h-48 space-y-3">
+                                {report.incomes && report.incomes.length > 0 ? (
+                                    report.incomes.map((item, idx) => (
+                                        <div key={idx} className="flex justify-between items-center text-xs border-b border-[#334155]/15 pb-2">
+                                            <div className="flex flex-col gap-0.5">
+                                                <span className="font-outfit font-bold text-slate-200 print:text-black">
+                                                    {item.notes || 'Miscellaneous Income'}
+                                                </span>
+                                                <span className="text-[10px] text-slate-500 font-semibold font-mono">
+                                                    {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                </span>
+                                            </div>
+                                            <span className="font-mono font-bold text-emerald-400 print:text-black">
+                                                +₱{Number(item.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                            </span>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div className="py-6 text-center text-xs text-slate-500">
+                                        No additional incomes recorded.
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Expenses List */}
+                        <div className="p-5 rounded-2xl bg-[#0f172a]/20 border border-[#334155]/60 print:bg-slate-50 print:border-slate-200">
+                            <h3 className="text-xs font-semibold text-slate-350 border-b border-[#334155]/30 pb-2 mb-4 print:text-black flex justify-between items-center">
+                                <span>Expenses Disbursed</span>
+                                <span className="text-rose-400 font-bold font-mono">Total: -₱{report.expenses_sum.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                            </h3>
+                            
+                            <div className="overflow-y-auto max-h-48 space-y-3">
+                                {report.expenses && report.expenses.length > 0 ? (
+                                    report.expenses.map((item, idx) => (
+                                        <div key={idx} className="flex justify-between items-center text-xs border-b border-[#334155]/15 pb-2">
+                                            <div className="flex flex-col gap-0.5">
+                                                <span className="font-outfit font-bold text-slate-200 print:text-black">
+                                                    {item.notes || 'Miscellaneous Expense'}
+                                                </span>
+                                                <span className="text-[10px] text-slate-500 font-semibold font-mono">
+                                                    {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                </span>
+                                            </div>
+                                            <span className="font-mono font-bold text-rose-400 print:text-black">
+                                                -₱{Number(item.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                            </span>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div className="py-6 text-center text-xs text-slate-500">
+                                        No expenses recorded.
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Shift Adjustments, Discounts & Waivers */}
+                    <div className="mb-8">
+                        <h2 className="text-sm font-outfit font-bold text-slate-200 uppercase tracking-wider mb-4 print:text-black">Shift Adjustments & Waivers Log</h2>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                            
+                            {/* Promo discounts */}
+                            <div className="p-5 rounded-2xl bg-[#0f172a]/20 border border-[#334155]/60 print:bg-slate-50 print:border-slate-200">
+                                <h3 className="text-xs font-semibold text-slate-300 border-b border-[#334155]/30 pb-2 mb-4 print:text-black flex justify-between items-center">
+                                    <span>Discounts & Promo Codes Applied</span>
+                                    <span className="text-brand-300 font-bold font-mono">Total: ₱{report.discounts_sum.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                </h3>
+                                <div className="space-y-3 max-h-48 overflow-y-auto">
+                                    {report.discounts && report.discounts.length > 0 ? (
+                                        report.discounts.map((item, idx) => (
+                                            <div key={idx} className="flex justify-between items-center text-xs border-b border-[#334155]/15 pb-2">
+                                                <div className="flex flex-col gap-0.5">
+                                                    <span className="font-outfit font-bold text-slate-200 print:text-black">{item.guest_name}</span>
+                                                    <span className="text-[10px] text-slate-500 font-semibold font-mono">Ref: {item.booking_ref} | {item.discount_type.replace('_', ' ')}</span>
+                                                </div>
+                                                <span className="font-mono font-bold text-slate-300 print:text-black">-₱{Number(item.discount_amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <div className="py-6 text-center text-xs text-slate-500">
+                                            No discount adjustments recorded.
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Waived late checkout fees */}
+                            <div className="p-5 rounded-2xl bg-[#0f172a]/20 border border-[#334155]/60 print:bg-slate-50 print:border-slate-200">
+                                <h3 className="text-xs font-semibold text-slate-355 border-b border-[#334155]/30 pb-2 mb-4 print:text-black flex justify-between items-center">
+                                    <span>Waived Late Check-Out Fees</span>
+                                    <span className="text-amber-400 font-bold font-mono">Waived: ₱{report.waived_late_fees_sum.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                </h3>
+                                <div className="space-y-3 max-h-48 overflow-y-auto">
+                                    {report.waived_late_fees && report.waived_late_fees.length > 0 ? (
+                                        report.waived_late_fees.map((item, idx) => (
+                                            <div key={idx} className="flex justify-between items-center text-xs border-b border-[#334155]/15 pb-2">
+                                                <div className="flex flex-col gap-0.5">
+                                                    <span className="font-outfit font-bold text-slate-200 print:text-black">{item.guest_name}</span>
+                                                    <span className="text-[10px] text-slate-500 font-semibold font-mono">Ref: {item.booking_ref} | Overstay: {item.late_hours}h</span>
+                                                </div>
+                                                <span className="font-mono font-bold text-amber-300 print:text-black">₱{Number(item.waived_fee).toLocaleString(undefined, { minimumFractionDigits: 2 })} [Waived]</span>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <div className="py-6 text-center text-xs text-slate-500">
+                                            No late check-out fee waivers recorded.
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </div>

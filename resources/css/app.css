@@ -75,3 +75,69 @@ option:checked {
 th {
     @apply cursor-default;
 }
+
+/* ─── Mobile Responsiveness System ──────────────────────────────────────── */
+
+/* Fix mobile table crushing: Allow horizontal scroll on small devices */
+@media (max-width: 768px) {
+    /* All table-fixed tables inside scroll containers get a minimum width
+       so they scroll horizontally instead of crushing columns */
+    .overflow-x-auto table.table-fixed,
+    .overflow-x-auto table {
+        min-width: 700px;
+    }
+
+    /* Reduce table cell padding on mobile for density */
+    table td,
+    table th {
+        @apply px-3 py-2.5;
+    }
+}
+
+/* Very small screens (320px) need even more space optimization */
+@media (max-width: 374px) {
+    .overflow-x-auto table.table-fixed,
+    .overflow-x-auto table {
+        min-width: 600px;
+    }
+}
+
+/* ─── Touch-Friendly Targets ───────────────────────────────────────────── */
+/* Ensure interactive elements meet 44px minimum tap target on touch devices */
+@media (pointer: coarse) {
+    input[type="text"],
+    input[type="number"],
+    input[type="email"],
+    input[type="password"],
+    input[type="tel"],
+    input[type="search"],
+    input[type="date"],
+    input[type="datetime-local"],
+    select,
+    textarea {
+        min-height: 44px;
+    }
+
+    button,
+    [role="button"],
+    a.inline-flex {
+        min-height: 44px;
+    }
+}
+
+/* ─── Safe Area Insets (for notched phones) ─────────────────────────────── */
+@supports (padding: env(safe-area-inset-bottom)) {
+    .fixed.bottom-6 {
+        padding-bottom: env(safe-area-inset-bottom);
+    }
+}
+
+/* ─── Mobile-first filter tabs: horizontal scroll without scrollbar ────── */
+.mobile-scroll-tabs {
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+.mobile-scroll-tabs::-webkit-scrollbar {
+    display: none;
+}

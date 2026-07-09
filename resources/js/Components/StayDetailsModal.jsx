@@ -1,11 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Fragment } from 'react';
+import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
 import { useForm, router, usePage, Link } from '@inertiajs/react';
 import { 
     Calendar, Clock, Coins, User, Plus, DollarSign, Timer, 
     PowerOff, Printer, FileText, AlertTriangle, X, ClipboardCheck, 
     Shuffle, TrendingUp, RefreshCw, MessageSquare
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
+import ConfirmModal from '@/Components/ConfirmModal';
+import GroupSettleModal from '@/Components/GroupSettleModal';
 import ImagePreviewModal from '@/Components/ImagePreviewModal';
 import ReceiptModal from '@/Components/ReceiptModal';
 import axios from 'axios';
@@ -20,6 +23,7 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
     const [isImageModalOpen, setIsImageModalOpen] = useState(false);
     const [previewImage, setPreviewImage] = useState(null);
     const [showReceiptModal, setShowReceiptModal] = useState(false);
+    const [confirmGroupCheckout, setConfirmGroupCheckout] = useState(false);
     const [booking, setBooking] = useState(null);
     const [inventoryUsages, setInventoryUsages] = useState([]);
     const [vacantRooms, setVacantRooms] = useState([]);
@@ -42,7 +46,8 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
         cash_amount: 0.00,
         gcash_amount: 0.00,
         gcash_ref: '',
-        notes: ''
+        notes: '',
+        waive_late_fee: false
     });
 
     // Form: Cancel stay
@@ -72,7 +77,8 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
                 cash_amount: res.data.calculations?.additional_due || 0.00,
                 gcash_amount: 0.00,
                 gcash_ref: '',
-                notes: ''
+                notes: '',
+                waive_late_fee: false
             });
         } catch (err) {
             console.error("Failed to load stay details:", err);
@@ -165,24 +171,33 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
 
     return (
         <>
-            {/* Main Backdrop */}
-            <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                onClick={onClose}
-                className="fixed inset-0 bg-[#070b13]/90 z-[999] cursor-pointer"
-            />
+            <Transition show={isOpen} as={Fragment}>
+                <Dialog onClose={onClose} className="relative z-[1000]">
+                    {/* Backdrop transition */}
+                    <TransitionChild
+                        as={Fragment}
+                        enter="ease-out duration-300"
+                        enterFrom="opacity-0"
+                        enterTo="opacity-100"
+                        leave="ease-in duration-200"
+                        leaveFrom="opacity-100"
+                        leaveTo="opacity-0"
+                    >
+                        <div className="fixed inset-0 bg-[#070b13]/80 backdrop-blur-sm" />
+                    </TransitionChild>
 
-            {/* Modal Box */}
-            <motion.div
-                initial={{ opacity: 0, scale: 0.95, y: 16 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: 16 }}
-                transition={{ type: 'spring', damping: 26, stiffness: 320 }}
-                className="fixed inset-0 z-[1000] flex items-center justify-center p-4"
-            >
-                <div className="bg-[#1e293b] border border-[#334155] rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden text-xs text-slate-100">
+                    {/* Dialog Panel wrapper */}
+                    <div className="fixed inset-0 flex items-center justify-center p-4">
+                        <TransitionChild
+                            as={Fragment}
+                            enter="ease-out duration-300"
+                            enterFrom="opacity-0 scale-95"
+                            enterTo="opacity-100 scale-100"
+                            leave="ease-in duration-200"
+                            leaveFrom="opacity-100 scale-100"
+                            leaveTo="opacity-0 scale-95"
+                        >
+                            <DialogPanel className="bg-[#1e293b] border border-[#334155] rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden text-xs text-slate-100 relative z-10">
                     
                     {/* Header */}
                     <div className="flex items-center justify-between border-b border-[#334155] px-6 py-4 bg-[#0f172a]/40 shrink-0">
@@ -472,11 +487,7 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
 
                                                 {booking.group_ref && (
                                                     <button
-                                                        onClick={() => {
-                                                            if (confirm('Are you sure you want to checkout the entire group?')) {
-                                                                router.post(route('reservations.group_checkout', booking.group_ref));
-                                                            }
-                                                        }}
+                                                        onClick={() => setConfirmGroupCheckout(true)}
                                                         className="w-full flex items-center justify-center gap-1.5 px-4 py-3 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-slate-50 text-[11px] font-black uppercase tracking-wider shadow cursor-pointer transition-all active:scale-95"
                                                     >
                                                         <ClipboardCheck size={14} /> Process Group Checkout
@@ -518,8 +529,11 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
                             </div>
                         </div>
                     )}
-                </div>
-            </motion.div>
+                            </DialogPanel>
+                        </TransitionChild>
+                    </div>
+                </Dialog>
+            </Transition>
 
             {/* --- Modals Portal --- */}
             <AnimatePresence>
@@ -646,112 +660,153 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
                 )}
 
                 {/* 2. Modal: Process Checkout */}
-                {activeSubModal === 'checkout' && (
-                    <div className="fixed inset-0 bg-[#070b13]/90 z-[99999] flex items-center justify-center p-4">
-                        <motion.div 
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.95 }}
-                            className="bg-[#1e293b] border border-[#334155] rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl p-6 flex flex-col gap-5 text-slate-100"
-                        >
-                            <div className="flex justify-between items-center border-b border-[#334155] pb-3">
-                                <h3 className="font-outfit font-extrabold text-base text-slate-200">Process Checkout</h3>
-                                <button onClick={() => setActiveSubModal(null)} className="p-1 rounded bg-[#0f172a] border border-[#334155] text-slate-400">
-                                    <X size={14} />
-                                </button>
-                            </div>
+                {activeSubModal === 'checkout' && (() => {
+                    const actualAdditionalDue = checkoutForm.data.waive_late_fee 
+                        ? Math.max(0, (calculations.additional_due || 0) - (calculations.late_fee || 0)) 
+                        : (calculations.additional_due || 0);
 
-                            <form onSubmit={handleCheckoutSubmit} className="space-y-4 text-xs">
-                                
-                                <div className="p-4 rounded-xl bg-[#0f172a]/60 border border-[#334155] flex justify-between items-center text-xs shadow-inner">
-                                    <span className="font-bold text-slate-400">Additional Settlement Due:</span>
-                                    <span className="font-mono text-emerald-400 font-bold text-lg">₱{calculations.additional_due.toLocaleString()}</span>
+                    return (
+                        <div className="fixed inset-0 bg-[#070b13]/90 z-[99999] flex items-center justify-center p-4">
+                            <motion.div 
+                                initial={{ opacity: 0, scale: 0.95 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                exit={{ opacity: 0, scale: 0.95 }}
+                                className="bg-[#1e293b] border border-[#334155] rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl p-6 flex flex-col gap-5 text-slate-100"
+                            >
+                                <div className="flex justify-between items-center border-b border-[#334155] pb-3">
+                                    <h3 className="font-outfit font-extrabold text-base text-slate-200">Process Checkout</h3>
+                                    <button onClick={() => setActiveSubModal(null)} className="p-1 rounded bg-[#0f172a] border border-[#334155] text-slate-400">
+                                        <X size={14} />
+                                    </button>
                                 </div>
 
-                                {calculations.additional_due > 0 && (
-                                    <div className="space-y-4 pt-2">
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="flex flex-col gap-1.5">
-                                                <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Settlement Channel</label>
-                                                <select 
-                                                    value={checkoutForm.data.payment_method}
-                                                    onChange={e => checkoutForm.setData('payment_method', e.target.value)}
-                                                    className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 px-3 py-2.5 focus:outline-none focus:border-brand-500 font-bold text-xs"
-                                                >
-                                                    <option value="cash">Cash</option>
-                                                    <option value="gcash">GCash</option>
-                                                    <option value="split">Split (Cash + GCash)</option>
-                                                </select>
+                                <form onSubmit={handleCheckoutSubmit} className="space-y-4 text-xs">
+                                    
+                                    <div className="p-4 rounded-xl bg-[#0f172a]/60 border border-[#334155] flex justify-between items-center text-xs shadow-inner">
+                                        <span className="font-bold text-slate-400">Additional Settlement Due:</span>
+                                        <span className="font-mono text-emerald-400 font-bold text-lg">₱{actualAdditionalDue.toLocaleString()}</span>
+                                    </div>
+
+                                    {calculations.late_fee > 0 && (
+                                        <div className="flex items-center gap-2 p-3 bg-[#0f172a]/40 border border-[#334155]/40 rounded-xl">
+                                            <input 
+                                                type="checkbox"
+                                                id="waive_late_fee"
+                                                checked={checkoutForm.data.waive_late_fee}
+                                                onChange={e => {
+                                                    const checked = e.target.checked;
+                                                    const lateFee = calculations.late_fee || 0;
+                                                    const baseAdditional = calculations.additional_due || 0;
+                                                    const newDue = checked ? Math.max(0, baseAdditional - lateFee) : baseAdditional;
+                                                    
+                                                    checkoutForm.setData(prev => ({
+                                                        ...prev,
+                                                        waive_late_fee: checked,
+                                                        cash_amount: checkoutForm.data.payment_method === 'split' ? Math.min(checkoutForm.data.cash_amount, newDue) : newDue,
+                                                        gcash_amount: checkoutForm.data.payment_method === 'split' ? Math.max(0, newDue - Math.min(checkoutForm.data.cash_amount, newDue)) : 0
+                                                    }));
+                                                }}
+                                                className="rounded bg-[#1e293b] border-[#334155] text-brand-500 focus:ring-brand-500 focus:ring-offset-0 focus:outline-none cursor-pointer"
+                                            />
+                                            <label htmlFor="waive_late_fee" className="font-outfit font-bold text-slate-300 select-none cursor-pointer">
+                                                Waive Late Check-Out Fee (₱{calculations.late_fee.toLocaleString()})
+                                            </label>
+                                        </div>
+                                    )}
+
+                                    {actualAdditionalDue > 0 && (
+                                        <div className="space-y-4 pt-2">
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div className="flex flex-col gap-1.5">
+                                                    <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Settlement Channel</label>
+                                                    <select 
+                                                        value={checkoutForm.data.payment_method}
+                                                        onChange={e => {
+                                                            const channel = e.target.value;
+                                                            checkoutForm.setData(prev => ({
+                                                                ...prev,
+                                                                payment_method: channel,
+                                                                cash_amount: channel === 'split' ? (actualAdditionalDue / 2) : actualAdditionalDue,
+                                                                gcash_amount: channel === 'split' ? (actualAdditionalDue / 2) : 0
+                                                            }));
+                                                        }}
+                                                        className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 px-3 py-2.5 focus:outline-none focus:border-brand-500 font-bold text-xs"
+                                                    >
+                                                        <option value="cash">Cash</option>
+                                                        <option value="gcash">GCash</option>
+                                                        <option value="split">Split (Cash + GCash)</option>
+                                                    </select>
+                                                </div>
+
+                                                {['gcash', 'split'].includes(checkoutForm.data.payment_method) && (
+                                                    <div className="flex flex-col gap-1.5">
+                                                        <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">GCash 13-Digit Ref</label>
+                                                        <input 
+                                                            type="text" 
+                                                            value={checkoutForm.data.gcash_ref}
+                                                            onChange={e => checkoutForm.setData('gcash_ref', e.target.value)}
+                                                            required
+                                                            className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 px-3 py-2.5 focus:outline-none focus:border-brand-500 font-mono font-bold"
+                                                        />
+                                                    </div>
+                                                )}
                                             </div>
 
-                                            {['gcash', 'split'].includes(checkoutForm.data.payment_method) && (
-                                                <div className="flex flex-col gap-1.5">
-                                                    <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">GCash 13-Digit Ref</label>
-                                                    <input 
-                                                        type="text" 
-                                                        value={checkoutForm.data.gcash_ref}
-                                                        onChange={e => checkoutForm.setData('gcash_ref', e.target.value)}
-                                                        required
-                                                        className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 px-3 py-2.5 focus:outline-none focus:border-brand-500 font-mono font-bold"
-                                                    />
+                                            {checkoutForm.data.payment_method === 'split' && (
+                                                <div className="p-4 bg-[#0f172a]/55 border border-[#334155] rounded-xl flex flex-col gap-3">
+                                                    <div className="grid grid-cols-2 gap-3 text-xs">
+                                                        <div className="flex flex-col gap-1.5">
+                                                            <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Cash Amount Received</label>
+                                                            <input 
+                                                                type="number"
+                                                                min="0"
+                                                                max={actualAdditionalDue}
+                                                                step="any"
+                                                                value={checkoutForm.data.cash_amount}
+                                                                onChange={e => handleCheckoutCashInput(e, actualAdditionalDue)}
+                                                                className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 px-3 py-2 focus:outline-none focus:border-brand-500 font-mono font-bold"
+                                                            />
+                                                        </div>
+                                                        <div className="flex flex-col gap-1.5">
+                                                            <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">GCash Amount Received</label>
+                                                            <input 
+                                                                type="number"
+                                                                min="0"
+                                                                max={actualAdditionalDue}
+                                                                step="any"
+                                                                value={checkoutForm.data.gcash_amount}
+                                                                onChange={e => handleCheckoutGCashInput(e, actualAdditionalDue)}
+                                                                className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 px-3 py-2 focus:outline-none focus:border-brand-500 font-mono font-bold"
+                                                            />
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             )}
                                         </div>
+                                    )}
 
-                                        {checkoutForm.data.payment_method === 'split' && (
-                                            <div className="p-4 bg-[#0f172a]/55 border border-[#334155] rounded-xl flex flex-col gap-3">
-                                                <div className="grid grid-cols-2 gap-3 text-xs">
-                                                    <div className="flex flex-col gap-1.5">
-                                                        <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Cash Amount Received</label>
-                                                        <input 
-                                                            type="number"
-                                                            min="0"
-                                                            max={calculations.additional_due}
-                                                            step="any"
-                                                            value={checkoutForm.data.cash_amount}
-                                                            onChange={e => handleCheckoutCashInput(e, calculations.additional_due)}
-                                                            className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 px-3 py-2 focus:outline-none focus:border-brand-500 font-mono font-bold"
-                                                        />
-                                                    </div>
-                                                    <div className="flex flex-col gap-1.5">
-                                                        <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">GCash Amount Received</label>
-                                                        <input 
-                                                            type="number"
-                                                            min="0"
-                                                            max={calculations.additional_due}
-                                                            step="any"
-                                                            value={checkoutForm.data.gcash_amount}
-                                                            onChange={e => handleCheckoutGCashInput(e, calculations.additional_due)}
-                                                            className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 px-3 py-2 focus:outline-none focus:border-brand-500 font-mono font-bold"
-                                                        />
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )}
+                                    <div className="flex flex-col gap-1.5">
+                                        <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Checkout Remarks / Notes</label>
+                                        <textarea 
+                                            value={checkoutForm.data.notes}
+                                            onChange={e => checkoutForm.setData('notes', e.target.value)}
+                                            placeholder="Add checkout details..."
+                                            className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 px-3 py-2 resize-none h-16 focus:outline-none focus:border-brand-500"
+                                        />
                                     </div>
-                                )}
 
-                                <div className="flex flex-col gap-1.5">
-                                    <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Checkout Remarks / Notes</label>
-                                    <textarea 
-                                        value={checkoutForm.data.notes}
-                                        onChange={e => checkoutForm.setData('notes', e.target.value)}
-                                        placeholder="Add checkout details..."
-                                        className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 px-3 py-2 resize-none h-16 focus:outline-none focus:border-brand-500"
-                                    />
-                                </div>
-
-                                <button
-                                    type="submit"
-                                    disabled={checkoutForm.processing}
-                                    className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 rounded-xl text-slate-50 font-outfit font-black uppercase tracking-wider shadow cursor-pointer transition-all active:scale-95"
-                                >
-                                    {checkoutForm.processing ? 'Auditing Checkout...' : 'Confirm Checkout & Clear Room'}
-                                </button>
-                            </form>
-                        </motion.div>
-                    </div>
-                )}
+                                    <button
+                                        type="submit"
+                                        disabled={checkoutForm.processing}
+                                        className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 rounded-xl text-slate-50 font-outfit font-black uppercase tracking-wider shadow cursor-pointer transition-all active:scale-95"
+                                    >
+                                        {checkoutForm.processing ? 'Auditing Checkout...' : 'Confirm Checkout & Clear Room'}
+                                    </button>
+                                </form>
+                            </motion.div>
+                        </div>
+                    );
+                })()}
 
                 {/* 3. Modal: Reassign Room */}
                 {activeSubModal === 'move' && (
@@ -871,6 +926,16 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
                 isOpen={showReceiptModal}
                 booking={booking}
                 onClose={() => setShowReceiptModal(false)}
+            />
+            {/* Group Settle Modal */}
+            <GroupSettleModal
+                isOpen={confirmGroupCheckout}
+                groupRef={booking?.group_ref}
+                onClose={() => setConfirmGroupCheckout(false)}
+                onSuccess={() => {
+                    setConfirmGroupCheckout(false);
+                    onClose();
+                }}
             />
         </>
     );

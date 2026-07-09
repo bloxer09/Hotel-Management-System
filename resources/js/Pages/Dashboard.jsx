@@ -29,8 +29,9 @@ import {
     Legend
 } from 'recharts';
 
-export default function Dashboard({ stats, charts, recentBookings, lowStockItems, activeShift, liveUpdates = [] }) {
+export default function Dashboard({ stats, charts, recentBookings, lowStockItems, activeShift, liveUpdates = [], upcomingCheckins = [], upcomingCheckouts = [], recentExpenses = [] }) {
     const [revenuePeriod, setRevenuePeriod] = useState('today');
+    const [upcomingTab, setUpcomingTab] = useState('checkins');
 
     const roomStats = stats?.rooms || { total: 0, occupied: 0, vacant: 0, cleaning: 0, out_of_order: 0 };
 
@@ -61,12 +62,11 @@ export default function Dashboard({ stats, charts, recentBookings, lowStockItems
             baseColor: "brand",
         },
         {
-            title: currentRev.label ? currentRev.label.replace('Revenue', 'Gross Income') : "Gross Income",
+            title: "Gross Income",
             value: `₱${(currentRev.total || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
             desc: `Rooms: ₱${(currentRev.room || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} | Products: ₱${(currentRev.product || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}`,
             icon: Coins,
             baseColor: "emerald",
-            isRevenue: true,
         },
         {
             title: "Total Expenses",
@@ -151,12 +151,35 @@ export default function Dashboard({ stats, charts, recentBookings, lowStockItems
             <div className="flex flex-col gap-10">
 
                 {/* Header Welcome Title */}
-                <div className="flex flex-col gap-1.5 md:flex-row md:justify-between md:items-center">
+                <div className="flex flex-col gap-3 md:flex-row md:justify-between md:items-center">
                     <div>
                         <h1 className="text-3xl font-outfit font-extrabold tracking-tight bg-gradient-to-r from-slate-50 via-slate-100 to-brand-300 bg-clip-text text-transparent">
                             Statistics
                         </h1>
                         <p className="text-sm text-slate-400 font-medium mt-1">Monitor real-time room occupancy indices, ongoing session revenue totals, and critical stock levels.</p>
+                    </div>
+
+                    {/* Global Period Selector */}
+                    <div className="flex bg-[#1e293b] p-1 rounded-xl border border-[#334155] self-start md:self-auto shrink-0 shadow-lg">
+                        {[
+                            { key: 'today', label: 'Today' },
+                            { key: 'last_7_days', label: '7 Days' },
+                            { key: 'this_month', label: 'This Month' },
+                            { key: 'this_year', label: 'This Year' },
+                        ].map(tab => (
+                            <button
+                                key={tab.key}
+                                type="button"
+                                onClick={() => setRevenuePeriod(tab.key)}
+                                className={`px-4 py-2 rounded-lg text-xs font-bold uppercase transition-all ${
+                                    revenuePeriod === tab.key
+                                        ? 'bg-brand-600 text-slate-50 shadow border border-brand-500/20'
+                                        : 'text-slate-400 hover:text-slate-200'
+                                }`}
+                            >
+                                {tab.label}
+                            </button>
+                        ))}
                     </div>
                 </div>
 
@@ -175,33 +198,6 @@ export default function Dashboard({ stats, charts, recentBookings, lowStockItems
                                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{card.title}</span>
                                     <card.icon size={15} className={`text-${card.baseColor}-400`} />
                                 </div>
-
-                                {card.isRevenue && (
-                                    <div className="flex gap-1 bg-[#0f172a] p-0.5 rounded-lg border border-[#334155] mb-3.5 w-fit">
-                                        {[
-                                            { key: 'today', label: 'Today' },
-                                            { key: 'last_7_days', label: '7D' },
-                                            { key: 'this_month', label: 'Month' },
-                                            { key: 'this_year', label: 'Year' },
-                                        ].map(tab => (
-                                            <button
-                                                key={tab.key}
-                                                type="button"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    setRevenuePeriod(tab.key);
-                                                }}
-                                                className={`px-2.5 py-1 rounded text-[9px] font-extrabold uppercase transition-all ${
-                                                    revenuePeriod === tab.key
-                                                        ? 'bg-[#1e293b] text-slate-100 shadow border border-[#334155]/60'
-                                                        : 'text-slate-450 hover:text-slate-200'
-                                                }`}
-                                            >
-                                                {tab.label}
-                                            </button>
-                                        ))}
-                                    </div>
-                                )}
 
                                 <div className={`font-mono font-black text-xl tracking-tight text-${card.baseColor}-300`}>{card.value}</div>
                             </div>
@@ -451,8 +447,8 @@ export default function Dashboard({ stats, charts, recentBookings, lowStockItems
                         {/* Occupancy Trend Card (2/3 width) */}
                         <div className="xl:col-span-2 p-6 rounded-2xl bg-[#1e293b] border border-[#334155] shadow-xl flex flex-col gap-4">
                             <h3 className="font-outfit font-bold text-slate-200 text-sm tracking-wide uppercase">30-Day Occupancy Trend</h3>
-                            <div className="h-64">
-                                <ResponsiveContainer width="100%" height="100%">
+                            <div className="w-full h-64 min-h-[256px] relative">
+                                <ResponsiveContainer width="99%" height="100%">
                                     <AreaChart data={charts?.dailyOccupancy || []} margin={{ left: -20, right: 10, top: 10, bottom: 0 }}>
                                         <defs>
                                             <linearGradient id="occTrend" x1="0" y1="0" x2="0" y2="1">
@@ -548,18 +544,34 @@ export default function Dashboard({ stats, charts, recentBookings, lowStockItems
 
                     {/* Section 3: Revenue Streams & Share */}
                     <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 items-stretch">
-                        {/* Revenue Streams Chart (2/3 width) */}
+                        {/* Financial Analytics Chart (Gross vs Expenses vs Net) */}
                         <div className="xl:col-span-2 p-6 rounded-2xl bg-[#1e293b] border border-[#334155] shadow-xl flex flex-col gap-4">
-                            <h3 className="font-outfit font-bold text-slate-200 text-sm tracking-wide uppercase">30-Day Revenue Streams</h3>
-                            <div className="h-64">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={charts?.dailyRevenue || []} margin={{ left: -20, right: 10, top: 10, bottom: 0 }}>
+                            <h3 className="font-outfit font-bold text-slate-200 text-sm tracking-wide uppercase">30-Day Financial Trend</h3>
+                            <div className="w-full h-64 min-h-[256px] relative">
+                                <ResponsiveContainer width="99%" height="100%">
+                                    <AreaChart data={charts?.dailyRevenue || []} margin={{ left: -20, right: 10, top: 10, bottom: 0 }}>
+                                        <defs>
+                                            <linearGradient id="colorGross" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor="#6366f1" stopOpacity={0.2}/>
+                                                <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
+                                            </linearGradient>
+                                            <linearGradient id="colorExpenses" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.2}/>
+                                                <stop offset="95%" stopColor="#f43f5e" stopOpacity={0}/>
+                                            </linearGradient>
+                                            <linearGradient id="colorNet" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor="#10b981" stopOpacity={0.2}/>
+                                                <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                                            </linearGradient>
+                                        </defs>
                                         <XAxis dataKey="date" stroke="#475569" fontSize={10} tickLine={false} />
                                         <YAxis stroke="#475569" fontSize={10} tickLine={false} />
                                         <Tooltip content={<CustomTooltip isCurrency={true} />} />
-                                        <Bar name="Room related Income" dataKey="room" stackId="a" fill="#6366f1" />
-                                        <Bar name="Inventory & Products" dataKey="product" stackId="a" fill="#10b981" />
-                                    </BarChart>
+                                        <Legend verticalAlign="top" height={36} iconType="circle" />
+                                        <Area type="monotone" name="Gross Revenue" dataKey="total" stroke="#6366f1" strokeWidth={2} fillOpacity={1} fill="url(#colorGross)" />
+                                        <Area type="monotone" name="Expenses" dataKey="expenses" stroke="#f43f5e" strokeWidth={2} fillOpacity={1} fill="url(#colorExpenses)" />
+                                        <Area type="monotone" name="Net Income" dataKey="net_income" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#colorNet)" />
+                                    </AreaChart>
                                 </ResponsiveContainer>
                             </div>
                         </div>
@@ -567,9 +579,9 @@ export default function Dashboard({ stats, charts, recentBookings, lowStockItems
                         {/* Room Type Revenue Share (1/3 width) */}
                         <div className="xl:col-span-1 p-6 rounded-2xl bg-[#1e293b] border border-[#334155] shadow-xl flex flex-col gap-4 justify-between">
                             <h3 className="font-outfit font-bold text-slate-200 text-xs tracking-wider uppercase">Revenue Share</h3>
-                            <div className="h-44 relative flex items-center justify-center">
+                            <div className="h-44 relative flex items-center justify-center min-w-[10px] min-h-[176px]">
                                 {charts?.roomTypeRevenue && charts.roomTypeRevenue.length > 0 ? (
-                                    <ResponsiveContainer width="100%" height="100%">
+                                    <ResponsiveContainer width="99%" height="100%">
                                         <PieChart>
                                             <Pie
                                                 data={charts.roomTypeRevenue}
@@ -600,6 +612,184 @@ export default function Dashboard({ stats, charts, recentBookings, lowStockItems
                                 ))}
                             </div>
                         </div>
+                    </div>
+
+                    {/* Section: Upcoming Actions & Recent Expenses */}
+                    <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 items-stretch">
+                        
+                        {/* Upcoming Actions (2/3 width) */}
+                        <div className="xl:col-span-2 p-6 rounded-2xl bg-[#1e293b] border border-[#334155] shadow-xl flex flex-col gap-4">
+                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-[#334155] pb-4">
+                                <h3 className="font-outfit font-bold text-slate-200 text-sm uppercase tracking-wider">Upcoming arrivals & departures (Next 24h)</h3>
+                                
+                                <div className="flex bg-[#0f172a] p-0.5 rounded-lg border border-[#334155] text-[10px] font-black uppercase shadow-inner">
+                                    <button
+                                        type="button"
+                                        onClick={() => setUpcomingTab('checkins')}
+                                        className={`px-3 py-1.5 rounded transition-all ${
+                                            upcomingTab === 'checkins'
+                                                ? 'bg-[#1e293b] text-slate-100 shadow border border-[#334155]/60'
+                                                : 'text-slate-400 hover:text-slate-205'
+                                        }`}
+                                    >
+                                        Check-Ins ({upcomingCheckins.length})
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setUpcomingTab('checkouts')}
+                                        className={`px-3 py-1.5 rounded transition-all ${
+                                            upcomingTab === 'checkouts'
+                                                ? 'bg-[#1e293b] text-slate-100 shadow border border-[#334155]/60'
+                                                : 'text-slate-400 hover:text-slate-205'
+                                        }`}
+                                    >
+                                        Check-Outs ({upcomingCheckouts.length})
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="overflow-x-auto min-h-[220px]">
+                                {upcomingTab === 'checkins' ? (
+                                    <table className="w-full text-xs table-fixed">
+                                        <thead>
+                                            <tr className="border-b border-[#334155] bg-[#0f172a]/60">
+                                                <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left w-1/4">Room</th>
+                                                <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left w-1/3">Guest</th>
+                                                <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left hidden sm:table-cell w-1/4">Arrival Time</th>
+                                                <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-right w-1/6">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {upcomingCheckins.length > 0 ? (
+                                                upcomingCheckins.map((b) => (
+                                                    <tr key={b.id} className="border-b border-[#334155]/50 hover:bg-[#0f172a]/40 transition-colors group">
+                                                        <td className="px-4 py-3 font-bold font-outfit text-slate-200">
+                                                            Room {b.room?.room_number || 'N/A'}
+                                                            <div className="text-[10px] text-slate-400 font-normal">{b.room?.type?.type_name || ''}</div>
+                                                        </td>
+                                                        <td className="px-4 py-3 text-slate-300">
+                                                            <div className="font-semibold">{b.guest_name}</div>
+                                                            <div className="text-[10px] text-slate-400 font-mono">{b.booking_ref}</div>
+                                                        </td>
+                                                        <td className="px-4 py-3 text-slate-300 hidden sm:table-cell font-mono">
+                                                            {new Date(b.check_in).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-right">
+                                                            <Link
+                                                                href={route('checkin.index')}
+                                                                className="inline-flex items-center gap-1 px-2.5 py-1 bg-brand-500/10 hover:bg-brand-500/25 border border-brand-500/30 hover:border-brand-500/50 text-brand-350 text-[10px] font-bold rounded-lg transition-all"
+                                                            >
+                                                                Check-In
+                                                            </Link>
+                                                        </td>
+                                                    </tr>
+                                                ))
+                                            ) : (
+                                                <tr>
+                                                    <td colSpan="4" className="px-4 py-8 text-center text-slate-500">
+                                                        No upcoming check-ins in the next 24 hours.
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                ) : (
+                                    <table className="w-full text-xs table-fixed">
+                                        <thead>
+                                            <tr className="border-b border-[#334155] bg-[#0f172a]/60">
+                                                <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left w-1/4">Room</th>
+                                                <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left w-1/3">Guest</th>
+                                                <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left hidden sm:table-cell w-1/4">Expected Checkout</th>
+                                                <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-right w-1/6">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {upcomingCheckouts.length > 0 ? (
+                                                upcomingCheckouts.map((b) => (
+                                                    <tr key={b.id} className="border-b border-[#334155]/50 hover:bg-[#0f172a]/40 transition-colors group">
+                                                        <td className="px-4 py-3 font-bold font-outfit text-slate-200">
+                                                            Room {b.room?.room_number || 'N/A'}
+                                                            <div className="text-[10px] text-slate-400 font-normal">{b.room?.type?.type_name || ''}</div>
+                                                        </td>
+                                                        <td className="px-4 py-3 text-slate-300">
+                                                            <div className="font-semibold">{b.guest_name}</div>
+                                                            <div className="text-[10px] text-slate-400 font-mono">{b.booking_ref}</div>
+                                                        </td>
+                                                        <td className="px-4 py-3 text-slate-300 hidden sm:table-cell font-mono">
+                                                            {new Date(b.expected_check_out).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-right">
+                                                            <Link
+                                                                href={route('reservations.index') + '?status=active'}
+                                                                className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-500/10 hover:bg-amber-500/25 border border-amber-500/30 hover:border-amber-500/50 text-amber-350 text-[10px] font-bold rounded-lg transition-all"
+                                                            >
+                                                                Checkout
+                                                            </Link>
+                                                        </td>
+                                                    </tr>
+                                                ))
+                                            ) : (
+                                                <tr>
+                                                    <td colSpan="4" className="px-4 py-8 text-center text-slate-500">
+                                                        No upcoming check-outs in the next 24 hours.
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Recent Expenses (1/3 width) */}
+                        <div className="xl:col-span-1 p-6 rounded-2xl bg-[#1e293b] border border-[#334155] shadow-xl flex flex-col gap-4">
+                            <div className="flex justify-between items-center border-b border-[#334155] pb-4">
+                                <h3 className="font-outfit font-bold text-slate-200 text-sm uppercase tracking-wider">Recent Expenses</h3>
+                                <Link
+                                    href={route('expenses.index')}
+                                    className="text-[10px] font-bold text-brand-400 hover:text-brand-300 uppercase tracking-widest flex items-center gap-1"
+                                >
+                                    Manage <ChevronRight size={12} />
+                                </Link>
+                            </div>
+
+                            <div className="overflow-x-auto min-h-[220px]">
+                                <table className="w-full text-xs table-fixed">
+                                    <thead>
+                                        <tr className="border-b border-[#334155] bg-[#0f172a]/60">
+                                            <th className="px-3 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left w-1/4">Date</th>
+                                            <th className="px-3 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left w-1/2">Details</th>
+                                            <th className="px-3 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-right w-1/4">Amount</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {recentExpenses.length > 0 ? (
+                                            recentExpenses.map((exp) => (
+                                                <tr key={exp.id} className="border-b border-[#334155]/50 hover:bg-[#0f172a]/40 transition-colors group">
+                                                    <td className="px-3 py-3 font-medium text-slate-350">
+                                                        {new Date(exp.expense_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                                    </td>
+                                                    <td className="px-3 py-3 text-slate-300 truncate">
+                                                        <div className="font-semibold truncate">{exp.notes || 'No description'}</div>
+                                                        <div className="text-[10px] text-slate-400 truncate">By {exp.user?.full_name || 'System'}</div>
+                                                    </td>
+                                                    <td className="px-3 py-3 text-right font-mono font-bold text-red-400">
+                                                        ₱{Number(exp.amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        ) : (
+                                            <tr>
+                                                <td colSpan="3" className="px-3 py-8 text-center text-slate-500">
+                                                    No recent expenses.
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
                     </div>
 
                     {/* Section 4: Operations & Inventory Banners */}
@@ -666,7 +856,7 @@ export default function Dashboard({ stats, charts, recentBookings, lowStockItems
 
                     {/* Section 5: Recent Check-In Stay Records */}
                     <div className="p-6 rounded-2xl bg-[#1e293b] border border-[#334155] shadow-xl w-full">
-                        <div className="flex justify-between items-center mb-6">
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
                             <h2 className="text-lg font-outfit font-bold text-slate-200">Recent Check-In Stay Records</h2>
                             <Link
                                 href={route('guests.index')}
@@ -676,34 +866,34 @@ export default function Dashboard({ stats, charts, recentBookings, lowStockItems
                             </Link>
                         </div>
 
-                        <div className="overflow-x-auto rounded-2xl bg-[#0f172a] border border-[#334155]">
-                            <table className="w-full text-left border-collapse text-sm table-fixed">
+                        <div className="overflow-x-auto rounded-2xl bg-[#1e293b] border border-[#334155]">
+                            <table className="w-full text-xs table-fixed">
                                 <thead>
-                                    <tr className="border-b border-[#334155]/60 bg-[#1e293b]/50 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
-                                        <th className="px-6 py-4">Room</th>
-                                        <th className="px-6 py-4">Guest Profile</th>
-                                        <th className="px-6 py-4">Stay Type</th>
-                                        <th className="px-6 py-4">Amount</th>
-                                        <th className="px-6 py-4 text-right">Status</th>
+                                    <tr className="border-b border-[#334155] bg-[#0f172a]/60">
+                                        <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Room</th>
+                                        <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Guest Profile</th>
+                                        <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left hidden sm:table-cell">Stay Type</th>
+                                        <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Amount</th>
+                                        <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-right">Status</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-[#334155]/40 text-xs">
+                                <tbody>
                                     {recentBookings.length > 0 ? (
                                         recentBookings.map((b) => (
-                                            <tr key={b.id} className="hover:bg-[#1e293b]/50 transition-colors group">
-                                                <td className="px-6 py-4 font-bold font-outfit text-slate-200">
+                                            <tr key={b.id} className="border-b border-[#334155]/50 hover:bg-[#0f172a]/40 transition-colors group">
+                                                <td className="px-4 py-3 font-bold font-outfit text-slate-200">
                                                     Room {b.room?.room_number || 'N/A'}
                                                 </td>
-                                                <td className="px-6 py-4 font-medium text-slate-300">{b.guest_name}</td>
-                                                <td className="px-6 py-4">
+                                                <td className="px-4 py-3 font-medium text-slate-300">{b.guest_name}</td>
+                                                <td className="px-4 py-3 hidden sm:table-cell">
                                                     <span className="text-[10px] font-bold bg-[#334155]/60 border border-[#334155] text-slate-300 px-2.5 py-1 rounded-md uppercase font-mono tracking-wider">
                                                         {b.booking_type === 'overnight' ? 'Overnight' : `${b.short_time_hours}h Hourly`}
                                                     </span>
                                                 </td>
-                                                <td className="px-6 py-4 font-mono font-bold text-emerald-400">
+                                                <td className="px-4 py-3 font-mono font-bold text-emerald-400">
                                                     ₱{b.total_amount.toLocaleString()}
                                                 </td>
-                                                <td className="px-6 py-4 text-right">
+                                                <td className="px-4 py-3 text-right">
                                                     <span className={`inline-flex items-center text-[9px] uppercase font-bold font-outfit tracking-widest px-2.5 py-1 rounded-md ${b.status === 'active'
                                                         ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                                                         : 'bg-[#0f172a] text-slate-400 border border-[#334155]'
@@ -715,7 +905,7 @@ export default function Dashboard({ stats, charts, recentBookings, lowStockItems
                                         ))
                                     ) : (
                                         <tr>
-                                            <td colSpan="5" className="py-6 text-center text-slate-500">
+                                            <td colSpan="5" className="px-4 py-6 text-center text-slate-500">
                                                 No recent booking stay logs found.
                                             </td>
                                         </tr>

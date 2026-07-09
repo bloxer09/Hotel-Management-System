@@ -41,7 +41,7 @@ export default function Show({ guest, bookings }) {
             <div className="flex flex-col gap-8">
                 
                 {/* Header Back Button & Title */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div className="flex flex-col gap-2">
                         <Link 
                             href={route('guests.index')}
@@ -49,12 +49,12 @@ export default function Show({ guest, bookings }) {
                         >
                             <ChevronLeft size={14} /> Back to Guests
                         </Link>
-                        <div className="flex items-center gap-3">
-                            <h1 className="text-3xl font-outfit font-extrabold tracking-tight text-slate-100">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                            <h1 className="text-2xl sm:text-3xl font-outfit font-extrabold tracking-tight text-slate-100">
                                 {guest.full_name}
                             </h1>
                             {guest.is_vip && (
-                                <span className="inline-flex items-center gap-1 text-xs bg-amber-950 border border-amber-600/40 text-amber-400 px-2.5 py-1 rounded-full font-bold shadow-md shadow-amber-950/50">
+                                <span className="inline-flex items-center gap-1 text-xs bg-amber-950 border border-amber-600/40 text-amber-400 px-2.5 py-1 rounded-full font-bold shadow-md shadow-amber-950/50 w-fit">
                                     <Star size={12} className="fill-amber-400" /> VIP Status
                                 </span>
                             )}
@@ -138,21 +138,21 @@ export default function Show({ guest, bookings }) {
                         </h2>
                         
                         <div className="overflow-x-auto">
-                            <table className="w-full text-left border-collapse text-xs table-fixed">
+                            <table className="w-full text-xs table-fixed">
                                 <thead>
-                                    <tr className="border-b border-[#334155] text-slate-400 uppercase tracking-wider font-semibold">
-                                        <th className="pb-3">Ref Code</th>
-                                        <th className="pb-3">Room details</th>
-                                        <th className="pb-3">Booking Type</th>
-                                        <th className="pb-3">Dates & Stays</th>
-                                        <th className="pb-3">Billing</th>
-                                        <th className="pb-3">Status</th>
+                                    <tr className="border-b border-[#334155] bg-[#0f172a]/60">
+                                        <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Ref Code</th>
+                                        <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Room details</th>
+                                        <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Booking Type</th>
+                                        <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Dates & Stays</th>
+                                        <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Billing</th>
+                                        <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Status</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-[#334155]/60 text-slate-300">
+                                <tbody>
                                     {bookings.length > 0 ? (
                                         bookings.map((b) => (
-                                            <tr key={b.id} className="hover:bg-[#0f172a]/20 transition-colors">
+                                            <tr key={b.id} className="border-b border-[#334155]/50 hover:bg-[#0f172a]/40 transition-colors">
                                                 <td className="py-3.5 font-mono font-bold text-slate-400">
                                                     <Link href={route('bookings.show', b.id)} className="text-brand-400 hover:underline">
                                                         {b.booking_ref}

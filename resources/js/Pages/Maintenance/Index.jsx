@@ -28,13 +28,16 @@ export default function Maintenance({ tickets, rooms, filters = {}, sortBy, sort
     const [currentFilter, setCurrentFilter] = useState(filters.status || 'all');
     const [searchTerm, setSearchTerm] = useState(filters.search || '');
     const [actionModalTicket, setActionModalTicket] = useState(null);
+    const [dateFrom, setDateFrom] = useState(filters.from || '');
+    const [dateTo, setDateTo] = useState(filters.to || '');
 
     const form = useForm({
         room_id: '',
         title: '',
         description: '',
         priority: 'medium',
-        attachment: null
+        attachment: null,
+        created_at: ''
     });
 
     const statusForm = useForm({
@@ -155,12 +158,19 @@ export default function Maintenance({ tickets, rooms, filters = {}, sortBy, sort
 
     const handleSearch = (e) => {
         if (e) e.preventDefault();
-        router.get(route('maintenance.index'), { search: searchTerm, status: currentFilter }, { preserveState: true });
+        router.get(route('maintenance.index'), { search: searchTerm, status: currentFilter, from: dateFrom, to: dateTo }, { preserveState: true });
+    };
+
+    const handleClearFilters = () => {
+        setSearchTerm('');
+        setDateFrom('');
+        setDateTo('');
+        router.get(route('maintenance.index'), { status: currentFilter }, { preserveState: true });
     };
 
     const handleFilterChange = (key) => {
         setCurrentFilter(key);
-        router.get(route('maintenance.index'), { search: searchTerm, status: key }, { preserveState: true });
+        router.get(route('maintenance.index'), { search: searchTerm, status: key, from: dateFrom, to: dateTo }, { preserveState: true });
     };
 
     const activeTab = FILTER_TABS.find(t => t.key === currentFilter) || FILTER_TABS[0];
@@ -172,17 +182,17 @@ export default function Maintenance({ tickets, rooms, filters = {}, sortBy, sort
 
             <div className="flex flex-col gap-6">
                 {/* Header */}
-                <div className="flex items-start justify-between gap-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                     <div>
-                        <h1 className="text-3xl font-outfit font-extrabold tracking-tight text-slate-100">
+                        <h1 className="text-2xl sm:text-3xl font-outfit font-extrabold tracking-tight text-slate-100">
                             Maintenance Tickets
                         </h1>
-                        <p className="text-sm text-slate-400 font-medium mt-1">Log property facility issues, assign repair priorities, and monitor housekeeping resolution status.</p>
+                        <p className="text-xs sm:text-sm text-slate-400 font-medium mt-1">Log property facility issues, assign repair priorities, and monitor housekeeping resolution status.</p>
                     </div>
 
                     <button
                         onClick={handleOpenAdd}
-                        className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-outfit font-bold text-sm transition-all shadow-lg shadow-brand-600/20 active:scale-95 shrink-0"
+                        className="flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-outfit font-bold text-sm transition-all shadow-lg shadow-brand-600/20 active:scale-95 shrink-0 w-full sm:w-auto justify-center"
                     >
                         <Plus size={16} /> File New Ticket
                     </button>
@@ -190,7 +200,7 @@ export default function Maintenance({ tickets, rooms, filters = {}, sortBy, sort
 
                 {/* Tabs + Search */}
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 justify-between">
-                    <div className="flex gap-1 bg-[#1e293b] p-1 rounded-xl border border-[#334155]">
+                    <div className="flex gap-1 bg-[#1e293b] p-1 rounded-xl border border-[#334155] overflow-x-auto mobile-scroll-tabs">
                         {FILTER_TABS.map(tab => {
                             return (
                                 <button key={tab.key} onClick={() => handleFilterChange(tab.key)}
@@ -202,13 +212,38 @@ export default function Maintenance({ tickets, rooms, filters = {}, sortBy, sort
                             );
                         })}
                     </div>
-                    <div className="flex items-center gap-2 w-full sm:w-auto">
-                        <form onSubmit={handleSearch} className="relative w-full sm:w-64">
-                            <Search className="absolute left-4 top-3 text-slate-500" size={16} />
-                            <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-                                placeholder="Search room, issue, reporter..."
-                                className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 pl-11 pr-4 py-2.5 focus:outline-none focus:border-brand-500 text-xs" />
-                        </form>
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+                        <div className="flex items-center gap-2 bg-[#1e293b] p-1.5 rounded-xl border border-[#334155]">
+                            <input
+                                type="date"
+                                value={dateFrom}
+                                onChange={e => setDateFrom(e.target.value)}
+                                className="bg-[#0f172a] border border-[#334155] rounded-lg text-slate-100 px-2 py-1 focus:outline-none focus:border-brand-500 text-xs w-[120px]"
+                            />
+                            <span className="text-slate-500 text-[10px] font-bold">TO</span>
+                            <input
+                                type="date"
+                                value={dateTo}
+                                onChange={e => setDateTo(e.target.value)}
+                                className="bg-[#0f172a] border border-[#334155] rounded-lg text-slate-100 px-2 py-1 focus:outline-none focus:border-brand-500 text-xs w-[120px]"
+                            />
+                            <button type="button" onClick={handleSearch} className="px-2.5 py-1 bg-brand-600 hover:bg-brand-500 text-white font-bold text-[10px] rounded-lg transition-all">
+                                Filter
+                            </button>
+                            {(searchTerm || dateFrom || dateTo) && (
+                                <button type="button" onClick={handleClearFilters} className="px-2 text-slate-400 hover:text-white text-xs font-bold">
+                                    Clear
+                                </button>
+                            )}
+                        </div>
+                        <div className="relative flex-1 sm:flex-initial">
+                            <form onSubmit={handleSearch}>
+                                <Search className="absolute left-4 top-3 text-slate-500" size={16} />
+                                <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+                                    placeholder="Search room, issue, reporter..."
+                                    className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 pl-11 pr-4 py-2.5 focus:outline-none focus:border-brand-500 text-xs" />
+                            </form>
+                        </div>
                         <button type="button" onClick={() => router.reload({ only: ['tickets'] })} className="p-2.5 rounded-xl border border-[#334155] bg-[#1e293b] text-slate-400 hover:text-slate-200 hover:border-brand-500/40 transition-all shrink-0 shadow-sm" title="Refresh Table">
                             <RefreshCw size={16} />
                         </button>
@@ -318,7 +353,7 @@ export default function Maintenance({ tickets, rooms, filters = {}, sortBy, sort
                     </div>
                     {/* Pagination */}
                     {tickets && tickets.last_page > 1 && (
-                        <div className="px-4 py-3 border-t border-[#334155] flex items-center justify-between bg-[#0f172a]/40">
+                        <div className="px-4 py-3 border-t border-[#334155] flex flex-col sm:flex-row items-center justify-between gap-2 bg-[#0f172a]/40">
                             <span className="text-[10px] text-slate-500">
                                 Showing {tickets.from}–{tickets.to} of {tickets.total} records
                             </span>
@@ -400,6 +435,18 @@ export default function Maintenance({ tickets, rooms, filters = {}, sortBy, sort
                                             <option value="high">High (Disturbing stay)</option>
                                             <option value="critical">Critical (Needs immediate fix / Room unusable)</option>
                                         </select>
+                                    </div>
+
+                                    {/* Reported At */}
+                                    <div className="flex flex-col gap-1">
+                                        <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Reported Date & Time (Optional)</label>
+                                        <input
+                                            type="datetime-local"
+                                            value={form.data.created_at}
+                                            onChange={e => form.setData('created_at', e.target.value)}
+                                            className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-xs text-slate-100 px-4 py-2.5 focus:outline-none focus:border-brand-500 font-mono"
+                                        />
+                                        <p className="text-[9px] text-slate-500 mt-0.5">Leave empty to use the current date and time.</p>
                                     </div>
 
                                     {/* File Attachment */}

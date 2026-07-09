@@ -70,20 +70,22 @@ export default function Users({ users }) {
             <div className="flex flex-col gap-8">
 
                 {/* Header title */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                     <div>
-                        <h1 className="text-3xl font-outfit font-extrabold tracking-tight text-slate-100">
+                        <h1 className="text-2xl sm:text-3xl font-outfit font-extrabold tracking-tight text-slate-100">
                             Staff Accounts
                         </h1>
-                        <p className="text-sm text-slate-400 font-medium mt-1">Add, update, and manage role-based credentials and operational permissions for staff profiles.</p>
+                        <p className="text-xs sm:text-sm text-slate-400 font-medium mt-1">Add, update, and manage role-based credentials and operational permissions for staff profiles.</p>
                     </div>
 
-                    <button
-                        onClick={() => setIsAddOpen(true)}
-                        className="inline-flex items-center gap-2 px-5 py-3 bg-brand-600 hover:bg-brand-500 rounded-xl text-slate-50 font-outfit font-extrabold text-xs tracking-wider shadow-lg hover:shadow-brand-600/20 transition-all self-start"
-                    >
-                        <PlusCircle size={16} /> Add Staff Account
-                    </button>
+                    <div className="w-full sm:w-auto mt-2 sm:mt-0">
+                        <button
+                            onClick={() => setIsAddOpen(true)}
+                            className="flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 bg-brand-600 hover:bg-brand-500 rounded-xl text-slate-50 font-outfit font-extrabold text-xs tracking-wider shadow-lg hover:shadow-brand-600/20 transition-all w-full sm:w-auto"
+                        >
+                            <PlusCircle size={16} /> Add Staff Account
+                        </button>
+                    </div>
                 </div>
 
                 {/* Users Listing Grid */}

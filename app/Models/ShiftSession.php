@@ -17,6 +17,10 @@ class ShiftSession extends Model
         'closing_cash',
         'opening_denominations',
         'closing_denominations',
+        'opening_cash_minibar',
+        'closing_cash_minibar',
+        'opening_denominations_minibar',
+        'closing_denominations_minibar',
         'notes',
     ];
 
@@ -27,6 +31,10 @@ class ShiftSession extends Model
         'closing_cash' => 'float',
         'opening_denominations' => 'array',
         'closing_denominations' => 'array',
+        'opening_cash_minibar' => 'float',
+        'closing_cash_minibar' => 'float',
+        'opening_denominations_minibar' => 'array',
+        'closing_denominations_minibar' => 'array',
     ];
 
     public function user()

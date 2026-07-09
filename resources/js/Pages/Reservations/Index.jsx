@@ -4,11 +4,14 @@ import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import axios from 'axios';
 import {
     Search, Calendar, Coins, UserCheck, XCircle, Plus, AlertTriangle,
-    Crown, Star, TrendingUp, AlertCircle, CheckCircle, X, ChevronLeft,
+    Crown, Star, TrendingUp, AlertCircle, CheckCircle, CheckCircle2, X, ChevronLeft,
     ChevronRight, Eye, Clock, BedDouble, Edit, RefreshCw
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
+import AlertModal from '@/Components/AlertModal';
+import ConfirmModal from '@/Components/ConfirmModal';
 import StayDetailsModal from '@/Components/StayDetailsModal';
+import GroupSettleModal from '@/Components/GroupSettleModal';
 import ImagePreviewModal from '@/Components/ImagePreviewModal';
 import ActionModal from '@/Components/ActionModal';
 import SortableHeader from '@/Components/SortableHeader';
@@ -22,10 +25,18 @@ const FILTER_TABS = [
     { key: 'no_show', label: 'No Show', color: 'text-amber-500', dot: 'bg-amber-500' },
 ];
 
-export default function Index({ reservations, currentFilter, rooms = [], promoCodes = [], sortBy, sortDir }) {
+export default function Index({ reservations, groupBookings = {}, currentFilter, showGroupsOnly: propShowGroupsOnly = false, rooms = [], promoCodes = [], sortBy, sortDir }) {
     const { auth } = usePage().props;
     const flash = usePage().props.flash || {};
     const isAdmin = auth?.user?.role === 'admin';
+
+    const [showGroupsOnly, setShowGroupsOnly] = useState(propShowGroupsOnly);
+    const [settleGroupRef, setSettleGroupRef] = useState(null);
+    const [isGroupSettleOpen, setIsGroupSettleOpen] = useState(false);
+
+    useEffect(() => {
+        setShowGroupsOnly(propShowGroupsOnly);
+    }, [propShowGroupsOnly]);
 
     // ── List state ──
     const [searchTerm, setSearchTerm] = useState('');
@@ -35,10 +46,17 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
 
     // ── New Booking Modal ──
     const [showBookingModal, setShowBookingModal] = useState(false);
+    const [showRoomSelectModal, setShowRoomSelectModal] = useState(false);
+    const [roomFilter, setRoomFilter] = useState('all');
+    const [availableRooms, setAvailableRooms] = useState(rooms);
+    const [isLoadingRooms, setIsLoadingRooms] = useState(false);
+    const [showConfirmBookingModal, setShowConfirmBookingModal] = useState(false);
 
     // ── Check-In Confirm Modal ──
     const [showCheckInModal, setShowCheckInModal] = useState(false);
     const [selectedCheckInRes, setSelectedCheckInRes] = useState(null);
+    const [alertMessage, setAlertMessage] = useState(null);
+    const [confirmAction, setConfirmAction] = useState(null);
 
     // ── Cancel Modal ──
     const [showCancelModal, setShowCancelModal] = useState(false);
@@ -70,7 +88,7 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
     const { data, setData, post, processing, errors, reset } = useForm({
         room_ids: [], check_in: defaultCheckIn,
         guest_name: '', guest_contact: '', guest_id_type: 'Driver License',
-        guest_id_number: '', id_image: null, guest_email: '', guest_address: '', num_guests: 1,
+        guest_id_number: '', id_image: null, guest_email: '', guest_address: '', extra_pax: {},
         booking_type: 'overnight', num_nights: 1, short_time_hours: 3,
         discount_type: 'none', discount_amount: 0, promo_code: '',
         payment_ratio: 'full',
@@ -157,11 +175,13 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
 
     const handleEditFormSubmit = (e) => {
         e.preventDefault();
-        if (editCalc.conflict) { alert('Double-booking conflict. Choose another room or date.'); return; }
+        if (editCalc.conflict) { setAlertMessage('Double-booking conflict. Choose another room or date.'); return; }
         editForm.transform((data) => ({
             ...data,
             _method: 'PUT',
-        })).post(route('bookings.update', editingBooking.id), {
+        }));
+        
+        editForm.post(route('bookings.update', editingBooking.id), {
             onSuccess: () => {
                 setShowEditModal(false);
                 setEditingBooking(null);
@@ -256,7 +276,7 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
     const handleRescheduleSubmit = (e) => {
         e.preventDefault();
         if (rescheduleCalc.conflict) {
-            alert('Double-booking conflict. Choose another room or date.');
+            setAlertMessage('Double-booking conflict. Choose another room or date.');
             return;
         }
         rescheduleForm.post(route('reservations.reschedule', reschedulingBooking.id), {
@@ -293,9 +313,14 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
     };
 
     const handleNoShow = (booking) => {
-        if (confirm(`Are you sure you want to mark Reservation ${booking.booking_ref} for ${booking.guest_name} as No Show?`)) {
-            router.post(route('reservations.noshow', booking.id));
-        }
+        setConfirmAction({
+            title: 'Confirm No Show',
+            message: `Are you sure you want to mark Reservation ${booking.booking_ref} for ${booking.guest_name} as No Show?`,
+            onConfirm: () => {
+                router.post(route('reservations.noshow', booking.id));
+                setConfirmAction(null);
+            }
+        });
     };
 
     // Guest autocomplete
@@ -330,19 +355,18 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
             .catch(err => setPromoError(err.response?.data?.error || 'Failed to validate.'));
     };
 
-    // Live pricing + conflict check
     useEffect(() => {
         if (data.room_ids && data.room_ids.length > 0 && data.check_in) {
             axios.post(route('reservations.calculate'), {
                 room_ids: data.room_ids, check_in: data.check_in,
                 booking_type: data.booking_type, num_nights: data.num_nights,
                 short_time_hours: data.short_time_hours, discount_type: data.discount_type,
-                num_guests: data.num_guests,
+                extra_pax: data.extra_pax,
                 discount_amount: data.discount_amount, promo_code: data.promo_code
             }).then(res => {
                 setCalc(res.data);
                 setData(prev => {
-                    const total = res.data.total_amount;
+                    const total = res.data.totals.total_amount;
                     const due = prev.payment_ratio === 'half' ? Math.round(total / 2) : total;
                     if (prev.payment_method === 'cash') return { ...prev, cash_amount: due, gcash_amount: 0 };
                     if (prev.payment_method === 'gcash') return { ...prev, gcash_amount: due, cash_amount: 0 };
@@ -351,24 +375,46 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                 });
             }).catch(() => { });
         }
-    }, [JSON.stringify(data.room_ids), data.check_in, data.booking_type, data.num_nights, data.short_time_hours, data.discount_type, data.discount_amount, data.promo_code, data.payment_ratio, data.payment_method, data.num_guests]);
+    }, [JSON.stringify(data.room_ids), data.check_in, data.booking_type, data.num_nights, data.short_time_hours, data.discount_type, data.discount_amount, data.promo_code, data.payment_ratio, data.payment_method, JSON.stringify(data.extra_pax)]);
+
+    useEffect(() => {
+        if (data.check_in && showBookingModal) {
+            setIsLoadingRooms(true);
+            axios.post(route('reservations.available_rooms'), {
+                check_in: data.check_in,
+                booking_type: data.booking_type,
+                num_nights: data.num_nights,
+                short_time_hours: data.short_time_hours,
+            }).then(res => {
+                setAvailableRooms(res.data.available_rooms);
+                setIsLoadingRooms(false);
+            }).catch(() => { setIsLoadingRooms(false); });
+        }
+    }, [data.check_in, data.booking_type, data.num_nights, data.short_time_hours, showBookingModal]);
 
     const handleCashInput = (e) => {
-        const due = data.payment_ratio === 'half' ? Math.round(calc.total_amount / 2) : calc.total_amount;
+        const total = calc.totals ? calc.totals.total_amount : calc.total_amount;
+        const due = data.payment_ratio === 'half' ? Math.round(total / 2) : total;
         const cash = Math.min(due, Math.max(0, Number(e.target.value) || 0));
         setData(prev => ({ ...prev, cash_amount: cash, gcash_amount: Math.max(0, due - cash) }));
     };
     const handleGCashInput = (e) => {
-        const due = data.payment_ratio === 'half' ? Math.round(calc.total_amount / 2) : calc.total_amount;
+        const total = calc.totals ? calc.totals.total_amount : calc.total_amount;
+        const due = data.payment_ratio === 'half' ? Math.round(total / 2) : total;
         const gcash = Math.min(due, Math.max(0, Number(e.target.value) || 0));
         setData(prev => ({ ...prev, gcash_amount: gcash, cash_amount: Math.max(0, due - gcash) }));
     };
 
     const handleFormSubmit = (e) => {
         e.preventDefault();
-        if (calc.conflict) { alert('Double-booking conflict. Choose another room or date.'); return; }
+        if ((calc.totals || calc).conflict) { setAlertMessage('Double-booking conflict. Choose another room or date.'); return; }
+        setShowConfirmBookingModal(true);
+    };
+
+    const executeFormSubmit = () => {
         post(route('reservations.store'), {
             onSuccess: () => {
+                setShowConfirmBookingModal(false);
                 setShowBookingModal(false);
             }
         });
@@ -393,10 +439,33 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
         : items;
 
     const handleFilterChange = (status) => {
-        router.get(route('reservations.index'), { status }, { preserveState: true, replace: true });
+        router.get(route('reservations.index'), {
+            status,
+            show_groups_only: showGroupsOnly ? '1' : '0'
+        }, { preserveState: true, replace: true });
+    };
+
+    const handleToggleGroupsOnly = () => {
+        const nextVal = !showGroupsOnly;
+        setShowGroupsOnly(nextVal);
+        router.get(route('reservations.index'), {
+            status: currentFilter,
+            show_groups_only: nextVal ? '1' : '0'
+        }, { preserveState: true, replace: true });
     };
     const handlePageChange = (url) => {
         if (url) router.get(url, {}, { preserveState: true, replace: true });
+    };
+
+    const handleGroupCheckIn = (groupRef) => {
+        if (confirm(`Are you sure you want to check in all rooms for Group ${groupRef}?`)) {
+            router.post(route('reservations.group_checkin', groupRef));
+        }
+    };
+
+    const handleGroupCheckOut = (groupRef) => {
+        setSettleGroupRef(groupRef);
+        setIsGroupSettleOpen(true);
     };
 
     const triggerCheckIn = (res) => { setSelectedCheckInRes(res); setShowCheckInModal(true); };
@@ -433,20 +502,20 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
             <div className="flex flex-col gap-6">
 
                 {/* Header */}
-                <div className="flex items-start justify-between gap-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                     <div>
-                        <h1 className="text-3xl font-outfit font-extrabold tracking-tight text-slate-100">Bookings</h1>
-                        <p className="text-sm text-slate-400 font-medium mt-1">Register future reservations and manage guest arrivals.</p>
+                        <h1 className="text-2xl sm:text-3xl font-outfit font-extrabold tracking-tight text-slate-100">Bookings</h1>
+                        <p className="text-xs sm:text-sm text-slate-400 font-medium mt-1">Register future reservations and manage guest arrivals.</p>
                     </div>
                     <button onClick={openBookingModal}
-                        className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-outfit font-bold text-sm transition-all shadow-lg shadow-brand-600/20 active:scale-95 shrink-0">
+                        className="flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-outfit font-bold text-sm transition-all shadow-lg shadow-brand-600/20 active:scale-95 shrink-0 w-full sm:w-auto justify-center">
                         <Plus size={16} /> New Booking
                     </button>
                 </div>
 
                 {/* Tabs + Search */}
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 justify-between">
-                    <div className="flex gap-1 bg-[#1e293b] p-1 rounded-xl border border-[#334155]">
+                    <div className="flex gap-1 bg-[#1e293b] p-1 rounded-xl border border-[#334155] overflow-x-auto mobile-scroll-tabs">
                         {FILTER_TABS.map(tab => (
                             <button key={tab.key} onClick={() => handleFilterChange(tab.key)}
                                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${currentFilter === tab.key ? 'bg-[#0f172a] text-slate-100 shadow' : 'text-slate-400 hover:text-slate-200'
@@ -457,6 +526,17 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                         ))}
                     </div>
                     <div className="flex items-center gap-2 w-full sm:w-auto">
+                        <button
+                            onClick={handleToggleGroupsOnly}
+                            className={`px-3.5 py-2.5 rounded-xl font-outfit font-bold text-xs transition-all border flex items-center gap-1.5 active:scale-95 shrink-0 ${
+                                showGroupsOnly
+                                    ? 'bg-indigo-600 hover:bg-indigo-500 text-white border-indigo-500/30'
+                                    : 'bg-[#1e293b] border-[#334155] text-slate-400 hover:text-slate-200'
+                            }`}
+                        >
+                            <span className={`w-1.5 h-1.5 rounded-full bg-indigo-400 ${showGroupsOnly ? 'opacity-100' : 'opacity-40'}`} />
+                            Group Bookings
+                        </button>
                         <div className="relative w-full sm:w-64">
                             <Search className="absolute left-4 top-3 text-slate-500" size={16} />
                             <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
@@ -472,84 +552,204 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                 {/* Table */}
                 <div className="rounded-2xl bg-[#1e293b] border border-[#334155] overflow-hidden shadow-xl">
                     <div className="overflow-x-auto">
-                        <table className="w-full text-xs table-fixed">
-                            <thead>
-                                <tr className="border-b border-[#334155] bg-[#0f172a]/60">
-                                    <SortableHeader sortKey="id" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Ref / Room</SortableHeader>
-                                    <SortableHeader sortKey="guest_name" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Guest</SortableHeader>
-                                    <SortableHeader sortKey="check_in_time" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Schedule</SortableHeader>
-                                    <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Type</th>
-                                    <SortableHeader sortKey="amount" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Amount</SortableHeader>
-                                    <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-right">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {filtered.length === 0 ? (
-                                    <tr><td colSpan={6} className="px-4 py-12 text-center text-slate-500">
-                                        {searchTerm ? `No results for "${searchTerm}"` : `No ${activeTab.label.toLowerCase()} bookings found.`}
-                                    </td></tr>
-                                ) : filtered.map((b, i) => (
-                                    <motion.tr key={b.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}
-                                        className="border-b border-[#334155]/50 hover:bg-[#0f172a]/40 transition-colors">
-                                        <td className="px-4 py-3">
-                                            <span className="font-mono text-brand-400 font-bold block">{b.booking_ref}</span>
-                                            {b.group_ref && <span className="text-[9px] bg-indigo-500/20 text-indigo-300 px-1.5 py-0.5 rounded font-bold uppercase block mt-1 w-fit">Group: {b.group_ref}</span>}
-                                            <span className="text-slate-300 font-bold text-[11px]">Room {b.room?.room_number}</span>
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <div className="flex items-center gap-1.5">
-                                                <span className="font-semibold text-slate-200">{b.guest_name}</span>
-                                                {b.guest_profile?.is_vip && <span className="text-[8px] bg-amber-950 border border-amber-600/30 text-amber-400 px-1 rounded font-bold">VIP</span>}
-                                            </div>
-                                            <span className="text-slate-500 text-[10px]">{b.guest_contact || '—'}</span>
-                                        </td>
-                                        <td className="px-4 py-3 leading-normal">
-                                            <div className="flex items-center gap-1 text-indigo-400 font-bold text-[10px]">IN: <span className="font-mono text-slate-300">{new Date(b.check_in).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</span></div>
-                                            <div className="flex items-center gap-1 text-slate-500 text-[10px]">OUT: <span className="font-mono text-slate-400">{new Date(b.expected_check_out).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</span></div>
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-black uppercase ${b.booking_type === 'overnight'
-                                                    ? 'bg-brand-500/10 text-brand-400 border border-brand-500/20'
-                                                    : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                                                }`}>
-                                                {b.booking_type === 'overnight' ? <BedDouble size={9} /> : <Clock size={9} />}
-                                                {b.booking_type === 'overnight' ? 'Overnight' : `${b.short_time_hours}h`}
-                                            </span>
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <div className="flex flex-col gap-0.5">
-                                                <span className="font-mono text-emerald-400 font-bold">₱{Number(b.total_amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                                                {Number(b.amount_paid) < Number(b.total_amount) ? (
-                                                    <div className="flex flex-col gap-0.5 mt-0.5">
-                                                        <span className="inline-flex items-center w-fit px-1.5 py-0.5 rounded text-[8px] font-bold uppercase bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                                                            Partially Paid
+                        {currentFilter === 'groups' ? (
+                            <table className="w-full text-xs table-fixed">
+                                <thead>
+                                    <tr className="border-b border-[#334155] bg-[#0f172a]/60">
+                                        <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left w-[150px]">Group Ref</th>
+                                        <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left w-[180px]">Guest</th>
+                                        <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Rooms Included</th>
+                                        <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left w-[180px]">Schedule</th>
+                                        <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left w-[120px]">Type</th>
+                                        <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-right w-[150px]">Combined Billing</th>
+                                        <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-center w-[160px]">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {Object.keys(groupBookings).length === 0 ? (
+                                        <tr>
+                                            <td colSpan={7} className="px-4 py-12 text-center text-slate-500">
+                                                No active group bookings found.
+                                            </td>
+                                        </tr>
+                                    ) : (
+                                        Object.entries(groupBookings).map(([groupRef, bookingsList], idx) => {
+                                            const firstBooking = bookingsList[0] || {};
+                                            const groupTotalAmount = bookingsList.reduce((sum, b) => sum + Number(b.total_amount || 0), 0);
+                                            const groupAmountPaid = bookingsList.reduce((sum, b) => sum + Number(b.amount_paid || 0), 0);
+                                            const hasReserved = bookingsList.some(b => b.status === 'reserved');
+                                            const hasActive = bookingsList.some(b => b.status === 'active');
+
+                                            return (
+                                                <motion.tr
+                                                    key={groupRef}
+                                                    initial={{ opacity: 0, y: 6 }}
+                                                    animate={{ opacity: 1, y: 0 }}
+                                                    transition={{ delay: idx * 0.03 }}
+                                                    className="border-b border-[#334155]/50 hover:bg-[#0f172a]/40 transition-colors"
+                                                >
+                                                    <td className="px-4 py-3">
+                                                        <span className="font-mono text-indigo-400 font-bold block">{groupRef}</span>
+                                                        <span className="text-[10px] text-slate-500">Group Booking</span>
+                                                    </td>
+                                                    <td className="px-4 py-3">
+                                                        <div className="font-semibold text-slate-200">{firstBooking.guest_name || 'Guest'}</div>
+                                                        {firstBooking.guest_contact && <div className="text-slate-500 text-[10px]">{firstBooking.guest_contact}</div>}
+                                                    </td>
+                                                    <td className="px-4 py-3">
+                                                        <div className="flex flex-wrap gap-1.5">
+                                                            {bookingsList.map(b => (
+                                                                <span key={b.id} className="inline-flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-bold bg-[#0f172a] border border-[#334155] text-slate-350">
+                                                                    Room {b.room?.room_number}
+                                                                    <span className={`w-1.5 h-1.5 rounded-full ${
+                                                                        b.status === 'active' ? 'bg-emerald-400' :
+                                                                        b.status === 'reserved' ? 'bg-indigo-400' :
+                                                                        b.status === 'checked_out' ? 'bg-slate-400' : 'bg-red-400'
+                                                                    }`} title={b.status} />
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-4 py-3 text-slate-300 font-mono leading-normal">
+                                                        {firstBooking.check_in ? (
+                                                            <>
+                                                                <div className="text-[10px] text-slate-400 font-sans">IN: <span className="font-mono font-bold text-slate-300">{new Date(firstBooking.check_in).toLocaleString('en-US', { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</span></div>
+                                                                <div className="text-[10px] text-slate-400 font-sans mt-0.5">OUT: <span className="font-mono font-bold text-slate-300">{new Date(firstBooking.expected_check_out).toLocaleString('en-US', { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</span></div>
+                                                            </>
+                                                        ) : '-'}
+                                                    </td>
+                                                    <td className="px-4 py-3">
+                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-black uppercase bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                                                            {bookingsList.length} Rooms Group
                                                         </span>
-                                                        <span className="font-mono text-[9px] text-amber-400 font-semibold">
-                                                            Paid: ₱{Number(b.amount_paid).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                                        </span>
-                                                        <span className="font-mono text-[9px] text-rose-400 font-semibold">
-                                                            Bal: ₱{Number(b.total_amount - b.amount_paid).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                                        </span>
-                                                    </div>
-                                                ) : (
-                                                    <div className="text-slate-500 text-[10px] capitalize">{b.payment_method}</div>
-                                                )}
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-3 text-right">
-                                            <button onClick={() => setActionModalBooking(b)} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#0f172a] hover:bg-slate-800 border border-[#334155] rounded-lg text-[10px] font-bold text-slate-300 transition-colors">
-                                                Manage
-                                            </button>
-                                        </td>
-                                    </motion.tr>
-                                ))}
-                            </tbody>
-                        </table>
+                                                    </td>
+                                                    <td className="px-4 py-3 text-right">
+                                                        <div className="flex flex-col items-end gap-0.5">
+                                                            <span className="font-mono text-emerald-400 font-bold">₱{groupTotalAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                                            {groupAmountPaid < groupTotalAmount ? (
+                                                                <div className="flex flex-col items-end gap-0.5 mt-0.5">
+                                                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[8px] font-bold uppercase bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                                                        Partially Paid
+                                                                    </span>
+                                                                    <span className="font-mono text-[9px] text-rose-400 font-semibold">
+                                                                        Bal: ₱{(groupTotalAmount - groupAmountPaid).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                                    </span>
+                                                                </div>
+                                                            ) : (
+                                                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[8px] font-bold uppercase bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                                                    Paid
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-4 py-3 text-center">
+                                                        <div className="flex justify-center items-center gap-2">
+                                                            {hasReserved && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleGroupCheckIn(groupRef)}
+                                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brand-600 hover:bg-brand-500 border border-brand-500/30 rounded-lg text-[10px] font-bold text-white transition-colors cursor-pointer"
+                                                                >
+                                                                    Check-In
+                                                                </button>
+                                                            )}
+                                                            {hasActive && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleGroupCheckOut(groupRef)}
+                                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-500 border border-rose-500/30 rounded-lg text-[10px] font-bold text-white transition-colors cursor-pointer"
+                                                                >
+                                                                    Check-Out
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                </motion.tr>
+                                            );
+                                        })
+                                    )}
+                                </tbody>
+                            </table>
+                        ) : (
+                            <table className="w-full text-xs table-fixed">
+                                <thead>
+                                    <tr className="border-b border-[#334155] bg-[#0f172a]/60">
+                                        <SortableHeader sortKey="id" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Ref / Room</SortableHeader>
+                                        <SortableHeader sortKey="guest_name" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Guest</SortableHeader>
+                                        <SortableHeader sortKey="check_in_time" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Schedule</SortableHeader>
+                                        <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Type</th>
+                                        <SortableHeader sortKey="amount" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Amount</SortableHeader>
+                                        <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {filtered.length === 0 ? (
+                                        <tr><td colSpan={6} className="px-4 py-12 text-center text-slate-500">
+                                            {searchTerm ? `No results for "${searchTerm}"` : `No ${activeTab.label.toLowerCase()} bookings found.`}
+                                        </td></tr>
+                                    ) : filtered.map((b, i) => (
+                                        <motion.tr key={b.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}
+                                            className="border-b border-[#334155]/50 hover:bg-[#0f172a]/40 transition-colors">
+                                            <td className="px-4 py-3">
+                                                <span className="font-mono text-brand-400 font-bold block">{b.booking_ref}</span>
+                                                {b.group_ref && <span className="text-[9px] bg-indigo-500/20 text-indigo-300 px-1.5 py-0.5 rounded font-bold uppercase block mt-1 w-fit">Group: {b.group_ref}</span>}
+                                                <span className="text-slate-300 font-bold text-[11px]">Room {b.room?.room_number}</span>
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <div className="flex items-center gap-1.5">
+                                                    <span className="font-semibold text-slate-200">{b.guest_name}</span>
+                                                    {b.guest_profile?.is_vip && <span className="text-[8px] bg-amber-950 border border-amber-600/30 text-amber-400 px-1 rounded font-bold">VIP</span>}
+                                                </div>
+                                                <span className="text-slate-500 text-[10px]">{b.guest_contact || '—'}</span>
+                                            </td>
+                                            <td className="px-4 py-3 leading-normal">
+                                                <div className="flex items-center gap-1 text-indigo-400 font-bold text-[10px]">IN: <span className="font-mono text-slate-300">{new Date(b.check_in).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</span></div>
+                                                <div className="flex items-center gap-1 text-slate-500 text-[10px]">OUT: <span className="font-mono text-slate-400">{new Date(b.expected_check_out).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</span></div>
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-black uppercase ${b.booking_type === 'overnight'
+                                                        ? 'bg-brand-500/10 text-brand-400 border border-brand-500/20'
+                                                        : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                                                    }`}>
+                                                    <BedDouble size={9} />
+                                                    {b.booking_type === 'overnight' ? 'Overnight' : `${b.short_time_hours}h`}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <div className="flex flex-col gap-0.5">
+                                                    <span className="font-mono text-emerald-400 font-bold">₱{Number(b.total_amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                                    {Number(b.amount_paid) < Number(b.total_amount) ? (
+                                                        <div className="flex flex-col gap-0.5 mt-0.5">
+                                                            <span className="inline-flex items-center w-fit px-1.5 py-0.5 rounded text-[8px] font-bold uppercase bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                                                Partially Paid
+                                                            </span>
+                                                            <span className="font-mono text-[9px] text-amber-400 font-semibold">
+                                                                Paid: ₱{Number(b.amount_paid).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                            </span>
+                                                            <span className="font-mono text-[9px] text-rose-400 font-semibold">
+                                                                Bal: ₱{Number(b.total_amount - b.amount_paid).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                            </span>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="text-slate-500 text-[10px] capitalize">{b.payment_method}</div>
+                                                    )}
+                                                </div>
+                                            </td>
+                                            <td className="px-4 py-3 text-right">
+                                                <button onClick={() => setActionModalBooking(b)} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#0f172a] hover:bg-slate-800 border border-[#334155] rounded-lg text-[10px] font-bold text-slate-300 transition-colors">
+                                                    Manage
+                                                </button>
+                                            </td>
+                                        </motion.tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        )}
                     </div>
 
                     {/* Pagination */}
-                    {reservations && reservations.last_page > 1 && (
-                        <div className="px-4 py-3 border-t border-[#334155] flex items-center justify-between bg-[#0f172a]/40">
+                    {currentFilter !== 'groups' && reservations && reservations.last_page > 1 && (
+                        <div className="px-4 py-3 border-t border-[#334155] flex flex-col sm:flex-row items-center justify-between gap-2 bg-[#0f172a]/40">
                             <span className="text-[10px] text-slate-500">
                                 Showing {reservations.from}–{reservations.to} of {reservations.total} records
                             </span>
@@ -648,7 +848,7 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                                                     </motion.div>
                                                 )}
                                             </AnimatePresence>
-                                            <div className="grid grid-cols-2 gap-3">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                                 <div className="flex flex-col gap-1">
                                                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Full Name *</label>
                                                     <input type="text" value={data.guest_name} onChange={e => setData('guest_name', e.target.value)} required className={`${inputCls} font-bold`} />
@@ -680,7 +880,7 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                                                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">ID Number</label>
                                                     <input type="text" value={data.guest_id_number} onChange={e => setData('guest_id_number', e.target.value)} className={inputCls} />
                                                 </div>
-                                                <div className="flex flex-col gap-1 col-span-2">
+                                                <div className="flex flex-col gap-1 sm:col-span-2">
                                                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Attach ID / Document</label>
                                                     <input type="file" accept="image/*" onChange={e => setData('id_image', e.target.files[0])} className={`${inputCls} file:mr-4 file:py-1.5 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-brand-500/10 file:text-brand-400 hover:file:bg-brand-500/20 text-slate-300 text-sm p-1`} />
                                                     {data.id_image && (
@@ -696,9 +896,9 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                                         <div className="p-5 rounded-2xl bg-[#1e293b] border border-[#334155] flex flex-col gap-4">
                                             <div className="flex items-center gap-3 mb-1">
                                                 <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-xl"><Calendar size={16} /></div>
-                                                <h3 className="text-sm font-outfit font-bold text-slate-200">Reservation Dates & Room</h3>
+                                                <h3 className="text-sm font-outfit font-bold text-slate-200">Booking Details</h3>
                                             </div>
-                                            <div className="grid grid-cols-2 gap-3">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                                 <div className="flex flex-col gap-1">
                                                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Check-In Date & Time *</label>
                                                     <input type="datetime-local" value={data.check_in} onChange={e => setData('check_in', e.target.value)} required className={`${inputCls} font-mono font-bold`} />
@@ -706,10 +906,20 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                                                 </div>
                                                 <div className="flex flex-col gap-1">
                                                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Rooms (Multiple) *</label>
-                                                    <select multiple value={data.room_ids} onChange={e => setData('room_ids', Array.from(e.target.selectedOptions, o => o.value))} required className={`${inputCls} font-bold h-28`}>
-                                                        {rooms.map(r => <option key={r.id} value={r.id}>Room {r.room_number} ({r.type?.type_name}) — {r.status}</option>)}
-                                                    </select>
-                                                    <p className="text-[9px] text-slate-500">Hold Ctrl/Cmd to select multiple</p>
+                                                    <button 
+                                                        type="button" 
+                                                        onClick={() => setShowRoomSelectModal(true)}
+                                                        className={`w-full text-left flex items-center justify-between px-3 py-2 bg-[#0f172a]/60 border border-[#334155] hover:border-[#475569] rounded-xl transition-all ${inputCls.replace('px-3 py-2.5', '').replace('bg-[#0f172a]', '')} font-bold`}
+                                                    >
+                                                        <span className={data.room_ids.length ? 'text-slate-200' : 'text-slate-500'}>
+                                                            {data.room_ids.length > 0 
+                                                                ? `${data.room_ids.length} Room${data.room_ids.length > 1 ? 's' : ''} Selected` 
+                                                                : 'Select Rooms...'}
+                                                        </span>
+                                                        <div className="w-5 h-5 rounded bg-[#1e293b] flex items-center justify-center border border-[#334155] text-slate-400">
+                                                            <Plus size={12} />
+                                                        </div>
+                                                    </button>
                                                     {errors.room_ids && <span className="text-[10px] text-red-400">{errors.room_ids}</span>}
                                                 </div>
                                                 <div className="flex flex-col gap-1">
@@ -733,20 +943,21 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                                                         </select>
                                                     </div>
                                                 )}
+
                                             </div>
 
                                             {/* Conflict Banner */}
                                             <AnimatePresence>
-                                                {calc.conflict && (
+                                                {(calc.totals || calc).conflict && (
                                                     <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
                                                         className="p-4 rounded-xl bg-rose-950/40 border border-rose-500/50 flex gap-3 text-xs text-rose-300 items-start">
                                                         <AlertCircle className="h-5 w-5 text-rose-400 shrink-0 mt-0.5" />
                                                         <div>
                                                             <span className="font-outfit font-black uppercase tracking-wider block text-rose-400">⚠️ DOUBLE-BOOKING CONFLICT</span>
-                                                            <p className="mt-1 text-rose-200">Room is already reserved by <strong className="text-white">{calc.conflict.guest_name}</strong> during this period.</p>
+                                                            <p className="mt-1 text-rose-200">Room is already reserved by <strong className="text-white">{(calc.totals || calc).conflict.guest_name}</strong> during this period.</p>
                                                             <div className="mt-2 text-[10px] bg-rose-950/80 border border-rose-500/20 p-2.5 rounded-xl font-mono space-y-1">
-                                                                <div>Ref: {calc.conflict.booking_ref} ({calc.conflict.status})</div>
-                                                                <div>IN: {calc.conflict.check_in} | OUT: {calc.conflict.expected_check_out}</div>
+                                                                <div>Ref: {(calc.totals || calc).conflict.booking_ref} ({(calc.totals || calc).conflict.status})</div>
+                                                                <div>IN: {(calc.totals || calc).conflict.check_in} | OUT: {(calc.totals || calc).conflict.expected_check_out}</div>
                                                             </div>
                                                         </div>
                                                     </motion.div>
@@ -754,7 +965,7 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                                             </AnimatePresence>
 
                                             {/* Discount */}
-                                            <div className="grid grid-cols-2 gap-3">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                                 <div className="flex flex-col gap-1">
                                                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Discount</label>
                                                     <select value={data.discount_type} onChange={e => setData('discount_type', e.target.value)} className={`${inputCls} font-semibold`}>
@@ -806,7 +1017,7 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                                                 <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-xl"><Coins size={16} /></div>
                                                 <h3 className="text-sm font-outfit font-bold text-slate-200">Deposit Payment</h3>
                                             </div>
-                                            <div className="grid grid-cols-2 gap-3">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                                 <div className="flex flex-col gap-1">
                                                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Payment Option</label>
                                                     <div className="grid grid-cols-2 gap-1 bg-[#0f172a] p-1 rounded-xl border border-[#334155]">
@@ -844,14 +1055,14 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                                                 )}
                                             </div>
                                             {data.payment_method === 'split' && (
-                                                <div className="p-4 rounded-xl bg-[#0f172a]/60 border border-[#334155] grid grid-cols-2 gap-3">
+                                                <div className="p-4 rounded-xl bg-[#0f172a]/60 border border-[#334155] grid grid-cols-1 sm:grid-cols-2 gap-3">
                                                     <div className="flex flex-col gap-1">
                                                         <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Cash (₱)</label>
-                                                        <input type="number" min="0" max={data.payment_ratio === 'half' ? Math.round(calc.total_amount / 2) : calc.total_amount} step="any" value={data.cash_amount} onChange={handleCashInput} className={`${inputCls} font-mono font-bold`} />
+                                                        <input type="number" min="0" max={data.payment_ratio === 'half' ? Math.round((calc.totals || calc).total_amount / 2) : (calc.totals || calc).total_amount} step="any" value={data.cash_amount} onChange={handleCashInput} className={`${inputCls} font-mono font-bold`} />
                                                     </div>
                                                     <div className="flex flex-col gap-1">
                                                         <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">GCash (₱)</label>
-                                                        <input type="number" min="0" max={data.payment_ratio === 'half' ? Math.round(calc.total_amount / 2) : calc.total_amount} step="any" value={data.gcash_amount} onChange={handleGCashInput} className={`${inputCls} font-mono font-bold`} />
+                                                        <input type="number" min="0" max={data.payment_ratio === 'half' ? Math.round((calc.totals || calc).total_amount / 2) : (calc.totals || calc).total_amount} step="any" value={data.gcash_amount} onChange={handleGCashInput} className={`${inputCls} font-mono font-bold`} />
                                                     </div>
                                                 </div>
                                             )}
@@ -870,49 +1081,111 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                                                 <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-xl"><Coins size={16} /></div>
                                                 <h3 className="font-outfit font-extrabold text-slate-200 text-sm uppercase tracking-wide">Billing</h3>
                                             </div>
-                                            {data.room_id ? (
-                                                <div className="flex flex-col gap-3 text-xs">
-                                                    <div className="flex justify-between">
-                                                        <span className="text-slate-400">Base charges:</span>
-                                                        <span className="font-mono text-slate-200 font-bold">₱{calc.base_amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                                                    </div>
-                                                    {calc.peak_surcharge > 0 && (
+                                            {data.room_ids.length > 0 ? (
+                                                <div className="flex flex-col gap-4 text-xs max-h-40 overflow-y-auto custom-scrollbar pr-2">
+                                                    {data.room_ids.map(roomId => {
+                                                        const room = rooms.find(v => String(v.id) === String(roomId));
+                                                        if (!room) return null;
+                                                        const activeCalc = calc.room_breakdown ? calc.room_breakdown[roomId] : calc.totals || calc;
+                                                        return (
+                                                            <div key={roomId} className="bg-[#0f172a] rounded-xl border border-[#334155] p-3 flex flex-col gap-2">
+                                                                <div className="flex justify-between items-start border-b border-[#334155] pb-2">
+                                                                    <div>
+                                                                        <div className="text-sm font-bold text-slate-200">{room.room_number} <span className="text-[10px] text-slate-400 font-normal uppercase tracking-wider ml-1">{room.type.name}</span></div>
+                                                                        <div className="text-[10px] text-slate-500">Base Limit: {room.type.max_occupancy} pax</div>
+                                                                    </div>
+                                                                    <div className="text-right">
+                                                                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Extra Pax</div>
+                                                                        <div className="flex items-center justify-end gap-1.5">
+                                                                            <button type="button" onClick={() => setData('extra_pax', { ...data.extra_pax, [roomId]: Math.max(0, (data.extra_pax[roomId] || 0) - 1) })} className="w-6 h-6 rounded bg-[#1e293b] border border-[#334155] text-slate-300 flex items-center justify-center hover:bg-brand-500 hover:text-white transition-colors">-</button>
+                                                                            <span className="text-xs font-mono font-bold text-slate-200 w-4 text-center">{data.extra_pax[roomId] || 0}</span>
+                                                                            <button type="button" onClick={() => setData('extra_pax', { ...data.extra_pax, [roomId]: (data.extra_pax[roomId] || 0) + 1 })} className="w-6 h-6 rounded bg-[#1e293b] border border-[#334155] text-slate-300 flex items-center justify-center hover:bg-brand-500 hover:text-white transition-colors">+</button>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                                <div className="flex flex-col gap-1 pt-1">
+                                                                    <div className="flex justify-between">
+                                                                        <span className="text-slate-400 text-[10px]">Base Charge:</span>
+                                                                        <span className="font-mono text-slate-300 font-bold text-[10px]">₱{(activeCalc?.base_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                                                    </div>
+                                                                    {(activeCalc?.peak_surcharge || 0) > 0 && (
+                                                                        <div className="flex justify-between">
+                                                                            <span className="text-amber-400/80 text-[10px]">Peak Surcharge:</span>
+                                                                            <span className="font-mono text-amber-400 font-bold text-[10px]">+ ₱{(activeCalc.peak_surcharge || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                                                        </div>
+                                                                    )}
+                                                                    {(activeCalc?.extra_pax_charges || 0) > 0 && (
+                                                                        <div className="flex justify-between">
+                                                                            <span className="text-amber-400/80 text-[10px]">Extra Pax Charge:</span>
+                                                                            <span className="font-mono text-amber-400 font-bold text-[10px]">+ ₱{(activeCalc.extra_pax_charges || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                                <div className="flex justify-between items-baseline border-t border-[#334155] pt-2 mt-1">
+                                                                    <span className="font-outfit font-extrabold text-slate-400 uppercase text-[9px] tracking-wider">Room Subtotal:</span>
+                                                                    <span className="font-mono text-xs font-black text-emerald-400">₱{(activeCalc?.total_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+
+                                                    <div className="bg-[#1e293b] p-4 rounded-xl border border-brand-500/20 shadow-lg mt-2 flex flex-col gap-2 relative overflow-hidden">
+                                                        <div className="absolute top-0 right-0 w-24 h-24 bg-brand-500/5 rounded-full blur-xl -mr-10 -mt-10" />
+                                                        <div className="flex items-center gap-2 mb-1">
+                                                            <h4 className="font-outfit font-black text-slate-100 text-xs uppercase tracking-wider">Global Totals</h4>
+                                                        </div>
                                                         <div className="flex justify-between">
-                                                            <span className="text-slate-400">Peak surcharge:</span>
-                                                            <span className="font-mono text-amber-400 font-bold">+ ₱{calc.peak_surcharge.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                                            <span className="text-slate-400 text-[11px]">Total Base Charges:</span>
+                                                            <span className="font-mono text-slate-200 font-bold text-[11px]">₱{(calc.totals?.base_amount || calc.base_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                                         </div>
-                                                    )}
-                                                    {calc.discount_amount > 0 && (
-                                                        <div className="flex justify-between">
-                                                            <span className="text-slate-400 capitalize">{data.discount_type} discount:</span>
-                                                            <span className="font-mono text-emerald-400 font-bold">- ₱{calc.discount_amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                                        {(calc.totals?.peak_surcharge || calc.peak_surcharge || 0) > 0 && (
+                                                            <div className="flex justify-between">
+                                                                <span className="text-amber-400/80 text-[11px]">Total Peak Surcharge:</span>
+                                                                <span className="font-mono text-amber-400 font-bold text-[11px]">+ ₱{(calc.totals?.peak_surcharge || calc.peak_surcharge || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                                            </div>
+                                                        )}
+                                                        {(calc.totals?.extra_pax_charges || calc.extra_pax_charges || 0) > 0 && (
+                                                            <div className="flex justify-between">
+                                                                <span className="text-amber-400/80 text-[11px]">Total Extra Pax Charges:</span>
+                                                                <span className="font-mono text-amber-400 font-bold text-[11px]">+ ₱{(calc.totals?.extra_pax_charges || calc.extra_pax_charges || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                                            </div>
+                                                        )}
+                                                        {(calc.totals?.discount_amount || calc.discount_amount || 0) > 0 && (
+                                                            <div className="flex justify-between">
+                                                                <span className="text-emerald-400/80 text-[11px] capitalize">Total Discount ({data.discount_type}):</span>
+                                                                <span className="font-mono text-emerald-400 font-bold text-[11px]">- ₱{(calc.totals?.discount_amount || calc.discount_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                                            </div>
+                                                        )}
+                                                        <div className="h-px bg-[#334155]" />
+                                                        <div className="flex justify-between items-baseline mt-1">
+                                                            <span className="font-outfit font-black text-slate-100 uppercase tracking-widest text-xs">Grand Total:</span>
+                                                            <span className="font-mono text-xl font-black text-emerald-400 drop-shadow-md">₱{(calc.totals?.total_amount || calc.total_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                                         </div>
-                                                    )}
-                                                    <div className="h-px bg-[#334155]" />
-                                                    <div className="flex justify-between items-baseline">
-                                                        <span className="font-outfit font-extrabold text-slate-100 uppercase text-[10px]">Total Stay Price:</span>
-                                                        <span className="font-mono text-xs font-bold text-slate-300">₱{calc.total_amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                                        
+                                                        {data.payment_ratio === 'half' ? (
+                                                            <div className="flex justify-between items-baseline bg-brand-500/10 border border-brand-500/20 p-2.5 rounded-xl mt-1">
+                                                                <span className="font-outfit font-extrabold text-brand-400 uppercase text-[10px]">Due Today (50%):</span>
+                                                                <span className="font-mono text-base font-black text-brand-400">₱{Math.round((calc.totals?.total_amount || calc.total_amount || 0) / 2).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="flex justify-between items-baseline bg-emerald-500/10 border border-emerald-500/20 p-2.5 rounded-xl mt-1">
+                                                                <span className="font-outfit font-extrabold text-emerald-400 uppercase text-[10px]">Due Today (100%):</span>
+                                                                <span className="font-mono text-base font-black text-emerald-400">₱{(calc.totals?.total_amount || calc.total_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                                            </div>
+                                                        )}
                                                     </div>
-                                                    {data.payment_ratio === 'half' ? (
-                                                        <div className="flex justify-between items-baseline bg-brand-500/10 border border-brand-500/20 p-2.5 rounded-xl mt-1">
-                                                            <span className="font-outfit font-extrabold text-brand-400 uppercase text-[10px]">Due Today (50%):</span>
-                                                            <span className="font-mono text-base font-black text-brand-400">₱{Math.round(calc.total_amount / 2).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                                                        </div>
-                                                    ) : (
-                                                        <div className="flex justify-between items-baseline bg-emerald-500/10 border border-emerald-500/20 p-2.5 rounded-xl mt-1">
-                                                            <span className="font-outfit font-extrabold text-emerald-400 uppercase text-[10px]">Due Today (100%):</span>
-                                                            <span className="font-mono text-base font-black text-emerald-400">₱{calc.total_amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                                                        </div>
-                                                    )}
-                                                    <div className="flex flex-col gap-1 bg-[#0f172a]/65 p-3 rounded-xl border border-[#334155]">
-                                                        <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1"><Calendar size={10} /> Expected Out</span>
-                                                        <span className="text-xs text-slate-300 font-bold font-mono">{calc.expected_check_out ? new Date(calc.expected_check_out).toLocaleString() : '-'}</span>
+
+                                                    <div className="flex flex-col gap-1 bg-[#0f172a]/65 p-3 rounded-xl border border-[#334155] mt-1">
+                                                        <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1"><Calendar size={10} /> Expected Check-Out</span>
+                                                        <span className="text-xs text-slate-300 font-bold font-mono">
+                                                            {calc.expected_check_out || calc.totals?.expected_check_out ? new Date(calc.expected_check_out || calc.totals?.expected_check_out).toLocaleString() : '-'}
+                                                        </span>
                                                     </div>
                                                 </div>
                                             ) : (
-                                                <div className="py-8 text-center text-xs text-slate-500">Select room to load summary.</div>
+                                                <div className="py-8 text-center text-xs text-slate-500">Select rooms to load bill summary.</div>
                                             )}
-                                            <button type="submit" disabled={processing || !data.room_ids || data.room_ids.length === 0 || !!calc.conflict}
+                                            <button type="submit" disabled={processing || !data.room_ids || data.room_ids.length === 0 || !!(calc.totals || calc).conflict}
                                                 className="w-full flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl bg-brand-600 hover:bg-brand-500 disabled:bg-[#334155] disabled:text-slate-500 text-white font-outfit font-extrabold text-sm tracking-wide shadow-lg active:scale-95 transition-all">
                                                 <CheckCircle size={16} />
                                                 {processing ? 'Processing...' : calc.conflict ? 'Conflict — Cannot Book' : 'Complete Booking'}
@@ -959,7 +1232,7 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                                         </div>
                                     </div>
                                 )}
-                                <div className="grid grid-cols-2 gap-3 w-full">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full">
                                     <button onClick={() => setShowCheckInModal(false)} className="px-4 py-3 bg-[#0f172a] hover:bg-[#1e293b] border border-[#334155] rounded-xl text-xs font-black text-slate-400 uppercase transition-colors">Cancel</button>
                                     <button onClick={confirmCheckIn} disabled={Number(selectedCheckInRes.amount_paid) < Number(selectedCheckInRes.total_amount)}
                                         className="px-4 py-3 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed rounded-xl text-xs font-black text-white uppercase transition-colors">
@@ -992,7 +1265,7 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                                     <textarea value={cancelReason} onChange={e => setCancelReason(e.target.value)} rows="3" required
                                         placeholder="Type reason here..." className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 p-3 focus:outline-none focus:border-brand-500 text-xs" />
                                 </div>
-                                <div className="grid grid-cols-2 gap-3 w-full">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full">
                                     <button onClick={() => setShowCancelModal(false)} className="px-4 py-3 bg-[#0f172a] hover:bg-[#1e293b] border border-[#334155] rounded-xl text-xs font-black text-slate-400 uppercase transition-colors">Back</button>
                                     <button onClick={confirmCancel} disabled={!cancelReason.trim()} className="px-4 py-3 bg-rose-600 hover:bg-rose-500 disabled:bg-rose-950/40 disabled:text-rose-400/50 rounded-xl text-xs font-black text-white uppercase transition-colors">Cancel Booking</button>
                                 </div>
@@ -1091,7 +1364,7 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                                                     </motion.div>
                                                 )}
                                             </AnimatePresence>
-                                            <div className="grid grid-cols-2 gap-3">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                                 <div className="flex flex-col gap-1">
                                                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Full Name *</label>
                                                     <input type="text" value={editForm.data.guest_name} onChange={e => editForm.setData('guest_name', e.target.value)} required className={`${inputCls} font-bold`} />
@@ -1143,9 +1416,9 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                                         <div className="p-5 rounded-2xl bg-[#1e293b] border border-[#334155] flex flex-col gap-4">
                                             <div className="flex items-center gap-3 mb-1">
                                                 <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-xl"><Calendar size={16} /></div>
-                                                <h3 className="text-sm font-outfit font-bold text-slate-200">Reservation Dates & Room</h3>
+                                                <h3 className="text-sm font-outfit font-bold text-slate-200">Booking Details</h3>
                                             </div>
-                                            <div className="grid grid-cols-2 gap-3">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                                 <div className="flex flex-col gap-1">
                                                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Check-In Date & Time *</label>
                                                     <input type="datetime-local" value={editForm.data.check_in} onChange={e => editForm.setData('check_in', e.target.value)} required className={`${inputCls} font-mono font-bold`} />
@@ -1204,7 +1477,7 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                                             </AnimatePresence>
 
                                             {/* Discount */}
-                                            <div className="grid grid-cols-2 gap-3">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                                 <div className="flex flex-col gap-1">
                                                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Discount</label>
                                                     <select value={editForm.data.discount_type} onChange={e => editForm.setData('discount_type', e.target.value)} className={`${inputCls} font-semibold`}>
@@ -1256,7 +1529,7 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                                                 <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-xl"><Coins size={16} /></div>
                                                 <h3 className="text-sm font-outfit font-bold text-slate-200">Deposit Payment</h3>
                                             </div>
-                                            <div className="grid grid-cols-2 gap-3">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                                 <div className="flex flex-col gap-1">
                                                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Payment Option</label>
                                                     <div className="grid grid-cols-2 gap-1 bg-[#0f172a] p-1 rounded-xl border border-[#334155]">
@@ -1294,7 +1567,7 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                                                 )}
                                             </div>
                                             {editForm.data.payment_method === 'split' && (
-                                                <div className="p-4 rounded-xl bg-[#0f172a]/60 border border-[#334155] grid grid-cols-2 gap-3">
+                                                <div className="p-4 rounded-xl bg-[#0f172a]/60 border border-[#334155] grid grid-cols-1 sm:grid-cols-2 gap-3">
                                                     <div className="flex flex-col gap-1">
                                                         <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Cash (₱)</label>
                                                         <input type="number" min="0" max={editForm.data.payment_ratio === 'half' ? Math.round(editCalc.total_amount / 2) : editCalc.total_amount} step="any" value={editForm.data.cash_amount} onChange={handleEditCashInput} className={`${inputCls} font-mono font-bold`} />
@@ -1413,7 +1686,7 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                                                 <h3 className="text-sm font-outfit font-bold text-slate-200">Reschedule Parameters</h3>
                                             </div>
 
-                                            <div className="grid grid-cols-2 gap-3">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                                 <div className="flex flex-col gap-1">
                                                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">New Check-In Date & Time *</label>
                                                     <input type="datetime-local" value={rescheduleForm.data.check_in} onChange={e => rescheduleForm.setData('check_in', e.target.value)} required className={`${inputCls} font-mono font-bold`} />
@@ -1571,10 +1844,16 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                                 </button>
                                 {actionModalBooking.group_ref && (
                                     <button onClick={() => {
+                                        const groupRef = actionModalBooking.group_ref;
                                         setActionModalBooking(null);
-                                        if (confirm('Are you sure you want to check in all grouped reservations?')) {
-                                            router.post(route('reservations.group_checkin', actionModalBooking.group_ref));
-                                        }
+                                        setConfirmAction({
+                                            title: 'Group Check In',
+                                            message: 'Are you sure you want to check in all grouped reservations?',
+                                            onConfirm: () => {
+                                                router.post(route('reservations.group_checkin', groupRef));
+                                                setConfirmAction(null);
+                                            }
+                                        });
                                     }} className="w-full flex items-center gap-2 px-4 py-3 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-xs font-bold text-white transition-colors">
                                         <UserCheck size={16} /> Group In
                                     </button>
@@ -1599,6 +1878,135 @@ export default function Index({ reservations, currentFilter, rooms = [], promoCo
                     </>
                 )}
             </ActionModal>
+
+            {/* Room Multi-Select Modal */}
+            <ActionModal 
+                isOpen={showRoomSelectModal} 
+                onClose={() => setShowRoomSelectModal(false)}
+                title="Select Rooms"
+            >
+                {/* Filter Tabs */}
+                <div className="flex gap-1 overflow-x-auto custom-scrollbar pb-2 mb-2 border-b border-[#334155]/50">
+                    <button 
+                        onClick={() => setRoomFilter('all')}
+                        className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${roomFilter === 'all' ? 'bg-brand-600 text-white shadow' : 'bg-[#1e293b] text-slate-400 hover:text-slate-200 border border-[#334155]'}`}
+                    >
+                        All Rooms
+                    </button>
+                    <button 
+                        onClick={() => setRoomFilter('vacant')}
+                        className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${roomFilter === 'vacant' ? 'bg-emerald-600 text-white shadow' : 'bg-[#1e293b] text-slate-400 hover:text-slate-200 border border-[#334155]'}`}
+                    >
+                        Vacant Only
+                    </button>
+                    {[...new Set(availableRooms.map(r => r.floor))].filter(Boolean).sort((a,b) => a - b).map(f => (
+                        <button 
+                            key={`floor-${f}`}
+                            onClick={() => setRoomFilter(`floor-${f}`)}
+                            className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${roomFilter === `floor-${f}` ? 'bg-indigo-600 text-white shadow' : 'bg-[#1e293b] text-slate-400 hover:text-slate-200 border border-[#334155]'}`}
+                        >
+                            Floor {f}
+                        </button>
+                    ))}
+                    {[...new Set(availableRooms.map(r => r.type?.type_name))].filter(Boolean).sort().map(type => (
+                        <button 
+                            key={`type-${type}`}
+                            onClick={() => setRoomFilter(`type-${type}`)}
+                            className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${roomFilter === `type-${type}` ? 'bg-amber-600 text-white shadow' : 'bg-[#1e293b] text-slate-400 hover:text-slate-200 border border-[#334155]'}`}
+                        >
+                            {type}
+                        </button>
+                    ))}
+                </div>
+
+                <div className="flex flex-col gap-2 max-h-72 overflow-y-auto pr-1 custom-scrollbar">
+                    {isLoadingRooms && <div className="text-center p-4 text-xs text-brand-400 font-bold">Refreshing availability...</div>}
+                    {!isLoadingRooms && availableRooms.filter(r => {
+                        if (roomFilter === 'all') return true;
+                        if (roomFilter === 'vacant') return r.status === 'vacant';
+                        if (roomFilter.startsWith('floor-')) return r.floor?.toString() === roomFilter.replace('floor-', '');
+                        if (roomFilter.startsWith('type-')) return r.type?.type_name === roomFilter.replace('type-', '');
+                        return true;
+                    }).map(r => (
+                        <label key={r.id} className="flex items-center gap-3 p-3 rounded-xl bg-[#0f172a]/60 border border-[#334155] cursor-pointer hover:bg-[#1e293b]/60 transition-colors">
+                            <input 
+                                type="checkbox" 
+                                className="rounded bg-[#1e293b] border-[#475569] text-brand-500 focus:ring-brand-500"
+                                checked={data.room_ids.some(id => id.toString() === r.id.toString())}
+                                onChange={(e) => {
+                                    const val = r.id.toString();
+                                    if (e.target.checked) {
+                                        setData('room_ids', [...data.room_ids, val]);
+                                    } else {
+                                        setData('room_ids', data.room_ids.filter(id => id.toString() !== val));
+                                    }
+                                }}
+                            />
+                            <div className="flex flex-col">
+                                <span className="font-outfit font-bold text-slate-200 text-sm flex items-center gap-2">
+                                    Room {r.room_number}
+                                    {r.status !== 'vacant' && (
+                                        <span className={`text-[8px] uppercase px-1.5 py-0.5 rounded-full ${
+                                            r.status === 'occupied' ? 'bg-rose-500/20 text-rose-400' :
+                                            r.status === 'cleaning' ? 'bg-amber-500/20 text-amber-400' :
+                                            'bg-slate-500/20 text-slate-400'
+                                        }`}>{r.status}</span>
+                                    )}
+                                </span>
+                                <span className="text-[10px] text-slate-400 font-medium">{r.type?.type_name}</span>
+                            </div>
+                        </label>
+                    ))}
+                    {availableRooms.length === 0 && !isLoadingRooms && (
+                        <div className="text-center p-4 text-xs text-slate-500">No rooms available for the selected dates.</div>
+                    )}
+                </div>
+                <div className="mt-4 pt-3 border-t border-[#334155] flex justify-between items-center">
+                    <span className="text-xs font-bold text-slate-400">{data.room_ids.length} selected</span>
+                    <button 
+                        type="button" 
+                        onClick={() => setShowRoomSelectModal(false)}
+                        className="px-6 py-2 bg-brand-600 hover:bg-brand-500 text-white rounded-xl text-sm font-bold transition-all"
+                    >
+                        Done
+                    </button>
+                </div>
+            </ActionModal>
+
+            {/* MODAL: CONFIRM BOOKING */}
+            <ConfirmModal
+                isOpen={showConfirmBookingModal}
+                onClose={() => setShowConfirmBookingModal(false)}
+                onConfirm={executeFormSubmit}
+                title="Confirm Booking?"
+                message={`Are you sure you want to finalize this booking for ${data.guest_name || 'the guest'}?`}
+                confirmText="Confirm Booking"
+                confirmColor="brand"
+            />
+
+            <AlertModal
+                isOpen={!!alertMessage}
+                onClose={() => setAlertMessage(null)}
+                title="Conflict Detected"
+                message={alertMessage}
+            />
+
+            <ConfirmModal
+                isOpen={!!confirmAction}
+                onClose={() => setConfirmAction(null)}
+                onConfirm={confirmAction?.onConfirm}
+                title={confirmAction?.title}
+                message={confirmAction?.message}
+                confirmText="Proceed"
+            />
+            <GroupSettleModal
+                isOpen={isGroupSettleOpen}
+                groupRef={settleGroupRef}
+                onClose={() => {
+                    setIsGroupSettleOpen(false);
+                    setSettleGroupRef(null);
+                }}
+            />
         </AuthenticatedLayout>
     );
 }

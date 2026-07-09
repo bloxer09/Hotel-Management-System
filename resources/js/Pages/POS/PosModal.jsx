@@ -1,4 +1,5 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, Fragment } from 'react';
+import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
 import { useForm, router } from '@inertiajs/react';
 import { 
     Search, X, Plus, Minus, ShoppingCart, 
@@ -178,26 +179,34 @@ export default function PosModal({ isOpen, onClose, items = [], activeBookings =
         });
     };
 
-    if (!isOpen) return null;
-
     return (
-        <AnimatePresence>
-            {isOpen && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 overflow-hidden">
-                    <motion.div 
-                        initial={{ opacity: 0 }} 
-                        animate={{ opacity: 1 }} 
-                        exit={{ opacity: 0 }} 
-                        className="absolute inset-0 bg-[#070b13]/90" 
-                        onClick={onClose} 
-                    />
-                    
-                    <motion.div 
-                        initial={{ opacity: 0, scale: 0.95, y: 20 }} 
-                        animate={{ opacity: 1, scale: 1, y: 0 }} 
-                        exit={{ opacity: 0, scale: 0.95, y: 20 }} 
-                        className="bg-[#0f172a] border border-[#334155] rounded-3xl shadow-2xl w-full max-w-7xl max-h-[90vh] h-[850px] relative z-10 flex flex-col overflow-hidden"
+        <Transition show={isOpen} as={Fragment}>
+            <Dialog onClose={onClose} className="relative z-[100]">
+                {/* Backdrop transition */}
+                <TransitionChild
+                    as={Fragment}
+                    enter="ease-out duration-300"
+                    enterFrom="opacity-0"
+                    enterTo="opacity-100"
+                    leave="ease-in duration-200"
+                    leaveFrom="opacity-100"
+                    leaveTo="opacity-0"
+                >
+                    <div className="fixed inset-0 bg-[#070b13]/80 backdrop-blur-sm" />
+                </TransitionChild>
+
+                {/* Dialog Panel wrapper */}
+                <div className="fixed inset-0 flex items-center justify-center p-4 sm:p-6 overflow-hidden">
+                    <TransitionChild
+                        as={Fragment}
+                        enter="ease-out duration-300"
+                        enterFrom="opacity-0 scale-95"
+                        enterTo="opacity-100 scale-100"
+                        leave="ease-in duration-200"
+                        leaveFrom="opacity-100 scale-100"
+                        leaveTo="opacity-0 scale-95"
                     >
+                        <DialogPanel className="bg-[#0f172a] border border-[#334155] rounded-3xl shadow-2xl w-full max-w-7xl max-h-[90vh] h-[850px] relative z-10 flex flex-col overflow-hidden">
                         {/* Header */}
                         <div className="h-16 flex items-center justify-between px-6 border-b border-[#334155] bg-[#1e293b] shrink-0">
                             <h2 className="font-outfit font-extrabold text-lg text-slate-100 flex items-center gap-2">
@@ -406,15 +415,16 @@ export default function PosModal({ isOpen, onClose, items = [], activeBookings =
 
                         <AnimatePresence>
                             {toastMessage && (
-                                <motion.div initial={{ opacity: 0, y: 20, x: '-50%' }} animate={{ opacity: 1, y: 0, x: '-50%' }} exit={{ opacity: 0, y: 20, x: '-50%' }} className="absolute bottom-6 left-1/2 z-[1100] px-5 py-3.5 bg-red-950/90 border border-red-500/40 text-red-200 rounded-2xl shadow-2xl backdrop-blur-md text-xs font-bold flex items-center gap-2.5">
+                                <motion.div initial={{ opacity: 0, y: 20, x: '-50%' }} animate={{ opacity: 1, y: 0, x: '-50%' }} exit={{ opacity: 0, y: 20, x: '-50%' }} className="absolute bottom-6 left-1/2 z-[99999] px-5 py-3.5 bg-red-950/90 border border-red-500/40 text-red-200 rounded-2xl shadow-2xl backdrop-blur-md text-xs font-bold flex items-center gap-2.5">
                                     <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0" />
                                     <span>{toastMessage}</span>
                                 </motion.div>
                             )}
                         </AnimatePresence>
-                    </motion.div>
-                </div>
-            )}
-        </AnimatePresence>
+                    </DialogPanel>
+                </TransitionChild>
+            </div>
+        </Dialog>
+    </Transition>
     );
 }

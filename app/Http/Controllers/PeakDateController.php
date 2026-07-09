@@ -74,7 +74,66 @@ class PeakDateController extends Controller
             "Created peak surcharge date: {$peakDate->label} from {$request->date_from} to {$request->date_to}."
         );
 
+        \Illuminate\Support\Facades\Cache::forget('active_peak_dates');
+
         return back()->with('success', "Peak date '{$request->label}' created successfully.");
+    }
+
+    public function update(Request $request, PeakDate $peakDate)
+    {
+        $request->validate([
+            'date_from' => 'required|date',
+            'date_to' => 'required|date|after_or_equal:date_from',
+            'label' => 'required|string|max:100',
+            'surcharge_amount' => 'required|numeric|min:0',
+            'surcharge_type' => 'required|in:fixed,percent',
+        ]);
+
+        $user = $request->user();
+        if ($user->role !== 'admin') {
+            abort(403, 'Unauthorized access.');
+        }
+
+        // Check for active overlapping peak dates, excluding the current one
+        $overlap = PeakDate::where('is_active', true)
+            ->where('id', '!=', $peakDate->id)
+            ->where(function($query) use ($request) {
+                $query->whereBetween('date_from', [$request->date_from, $request->date_to])
+                    ->orWhereBetween('date_to', [$request->date_from, $request->date_to])
+                    ->orWhere(function($q2) use ($request) {
+                        $q2->where('date_from', '<=', $request->date_from)
+                           ->where('date_to', '>=', $request->date_to);
+                    });
+            })
+            ->first();
+
+        if ($overlap) {
+            return back()->withErrors(['date_from' => "The selected date range overlaps with an existing active peak date range: '{$overlap->label}' ({$overlap->date_from} to {$overlap->date_to})."]);
+        }
+
+        $oldVal = $peakDate->toArray();
+
+        $peakDate->update([
+            'date_from' => $request->date_from,
+            'date_to' => $request->date_to,
+            'label' => $request->label,
+            'surcharge_amount' => $request->surcharge_amount,
+            'surcharge_type' => $request->surcharge_type,
+        ]);
+
+        BookingService::auditLog(
+            $user->id,
+            'PEAK_DATE_UPDATE',
+            'peak_dates',
+            $peakDate->id,
+            $oldVal,
+            $peakDate,
+            "Updated peak surcharge date: {$peakDate->label}."
+        );
+
+        \Illuminate\Support\Facades\Cache::forget('active_peak_dates');
+
+        return back()->with('success', "Peak date '{$request->label}' updated successfully.");
     }
 
     public function toggle(PeakDate $peakDate, Request $request)
@@ -98,6 +157,8 @@ class PeakDateController extends Controller
             "Toggled peak date status for '{$peakDate->label}'."
         );
 
+        \Illuminate\Support\Facades\Cache::forget('active_peak_dates');
+
         return back()->with('success', "Peak date '{$peakDate->label}' updated successfully.");
     }
 
@@ -120,6 +181,8 @@ class PeakDateController extends Controller
             null,
             "Deleted peak date '{$label}'."
         );
+
+        \Illuminate\Support\Facades\Cache::forget('active_peak_dates');
 
         return back()->with('success', "Peak date '{$label}' deleted successfully.");
     }

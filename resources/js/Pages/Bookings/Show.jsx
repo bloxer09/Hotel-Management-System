@@ -285,32 +285,32 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
                             </div>
 
                             <div className="overflow-x-auto text-xs">
-                                <table className="w-full text-left border-collapse table-fixed">
+                                <table className="w-full text-xs table-fixed">
                                     <thead>
-                                        <tr className="border-b border-[#334155] text-[10px] font-semibold text-slate-400 uppercase tracking-wider pb-2">
-                                            <th className="pb-2">Order Item</th>
-                                            <th className="pb-2">Quantity</th>
-                                            <th className="pb-2">Unit Cost</th>
-                                            <th className="pb-2">Subtotal</th>
-                                            <th className="pb-2 text-right">Notes</th>
+                                        <tr className="border-b border-[#334155] bg-[#0f172a]/60">
+                                            <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Order Item</th>
+                                            <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Quantity</th>
+                                            <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Unit Cost</th>
+                                            <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Subtotal</th>
+                                            <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-right">Notes</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-[#334155]/40 text-slate-300">
+                                    <tbody>
                                         {inventoryUsages.length > 0 ? (
                                             inventoryUsages.map((usage) => (
-                                                <tr key={usage.id} className="hover:bg-[#0f172a]/10">
-                                                    <td className="py-2.5 font-bold font-outfit text-slate-200">
+                                                <tr key={usage.id} className="border-b border-[#334155]/50 hover:bg-[#0f172a]/40 transition-colors">
+                                                    <td className="px-4 py-3 font-bold font-outfit text-slate-200">
                                                         {usage.item?.item_name || 'Item'}
                                                     </td>
-                                                    <td className="py-2.5 font-mono">{usage.quantity} {usage.item?.unit}</td>
-                                                    <td className="py-2.5 font-mono">₱{usage.unit_price}</td>
-                                                    <td className="py-2.5 font-mono font-bold text-brand-300">₱{usage.total_price.toLocaleString()}</td>
-                                                    <td className="py-2.5 text-right text-slate-400 italic max-w-xs truncate">{usage.notes || 'None'}</td>
+                                                    <td className="px-4 py-3 font-mono">{usage.quantity} {usage.item?.unit}</td>
+                                                    <td className="px-4 py-3 font-mono">₱{usage.unit_price}</td>
+                                                    <td className="px-4 py-3 font-mono font-bold text-brand-300">₱{usage.total_price.toLocaleString()}</td>
+                                                    <td className="px-4 py-3 text-right text-slate-400 italic max-w-xs truncate">{usage.notes || 'None'}</td>
                                                 </tr>
                                             ))
                                         ) : (
                                             <tr>
-                                                <td colSpan="5" className="py-6 text-center text-slate-500">
+                                                <td colSpan="5" className="px-4 py-6 text-center text-slate-500">
                                                     No minibar or pantry service orders logged.
                                                 </td>
                                             </tr>
@@ -506,7 +506,7 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
                         </div>
 
                         <form onSubmit={handleExtendSubmit} className="space-y-4 text-xs">
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div className="flex flex-col gap-1.5">
                                     <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Extend By Hours</label>
                                     <input 
@@ -540,7 +540,7 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
                             {/* Extension payments */}
                             {getExtensionFeeEstimate() > 0 && (
                                 <div className="space-y-4 pt-2 border-t border-[#334155]/40">
-                                    <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <div className="flex flex-col gap-1.5">
                                             <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Payment Method</label>
                                             <select 
@@ -570,7 +570,7 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
 
                                     {extendForm.data.payment_method === 'split' && (
                                         <div className="p-4 bg-[#0f172a]/55 border border-[#334155] rounded-xl flex flex-col gap-3">
-                                            <div className="grid grid-cols-2 gap-3 text-xs">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                                                 <div className="flex flex-col gap-1.5">
                                                     <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Cash Amount (₱)</label>
                                                     <input 
@@ -709,7 +709,7 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
 
                             {calculations.additional_due > 0 && (
                                 <div className="space-y-4 pt-2">
-                                    <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <div className="flex flex-col gap-1.5">
                                             <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Settlement Channel</label>
                                             <select 
@@ -739,7 +739,7 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
 
                                     {checkoutForm.data.payment_method === 'split' && (
                                         <div className="p-4 bg-[#0f172a]/55 border border-[#334155] rounded-xl flex flex-col gap-3">
-                                            <div className="grid grid-cols-2 gap-3 text-xs">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                                                 <div className="flex flex-col gap-1.5">
                                                     <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Cash Amount (₱)</label>
                                                     <input 

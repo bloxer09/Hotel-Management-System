@@ -19,6 +19,7 @@ use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\PromoCodeController;
 use App\Http\Controllers\MaintenanceController;
 use App\Http\Controllers\ExpenseController;
+use App\Http\Controllers\IncomeController;
 use Illuminate\Support\Facades\Route;
 
 
@@ -72,6 +73,25 @@ Route::middleware('auth')->group(function () {
         // Reservations / Future Bookings (Admin, Front Desk, Cashier)
         Route::middleware('role:admin,front_desk,cashier')->group(function () {
             Route::get('/reservations', [ReservationController::class, 'index'])->name('reservations.index');
+
+            // POS (requiring active shift)
+            Route::get('/pos', [\App\Http\Controllers\PosController::class, 'index'])->name('pos.index');
+            Route::post('/pos/checkout', [\App\Http\Controllers\PosController::class, 'checkout'])->name('pos.checkout');
+            Route::get('/pos/export', [\App\Http\Controllers\PosController::class, 'export'])->name('pos.export');
+
+            // Expenses (requiring active shift)
+            Route::get('/expenses', [ExpenseController::class, 'index'])->name('expenses.index');
+            Route::post('/expenses', [ExpenseController::class, 'store'])->name('expenses.store');
+            Route::post('/expenses/{expense}', [ExpenseController::class, 'update'])->name('expenses.update');
+            Route::delete('/expenses/{expense}', [ExpenseController::class, 'destroy'])->name('expenses.destroy');
+            Route::get('/expenses-export', [ExpenseController::class, 'export'])->name('expenses.export');
+
+            // Additional Incomes (requiring active shift)
+            Route::get('/incomes', [IncomeController::class, 'index'])->name('incomes.index');
+            Route::post('/incomes', [IncomeController::class, 'store'])->name('incomes.store');
+            Route::post('/incomes/{income}', [IncomeController::class, 'update'])->name('incomes.update');
+            Route::delete('/incomes/{income}', [IncomeController::class, 'destroy'])->name('incomes.destroy');
+            Route::get('/incomes-export', [IncomeController::class, 'export'])->name('incomes.export');
         });
 
         // Reservation Operations (Admin, Front Desk)
@@ -80,6 +100,7 @@ Route::middleware('auth')->group(function () {
             Route::get('/reservations/create', fn() => redirect()->route('reservations.index'))->name('reservations.create');
             Route::post('/reservations', [ReservationController::class, 'store'])->name('reservations.store');
             Route::post('/reservations/calculate', [ReservationController::class, 'calculate'])->name('reservations.calculate');
+            Route::post('/reservations/available-rooms', [ReservationController::class, 'getAvailableRooms'])->name('reservations.available_rooms');
             Route::post('/reservations/{booking}/checkin', [ReservationController::class, 'checkin'])->name('reservations.checkin');
             Route::post('/reservations/group-checkin/{groupRef}', [ReservationController::class, 'groupCheckin'])->name('reservations.group_checkin');
             Route::post('/reservations/{booking}/cancel', [ReservationController::class, 'cancel'])->name('reservations.cancel');
@@ -92,6 +113,8 @@ Route::middleware('auth')->group(function () {
             Route::get('/bookings/{booking}', [BookingController::class, 'show'])->name('bookings.show');
             Route::post('/bookings/{booking}/checkout', [BookingController::class, 'checkout'])->name('bookings.checkout');
             Route::post('/bookings/group-checkout/{groupRef}', [ReservationController::class, 'groupCheckout'])->name('reservations.group_checkout');
+            Route::post('/bookings/group-checkout/{groupRef}/settle', [ReservationController::class, 'groupCheckoutSettle'])->name('reservations.group_checkout_settle');
+            Route::get('/bookings/group-checkout/{groupRef}/preview', [ReservationController::class, 'groupCheckoutPreview'])->name('reservations.group_checkout_preview');
             Route::post('/bookings/{booking}/extend', [BookingController::class, 'extend'])->name('bookings.extend');
             Route::post('/bookings/{booking}/preview-extend', [BookingController::class, 'previewExtend'])->name('bookings.preview_extend');
             Route::post('/bookings/{booking}/items', [BookingController::class, 'addItems'])->name('bookings.items');
@@ -114,16 +137,13 @@ Route::middleware('auth')->group(function () {
         Route::get('/bookings/{booking}/receipt', [BookingController::class, 'receipt'])->name('bookings.receipt');
     });
 
-    // POS & Sales (Admin, Front Desk, Cashier)
-    Route::middleware('role:admin,front_desk,cashier')->group(function () {
-        Route::get('/pos', [\App\Http\Controllers\PosController::class, 'index'])->name('pos.index');
-        Route::post('/pos/checkout', [\App\Http\Controllers\PosController::class, 'checkout'])->name('pos.checkout');
-    });
+
 
     // Inventory & Stock Controls (Admin, Front Desk)
     Route::middleware('role:admin,front_desk')->group(function () {
         Route::get('/inventory', [InventoryController::class, 'index'])->name('inventory.index');
         Route::post('/inventory', [InventoryController::class, 'store'])->name('inventory.store');
+        Route::get('/inventory/export', [InventoryController::class, 'export'])->name('inventory.export');
         Route::patch('/inventory/{inventoryItem}', [InventoryController::class, 'update'])->name('inventory.update');
         Route::post('/inventory/{inventoryItem}/adjust', [InventoryController::class, 'adjust'])->name('inventory.adjust');
         Route::delete('/inventory/{inventoryItem}', [InventoryController::class, 'destroy'])->name('inventory.destroy');
@@ -134,13 +154,6 @@ Route::middleware('auth')->group(function () {
         Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
         Route::get('/reports/export', [ReportController::class, 'export'])->name('reports.export');
         Route::get('/reports/analytics', [ReportController::class, 'analytics'])->name('reports.analytics');
-        
-        // Expenses
-        Route::get('/expenses', [ExpenseController::class, 'index'])->name('expenses.index');
-        Route::post('/expenses', [ExpenseController::class, 'store'])->name('expenses.store');
-        Route::post('/expenses/{expense}', [ExpenseController::class, 'update'])->name('expenses.update');
-        Route::delete('/expenses/{expense}', [ExpenseController::class, 'destroy'])->name('expenses.destroy');
-        Route::get('/expenses-export', [ExpenseController::class, 'export'])->name('expenses.export');
     });
 
     // Maintenance (all authenticated roles)
@@ -163,6 +176,7 @@ Route::middleware('auth')->group(function () {
         // Peak Dates
         Route::get('/peaks', [PeakDateController::class, 'index'])->name('peaks.index');
         Route::post('/peaks', [PeakDateController::class, 'store'])->name('peaks.store');
+        Route::put('/peaks/{peakDate}', [PeakDateController::class, 'update'])->name('peaks.update');
         Route::post('/peaks/{peakDate}/toggle', [PeakDateController::class, 'toggle'])->name('peaks.toggle');
         Route::delete('/peaks/{peakDate}', [PeakDateController::class, 'destroy'])->name('peaks.destroy');
 
@@ -173,10 +187,6 @@ Route::middleware('auth')->group(function () {
 
         // Audit Trail Logs
         Route::get('/audit', [AuditLogController::class, 'index'])->name('audit.index');
-
-        // General Settings
-        Route::get('/general', [SettingsController::class, 'index'])->name('general');
-        Route::post('/general', [SettingsController::class, 'update'])->name('general.update');
 
         // Promo Codes CRUD
         Route::get('/promo-codes', [PromoCodeController::class, 'index'])->name('promo_codes.index');

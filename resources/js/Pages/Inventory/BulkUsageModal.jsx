@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, Fragment } from 'react';
+import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, useForm, Link, router } from '@inertiajs/react';
 import { 
@@ -252,20 +253,34 @@ export default function BulkUsageModal({ isOpen, onClose, items = [], activeBook
     };
 
     return (
-        <AnimatePresence>
-            {isOpen && (
-                <>
-                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 0.8 }} exit={{ opacity: 0 }}
-                        onClick={onClose} className="fixed inset-0 bg-[#070b13]/90 z-[999]" />
-                    
-                    <motion.div 
-                        initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                        className="fixed inset-0 z-[1000] flex items-center justify-center p-4 lg:p-8 pointer-events-none"
+        <Transition show={isOpen} as={Fragment}>
+            <Dialog onClose={onClose} className="relative z-[999]">
+                {/* Backdrop transition */}
+                <TransitionChild
+                    as={Fragment}
+                    enter="ease-out duration-300"
+                    enterFrom="opacity-0"
+                    enterTo="opacity-100"
+                    leave="ease-in duration-200"
+                    leaveFrom="opacity-100"
+                    leaveTo="opacity-0"
+                >
+                    <div className="fixed inset-0 bg-[#070b13]/80 backdrop-blur-sm" />
+                </TransitionChild>
+
+                {/* Dialog Panel wrapper */}
+                <div className="fixed inset-0 flex items-center justify-center p-4 lg:p-8 overflow-y-auto">
+                    <TransitionChild
+                        as={Fragment}
+                        enter="ease-out duration-300"
+                        enterFrom="opacity-0 scale-95"
+                        enterTo="opacity-100 scale-100"
+                        leave="ease-in duration-200"
+                        leaveFrom="opacity-100 scale-100"
+                        leaveTo="opacity-0 scale-95"
                     >
-                        {!checkoutSuccess ? (
-                            <div className="bg-[#0f172a] border border-[#334155] rounded-3xl shadow-2xl w-full max-w-7xl flex flex-col max-h-[95vh] overflow-hidden pointer-events-auto relative">
+                        <DialogPanel className={`bg-[#0f172a] border border-[#334155] rounded-3xl shadow-2xl w-full flex flex-col overflow-hidden relative z-10 transition-all ${!checkoutSuccess ? 'max-w-7xl max-h-[95vh]' : 'max-w-sm p-6 bg-[#1e293b] rounded-2xl shadow-2xl'}`}>
+                            {!checkoutSuccess ? (
                                 <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 text-slate-100 relative">
                         
                         {/* Clean Header matching other PMS pages */}
@@ -736,16 +751,9 @@ export default function BulkUsageModal({ isOpen, onClose, items = [], activeBook
                 </AnimatePresence>
 
                                 </div>
-                            </div>
-                        ) : (
-                            lastOrderDetails && (
-                                <motion.div
-                                    initial={{ scale: 0.95, opacity: 0, y: 15 }}
-                                    animate={{ scale: 1, opacity: 1, y: 0 }}
-                                    exit={{ scale: 0.95, opacity: 0, y: 15 }}
-                                    transition={{ type: 'spring', damping: 25 }}
-                                    className="bg-[#1e293b] border border-[#334155] rounded-2xl p-6 shadow-2xl max-w-sm w-full relative overflow-hidden pointer-events-auto"
-                                >
+                            ) : (
+                                lastOrderDetails && (
+                                    <div className="relative overflow-hidden w-full flex flex-col gap-2">
                                     <div className="text-center pb-4 mb-4 border-b border-[#334155]/60 flex flex-col items-center">
                                         <div className="h-12 w-12 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-full flex items-center justify-center mb-3">
                                             <CircleCheck size={26} />
@@ -803,27 +811,28 @@ export default function BulkUsageModal({ isOpen, onClose, items = [], activeBook
                                             Close
                                         </button>
                                     </div>
-                                </motion.div>
-                            )
-                        )}
-
-                        {/* Custom Toast Notification Banner */}
-                        <AnimatePresence>
-                            {toastMessage && (
-                                <motion.div
-                                    initial={{ opacity: 0, y: -20, scale: 0.95 }}
-                                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                                    exit={{ opacity: 0, y: -20, scale: 0.95 }}
-                                    className="fixed top-6 left-1/2 -translate-x-1/2 z-[1100] px-5 py-3.5 bg-red-950/90 border border-red-500/40 text-red-200 rounded-2xl shadow-2xl backdrop-blur-md text-xs font-bold font-outfit flex items-center gap-2.5"
-                                >
-                                    <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0" />
-                                    <span>{toastMessage}</span>
-                                </motion.div>
+                                    </div>
+                                )
                             )}
-                        </AnimatePresence>
-                    </motion.div>
-                </>
-            )}
-        </AnimatePresence>
+                        </DialogPanel>
+                    </TransitionChild>
+                </div>
+
+                {/* Custom Toast Notification Banner */}
+                <AnimatePresence>
+                    {toastMessage && (
+                        <motion.div
+                            initial={{ opacity: 0, y: -20, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: -20, scale: 0.95 }}
+                            className="fixed top-6 left-1/2 -translate-x-1/2 z-[99999] px-5 py-3.5 bg-red-950/90 border border-red-500/40 text-red-200 rounded-2xl shadow-2xl backdrop-blur-md text-xs font-bold font-outfit flex items-center gap-2.5"
+                        >
+                            <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0" />
+                            <span>{toastMessage}</span>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+            </Dialog>
+        </Transition>
     );
 }

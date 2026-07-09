@@ -1,29 +1,38 @@
-import React from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { Fragment } from 'react';
+import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
 import { X, ZoomIn } from 'lucide-react';
 
 export default function ImagePreviewModal({ isOpen, imageUrl, onClose, altText = "Image Preview" }) {
-    if (!isOpen || !imageUrl) return null;
+    if (!imageUrl) return null;
 
     return (
-        <AnimatePresence>
-            {isOpen && (
-                <>
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        onClick={onClose}
-                        className="fixed inset-0 bg-[#070b13]/90 z-[9999]"
-                    />
-                    <motion.div
-                        initial={{ opacity: 0, scale: 0.95, y: 16 }}
-                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.95, y: 16 }}
-                        transition={{ type: 'spring', damping: 26, stiffness: 320 }}
-                        className="fixed inset-0 z-[10000] flex flex-col items-center justify-center p-4 md:p-12 pointer-events-none"
+        <Transition show={isOpen} as={Fragment}>
+            <Dialog onClose={onClose} className="relative z-[9999]">
+                {/* Backdrop transition */}
+                <TransitionChild
+                    as={Fragment}
+                    enter="ease-out duration-300"
+                    enterFrom="opacity-0"
+                    enterTo="opacity-100"
+                    leave="ease-in duration-200"
+                    leaveFrom="opacity-100"
+                    leaveTo="opacity-0"
+                >
+                    <div className="fixed inset-0 bg-[#070b13]/90 backdrop-blur-sm" />
+                </TransitionChild>
+
+                {/* Dialog Content wrapper */}
+                <div className="fixed inset-0 flex items-center justify-center p-4 md:p-12">
+                    <TransitionChild
+                        as={Fragment}
+                        enter="ease-out duration-300"
+                        enterFrom="opacity-0 scale-95"
+                        enterTo="opacity-100 scale-100"
+                        leave="ease-in duration-200"
+                        leaveFrom="opacity-100 scale-100"
+                        leaveTo="opacity-0 scale-95"
                     >
-                        <div className="relative max-w-4xl max-h-full flex flex-col pointer-events-auto">
+                        <DialogPanel className="relative max-w-4xl max-h-full flex flex-col pointer-events-auto">
                             <div className="flex justify-end mb-4">
                                 <button
                                     onClick={onClose}
@@ -42,10 +51,10 @@ export default function ImagePreviewModal({ isOpen, imageUrl, onClose, altText =
                             <div className="mt-4 text-center text-slate-400 text-xs font-semibold uppercase tracking-widest flex items-center justify-center gap-2">
                                 <ZoomIn size={14} /> {altText}
                             </div>
-                        </div>
-                    </motion.div>
-                </>
-            )}
-        </AnimatePresence>
+                        </DialogPanel>
+                    </TransitionChild>
+                </div>
+            </Dialog>
+        </Transition>
     );
 }

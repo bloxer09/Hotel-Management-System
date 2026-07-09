@@ -144,10 +144,15 @@ class GuestController extends Controller
                 ]);
                 $synced++;
             } else {
+                $stats = Booking::where('status', 'checked_out')
+                    ->where('guest_contact', $profile->contact_number)
+                    ->selectRaw('COUNT(*) as stays, SUM(amount_paid) as spent, MAX(check_in) as last_visit')
+                    ->first();
+
                 $profile->update([
-                    'total_stays' => $b->stays,
-                    'total_spent' => $b->spent,
-                    'last_visit' => $b->last_visit,
+                    'total_stays' => $stats->stays ?? 0,
+                    'total_spent' => $stats->spent ?? 0,
+                    'last_visit' => $stats->last_visit ?? $profile->last_visit,
                 ]);
             }
         }

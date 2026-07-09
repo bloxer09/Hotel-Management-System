@@ -199,6 +199,8 @@ class RoomController extends Controller
         $roomNumber = $room->room_number;
 
         try {
+            $room->delete();
+
             BookingService::auditLog(
                 $user->id,
                 'ROOM_DELETED',
@@ -208,7 +210,6 @@ class RoomController extends Controller
                 null,
                 'Room deleted'
             );
-            $room->delete();
         } catch (\Exception $e) {
             return back()->with('error', 'Cannot delete this room because it has associated booking history.');
         }

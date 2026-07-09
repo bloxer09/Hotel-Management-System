@@ -52,14 +52,16 @@ class DashboardController extends Controller
             $gcash = round($totals->gcash ?? 0, 2);
             $card = round($totals->card ?? 0, 2);
             $bank = round($totals->bank ?? 0, 2);
-            $total = round($cash + $gcash + $card + $bank, 2);
+            $sales_total = round($cash + $gcash + $card + $bank, 2);
 
             $product = round((float) InventoryUsage::where('created_at', '>=', $startDate)->sum('total_price'), 2);
-            $room = round(max(0.00, $total - $product), 2);
+            $room = round(max(0.00, $sales_total - $product), 2);
+            $income = round((float) \App\Models\Income::where('income_date', '>=', $startDate->format('Y-m-d'))->sum('amount'), 2);
+            $total = round($sales_total + $income, 2);
             $expense = round((float) \App\Models\Expense::where('expense_date', '>=', $startDate->format('Y-m-d'))->sum('amount'), 2);
             $net = round($total - $expense, 2);
 
-            $results[$key] = compact('cash', 'gcash', 'card', 'bank', 'total', 'product', 'room', 'expense', 'net');
+            $results[$key] = compact('cash', 'gcash', 'card', 'bank', 'total', 'product', 'room', 'income', 'expense', 'net');
         }
 
         extract([
@@ -113,6 +115,18 @@ class DashboardController extends Controller
             ->groupBy('date')
             ->pluck('total_price', 'date');
 
+        // Pre-calculate daily expenses for 30 days
+        $expenses30d = \App\Models\Expense::where('expense_date', '>=', $startDate->format('Y-m-d'))
+            ->selectRaw('expense_date, SUM(amount) as total_amount')
+            ->groupBy('expense_date')
+            ->pluck('total_amount', 'expense_date');
+
+        // Pre-calculate daily incomes/cash injections for 30 days
+        $incomes30d = \App\Models\Income::where('income_date', '>=', $startDate->format('Y-m-d'))
+            ->selectRaw('income_date, SUM(amount) as total_amount')
+            ->groupBy('income_date')
+            ->pluck('total_amount', 'income_date');
+
         $dailyOccupancy = [];
         $dailyRevenue = [];
         $totalRevenue30d = 0;
@@ -129,11 +143,15 @@ class DashboardController extends Controller
             $gcash = round((float)$dayTransactions->whereIn('payment_method', ['gcash', 'split'])->sum('gcash_amount'), 2);
             $card = round((float)$dayTransactions->where('payment_method', 'card')->sum('amount'), 2);
             $bank = round((float)$dayTransactions->where('payment_method', 'bank_transfer')->sum('amount'), 2);
-            $total = round($cash + $gcash + $card + $bank, 2);
+            $sales_total = round($cash + $gcash + $card + $bank, 2);
 
             // Separate daily Room related income and Product/Inventory usage income
             $product = round((float) ($inventoryUsages30d[$dayStr] ?? 0), 2);
-            $room = round(max(0.00, $total - $product), 2);
+            $room = round(max(0.00, $sales_total - $product), 2);
+
+            $dayIncomes = round((float) ($incomes30d[$dayStr] ?? 0), 2);
+            $total = round($sales_total + $dayIncomes, 2); // Gross income includes cash injections
+            $dayExpenses = round((float) ($expenses30d[$dayStr] ?? 0), 2);
 
             $totalRevenue30d += $total;
 
@@ -143,9 +161,12 @@ class DashboardController extends Controller
                 'gcash' => $gcash,
                 'card' => $card,
                 'bank_transfer' => $bank,
+                'income' => $dayIncomes,
                 'total' => $total,
                 'room' => $room,
                 'product' => $product,
+                'expenses' => $dayExpenses,
+                'net_income' => round($total - $dayExpenses, 2),
             ];
 
             // Daily Occupancy
@@ -308,6 +329,24 @@ class DashboardController extends Controller
             })
             ->values();
 
+        $upcomingCheckInsList = Booking::with(['room', 'room.type'])
+            ->where('status', 'reserved')
+            ->whereBetween('check_in', [now(), now()->addDay()])
+            ->orderBy('check_in', 'asc')
+            ->get();
+
+        $upcomingCheckOutsList = Booking::with(['room', 'room.type'])
+            ->where('status', 'active')
+            ->whereBetween('expected_check_out', [now(), now()->addDay()])
+            ->orderBy('expected_check_out', 'asc')
+            ->get();
+
+        $recentExpenses = \App\Models\Expense::with('user')
+            ->orderBy('expense_date', 'desc')
+            ->orderBy('id', 'desc')
+            ->limit(5)
+            ->get();
+
         return Inertia::render('Dashboard', [
             'stats' => [
                 'rooms' => [
@@ -372,6 +411,9 @@ class DashboardController extends Controller
             'lowStockItems' => $lowStockItems,
             'activeShift' => $activeShift,
             'liveUpdates' => $liveUpdates,
+            'upcomingCheckins' => $upcomingCheckInsList,
+            'upcomingCheckouts' => $upcomingCheckOutsList,
+            'recentExpenses' => $recentExpenses,
         ]);
     }
 }
