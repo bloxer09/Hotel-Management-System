@@ -12,8 +12,10 @@ import {
     PlusCircle, 
     Wrench,
     AlertTriangle,
-    CheckCircle
+    CheckCircle,
+    ChevronDown
 } from 'lucide-react';
+import CustomSelect from '@/Components/CustomSelect';
 
 export default function Report({ shift, report }) {
     const { app_name } = usePage().props;
@@ -97,7 +99,7 @@ export default function Report({ shift, report }) {
                 <div><strong>Shift:</strong> <span className="uppercase font-bold">{shift.shift_code}</span></div>
                 <div><strong>Cashier:</strong> {shift.user?.name}</div>
                 <div><strong>Prepared By:</strong> {shift.user?.name}</div>
-                {printMode === 'all' && <div><strong>Page:</strong> {pageNum} of 7</div>}
+                {printMode === 'all' && <div><strong>Sheet:</strong> {pageNum}</div>}
             </div>
         </div>
     );
@@ -118,10 +120,21 @@ export default function Report({ shift, report }) {
                         size: landscape A4;
                         margin: 10mm 10mm 10mm 10mm;
                     }
+                    /* Reset application containers for multi-page print layout */
+                    html, body, #app, [data-page], .h-screen, .overflow-hidden, .overflow-y-auto {
+                        height: auto !important;
+                        min-height: 0 !important;
+                        overflow: visible !important;
+                    }
+                    /* Ensure tables can break pages naturally without block overflow clipping */
+                    div.overflow-x-auto, div.overflow-y-auto {
+                        overflow: visible !important;
+                        display: block !important;
+                    }
                     html, body {
                         background: #ffffff !important;
-                        color: #000000 !important;
-                        font-family: 'Courier New', Courier, monospace !important;
+                        color: #1e293b !important;
+                        font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
                         font-size: 9px !important;
                         margin: 0 !important;
                         padding: 0 !important;
@@ -154,54 +167,65 @@ export default function Report({ shift, report }) {
                     tfoot {
                         display: table-footer-group !important;
                     }
+                    /* Soften high-contrast borders for a cleaner, professional look */
+                    .border-black, .border-t, .border-b, .border-l, .border-r {
+                        border-color: #cbd5e1 !important;
+                    }
+                    .border-b-black {
+                        border-bottom-color: #cbd5e1 !important;
+                    }
+                    .border-t-black {
+                        border-top-color: #cbd5e1 !important;
+                    }
                 }
                 
                 /* Digital Log Book Styles */
                 .logbook-table th, .logbook-table td {
-                    border: 1px solid #000000;
-                    padding: 3px 5px;
+                    border: 1px solid #cbd5e1;
+                    padding: 5px 8px;
                     font-size: 10px;
                 }
                 .logbook-table th {
-                    background-color: #e2e8f0 !important;
-                    color: #000000 !important;
+                    background-color: #f1f5f9 !important;
+                    color: #0f172a !important;
                     font-weight: bold;
                     text-align: center;
                 }
                 .print:logbook-table th {
-                    background-color: #d1d5db !important;
+                    background-color: #e2e8f0 !important;
                 }
                 
-                /* Green Highlighter marker effect */
+                /* Zebra and highlighted row styles */
                 .highlight-row {
-                    background-color: rgba(16, 185, 129, 0.12) !important;
+                    background-color: rgba(16, 185, 129, 0.04) !important;
                 }
                 @media print {
                     .highlight-row {
-                        background-color: rgba(16, 185, 129, 0.15) !important;
+                        background-color: rgba(16, 185, 129, 0.06) !important;
                         -webkit-print-color-adjust: exact !important;
                         print-color-adjust: exact !important;
                     }
                     .ledger-handwritten-circle {
-                        border: 2px solid #047857 !important;
+                        border: 1px solid #94a3b8 !important;
+                        background-color: #f8fafc !important;
                         -webkit-print-color-adjust: exact !important;
                         print-color-adjust: exact !important;
                     }
                 }
                 
-                /* Irregular hand-drawn circle style for ledger sub-totals */
+                /* Clean summary badge style for ledger totals */
                 .ledger-handwritten-circle {
-                    border: 2px solid #10b981;
-                    border-radius: 255px 15px 225px 15px/15px 225px 15px 255px;
-                    padding: 6px 12px;
+                    border: 1px solid #cbd5e1;
+                    border-radius: 6px;
+                    padding: 5px 10px;
                     display: inline-block;
                     font-weight: bold;
-                    transform: rotate(-1.5deg);
-                    background-color: rgba(16, 185, 129, 0.05);
+                    background-color: #f8fafc;
+                    color: #0f172a;
                 }
                 
                 .handwrite-line {
-                    border-bottom: 1px dotted #000000;
+                    border-bottom: 1px solid #cbd5e1;
                     height: 18px;
                     margin-top: 3px;
                 }
@@ -240,46 +264,28 @@ export default function Report({ shift, report }) {
                             className="px-3.5 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-slate-50 text-xs font-bold flex items-center gap-1.5 transition-all shadow"
                         >
                             <Printer size={15} />
-                            Print Current Tab
+                            Export PDF / Print Tab
                         </button>
                         <button
                             onClick={handlePrintAll}
                             className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-slate-50 text-xs font-bold flex items-center gap-1.5 transition-all shadow"
                         >
                             <Printer size={15} />
-                            Print Complete Report (7 Sheets)
+                            Export PDF / Print Complete Report
                         </button>
                     </div>
                 </div>
 
-                {/* Dashboard Tabs bar */}
-                <div className="flex overflow-x-auto gap-1 border-b border-slate-750 pb-1 scrollbar-thin scrollbar-thumb-slate-700">
-                    {tabItems.map((tab) => {
-                        const Icon = tab.icon;
-                        const isSelected = activeTab === tab.id;
-                        return (
-                            <button
-                                key={tab.id}
-                                onClick={() => setActiveTab(tab.id)}
-                                className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all ${
-                                    isSelected
-                                        ? 'bg-slate-800 text-slate-50 border border-slate-700 border-b-emerald-500 shadow-md'
-                                        : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/40'
-                                }`}
-                            >
-                                <Icon size={15} className={isSelected ? 'text-emerald-400' : 'text-slate-400'} />
-                                <span>{tab.label}</span>
-                                {tab.count !== null && (
-                                    <span className={`px-1.5 py-0.2 text-[10px] font-mono rounded ${
-                                        isSelected ? 'bg-emerald-950 text-emerald-300' : 'bg-slate-950 text-slate-400'
-                                    }`}>
-                                        {tab.count}
-                                    </span>
-                                )}
-                            </button>
-                        );
-                    })}
-                </div>
+                {/* Report Section CustomSelect Dropdown */}
+                <CustomSelect
+                    value={activeTab}
+                    onChange={setActiveTab}
+                    containerClassName="sm:w-64 mb-4 print:hidden"
+                    options={tabItems.map(opt => ({
+                        key: opt.id,
+                        label: `${opt.label} ${opt.count !== null ? `(${opt.count})` : ''}`
+                    }))}
+                />
 
                 {/* Active Tab Container */}
                 <div className="bg-slate-800/55 rounded-2xl border border-slate-750 p-6 backdrop-blur shadow-md">

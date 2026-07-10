@@ -7,18 +7,20 @@ import {
     Smartphone,
     BedDouble,
     FileText,
-    Calendar,
     Download,
+    Calendar,
+    ArrowRight,
     Printer,
-    Users,
-    X,
     ChevronDown,
     ChevronRight,
     AlertCircle,
     Receipt,
-    Tag
+    Tag,
+    Users,
+    X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import CustomSelect from '@/Components/CustomSelect';
 
 const fmt = (val) => '₱' + Number(val || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -102,40 +104,31 @@ export default function Index({ dateFrom, dateTo, summary, byCashier, byRoomType
 
                 {/* Date Range Filter */}
                 <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 p-4 rounded-2xl bg-[#1e293b] border border-[#334155] shadow-lg print:hidden">
-                    {/* Left: Quick Ranges Segmented Tabs */}
-                    <div className="flex gap-1 bg-[#0f172a] p-1 rounded-xl border border-[#334155] w-full xl:w-fit shrink-0 overflow-x-auto mobile-scroll-tabs">
-                        {[
-                            { key: 'today', label: 'Today' },
-                            { key: 'week', label: 'This Week' },
-                            { key: 'month', label: 'This Month' },
-                        ].map(tab => {
+                    {/* Quick Ranges CustomSelect Dropdown */}
+                    <CustomSelect
+                        value={(() => {
                             const todayStr = new Date().toISOString().split('T')[0];
                             const firstOfWeek = new Date();
                             firstOfWeek.setDate(firstOfWeek.getDate() - firstOfWeek.getDay());
                             const weekStartStr = firstOfWeek.toISOString().split('T')[0];
                             const firstOfMonthStr = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-01`;
 
-                            const isActive = 
-                                (tab.key === 'today' && dateFrom === todayStr && dateTo === todayStr) ||
-                                (tab.key === 'week' && dateFrom === weekStartStr && dateTo === todayStr) ||
-                                (tab.key === 'month' && dateFrom === firstOfMonthStr && dateTo === todayStr);
-
-                            return (
-                                <button
-                                    key={tab.key}
-                                    type="button"
-                                    onClick={() => quickRange(tab.key)}
-                                    className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all uppercase tracking-wider ${
-                                        isActive
-                                            ? 'bg-[#1e293b] text-slate-100 shadow border border-[#334155]/60'
-                                            : 'text-slate-400 hover:text-slate-200'
-                                    }`}
-                                >
-                                    {tab.label}
-                                </button>
-                            );
-                        })}
-                    </div>
+                            if (dateFrom === todayStr && dateTo === todayStr) return 'today';
+                            if (dateFrom === weekStartStr && dateTo === todayStr) return 'week';
+                            if (dateFrom === firstOfMonthStr && dateTo === todayStr) return 'month';
+                            return '';
+                        })()}
+                        onChange={val => {
+                            if (val) quickRange(val);
+                        }}
+                        className="bg-[#0f172a] hover:bg-[#1e293b]/80"
+                        containerClassName="xl:w-48"
+                        options={[
+                            { key: 'today', label: 'TODAY' },
+                            { key: 'week', label: 'THIS WEEK' },
+                            { key: 'month', label: 'THIS MONTH' },
+                        ]}
+                    />
 
                     {/* Right: Custom Date Range Picker */}
                     <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">

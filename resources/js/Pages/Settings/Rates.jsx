@@ -301,7 +301,7 @@ export default function Rates({ roomTypes }) {
                 <AnimatePresence>
                     {isEditOpen && selectedType && (
                         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
-                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-[#070b13]/90 backdrop-blur-sm" onClick={() => setIsEditOpen(false)} />
+                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-[#070b13]/90" onClick={() => setIsEditOpen(false)} />
                             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-[#1e293b] border border-[#334155] rounded-2xl w-full max-w-xl shadow-2xl relative z-10 flex flex-col max-h-[90vh]">
                                 <div className="p-6 border-b border-[#334155] flex items-center justify-between shrink-0 bg-[#1e293b]/60">
                                     <h2 className="font-outfit font-black text-slate-100 text-lg">Configure Pricing: {selectedType.type_name}</h2>

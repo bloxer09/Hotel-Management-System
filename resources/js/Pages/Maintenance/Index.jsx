@@ -3,10 +3,11 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, useForm, router, usePage } from '@inertiajs/react';
 import {
     Wrench, Plus, X, Check, ArrowRight, Play, RefreshCw, AlertOctagon,
-    Clock, CheckCircle, HelpCircle, MessageSquare, Search, Calendar, UserCheck, Paperclip, ChevronRight
+    Clock, CheckCircle, HelpCircle, MessageSquare, Search, Calendar, UserCheck, Paperclip, ChevronRight, ChevronDown
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ActionModal from '@/Components/ActionModal';
+import CustomSelect from '@/Components/CustomSelect';
 import SortableHeader from '@/Components/SortableHeader';
 import Pagination from '@/Components/Pagination';
 
@@ -200,18 +201,13 @@ export default function Maintenance({ tickets, rooms, filters = {}, sortBy, sort
 
                 {/* Tabs + Search */}
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 justify-between">
-                    <div className="flex gap-1 bg-[#1e293b] p-1 rounded-xl border border-[#334155] overflow-x-auto mobile-scroll-tabs">
-                        {FILTER_TABS.map(tab => {
-                            return (
-                                <button key={tab.key} onClick={() => handleFilterChange(tab.key)}
-                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${currentFilter === tab.key ? 'bg-[#0f172a] text-slate-100 shadow' : 'text-slate-400 hover:text-slate-200'
-                                        }`}>
-                                    <span className={`w-1.5 h-1.5 rounded-full ${tab.dot} ${currentFilter === tab.key ? 'opacity-100' : 'opacity-40'}`} />
-                                    {tab.label}
-                                </button>
-                            );
-                        })}
-                    </div>
+                    {/* Ticket CustomSelect Dropdown */}
+                    <CustomSelect
+                        value={currentFilter}
+                        onChange={handleFilterChange}
+                        containerClassName="sm:w-56"
+                        options={FILTER_TABS}
+                    />
                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
                         <div className="flex items-center gap-2 bg-[#1e293b] p-1.5 rounded-xl border border-[#334155]">
                             <input

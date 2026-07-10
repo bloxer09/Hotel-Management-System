@@ -323,9 +323,50 @@ export default function AuthenticatedLayout({ children }) {
 
     // ─── Alert Toast Card Component ───────────────────────────────────────────
     const AlertToastCard = ({ item, onDismiss }) => {
-        const isCheckout = item.type === 'checkout';
-        const isCritical = item.state === 'overdue' || item.state === 'out_of_stock';
-        const Icon = isCheckout ? Timer : ShoppingCart;
+        let titleText = 'Alert';
+        let isCritical = false;
+        let Icon = Bell;
+        let colorClass = 'bg-amber-950/90 border-amber-500/50 text-amber-100 shadow-amber-950/40';
+        let iconColorClass = 'text-amber-400';
+        let iconBgClass = 'bg-amber-500/20';
+        let barColorClass = 'bg-amber-400';
+
+        if (item.type === 'checkout') {
+            isCritical = item.state === 'overdue';
+            titleText = isCritical ? 'Overdue Checkout' : 'Upcoming Checkout';
+            Icon = Timer;
+            if (isCritical) {
+                colorClass = 'bg-red-950/90 border-red-500/50 text-red-100 shadow-red-950/40';
+                iconColorClass = 'text-red-400';
+                iconBgClass = 'bg-red-500/20';
+                barColorClass = 'bg-red-400';
+            }
+        } else if (item.type === 'inventory') {
+            isCritical = item.state === 'out_of_stock';
+            titleText = isCritical ? 'Out of Stock' : 'Low Stock Alert';
+            Icon = ShoppingCart;
+            if (isCritical) {
+                colorClass = 'bg-red-950/90 border-red-500/50 text-red-100 shadow-red-950/40';
+                iconColorClass = 'text-red-400';
+                iconBgClass = 'bg-red-500/20';
+                barColorClass = 'bg-red-400';
+            }
+        } else if (item.type === 'cleaning_finished') {
+            titleText = 'Cleaning Finished';
+            Icon = CheckCircle2;
+            colorClass = 'bg-emerald-950/90 border-emerald-500/50 text-emerald-100 shadow-emerald-950/40';
+            iconColorClass = 'text-emerald-400';
+            iconBgClass = 'bg-emerald-500/20';
+            barColorClass = 'bg-emerald-400';
+        } else if (item.type === 'maintenance') {
+            isCritical = item.priority === 'critical';
+            titleText = isCritical ? 'Critical Maintenance' : 'High Maintenance';
+            Icon = Wrench;
+            colorClass = 'bg-red-950/90 border-red-500/50 text-red-100 shadow-red-950/40';
+            iconColorClass = 'text-red-400';
+            iconBgClass = 'bg-red-500/20';
+            barColorClass = 'bg-red-400';
+        }
 
         return (
             <motion.div
@@ -334,20 +375,14 @@ export default function AuthenticatedLayout({ children }) {
                 animate={{ opacity: 1, x: 0, scale: 1 }}
                 exit={{ opacity: 0, x: 80, scale: 0.9 }}
                 transition={{ type: 'spring', damping: 22, stiffness: 280 }}
-                className={`relative flex items-start gap-3 p-4 rounded-2xl border shadow-2xl backdrop-blur-xl max-w-xs w-full ${isCritical
-                    ? 'bg-red-950/90 border-red-500/50 text-red-100 shadow-red-950/40'
-                    : 'bg-amber-950/90 border-amber-500/50 text-amber-100 shadow-amber-950/40'
-                    }`}
+                className={`relative flex items-start gap-3 p-4 rounded-2xl border shadow-2xl backdrop-blur-xl max-w-xs w-full ${colorClass}`}
             >
-                <div className={`shrink-0 mt-0.5 p-1.5 rounded-lg ${isCritical ? 'bg-red-500/20' : 'bg-amber-500/20'}`}>
-                    <Icon size={16} className={isCritical ? 'text-red-400' : 'text-amber-400'} />
+                <div className={`shrink-0 mt-0.5 p-1.5 rounded-lg ${iconBgClass}`}>
+                    <Icon size={16} className={iconColorClass} />
                 </div>
                 <div className="flex-1 min-w-0">
-                    <div className={`text-[10px] uppercase font-black tracking-wider mb-0.5 ${isCritical ? 'text-red-400' : 'text-amber-400'}`}>
-                        {isCheckout
-                            ? (isCritical ? 'Overdue Checkout' : 'Upcoming Checkout')
-                            : (isCritical ? 'Out of Stock' : 'Low Stock Alert')
-                        }
+                    <div className={`text-[10px] uppercase font-black tracking-wider mb-0.5 ${iconColorClass}`}>
+                        {titleText}
                     </div>
                     <p className="text-xs font-medium leading-relaxed opacity-90">{item.message}</p>
                 </div>
@@ -359,7 +394,7 @@ export default function AuthenticatedLayout({ children }) {
                 </button>
                 {/* Auto-dismiss progress bar */}
                 <motion.div
-                    className={`absolute bottom-0 left-0 h-0.5 rounded-full ${isCritical ? 'bg-red-400' : 'bg-amber-400'}`}
+                    className={`absolute bottom-0 left-0 h-0.5 rounded-full ${barColorClass}`}
                     initial={{ width: '100%' }}
                     animate={{ width: '0%' }}
                     transition={{ duration: 7, ease: 'linear' }}
@@ -371,10 +406,29 @@ export default function AuthenticatedLayout({ children }) {
     // Derived values for the notification dropdown
     const inventoryAlerts = notifications.filter(n => n.type === 'inventory');
     const checkoutAlerts = notifications.filter(n => n.type === 'checkout');
+    const cleaningAlerts = notifications.filter(n => n.type === 'cleaning_finished');
+    const maintenanceAlerts = notifications.filter(n => n.type === 'maintenance');
     const totalAlerts = notifCounts.total || 0;
 
+    // Helper mapping sidebar items to active alert counts
+    const getSidebarBadgeCount = (itemName) => {
+        if (itemName === 'Rooms') {
+            return cleaningAlerts.length;
+        }
+        if (itemName === 'Bookings') {
+            return checkoutAlerts.length;
+        }
+        if (itemName === 'Inventory') {
+            return inventoryAlerts.length;
+        }
+        if (itemName === 'Maintenance Tickets') {
+            return maintenanceAlerts.length;
+        }
+        return 0;
+    };
+
     return (
-        <div className="flex h-screen overflow-hidden bg-[#0f172a] text-slate-100 font-sans antialiased">
+        <div className="flex h-screen overflow-hidden bg-[#0f172a] text-slate-100 font-sans antialiased print:h-auto print:overflow-visible">
 
             {/* Desktop Sidebar */}
             <aside
@@ -449,6 +503,7 @@ export default function AuthenticatedLayout({ children }) {
                         .map(item => {
                             const isShiftRestricted = item.requiresShift && !activeShift && user.role !== 'admin';
                             const linkHref = isShiftRestricted ? route('shifts.index') : item.href;
+                            const badgeCount = getSidebarBadgeCount(item.name);
 
                             return (
                                 <Link
@@ -461,8 +516,16 @@ export default function AuthenticatedLayout({ children }) {
                                 >
                                     <div className="relative shrink-0">
                                         <item.icon size={20} className={`${item.current ? 'text-slate-50' : 'text-slate-400 group-hover:text-brand-400'}`} />
+                                        {badgeCount > 0 && isCollapsed && (
+                                            <span className="absolute -top-1.5 -right-1.5 flex h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-slate-900 animate-pulse" />
+                                        )}
                                     </div>
                                     {!isCollapsed && <span className="text-sm font-outfit">{item.name}</span>}
+                                    {!isCollapsed && badgeCount > 0 && (
+                                        <span className="ml-auto flex h-5 min-w-[20px] px-1.5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white animate-pulse">
+                                            {badgeCount}
+                                        </span>
+                                    )}
 
                                     {/* Tooltip on collapse */}
                                     {isCollapsed && (
@@ -631,6 +694,7 @@ export default function AuthenticatedLayout({ children }) {
                                     .map(item => {
                                         const isShiftRestricted = item.requiresShift && !activeShift && user.role !== 'admin';
                                         const linkHref = isShiftRestricted ? route('shifts.index') : item.href;
+                                        const badgeCount = getSidebarBadgeCount(item.name);
 
                                         return (
                                             <Link
@@ -646,6 +710,11 @@ export default function AuthenticatedLayout({ children }) {
                                                     <item.icon size={20} />
                                                 </div>
                                                 <span className="text-sm font-outfit">{item.name}</span>
+                                                {badgeCount > 0 && (
+                                                    <span className="ml-auto flex h-5 min-w-[20px] px-1.5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+                                                        {badgeCount}
+                                                     </span>
+                                                )}
                                                 {isShiftRestricted && !item.current && (
                                                     <span className="ml-auto text-[9px] bg-amber-950 border border-amber-600/40 text-amber-400 px-1.5 py-0.5 rounded font-bold">
                                                         Locked
@@ -691,7 +760,7 @@ export default function AuthenticatedLayout({ children }) {
             </AnimatePresence>
 
             {/* Main Application Area */}
-            <div className="flex-1 flex flex-col min-w-0 bg-[#0f172a]">
+            <div className="flex-1 flex flex-col min-w-0 bg-[#0f172a] print:h-auto print:overflow-visible">
 
                 {/* Global Mobile Header / Topbar */}
                 <header className="h-16 sm:h-20 bg-[#1e293b] border-b border-[#334155] flex items-center justify-between px-3 sm:px-6 md:px-8 shrink-0 print:hidden">
@@ -830,7 +899,56 @@ export default function AuthenticatedLayout({ children }) {
                                                                     ? 'bg-rose-950/60 border-rose-500/40 text-rose-300'
                                                                     : 'bg-amber-950/60 border-amber-500/40 text-amber-300'
                                                                     }`}>
-                                                                    {item.state === 'overdue' ? 'Overdue' : '5 min'}
+                                                                    {item.state === 'overdue' ? 'Overdue' : 'Upcoming'}
+                                                                </span>
+                                                            </Link>
+                                                        ))}
+                                                    </div>
+                                                )}
+
+                                                {/* Cleaning Finished Alerts Section */}
+                                                {cleaningAlerts.length > 0 && (
+                                                    <div>
+                                                        {cleaningAlerts.map(item => (
+                                                            <Link
+                                                                key={item.alert_key}
+                                                                href={route('rooms.index')}
+                                                                onClick={() => setIsBellOpen(false)}
+                                                                className="flex items-start gap-3 px-4 py-3 hover:bg-[#334155]/40 transition-colors border-b border-[#334155]/30 last:border-b-0"
+                                                            >
+                                                                <div className="shrink-0 mt-0.5 h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                                                                <div className="flex-1 min-w-0">
+                                                                    <div className="text-xs font-bold text-slate-200">Room {item.room_number} Cleaned</div>
+                                                                    <div className="text-[11px] text-slate-400 leading-relaxed mt-0.5">{item.message}</div>
+                                                                </div>
+                                                                <span className="shrink-0 text-[9px] font-black px-1.5 py-0.5 rounded border uppercase bg-emerald-950/60 border-emerald-500/40 text-emerald-300">
+                                                                    Clean
+                                                                </span>
+                                                            </Link>
+                                                        ))}
+                                                    </div>
+                                                )}
+
+                                                {/* Maintenance Alerts Section */}
+                                                {maintenanceAlerts.length > 0 && (
+                                                    <div>
+                                                        {maintenanceAlerts.map(item => (
+                                                            <Link
+                                                                key={item.alert_key}
+                                                                href={route('maintenance.index')}
+                                                                onClick={() => setIsBellOpen(false)}
+                                                                className="flex items-start gap-3 px-4 py-3 hover:bg-[#334155]/40 transition-colors border-b border-[#334155]/30 last:border-b-0"
+                                                            >
+                                                                <div className={`shrink-0 mt-0.5 h-2.5 w-2.5 rounded-full ${item.priority === 'critical' ? 'bg-red-500 animate-pulse' : 'bg-orange-500'}`} />
+                                                                <div className="flex-1 min-w-0">
+                                                                    <div className="text-xs font-bold text-slate-200">Room {item.room_number} Issue</div>
+                                                                    <div className="text-[11px] text-slate-400 leading-relaxed mt-0.5">{item.message}</div>
+                                                                </div>
+                                                                <span className={`shrink-0 text-[9px] font-black px-1.5 py-0.5 rounded border uppercase ${item.priority === 'critical'
+                                                                    ? 'bg-red-950/60 border-red-500/40 text-red-300'
+                                                                    : 'bg-orange-950/60 border-orange-500/40 text-orange-300'
+                                                                    }`}>
+                                                                    {item.priority}
                                                                 </span>
                                                             </Link>
                                                         ))}
@@ -866,7 +984,7 @@ export default function AuthenticatedLayout({ children }) {
                 </header>
 
                 {/* Main Content */}
-                <main className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 lg:p-8 scrollbar-thin relative print:p-0 print:overflow-visible print:bg-white">
+                <main className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 lg:p-8 scrollbar-thin relative print:p-0 print:overflow-visible print:bg-white print:h-auto">
                     {children}
                 </main>
             </div>

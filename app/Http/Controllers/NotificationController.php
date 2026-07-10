@@ -25,11 +25,11 @@ class NotificationController extends Controller
             ], 401);
         }
 
-        $minutesAhead = 5;
+        $minutesAhead = 60;
         $now = Carbon::now();
 
         // ─── 1. Checkout Alerts ────────────────────────────────────────────────
-        // Active bookings whose expected check-out is within the next 5 minutes
+        // Active bookings whose expected check-out is within the next 60 minutes
         // OR is already past (overdue).
         $checkoutRows = Booking::with(['room', 'room.type'])
             ->where('status', 'active')
@@ -132,21 +132,72 @@ class NotificationController extends Controller
             ];
         }
 
-        // ─── 3. Merge & Respond ────────────────────────────────────────────────
-        // Inventory alerts first (matching legacy ordering), then checkout alerts
-        $allItems = array_merge($inventoryItems, $checkoutItems);
+        // ─── 3. Room Finished Cleaning Alerts ──────────────────────────────────
+        // Room status changes from cleaning to vacant in the last 60 minutes
+        $cleaningLogs = \App\Models\AuditLog::where('action', 'ROOM_STATUS_CHANGE')
+            ->where('old_value', 'cleaning')
+            ->where('new_value', 'vacant')
+            ->where('created_at', '>=', $now->copy()->subMinutes(60))
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        $cleaningItems = [];
+        foreach ($cleaningLogs as $log) {
+            $room = \App\Models\Room::find($log->record_id);
+            if (!$room) continue;
+
+            $cleaningItems[] = [
+                'type'        => 'cleaning_finished',
+                'alert_key'   => 'cleaning-' . $room->id . '-' . $log->created_at->timestamp,
+                'room_id'     => (int) $room->id,
+                'room_number' => $room->room_number,
+                'message'     => "Room {$room->room_number} cleaning finished. Ready for check-in.",
+                'created_at'  => $log->created_at->toIso8601String(),
+            ];
+        }
+
+        // ─── 4. Open Maintenance Ticket Alerts ─────────────────────────────────
+        // Open tickets with priority 'high' or 'critical'
+        $maintenanceTickets = \App\Models\MaintenanceTicket::with('room')
+            ->where('status', 'open')
+            ->whereIn('priority', ['high', 'critical'])
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        $maintenanceItems = [];
+        $criticalMaintenanceCount = 0;
+        foreach ($maintenanceTickets as $ticket) {
+            if ($ticket->priority === 'critical') {
+                $criticalMaintenanceCount++;
+            }
+            $maintenanceItems[] = [
+                'type'        => 'maintenance',
+                'alert_key'   => 'maintenance-' . $ticket->id . '-' . $ticket->priority,
+                'ticket_id'   => (int) $ticket->id,
+                'room_number' => $ticket->room->room_number ?? '?',
+                'priority'    => $ticket->priority,
+                'message'     => "Room " . ($ticket->room->room_number ?? '?') . " has an open " . $ticket->priority . " maintenance issue: " . $ticket->title,
+                'created_at'  => $ticket->created_at->toIso8601String(),
+            ];
+        }
+
+        // ─── 5. Merge & Respond ────────────────────────────────────────────────
+        $allItems = array_merge($inventoryItems, $checkoutItems, $cleaningItems, $maintenanceItems);
 
         return response()->json([
             'success'       => true,
             'generated_at'  => $now->format('Y-m-d H:i:s'),
             'minutes_ahead' => $minutesAhead,
             'counts'        => [
-                'total'         => count($allItems),
-                'checkout'      => count($checkoutItems),
-                'upcoming'      => $upcomingCount,
-                'overdue'       => $overdueCount,
-                'inventory'     => count($inventoryItems),
-                'out_of_stock'  => $outOfStockCount,
+                'total'               => count($allItems),
+                'checkout'            => count($checkoutItems),
+                'upcoming'            => $upcomingCount,
+                'overdue'             => $overdueCount,
+                'inventory'           => count($inventoryItems),
+                'out_of_stock'        => $outOfStockCount,
+                'cleaning_finished'   => count($cleaningItems),
+                'maintenance'         => count($maintenanceItems),
+                'critical_maintenance'=> $criticalMaintenanceCount,
             ],
             'items'         => $allItems,
         ]);

@@ -5,7 +5,7 @@ import axios from 'axios';
 import {
     Search, Calendar, Coins, UserCheck, XCircle, Plus, AlertTriangle,
     Crown, Star, TrendingUp, AlertCircle, CheckCircle, CheckCircle2, X, ChevronLeft,
-    ChevronRight, Eye, Clock, BedDouble, Edit, RefreshCw
+    ChevronRight, Eye, Clock, BedDouble, Edit, RefreshCw, ChevronDown
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import AlertModal from '@/Components/AlertModal';
@@ -13,6 +13,7 @@ import ConfirmModal from '@/Components/ConfirmModal';
 import StayDetailsModal from '@/Components/StayDetailsModal';
 import GroupSettleModal from '@/Components/GroupSettleModal';
 import ImagePreviewModal from '@/Components/ImagePreviewModal';
+import CustomSelect from '@/Components/CustomSelect';
 import ActionModal from '@/Components/ActionModal';
 import SortableHeader from '@/Components/SortableHeader';
 import Pagination from '@/Components/Pagination';
@@ -526,16 +527,13 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
 
                 {/* Tabs + Search */}
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 justify-between">
-                    <div className="flex gap-1 bg-[#1e293b] p-1 rounded-xl border border-[#334155] overflow-x-auto mobile-scroll-tabs">
-                        {FILTER_TABS.map(tab => (
-                            <button key={tab.key} onClick={() => handleFilterChange(tab.key)}
-                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${currentFilter === tab.key ? 'bg-[#0f172a] text-slate-100 shadow' : 'text-slate-400 hover:text-slate-200'
-                                    }`}>
-                                <span className={`w-1.5 h-1.5 rounded-full ${tab.dot} ${currentFilter === tab.key ? 'opacity-100' : 'opacity-40'}`} />
-                                {tab.label}
-                            </button>
-                        ))}
-                    </div>
+                    {/* Status CustomSelect Dropdown */}
+                    <CustomSelect
+                        value={currentFilter}
+                        onChange={handleFilterChange}
+                        containerClassName="sm:w-56"
+                        options={FILTER_TABS}
+                    />
                     <div className="flex items-center gap-2 w-full sm:w-auto">
                         <button
                             onClick={handleToggleGroupsOnly}

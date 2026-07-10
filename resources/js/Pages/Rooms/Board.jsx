@@ -24,12 +24,14 @@ import {
     Brush,
     Sparkles,
     ArrowRight,
-    Search
+    Search,
+    ChevronDown
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import RoomAvailabilityModal from './RoomAvailabilityModal';
 import AlertModal from '@/Components/AlertModal';
 import ConfirmModal from '@/Components/ConfirmModal';
+import CustomSelect from '@/Components/CustomSelect';
 
 const STATUS_LABELS = { vacant: 'Vacant', occupied: 'Occupied', cleaning: 'Cleaning', out_of_order: 'Out of Order' };
 const STATUS_COLORS = {
@@ -389,23 +391,32 @@ export default function Board({ rooms, roomTypes, housekeepers = [] }) {
 
                 {/* Tabs + Search & Filters */}
                 <div className="flex flex-col md:flex-row md:items-center gap-4 justify-between">
-                    {/* Status Tabs */}
-                    <div className="flex gap-1 bg-[#1e293b] p-1 rounded-xl border border-[#334155] flex-wrap shrink-0">
-                        {[
-                            { key: 'all',          label: 'All Rooms',    dot: 'bg-brand-400',   count: rooms.length },
-                            { key: 'vacant',       label: 'Vacant',       dot: 'bg-emerald-400', count: countStatus('vacant') },
-                            { key: 'occupied',     label: 'Occupied',     dot: 'bg-rose-450',    count: countStatus('occupied') },
-                            { key: 'cleaning',     label: 'Cleaning',     dot: 'bg-amber-400',   count: countStatus('cleaning') },
-                            { key: 'out_of_order',  label: 'Out of Order', dot: 'bg-slate-400',   count: countStatus('out_of_order') },
-                        ].map(tab => (
-                            <button key={tab.key} onClick={() => setStatusFilter(tab.key)}
-                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                                    statusFilter === tab.key ? 'bg-[#0f172a] text-slate-100 shadow' : 'text-slate-400 hover:text-slate-200'
-                                }`}>
-                                <span className={`w-1.5 h-1.5 rounded-full ${tab.dot} ${statusFilter === tab.key ? 'opacity-100' : 'opacity-40'}`} />
-                                {tab.label}
-                            </button>
-                        ))}
+                    {/* Dropdowns side-by-side */}
+                    <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+                        {/* Status CustomSelect Dropdown */}
+                        <CustomSelect
+                            value={statusFilter}
+                            onChange={setStatusFilter}
+                            containerClassName="sm:w-48"
+                            options={[
+                                { key: 'all',          label: `All Rooms (${rooms.length})` },
+                                { key: 'vacant',       label: `Vacant (${countStatus('vacant')})` },
+                                { key: 'occupied',     label: `Occupied (${countStatus('occupied')})` },
+                                { key: 'cleaning',     label: `Cleaning (${countStatus('cleaning')})` },
+                                { key: 'out_of_order',  label: `Out of Order (${countStatus('out_of_order')})` },
+                            ]}
+                        />
+
+                        {/* Floor CustomSelect Dropdown */}
+                        <CustomSelect
+                            value={floorFilter}
+                            onChange={setFloorFilter}
+                            containerClassName="sm:w-48"
+                            options={[
+                                { key: 'all', label: 'All Floors' },
+                                ...uniqueFloors.map(f => ({ key: f.toString(), label: `Floor ${f}` }))
+                            ]}
+                        />
                     </div>
 
                     {/* Search beside status tabs */}
@@ -424,32 +435,6 @@ export default function Board({ rooms, roomTypes, housekeepers = [] }) {
                             </button>
                         )}
                     </div>
-                </div>
-
-                {/* Visual Floor Selector Tabs */}
-                <div className="flex gap-1 bg-[#1e293b] p-1 rounded-xl border border-[#334155] w-full sm:w-fit shadow-md overflow-x-auto mobile-scroll-tabs">
-                    <button
-                        onClick={() => setFloorFilter('all')}
-                        className={`flex-none flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${floorFilter === 'all' ? 'bg-[#0f172a] text-slate-100 shadow' : 'text-slate-400 hover:text-slate-200'}`}
-                    >
-                        <span className={`w-1.5 h-1.5 rounded-full bg-brand-400 ${floorFilter === 'all' ? 'opacity-100' : 'opacity-40'}`} />
-                        All Floors
-                    </button>
-                    {uniqueFloors.map(f => {
-                        const floorRoomCount = rooms.filter(r => r.floor === f).length;
-                        const colors = ['bg-indigo-400', 'bg-emerald-400', 'bg-sky-400', 'bg-amber-400', 'bg-rose-400', 'bg-purple-400'];
-                        const dotColor = colors[(parseInt(f) || 0) % colors.length];
-                        return (
-                            <button
-                                key={f}
-                                onClick={() => setFloorFilter(f.toString())}
-                                className={`flex-none flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${floorFilter === f.toString() ? 'bg-[#0f172a] text-slate-100 shadow' : 'text-slate-400 hover:text-slate-200'}`}
-                            >
-                                <span className={`w-1.5 h-1.5 rounded-full ${dotColor} ${floorFilter === f.toString() ? 'opacity-100' : 'opacity-40'}`} />
-                                Floor {f}
-                            </button>
-                        );
-                    })}
                 </div>
 
                 {/* Room grid grouped by floor */}

@@ -191,7 +191,7 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
                         leaveFrom="opacity-100"
                         leaveTo="opacity-0"
                     >
-                        <div className="fixed inset-0 bg-[#070b13]/80 backdrop-blur-sm" />
+                        <div className="fixed inset-0 bg-[#070b13]/80" />
                     </TransitionChild>
 
                     {/* Dialog Panel wrapper */}

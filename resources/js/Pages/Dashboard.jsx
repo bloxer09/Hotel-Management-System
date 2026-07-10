@@ -11,7 +11,10 @@ import {
     ClipboardList,
     Users2,
     Lock,
-    TrendingUp
+    TrendingUp,
+    Hourglass,
+    CheckCircle2,
+    ChevronDown
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import {
@@ -28,6 +31,7 @@ import {
     Tooltip,
     Legend
 } from 'recharts';
+import CustomSelect from '@/Components/CustomSelect';
 
 export default function Dashboard({ stats, charts, recentBookings, lowStockItems, activeShift, liveUpdates = [], upcomingCheckins = [], upcomingCheckouts = [], recentExpenses = [] }) {
     const [revenuePeriod, setRevenuePeriod] = useState('today');
@@ -159,28 +163,18 @@ export default function Dashboard({ stats, charts, recentBookings, lowStockItems
                         <p className="text-sm text-slate-400 font-medium mt-1">Monitor real-time room occupancy indices, ongoing session revenue totals, and critical stock levels.</p>
                     </div>
 
-                    {/* Global Period Selector */}
-                    <div className="flex bg-[#1e293b] p-1 rounded-xl border border-[#334155] self-start md:self-auto shrink-0 shadow-lg">
-                        {[
-                            { key: 'today', label: 'Today' },
-                            { key: 'last_7_days', label: '7 Days' },
-                            { key: 'this_month', label: 'This Month' },
-                            { key: 'this_year', label: 'This Year' },
-                        ].map(tab => (
-                            <button
-                                key={tab.key}
-                                type="button"
-                                onClick={() => setRevenuePeriod(tab.key)}
-                                className={`px-4 py-2 rounded-lg text-xs font-bold uppercase transition-all ${
-                                    revenuePeriod === tab.key
-                                        ? 'bg-brand-600 text-slate-50 shadow border border-brand-500/20'
-                                        : 'text-slate-400 hover:text-slate-200'
-                                }`}
-                            >
-                                {tab.label}
-                            </button>
-                        ))}
-                    </div>
+                    {/* Global Period CustomSelect Dropdown */}
+                    <CustomSelect
+                        value={revenuePeriod}
+                        onChange={setRevenuePeriod}
+                        containerClassName="sm:w-48 shadow-lg"
+                        options={[
+                            { key: 'today', label: 'TODAY' },
+                            { key: 'last_7_days', label: '7 DAYS' },
+                            { key: 'this_month', label: 'THIS MONTH' },
+                            { key: 'this_year', label: 'THIS YEAR' },
+                        ]}
+                    />
                 </div>
 
                 {/* KPI Cards Grid */}

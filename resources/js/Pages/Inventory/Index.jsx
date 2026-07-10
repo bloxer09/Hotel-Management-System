@@ -15,10 +15,12 @@ import {
     X,
     Trash2,
     ChevronRight,
-    Download
+    Download,
+    ChevronDown
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ActionModal from '@/Components/ActionModal';
+import CustomSelect from '@/Components/CustomSelect';
 import SortableHeader from '@/Components/SortableHeader';
 import Pagination from '@/Components/Pagination';
 
@@ -195,28 +197,20 @@ export default function Index({ items, activeBookings = [], currentSearch, curre
 
                 {/* Filter and Search Panels */}
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 justify-between">
-                    <div className="flex gap-1 bg-[#1e293b] p-1 rounded-xl border border-[#334155] overflow-x-auto mobile-scroll-tabs w-full sm:w-auto">
-                        {[
-                            { id: '', name: 'All Items', dot: 'bg-brand-400' },
-                            { id: 'minibar', name: 'Minibar', dot: 'bg-rose-400' },
-                            { id: 'toiletries', name: 'Toiletries', dot: 'bg-teal-400' },
-                            { id: 'laundry', name: 'Laundry', dot: 'bg-sky-400' },
-                            { id: 'amenities', name: 'Amenities', dot: 'bg-purple-400' },
-                            { id: 'supplies', name: 'Supplies', dot: 'bg-amber-400' }
-                        ].map(cat => (
-                            <button
-                                key={cat.id}
-                                onClick={() => handleCategoryChange(cat.id)}
-                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all capitalize ${category === cat.id
-                                        ? 'bg-[#0f172a] text-slate-100 shadow'
-                                        : 'text-slate-400 hover:text-slate-200'
-                                    }`}
-                            >
-                                <span className={`w-1.5 h-1.5 rounded-full ${cat.dot} ${category === cat.id ? 'opacity-100' : 'opacity-40'}`} />
-                                {cat.name}
-                            </button>
-                        ))}
-                    </div>
+                    {/* Category CustomSelect Dropdown */}
+                    <CustomSelect
+                        value={category}
+                        onChange={handleCategoryChange}
+                        containerClassName="sm:w-56"
+                        options={[
+                            { id: '', name: 'All Items' },
+                            { id: 'minibar', name: 'Minibar' },
+                            { id: 'toiletries', name: 'Toiletries' },
+                            { id: 'laundry', name: 'Laundry' },
+                            { id: 'amenities', name: 'Amenities' },
+                            { id: 'supplies', name: 'Supplies' }
+                        ]}
+                    />
                     <div className="flex items-center gap-2 w-full sm:w-auto">
                         <form onSubmit={triggerSearch} className="relative w-full sm:w-64">
                             <Search className="absolute left-4 top-3 text-slate-500" size={16} />

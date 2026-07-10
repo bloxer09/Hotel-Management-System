@@ -141,3 +141,20 @@ th {
 .mobile-scroll-tabs::-webkit-scrollbar {
     display: none;
 }
+
+/* ─── Global Print Layout Reset ──────────────────────────────────────────── */
+@media print {
+    /* Prevent screen-based height/overflow constraints from clipping content in print previews */
+    html,
+    body,
+    #app,
+    [data-page],
+    .h-screen,
+    .overflow-hidden,
+    .overflow-y-auto {
+        height: auto !important;
+        min-height: 0 !important;
+        overflow: visible !important;
+    }
+}
+

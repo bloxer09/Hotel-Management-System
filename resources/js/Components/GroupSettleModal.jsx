@@ -160,7 +160,7 @@ export default function GroupSettleModal({ isOpen, groupRef, onClose, onSuccess 
                     leaveFrom="opacity-100"
                     leaveTo="opacity-0"
                 >
-                    <div className="fixed inset-0 bg-[#070b13]/85 backdrop-blur-sm" />
+                    <div className="fixed inset-0 bg-[#070b13]/85" />
                 </TransitionChild>
 
                 <div className="fixed inset-0 overflow-y-auto flex items-center justify-center p-4">

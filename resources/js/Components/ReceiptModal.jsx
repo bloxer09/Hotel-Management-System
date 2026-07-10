@@ -55,7 +55,7 @@ export default function ReceiptModal({ isOpen, booking, onClose }) {
                     leaveFrom="opacity-100"
                     leaveTo="opacity-0"
                 >
-                    <div className="fixed inset-0 bg-[#070b13]/80 backdrop-blur-sm print:hidden" />
+                    <div className="fixed inset-0 bg-[#070b13]/80 print:hidden" />
                 </TransitionChild>
 
                 <div className="fixed inset-0 flex items-center justify-center p-4 print:p-0 overflow-y-auto">

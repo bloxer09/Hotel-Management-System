@@ -18,7 +18,7 @@ export default function ImagePreviewModal({ isOpen, imageUrl, onClose, altText =
                     leaveFrom="opacity-100"
                     leaveTo="opacity-0"
                 >
-                    <div className="fixed inset-0 bg-[#070b13]/90 backdrop-blur-sm" />
+                    <div className="fixed inset-0 bg-[#070b13]/90" />
                 </TransitionChild>
 
                 {/* Dialog Content wrapper */}

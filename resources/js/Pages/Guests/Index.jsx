@@ -3,13 +3,14 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, useForm, Link, usePage, router } from '@inertiajs/react';
 import {
     Search, Star, Calendar, ChevronRight, UserCheck, RefreshCw, Users, Crown, CheckCircle,
-    Phone, Mail, CreditCard, Bed, Clock, AlertCircle, FileText, Printer, X, User
+    Phone, Mail, CreditCard, Bed, Clock, AlertCircle, FileText, Printer, X, User, ChevronDown
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import StayDetailsModal from '@/Components/StayDetailsModal';
 import ImagePreviewModal from '@/Components/ImagePreviewModal';
 import ActionModal from '@/Components/ActionModal';
+import CustomSelect from '@/Components/CustomSelect';
 import SortableHeader from '@/Components/SortableHeader';
 import Pagination from '@/Components/Pagination';
 
@@ -137,22 +138,21 @@ export default function Index({ guests, currentSearch, currentVip, stats, sortBy
 
                 {/* Tabs + Search */}
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 justify-between">
-                    <div className="flex gap-1 bg-[#1e293b] p-1 rounded-xl border border-[#334155] overflow-x-auto mobile-scroll-tabs">
-                        {FILTER_TABS.map(tab => {
-                            const count = tab.key === 'all'
+                    {/* Guests CustomSelect Dropdown */}
+                    <CustomSelect
+                        value={activeFilter}
+                        onChange={setActiveFilter}
+                        containerClassName="sm:w-56"
+                        options={FILTER_TABS.map(opt => {
+                            const count = opt.key === 'all'
                                 ? stats?.totalCount
-                                : tab.key === '1' ? stats?.vipCount : stats?.regularCount;
-
-                            return (
-                                <button key={tab.key} onClick={() => setActiveFilter(tab.key)}
-                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${activeFilter === tab.key ? 'bg-[#0f172a] text-slate-100 shadow' : 'text-slate-400 hover:text-slate-200'
-                                        }`}>
-                                    <span className={`w-1.5 h-1.5 rounded-full ${tab.dot} ${activeFilter === tab.key ? 'opacity-100' : 'opacity-40'}`} />
-                                    {tab.label}
-                                </button>
-                            );
+                                : opt.key === '1' ? stats?.vipCount : stats?.regularCount;
+                            return {
+                                key: opt.key,
+                                label: `${opt.label} (${count || 0})`
+                            };
                         })}
-                    </div>
+                    />
                     <div className="flex items-center gap-2 w-full sm:w-auto">
                         <div className="relative w-full sm:w-64">
                             <Search className="absolute left-4 top-3 text-slate-500" size={16} />

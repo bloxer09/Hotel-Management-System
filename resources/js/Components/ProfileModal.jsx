@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import Modal from '@/Components/Modal';
 import UpdateProfileInformationForm from '@/Pages/Profile/Partials/UpdateProfileInformationForm';
 import UpdatePasswordForm from '@/Pages/Profile/Partials/UpdatePasswordForm';
-import { User, KeyRound, X } from 'lucide-react';
+import CustomSelect from '@/Components/CustomSelect';
+import { User, KeyRound, X, Shield, ShieldCheck, Key, Lock, Eye, EyeOff, Save, CheckCircle2, AlertCircle, Camera, ChevronDown } from 'lucide-react';
 
 export default function ProfileModal({ show, onClose }) {
     const [activeTab, setActiveTab] = useState('profile');
@@ -51,46 +52,18 @@ export default function ProfileModal({ show, onClose }) {
                         </button>
                     </div>
 
-                    {/* Navigation list - Scrollable on mobile, stacked on desktop */}
-                    <nav className="flex flex-row md:flex-col gap-2 p-4 overflow-x-auto md:overflow-x-visible scrollbar-none shrink-0">
-                        {tabs.map((tab) => {
-                            const IconComponent = tab.icon;
-                            const isActive = activeTab === tab.id;
-
-                            return (
-                                <button
-                                    key={tab.id}
-                                    onClick={() => setActiveTab(tab.id)}
-                                    className={`flex items-center md:items-start gap-2.5 md:gap-3.5 px-3 md:px-4 py-2 md:py-3.5 rounded-xl text-left transition-all duration-200 group relative shrink-0 md:shrink md:w-full ${
-                                        isActive 
-                                            ? 'bg-brand-600/10 text-brand-400 border border-brand-500/20 shadow-lg shadow-brand-600/5' 
-                                            : 'text-slate-400 hover:bg-[#334155]/40 hover:text-slate-200 border border-transparent'
-                                    }`}
-                                >
-                                    <div className={`p-1.5 md:p-2 rounded-lg shrink-0 transition-colors ${
-                                        isActive ? tab.color : 'bg-[#0f172a] text-slate-400 group-hover:text-slate-200'
-                                    }`}>
-                                        <IconComponent size={14} className="md:w-4 md:h-4" />
-                                    </div>
-                                    <div className="min-w-0">
-                                        <div className={`text-xs font-outfit font-bold whitespace-nowrap ${
-                                            isActive ? 'text-slate-100' : 'text-slate-300 group-hover:text-slate-100'
-                                        }`}>
-                                            {tab.name}
-                                        </div>
-                                        <div className="hidden md:block text-[10px] text-slate-400 font-medium truncate mt-0.5 group-hover:text-slate-300">
-                                            {tab.description}
-                                        </div>
-                                    </div>
-                                    
-                                    {/* Selected Indicator Pill */}
-                                    {isActive && (
-                                        <span className="absolute left-0 top-3 bottom-3 w-1 bg-brand-500 rounded-r-md hidden md:block" />
-                                    )}
-                                </button>
-                            );
-                        })}
-                    </nav>
+                    {/* Navigation CustomSelect Dropdown */}
+                    <div className="p-4 shrink-0">
+                        <CustomSelect
+                            value={activeTab}
+                            onChange={setActiveTab}
+                            className="bg-[#0f172a] hover:bg-[#0f172a]/80"
+                            options={tabs.map(opt => ({
+                                key: opt.id,
+                                label: `${opt.name} - ${opt.description}`
+                            }))}
+                        />
+                    </div>
                 </div>
 
                 {/* Right Content / Active Form Panel */}
