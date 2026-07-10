@@ -13,8 +13,10 @@ return new class extends Migration
     public function up(): void
     {
         // 1. Update Enums for bookings and transactions
-        DB::statement("ALTER TABLE bookings MODIFY COLUMN payment_method ENUM('cash', 'gcash', 'card', 'bank_transfer', 'split') NOT NULL DEFAULT 'cash'");
-        DB::statement("ALTER TABLE transactions MODIFY COLUMN payment_method ENUM('cash', 'gcash', 'card', 'bank_transfer', 'split', 'na') NOT NULL DEFAULT 'cash'");
+        if (DB::connection()->getDriverName() === 'mysql') {
+            DB::statement("ALTER TABLE bookings MODIFY COLUMN payment_method ENUM('cash', 'gcash', 'card', 'bank_transfer', 'split') NOT NULL DEFAULT 'cash'");
+            DB::statement("ALTER TABLE transactions MODIFY COLUMN payment_method ENUM('cash', 'gcash', 'card', 'bank_transfer', 'split', 'na') NOT NULL DEFAULT 'cash'");
+        }
     }
 
     /**
@@ -23,7 +25,9 @@ return new class extends Migration
     public function down(): void
     {
         // Reverse Enums
-        DB::statement("ALTER TABLE bookings MODIFY COLUMN payment_method ENUM('cash', 'gcash', 'split') NOT NULL DEFAULT 'cash'");
-        DB::statement("ALTER TABLE transactions MODIFY COLUMN payment_method ENUM('cash', 'gcash', 'split', 'na') NOT NULL DEFAULT 'cash'");
+        if (DB::connection()->getDriverName() === 'mysql') {
+            DB::statement("ALTER TABLE bookings MODIFY COLUMN payment_method ENUM('cash', 'gcash', 'split') NOT NULL DEFAULT 'cash'");
+            DB::statement("ALTER TABLE transactions MODIFY COLUMN payment_method ENUM('cash', 'gcash', 'split', 'na') NOT NULL DEFAULT 'cash'");
+        }
     }
 };

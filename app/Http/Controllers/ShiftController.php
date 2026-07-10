@@ -184,11 +184,11 @@ class ShiftController extends Controller
         // 1. Transaction lists and summary
         $sales = $this->getShiftSalesSummary($shiftUserId, $start, $end);
 
-        $expenses = \App\Models\Expense::where('recorded_by', $shiftUserId)
+        $expenses = \App\Models\Expense::with('user')->where('recorded_by', $shiftUserId)
             ->whereBetween('created_at', [$start, $end])
             ->get();
 
-        $incomes = \App\Models\Income::where('recorded_by', $shiftUserId)
+        $incomes = \App\Models\Income::with('user')->where('recorded_by', $shiftUserId)
             ->whereBetween('created_at', [$start, $end])
             ->get();
 
@@ -267,12 +267,91 @@ class ShiftController extends Controller
             ->get();
 
         // 6. Raw list of transactions
-        $transactions = Transaction::with(['booking', 'booking.room'])
+        $transactions = Transaction::with(['booking', 'booking.room', 'inventoryUsages.item'])
             ->where('processed_by', $shiftUserId)
             ->whereIn('transaction_type', ['check_in', 'check_out', 'extension', 'adjustment', 'pos_sale'])
             ->whereBetween('created_at', [$start, $end])
             ->orderBy('created_at', 'desc')
             ->get();
+
+        // 6b. Detailed room bookings stays list for Log Book
+        $bookingIds = Transaction::where('processed_by', $shiftUserId)
+            ->whereIn('transaction_type', ['check_in', 'check_out', 'extension', 'adjustment'])
+            ->whereBetween('created_at', [$start, $end])
+            ->pluck('booking_id')
+            ->filter()
+            ->unique();
+
+        $bookings = \App\Models\Booking::with(['room', 'room.type', 'transactions'])
+            ->where(function($query) use ($bookingIds, $shiftUserId, $start, $end) {
+                $query->whereIn('id', $bookingIds)
+                      ->orWhere(fn($q) => $q->where('checked_in_by', $shiftUserId)->whereBetween('check_in', [$start, $end]))
+                      ->orWhere(fn($q) => $q->where('checked_out_by', $shiftUserId)->whereBetween('check_out', [$start, $end]));
+            })
+            ->orderBy('check_in', 'asc')
+            ->get();
+
+        // 6c. Detailed inventory usages list
+        $inventoryUsageDetails = \App\Models\InventoryUsage::with(['item', 'booking.room', 'recorder'])
+            ->where('recorded_by', $shiftUserId)
+            ->whereBetween('created_at', [$start, $end])
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        // 7. Maintenance tickets reported or resolved during shift
+        $maintenanceTickets = \App\Models\MaintenanceTicket::with(['room', 'reportedBy', 'resolvedBy'])
+            ->where(function($query) use ($shiftUserId, $start, $end) {
+                $query->where(fn($q) => $q->where('reported_by', $shiftUserId)->whereBetween('created_at', [$start, $end]))
+                      ->orWhere(fn($q) => $q->where('resolved_by', $shiftUserId)->whereBetween('resolved_at', [$start, $end]));
+            })
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        // 8. Server-side recalculations for print layout report integrity
+        $roomsOccupied = \App\Models\Room::where('status', 'occupied')->count();
+        $roomsCheckedIn = \App\Models\Booking::where('checked_in_by', $shiftUserId)
+            ->whereBetween('check_in', [$start, $end])
+            ->count();
+        $roomsCheckedOut = \App\Models\Booking::where('checked_out_by', $shiftUserId)
+            ->whereBetween('check_out', [$start, $end])
+            ->count();
+        $reservationsCount = \App\Models\Booking::where('checked_in_by', $shiftUserId)
+            ->whereBetween('check_in', [$start, $end])
+            ->where('booking_ref', 'like', 'RES-%')
+            ->count();
+        $walkinsCount = \App\Models\Booking::where('checked_in_by', $shiftUserId)
+            ->whereBetween('check_in', [$start, $end])
+            ->where('booking_ref', 'like', 'BKG-%')
+            ->count();
+        $totalGuests = \App\Models\Booking::where('status', 'active')->sum('num_guests');
+        $activeStays = \App\Models\Booking::where('status', 'active')->count();
+        $vacantRooms = \App\Models\Room::where('status', 'vacant')->count();
+        $maintenanceRooms = \App\Models\Room::where('status', 'out_of_order')->count();
+        
+        $minibarSales = (float)$inventorySummary->total_value;
+
+        // Recalculating totals
+        $checkoutMinibarCharges = (float)\App\Models\InventoryUsage::join('transactions', 'inventory_usage.transaction_id', '=', 'transactions.id')
+            ->where('transactions.processed_by', $shiftUserId)
+            ->whereBetween('transactions.created_at', [$start, $end])
+            ->sum('inventory_usage.total_price');
+
+        $stayTransactionsTotal = (float)$transactions->whereIn('transaction_type', ['check_in', 'check_out', 'extension', 'adjustment'])->sum('amount');
+        $roomRevenue = $stayTransactionsTotal - $checkoutMinibarCharges;
+        $minibarRevenue = $sales['possale_sales'] + $checkoutMinibarCharges;
+        $posRevenue = (float)$sales['possale_sales'];
+
+        $maintenanceCost = (float)$expenses->filter(function($e) {
+            return stripos($e->notes, 'maintenance') !== false || stripos($e->notes, 'repair') !== false;
+        })->sum('amount');
+
+        $refunds = (float)abs($transactions->where('amount', '<', 0)->sum('amount'));
+
+        $cashIn = (float)$transactions->where('cash_amount', '>', 0)->sum('cash_amount') + $incomesSum;
+        $cashOut = (float)abs($transactions->where('cash_amount', '<', 0)->sum('cash_amount')) + $expensesSum;
+        $netCash = $cashIn - $cashOut;
+
+        $grandCashCollection = $expectedDrawerCash + $expectedDrawerCashMinibar;
 
         return Inertia::render('Shifts/Report', [
             'shift' => $shift,
@@ -300,6 +379,30 @@ class ShiftController extends Controller
                 'discounts_sum' => $totalDiscountsSum,
                 'waived_late_fees' => $waivedLateCheckoutsData,
                 'waived_late_fees_sum' => $totalWaivedLateFeesSum,
+                'maintenance_tickets' => $maintenanceTickets,
+                'bookings' => $bookings,
+                'inventory_usage_details' => $inventoryUsageDetails,
+
+                // New fields for print report redesign
+                'rooms_occupied' => $roomsOccupied,
+                'rooms_checked_in' => $roomsCheckedIn,
+                'rooms_checked_out' => $roomsCheckedOut,
+                'reservations' => $reservationsCount,
+                'walk_ins' => $walkinsCount,
+                'total_guests' => $totalGuests,
+                'active_stays' => $activeStays,
+                'vacant_rooms' => $vacantRooms,
+                'maintenance_rooms' => $maintenanceRooms,
+                'minibar_sales' => $minibarSales,
+                'room_revenue' => $roomRevenue,
+                'minibar_revenue' => $minibarRevenue,
+                'pos_revenue' => $posRevenue,
+                'maintenance_cost' => $maintenanceCost,
+                'refunds' => $refunds,
+                'cash_in' => $cashIn,
+                'cash_out' => $cashOut,
+                'net_cash' => $netCash,
+                'grand_cash_collection' => $grandCashCollection,
             ]
         ]);
     }

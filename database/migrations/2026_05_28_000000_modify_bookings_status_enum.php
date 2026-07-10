@@ -13,7 +13,9 @@ return new class extends Migration
     public function up(): void
     {
         // Add 'reserved' status to status enum column in bookings table
-        DB::statement("ALTER TABLE bookings MODIFY COLUMN status ENUM('active', 'checked_out', 'cancelled', 'no_show', 'reserved') NOT NULL DEFAULT 'active'");
+        if (DB::connection()->getDriverName() === 'mysql') {
+            DB::statement("ALTER TABLE bookings MODIFY COLUMN status ENUM('active', 'checked_out', 'cancelled', 'no_show', 'reserved') NOT NULL DEFAULT 'active'");
+        }
     }
 
     /**
@@ -22,6 +24,8 @@ return new class extends Migration
     public function down(): void
     {
         // Revert bookings status column (warning: if rows have status 'reserved' it will cause mysql errors or truncates)
-        DB::statement("ALTER TABLE bookings MODIFY COLUMN status ENUM('active', 'checked_out', 'cancelled', 'no_show') NOT NULL DEFAULT 'active'");
+        if (DB::connection()->getDriverName() === 'mysql') {
+            DB::statement("ALTER TABLE bookings MODIFY COLUMN status ENUM('active', 'checked_out', 'cancelled', 'no_show') NOT NULL DEFAULT 'active'");
+        }
     }
 };

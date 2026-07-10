@@ -19,8 +19,10 @@ return new class extends Migration
 
         // 2. Modify payment_method enums
         // For MySQL, we can alter the column using a raw statement
-        DB::statement("ALTER TABLE bookings MODIFY COLUMN payment_method ENUM('cash', 'gcash', 'card', 'bank_transfer', 'split') NOT NULL DEFAULT 'cash'");
-        DB::statement("ALTER TABLE transactions MODIFY COLUMN payment_method ENUM('cash', 'gcash', 'card', 'bank_transfer', 'split', 'na') NOT NULL DEFAULT 'cash'");
+        if (DB::connection()->getDriverName() === 'mysql') {
+            DB::statement("ALTER TABLE bookings MODIFY COLUMN payment_method ENUM('cash', 'gcash', 'card', 'bank_transfer', 'split') NOT NULL DEFAULT 'cash'");
+            DB::statement("ALTER TABLE transactions MODIFY COLUMN payment_method ENUM('cash', 'gcash', 'card', 'bank_transfer', 'split', 'na') NOT NULL DEFAULT 'cash'");
+        }
 
         // 3. Add shift_id to inventory_usage
         Schema::table('inventory_usage', function (Blueprint $table) {
@@ -38,8 +40,10 @@ return new class extends Migration
             $table->dropColumn('shift_id');
         });
 
-        DB::statement("ALTER TABLE transactions MODIFY COLUMN payment_method ENUM('cash', 'gcash', 'split', 'na') NOT NULL DEFAULT 'cash'");
-        DB::statement("ALTER TABLE bookings MODIFY COLUMN payment_method ENUM('cash', 'gcash', 'split') NOT NULL DEFAULT 'cash'");
+        if (DB::connection()->getDriverName() === 'mysql') {
+            DB::statement("ALTER TABLE transactions MODIFY COLUMN payment_method ENUM('cash', 'gcash', 'split', 'na') NOT NULL DEFAULT 'cash'");
+            DB::statement("ALTER TABLE bookings MODIFY COLUMN payment_method ENUM('cash', 'gcash', 'split') NOT NULL DEFAULT 'cash'");
+        }
 
         Schema::table('transactions', function (Blueprint $table) {
             $table->dropColumn('or_number');
