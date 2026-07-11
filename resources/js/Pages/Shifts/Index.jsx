@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import ConfirmModal from '@/Components/ConfirmModal';
+import CustomSelect from '@/Components/CustomSelect';
 
 export default function Index({ activeShift, suggestedShift, suggestedOpeningCash, suggestedOpeningDenominations, suggestedOpeningCashMinibar, suggestedOpeningDenominationsMinibar, liveSummary, recentShifts }) {
     const [showShutdownConfirm, setShowShutdownConfirm] = useState(false);
@@ -155,7 +156,7 @@ export default function Index({ activeShift, suggestedShift, suggestedOpeningCas
                                         {/* Shift Type Select */}
                                         <div className="flex flex-col gap-2">
                                             <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Shift Code</label>
-                                            <select
+                                            <CustomSelect
                                                 value={startForm.data.shift_code}
                                                 onChange={e => startForm.setData('shift_code', e.target.value)}
                                                 className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 px-4 py-3 focus:outline-none focus:border-brand-500 font-outfit"
@@ -163,7 +164,7 @@ export default function Index({ activeShift, suggestedShift, suggestedOpeningCas
                                                 <option value="morning">Morning Shift (7:00 AM - 4:00 PM)</option>
                                                 <option value="evening">Evening Shift (3:00 PM - 12:00 AM)</option>
                                                 <option value="night">Graveyard Shift (11:00 PM - 8:00 AM)</option>
-                                            </select>
+                                            </CustomSelect>
                                         </div>
 
                                         {/* Starting Drawer Capitals (Rooms & Minibar side-by-side) */}
@@ -195,8 +196,8 @@ export default function Index({ activeShift, suggestedShift, suggestedOpeningCas
                                                             <div key={coin} className="flex items-center gap-2">
                                                                 <span className="w-12 text-right font-mono text-xs text-slate-300">₱{coin.toFixed(2)}</span>
                                                                 <span className="text-slate-600 text-xs font-bold">x</span>
-                                                                <input 
-                                                                    type="number" 
+                                                                <input
+                                                                    type="number"
                                                                     min="0"
                                                                     value={startForm.data.opening_denominations[coin.toString()] || ''}
                                                                     onChange={e => handleStartDenominationChange(coin.toString(), e.target.value)}
@@ -214,8 +215,8 @@ export default function Index({ activeShift, suggestedShift, suggestedOpeningCas
                                                             <div key={bill} className="flex items-center gap-2">
                                                                 <span className="w-12 text-right font-mono text-xs text-slate-300">₱{bill.toFixed(0)}</span>
                                                                 <span className="text-slate-600 text-xs font-bold">x</span>
-                                                                <input 
-                                                                    type="number" 
+                                                                <input
+                                                                    type="number"
                                                                     min="0"
                                                                     value={startForm.data.opening_denominations[bill.toString()] || ''}
                                                                     onChange={e => handleStartDenominationChange(bill.toString(), e.target.value)}
@@ -255,8 +256,8 @@ export default function Index({ activeShift, suggestedShift, suggestedOpeningCas
                                                             <div key={coin} className="flex items-center gap-2">
                                                                 <span className="w-12 text-right font-mono text-xs text-slate-300">₱{coin.toFixed(2)}</span>
                                                                 <span className="text-slate-600 text-xs font-bold">x</span>
-                                                                <input 
-                                                                    type="number" 
+                                                                <input
+                                                                    type="number"
                                                                     min="0"
                                                                     value={startForm.data.opening_denominations_minibar[coin.toString()] || ''}
                                                                     onChange={e => handleStartDenominationMinibarChange(coin.toString(), e.target.value)}
@@ -274,8 +275,8 @@ export default function Index({ activeShift, suggestedShift, suggestedOpeningCas
                                                             <div key={bill} className="flex items-center gap-2">
                                                                 <span className="w-12 text-right font-mono text-xs text-slate-300">₱{bill.toFixed(0)}</span>
                                                                 <span className="text-slate-600 text-xs font-bold">x</span>
-                                                                <input 
-                                                                    type="number" 
+                                                                <input
+                                                                    type="number"
                                                                     min="0"
                                                                     value={startForm.data.opening_denominations_minibar[bill.toString()] || ''}
                                                                     onChange={e => handleStartDenominationMinibarChange(bill.toString(), e.target.value)}
@@ -360,15 +361,15 @@ export default function Index({ activeShift, suggestedShift, suggestedOpeningCas
                                                     <div className="grid grid-cols-3 gap-2 text-xs">
                                                         <div className="flex flex-col">
                                                             <span className="text-[9px] text-slate-500 font-semibold uppercase">Starting</span>
-                                                            <span className="font-mono font-bold text-slate-300">₱{activeShift.opening_cash.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                                                            <span className="font-mono font-bold text-slate-300">₱{activeShift.opening_cash.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                                         </div>
                                                         <div className="flex flex-col">
                                                             <span className="text-[9px] text-slate-500 font-semibold uppercase">Cash Collected</span>
-                                                            <span className="font-mono font-bold text-brand-300">+₱{liveSummary.sales.rooms_cash.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                                                            <span className="font-mono font-bold text-brand-300">+₱{liveSummary.sales.rooms_cash.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                                         </div>
                                                         <div className="flex flex-col">
                                                             <span className="text-[9px] text-emerald-500 font-bold uppercase">Expected Cash</span>
-                                                            <span className="font-mono font-bold text-emerald-400">₱{liveSummary.expected_drawer_cash.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                                                            <span className="font-mono font-bold text-emerald-400">₱{liveSummary.expected_drawer_cash.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                                             {(liveSummary.incomes_sum > 0 || liveSummary.expenses_sum > 0) && (
                                                                 <span className="text-[8px] text-slate-500 font-medium font-mono leading-tight">
                                                                     In: +{liveSummary.incomes_sum.toLocaleString()} | Out: -{liveSummary.expenses_sum.toLocaleString()}
@@ -386,15 +387,15 @@ export default function Index({ activeShift, suggestedShift, suggestedOpeningCas
                                                     <div className="grid grid-cols-3 gap-2 text-xs">
                                                         <div className="flex flex-col">
                                                             <span className="text-[9px] text-slate-500 font-semibold uppercase">Starting</span>
-                                                            <span className="font-mono font-bold text-slate-300">₱{activeShift.opening_cash_minibar.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                                                            <span className="font-mono font-bold text-slate-300">₱{activeShift.opening_cash_minibar.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                                         </div>
                                                         <div className="flex flex-col">
                                                             <span className="text-[9px] text-slate-500 font-semibold uppercase">Cash Collected</span>
-                                                            <span className="font-mono font-bold text-brand-300">+₱{liveSummary.sales.minibar_cash.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                                                            <span className="font-mono font-bold text-brand-300">+₱{liveSummary.sales.minibar_cash.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                                         </div>
                                                         <div className="flex flex-col">
                                                             <span className="text-[9px] text-emerald-500 font-bold uppercase">Expected Cash</span>
-                                                            <span className="font-mono font-bold text-emerald-400">₱{liveSummary.expected_drawer_cash_minibar.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                                                            <span className="font-mono font-bold text-emerald-400">₱{liveSummary.expected_drawer_cash_minibar.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -487,8 +488,8 @@ export default function Index({ activeShift, suggestedShift, suggestedOpeningCas
                                                             <div key={coin} className="flex items-center gap-2">
                                                                 <span className="w-12 text-right font-mono text-xs text-slate-300">₱{coin.toFixed(2)}</span>
                                                                 <span className="text-slate-600 text-xs font-bold">x</span>
-                                                                <input 
-                                                                    type="number" 
+                                                                <input
+                                                                    type="number"
                                                                     min="0"
                                                                     value={endForm.data.closing_denominations[coin.toString()] || ''}
                                                                     onChange={e => handleDenominationChange(coin.toString(), e.target.value)}
@@ -506,8 +507,8 @@ export default function Index({ activeShift, suggestedShift, suggestedOpeningCas
                                                             <div key={bill} className="flex items-center gap-2">
                                                                 <span className="w-12 text-right font-mono text-xs text-slate-300">₱{bill.toFixed(0)}</span>
                                                                 <span className="text-slate-600 text-xs font-bold">x</span>
-                                                                <input 
-                                                                    type="number" 
+                                                                <input
+                                                                    type="number"
                                                                     min="0"
                                                                     value={endForm.data.closing_denominations[bill.toString()] || ''}
                                                                     onChange={e => handleDenominationChange(bill.toString(), e.target.value)}
@@ -571,8 +572,8 @@ export default function Index({ activeShift, suggestedShift, suggestedOpeningCas
                                                             <div key={coin} className="flex items-center gap-2">
                                                                 <span className="w-12 text-right font-mono text-xs text-slate-300">₱{coin.toFixed(2)}</span>
                                                                 <span className="text-slate-600 text-xs font-bold">x</span>
-                                                                <input 
-                                                                    type="number" 
+                                                                <input
+                                                                    type="number"
                                                                     min="0"
                                                                     value={endForm.data.closing_denominations_minibar[coin.toString()] || ''}
                                                                     onChange={e => handleDenominationMinibarChange(coin.toString(), e.target.value)}
@@ -590,8 +591,8 @@ export default function Index({ activeShift, suggestedShift, suggestedOpeningCas
                                                             <div key={bill} className="flex items-center gap-2">
                                                                 <span className="w-12 text-right font-mono text-xs text-slate-300">₱{bill.toFixed(0)}</span>
                                                                 <span className="text-slate-600 text-xs font-bold">x</span>
-                                                                <input 
-                                                                    type="number" 
+                                                                <input
+                                                                    type="number"
                                                                     min="0"
                                                                     value={endForm.data.closing_denominations_minibar[bill.toString()] || ''}
                                                                     onChange={e => handleDenominationMinibarChange(bill.toString(), e.target.value)}
@@ -665,7 +666,7 @@ export default function Index({ activeShift, suggestedShift, suggestedOpeningCas
                                             className="w-full flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-red-600 hover:bg-red-500 text-slate-50 font-outfit font-extrabold text-sm tracking-wide shadow-lg shadow-red-600/20 active:scale-95 transition-all"
                                         >
                                             <Power size={16} />
-                                            <span>SHUTDOWN REGISTER & LOG OFF SHIFT</span>
+                                            <span>Log Off</span>
                                         </button>
                                     </form>
                                 </div>
@@ -677,7 +678,7 @@ export default function Index({ activeShift, suggestedShift, suggestedOpeningCas
                 {/* History Session Records */}
                 <div className="rounded-2xl bg-[#1e293b] border border-[#334155] overflow-hidden shadow-xl">
                     <div className="px-6 py-4 border-b border-[#334155]">
-                        <h2 className="text-lg font-outfit font-bold text-slate-200">Recent Logged Shift Session History</h2>
+                        <h2 className="text-lg font-outfit font-bold text-slate-200">Shift History</h2>
                     </div>
 
                     <div className="overflow-x-auto">
@@ -695,10 +696,10 @@ export default function Index({ activeShift, suggestedShift, suggestedOpeningCas
                             </thead>
                             <tbody>
                                 {recentShifts.map((s, i) => (
-                                    <motion.tr 
-                                        key={s.id} 
-                                        initial={{ opacity: 0, y: 6 }} 
-                                        animate={{ opacity: 1, y: 0 }} 
+                                    <motion.tr
+                                        key={s.id}
+                                        initial={{ opacity: 0, y: 6 }}
+                                        animate={{ opacity: 1, y: 0 }}
                                         transition={{ delay: i * 0.03 }}
                                         className="border-b border-[#334155]/50 hover:bg-[#0f172a]/40 transition-colors"
                                     >

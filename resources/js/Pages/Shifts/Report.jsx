@@ -1,15 +1,15 @@
 import React, { useState } from 'react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, usePage } from '@inertiajs/react';
-import { 
-    Printer, 
-    ChevronLeft, 
-    Info, 
-    BookOpen, 
-    Coffee, 
-    Package, 
-    MinusCircle, 
-    PlusCircle, 
+import {
+    Printer,
+    ChevronLeft,
+    Info,
+    BookOpen,
+    Coffee,
+    Package,
+    MinusCircle,
+    PlusCircle,
     Wrench,
     AlertTriangle,
     CheckCircle,
@@ -24,7 +24,7 @@ export default function Report({ shift, report }) {
 
     const formatCurrency = (val) => {
         const num = Number(val);
-        return isNaN(num) 
+        return isNaN(num)
             ? '₱0.00'
             : '₱' + num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     };
@@ -81,11 +81,11 @@ export default function Report({ shift, report }) {
     const PrintHeader = ({ title, pageNum }) => (
         <div className="hidden print:flex justify-between items-start border-b border-black pb-3 mb-4 w-full">
             <div className="flex items-center gap-3">
-                <img 
-                    src="/images/logo.jpg" 
-                    alt="Hotel Logo" 
-                    className="w-10 h-10 object-contain filter grayscale" 
-                    onError={(e) => e.target.style.display = 'none'} 
+                <img
+                    src="/images/logo.jpg"
+                    alt="Hotel Logo"
+                    className="w-10 h-10 object-contain filter grayscale"
+                    onError={(e) => e.target.style.display = 'none'}
                 />
                 <div>
                     <h1 className="text-sm font-bold uppercase tracking-tight font-mono">
@@ -114,7 +114,8 @@ export default function Report({ shift, report }) {
 
     return (
         <AuthenticatedLayout>
-            <style dangerouslySetInnerHTML={{ __html: `
+            <style dangerouslySetInnerHTML={{
+                __html: `
                 @media print {
                     @page {
                         size: landscape A4;
@@ -237,7 +238,7 @@ export default function Report({ shift, report }) {
             {/* SCREEN VIEW (Visible only on monitor)                                    */}
             {/* ========================================================================= */}
             <div className="print-hidden flex flex-col gap-6 p-4 max-w-[1350px] mx-auto bg-slate-900 text-slate-100 min-h-screen">
-                
+
                 {/* Print Controls Header */}
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-lg">
                     <div>
@@ -289,7 +290,7 @@ export default function Report({ shift, report }) {
 
                 {/* Active Tab Container */}
                 <div className="bg-slate-800/55 rounded-2xl border border-slate-750 p-6 backdrop-blur shadow-md">
-                    
+
                     {/* Tab 1: OVERVIEW & CASH */}
                     {activeTab === 'overview' && (
                         <div className="flex flex-col gap-6">
@@ -399,8 +400,8 @@ export default function Report({ shift, report }) {
                                                 <td className="p-2">{formatCurrency(shift.opening_cash)}</td>
                                                 <td className="p-2 text-emerald-400">{formatCurrency(report.sales.rooms_cash)}</td>
                                                 <td className="p-2">{formatCurrency(report.sales.rooms_gcash)}</td>
-                                                <td className="p-2 text-emerald-400">{formatCurrency(report.incomes.filter(i=>i.cash_drawer==='rooms').reduce((sum,i)=>sum+Number(i.amount), 0))}</td>
-                                                <td className="p-2 text-red-400">-{formatCurrency(report.expenses.filter(e=>e.cash_drawer==='rooms').reduce((sum,e)=>sum+Number(e.amount), 0))}</td>
+                                                <td className="p-2 text-emerald-400">{formatCurrency(report.incomes.filter(i => i.cash_drawer === 'rooms').reduce((sum, i) => sum + Number(i.amount), 0))}</td>
+                                                <td className="p-2 text-red-400">-{formatCurrency(report.expenses.filter(e => e.cash_drawer === 'rooms').reduce((sum, e) => sum + Number(e.amount), 0))}</td>
                                                 <td className="p-2 font-bold">{formatCurrency(report.expectedDrawerCash)}</td>
                                                 <td className="p-2 font-bold">{shift.ended_at ? formatCurrency(shift.closing_cash) : 'OPEN'}</td>
                                                 <td className={`p-2 text-right font-bold ${report.cashVariance !== 0 ? 'text-red-400' : 'text-emerald-400'}`}>
@@ -412,8 +413,8 @@ export default function Report({ shift, report }) {
                                                 <td className="p-2">{formatCurrency(shift.opening_cash_minibar)}</td>
                                                 <td className="p-2 text-emerald-400">{formatCurrency(report.sales.minibar_cash)}</td>
                                                 <td className="p-2">{formatCurrency(report.sales.minibar_gcash)}</td>
-                                                <td className="p-2 text-emerald-400">{formatCurrency(report.incomes.filter(i=>i.cash_drawer==='minibar').reduce((sum,i)=>sum+Number(i.amount), 0))}</td>
-                                                <td className="p-2 text-red-400">-{formatCurrency(report.expenses.filter(e=>e.cash_drawer==='minibar').reduce((sum,e)=>sum+Number(e.amount), 0))}</td>
+                                                <td className="p-2 text-emerald-400">{formatCurrency(report.incomes.filter(i => i.cash_drawer === 'minibar').reduce((sum, i) => sum + Number(i.amount), 0))}</td>
+                                                <td className="p-2 text-red-400">-{formatCurrency(report.expenses.filter(e => e.cash_drawer === 'minibar').reduce((sum, e) => sum + Number(e.amount), 0))}</td>
                                                 <td className="p-2 font-bold">{formatCurrency(report.expectedDrawerCashMinibar)}</td>
                                                 <td className="p-2 font-bold">{shift.ended_at ? formatCurrency(shift.closing_cash_minibar) : 'OPEN'}</td>
                                                 <td className={`p-2 text-right font-bold ${report.cashVarianceMinibar !== 0 ? 'text-red-400' : 'text-emerald-400'}`}>
@@ -471,7 +472,6 @@ export default function Report({ shift, report }) {
                                             <th>GUEST NAME</th>
                                             <th>CONTACT NUMBER</th>
                                             <th>RM NO.</th>
-                                            <th>SIGNATURE</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -559,7 +559,7 @@ export default function Report({ shift, report }) {
                                                         <td className="p-2.5 font-bold text-slate-300">{item.formatted_or_number || `POS-${item.id}`}</td>
                                                         <td className="p-2.5 uppercase font-sans text-[10px] font-bold">{item.payment_method || 'Cash'}</td>
                                                         <td className="p-2.5 font-sans">
-                                                            {item.inventory_usages && item.inventory_usages.length > 0 
+                                                            {item.inventory_usages && item.inventory_usages.length > 0
                                                                 ? item.inventory_usages.map(u => `${u.quantity}x ${u.item?.item_name || 'Item'}`).join(', ')
                                                                 : item.description || 'Walk-in Sale'}
                                                         </td>
@@ -862,11 +862,11 @@ export default function Report({ shift, report }) {
             {/* PRINT VIEW (Visible only in print mode)                                   */}
             {/* ========================================================================= */}
             <div className="hidden print:block w-full text-black font-mono">
-                
+
                 {/* 1. OVERVIEW & CASH RECONCILIATION */}
                 <div className={`print-page-break ${printMode === 'active' && activeTab !== 'overview' ? 'hidden' : ''}`}>
                     <PrintHeader title="I. OVERVIEW & CASH RECONCILIATION" pageNum={1} />
-                    
+
                     <div className="mb-4">
                         <table className="w-full text-left border-collapse logbook-table">
                             <tbody>
@@ -945,8 +945,8 @@ export default function Report({ shift, report }) {
                                     <td>{formatCurrency(shift.opening_cash)}</td>
                                     <td>{formatCurrency(report.sales.rooms_cash)}</td>
                                     <td>{formatCurrency(report.sales.rooms_gcash)}</td>
-                                    <td>{formatCurrency(report.incomes.filter(i=>i.cash_drawer==='rooms').reduce((sum,i)=>sum+Number(i.amount), 0))}</td>
-                                    <td className="text-red-700">-{formatCurrency(report.expenses.filter(e=>e.cash_drawer==='rooms').reduce((sum,e)=>sum+Number(e.amount), 0))}</td>
+                                    <td>{formatCurrency(report.incomes.filter(i => i.cash_drawer === 'rooms').reduce((sum, i) => sum + Number(i.amount), 0))}</td>
+                                    <td className="text-red-700">-{formatCurrency(report.expenses.filter(e => e.cash_drawer === 'rooms').reduce((sum, e) => sum + Number(e.amount), 0))}</td>
                                     <td>{formatCurrency(report.expectedDrawerCash)}</td>
                                     <td>{shift.ended_at ? formatCurrency(shift.closing_cash) : 'OPEN'}</td>
                                     <td className={report.cashVariance !== 0 ? 'text-red-700' : ''}>
@@ -958,8 +958,8 @@ export default function Report({ shift, report }) {
                                     <td>{formatCurrency(shift.opening_cash_minibar)}</td>
                                     <td>{formatCurrency(report.sales.minibar_cash)}</td>
                                     <td>{formatCurrency(report.sales.minibar_gcash)}</td>
-                                    <td>{formatCurrency(report.incomes.filter(i=>i.cash_drawer==='minibar').reduce((sum,i)=>sum+Number(i.amount), 0))}</td>
-                                    <td className="text-red-700">-{formatCurrency(report.expenses.filter(e=>e.cash_drawer==='minibar').reduce((sum,e)=>sum+Number(e.amount), 0))}</td>
+                                    <td>{formatCurrency(report.incomes.filter(i => i.cash_drawer === 'minibar').reduce((sum, i) => sum + Number(i.amount), 0))}</td>
+                                    <td className="text-red-700">-{formatCurrency(report.expenses.filter(e => e.cash_drawer === 'minibar').reduce((sum, e) => sum + Number(e.amount), 0))}</td>
                                     <td>{formatCurrency(report.expectedDrawerCashMinibar)}</td>
                                     <td>{shift.ended_at ? formatCurrency(shift.closing_cash_minibar) : 'OPEN'}</td>
                                     <td className={report.cashVarianceMinibar !== 0 ? 'text-red-700' : ''}>
@@ -1034,7 +1034,7 @@ export default function Report({ shift, report }) {
                 {/* 2. ROOM BOOKINGS LEDGER */}
                 <div className={`print-page-break ${printMode === 'active' && activeTab !== 'bookings' ? 'hidden' : ''}`}>
                     <PrintHeader title="II. ROOM BOOKINGS LEDGER (LOG BOOK)" pageNum={2} />
-                    
+
                     <div className="mb-4">
                         <table className="w-full text-left border-collapse logbook-table">
                             <thead>
@@ -1052,7 +1052,6 @@ export default function Report({ shift, report }) {
                                     <th className="w-[16%]">GUEST NAME</th>
                                     <th className="w-[11%]">CONTACT</th>
                                     <th className="w-[5%]">RM NO.</th>
-                                    <th className="w-[5%]">SIGN</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -1114,7 +1113,7 @@ export default function Report({ shift, report }) {
                 {/* 3. MINIBAR & POS SALES */}
                 <div className={`print-page-break ${printMode === 'active' && activeTab !== 'minibar' ? 'hidden' : ''}`}>
                     <PrintHeader title="III. MINIBAR & POS SALES LEDGER" pageNum={3} />
-                    
+
                     <div className="mb-4">
                         <h2 className="text-[10px] font-bold uppercase mb-2">1. Pantry / Minibar Walk-in POS Sales</h2>
                         <table className="w-full text-left border-collapse logbook-table">
@@ -1137,7 +1136,7 @@ export default function Report({ shift, report }) {
                                             <td className="text-center font-bold">{item.formatted_or_number || `POS-${item.id}`}</td>
                                             <td className="text-center uppercase">{item.payment_method || 'Cash'}</td>
                                             <td>
-                                                {item.inventory_usages && item.inventory_usages.length > 0 
+                                                {item.inventory_usages && item.inventory_usages.length > 0
                                                     ? item.inventory_usages.map(u => `${u.quantity}x ${u.item?.item_name || 'Item'}`).join(', ')
                                                     : item.description || 'Walk-in Sale'}
                                             </td>
@@ -1207,7 +1206,7 @@ export default function Report({ shift, report }) {
                 {/* 4. INVENTORY STOCK STATUS */}
                 <div className={`print-page-break ${printMode === 'active' && activeTab !== 'inventory' ? 'hidden' : ''}`}>
                     <PrintHeader title="IV. INVENTORY STOCK USAGE & STATUS" pageNum={4} />
-                    
+
                     <div className="grid grid-cols-2 gap-6 w-full">
                         <div>
                             <h2 className="text-[10px] font-bold uppercase mb-2">Pantry Inventory Usages (Aggregated)</h2>
@@ -1278,7 +1277,7 @@ export default function Report({ shift, report }) {
                 {/* 5. EXPENSES LEDGER */}
                 <div className={`print-page-break ${printMode === 'active' && activeTab !== 'expenses' ? 'hidden' : ''}`}>
                     <PrintHeader title="V. SHIFT EXPENSES LEDGER" pageNum={5} />
-                    
+
                     <div className="mb-4">
                         <table className="w-full text-left border-collapse logbook-table">
                             <thead>
@@ -1326,7 +1325,7 @@ export default function Report({ shift, report }) {
                 {/* 6. ADDITIONAL INCOME LOG */}
                 <div className={`print-page-break ${printMode === 'active' && activeTab !== 'income' ? 'hidden' : ''}`}>
                     <PrintHeader title="VI. ADDITIONAL INCOME LOG" pageNum={6} />
-                    
+
                     <div className="mb-4">
                         <table className="w-full text-left border-collapse logbook-table">
                             <thead>
@@ -1374,7 +1373,7 @@ export default function Report({ shift, report }) {
                 {/* 7. MAINTENANCE TICKETS */}
                 <div className={`print-page-break ${printMode === 'active' && activeTab !== 'maintenance' ? 'hidden' : ''}`}>
                     <PrintHeader title="VII. MAINTENANCE TICKETS REPORT" pageNum={7} />
-                    
+
                     <div className="mb-4">
                         <table className="w-full text-left border-collapse logbook-table">
                             <thead>

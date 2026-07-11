@@ -1,15 +1,15 @@
 import React, { useState } from 'react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, useForm, Link, usePage } from '@inertiajs/react';
-import { 
-    Calendar, 
-    Clock, 
-    Coins, 
-    User, 
-    Plus, 
-    DollarSign, 
-    Utensils, 
-    Timer, 
+import {
+    Calendar,
+    Clock,
+    Coins,
+    User,
+    Plus,
+    DollarSign,
+    Utensils,
+    Timer,
     Slash,
     ChevronLeft,
     PowerOff,
@@ -184,7 +184,7 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
             <Head title={`Booking - ${booking.booking_ref}`} />
 
             <div className="flex flex-col gap-8">
-                
+
                 {/* Header Back button */}
                 <div className="flex justify-between items-center">
                     <Link
@@ -218,14 +218,14 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
 
                 {/* Main Split Grid */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    
+
                     {/* Left Column (Stay specs, transaction timelines, minibar usages) */}
                     <div className="lg:col-span-2 flex flex-col gap-8">
-                        
+
                         {/* Guest Details */}
                         <div className="p-6 rounded-2xl bg-[#1e293b] border border-[#334155] shadow-xl flex flex-col gap-5">
                             <h2 className="text-lg font-outfit font-bold text-slate-200 border-b border-[#334155] pb-3">Guest Details</h2>
-                            
+
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-xs text-slate-300">
                                 <div>
                                     <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Occupant Guest</span>
@@ -323,7 +323,7 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
                         {/* Payment Details */}
                         <div className="p-6 rounded-2xl bg-[#1e293b] border border-[#334155] shadow-xl">
                             <h2 className="text-lg font-outfit font-bold text-slate-200 border-b border-[#334155] pb-3 mb-5">Payment Details</h2>
-                            
+
                             <div className="space-y-4">
                                 {booking.transactions && booking.transactions.length > 0 ? (
                                     booking.transactions.map((txn, idx) => (
@@ -356,7 +356,7 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
 
                     {/* Right Column (Billing specs, Actions triggers, Check-out slider) */}
                     <div className="flex flex-col gap-6">
-                        
+
                         {/* Summary bill calculations card */}
                         <div className="p-6 rounded-2xl bg-[#1e293b] border border-[#334155] shadow-xl flex flex-col gap-5 relative overflow-hidden">
                             {booking.is_peak && (
@@ -405,7 +405,7 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
                                 {booking.status === 'active' && (
                                     <div className="p-4 rounded-xl bg-[#0f172a]/55 border border-[#334155] flex flex-col gap-2.5 mt-2">
                                         <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Outstanding checkout balances</span>
-                                        
+
                                         {calculations.late_fee > 0 && (
                                             <div className="flex justify-between text-rose-400">
                                                 <span>Overtime fee ({calculations.late_hours}h):</span>
@@ -450,7 +450,7 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
                                     >
                                         <ClipboardCheck size={16} /> Process Checkout
                                     </button>
-                                    
+
                                     <button
                                         onClick={() => setActiveModal('extend')}
                                         className="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 bg-[#1e293b] hover:bg-[#334155] border border-[#334155] rounded-xl text-slate-300 hover:text-slate-100 text-xs font-bold font-outfit transition-colors"
@@ -489,11 +489,11 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
             </div>
 
             {/* --- Modals Portal --- */}
-            
+
             {/* Modal: Extend stays */}
             {activeModal === 'extend' && (
                 <div className="fixed inset-0 bg-[#070b13]/90 z-[9999] flex items-center justify-center p-4">
-                    <motion.div 
+                    <motion.div
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
                         className="bg-[#1e293b] border border-[#334155] rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl p-6 flex flex-col gap-5 text-slate-100"
@@ -509,8 +509,8 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div className="flex flex-col gap-1.5">
                                     <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Extend By Hours</label>
-                                    <input 
-                                        type="number" 
+                                    <input
+                                        type="number"
                                         min="1"
                                         value={extendForm.data.hours}
                                         onChange={e => extendForm.setData(prev => ({ ...prev, hours: e.target.value, days: '' }))}
@@ -519,8 +519,8 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
                                 </div>
                                 <div className="flex flex-col gap-1.5">
                                     <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Or Extend By Nights</label>
-                                    <input 
-                                        type="number" 
+                                    <input
+                                        type="number"
                                         min="1"
                                         value={extendForm.data.days}
                                         onChange={e => extendForm.setData(prev => ({ ...prev, days: e.target.value, hours: '' }))}
@@ -543,7 +543,7 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <div className="flex flex-col gap-1.5">
                                             <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Payment Method</label>
-                                            <select 
+                                            <CustomSelect
                                                 value={extendForm.data.payment_method}
                                                 onChange={e => extendForm.setData('payment_method', e.target.value)}
                                                 className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 px-3 py-2.5 focus:outline-none focus:border-brand-500 font-bold text-xs"
@@ -551,14 +551,14 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
                                                 <option value="cash">Cash</option>
                                                 <option value="gcash">GCash</option>
                                                 <option value="split">Split (Cash + GCash)</option>
-                                            </select>
+                                            </CustomSelect>
                                         </div>
 
                                         {['gcash', 'split'].includes(extendForm.data.payment_method) && (
                                             <div className="flex flex-col gap-1.5">
                                                 <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">GCash 13-Digit Ref</label>
-                                                <input 
-                                                    type="text" 
+                                                <input
+                                                    type="text"
                                                     value={extendForm.data.gcash_ref}
                                                     onChange={e => extendForm.setData('gcash_ref', e.target.value)}
                                                     required
@@ -573,7 +573,7 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
                                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                                                 <div className="flex flex-col gap-1.5">
                                                     <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Cash Amount (₱)</label>
-                                                    <input 
+                                                    <input
                                                         type="number"
                                                         min="0"
                                                         max={getExtensionFeeEstimate()}
@@ -585,7 +585,7 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
                                                 </div>
                                                 <div className="flex flex-col gap-1.5">
                                                     <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">GCash Amount (₱)</label>
-                                                    <input 
+                                                    <input
                                                         type="number"
                                                         min="0"
                                                         max={getExtensionFeeEstimate()}
@@ -616,7 +616,7 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
             {/* Modal: Add minibar item */}
             {activeModal === 'add_item' && (
                 <div className="fixed inset-0 bg-[#070b13]/90 z-[9999] flex items-center justify-center p-4">
-                    <motion.div 
+                    <motion.div
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
                         className="bg-[#1e293b] border border-[#334155] rounded-2xl w-full max-w-md overflow-hidden shadow-2xl p-6 flex flex-col gap-5 text-slate-100"
@@ -629,11 +629,11 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
                         </div>
 
                         <form onSubmit={handleAddItemSubmit} className="space-y-4 text-xs">
-                            
+
                             {/* Item selector */}
                             <div className="flex flex-col gap-1.5">
                                 <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Choose Inventory Item</label>
-                                <select
+                                <CustomSelect
                                     value={itemForm.data.item_id}
                                     onChange={e => itemForm.setData('item_id', e.target.value)}
                                     required
@@ -645,14 +645,14 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
                                             {item.item_name} (Stock: {item.current_stock} {item.unit} | ₱{item.selling_price})
                                         </option>
                                     ))}
-                                </select>
+                                </CustomSelect>
                             </div>
 
                             {/* Qty count */}
                             <div className="flex flex-col gap-1.5">
                                 <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Quantity</label>
-                                <input 
-                                    type="number" 
+                                <input
+                                    type="number"
                                     min="1"
                                     value={itemForm.data.quantity}
                                     onChange={e => itemForm.setData('quantity', e.target.value)}
@@ -664,8 +664,8 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
                             {/* Notes */}
                             <div className="flex flex-col gap-1.5">
                                 <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Service Remarks</label>
-                                <input 
-                                    type="text" 
+                                <input
+                                    type="text"
                                     value={itemForm.data.notes}
                                     onChange={e => itemForm.setData('notes', e.target.value)}
                                     placeholder="Delivered to room, minibar replenishment..."
@@ -688,7 +688,7 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
             {/* Modal: Process Checkout */}
             {activeModal === 'checkout' && (
                 <div className="fixed inset-0 bg-[#070b13]/90 z-[9999] flex items-center justify-center p-4">
-                    <motion.div 
+                    <motion.div
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
                         className="bg-[#1e293b] border border-[#334155] rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl p-6 flex flex-col gap-5 text-slate-100"
@@ -701,7 +701,7 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
                         </div>
 
                         <form onSubmit={handleCheckoutSubmit} className="space-y-4 text-xs">
-                            
+
                             <div className="p-4 rounded-xl bg-[#0f172a]/60 border border-[#334155] flex justify-between items-center text-xs">
                                 <span className="font-bold text-slate-400">Amount Due:</span>
                                 <span className="font-mono text-emerald-400 font-bold text-lg">₱{calculations.additional_due.toLocaleString()}</span>
@@ -712,7 +712,7 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <div className="flex flex-col gap-1.5">
                                             <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Settlement Channel</label>
-                                            <select 
+                                            <CustomSelect
                                                 value={checkoutForm.data.payment_method}
                                                 onChange={e => checkoutForm.setData('payment_method', e.target.value)}
                                                 className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 px-3 py-2.5 focus:outline-none focus:border-brand-500 font-bold text-xs"
@@ -720,14 +720,14 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
                                                 <option value="cash">Cash</option>
                                                 <option value="gcash">GCash</option>
                                                 <option value="split">Split (Cash + GCash)</option>
-                                            </select>
+                                            </CustomSelect>
                                         </div>
 
                                         {['gcash', 'split'].includes(checkoutForm.data.payment_method) && (
                                             <div className="flex flex-col gap-1.5">
                                                 <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">GCash 13-Digit Ref</label>
-                                                <input 
-                                                    type="text" 
+                                                <input
+                                                    type="text"
                                                     value={checkoutForm.data.gcash_ref}
                                                     onChange={e => checkoutForm.setData('gcash_ref', e.target.value)}
                                                     required
@@ -742,7 +742,7 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
                                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                                                 <div className="flex flex-col gap-1.5">
                                                     <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Cash Amount (₱)</label>
-                                                    <input 
+                                                    <input
                                                         type="number"
                                                         min="0"
                                                         max={calculations.additional_due}
@@ -754,7 +754,7 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
                                                 </div>
                                                 <div className="flex flex-col gap-1.5">
                                                     <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">GCash Amount (₱)</label>
-                                                    <input 
+                                                    <input
                                                         type="number"
                                                         min="0"
                                                         max={calculations.additional_due}
@@ -797,7 +797,7 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
             {/* Modal: Reassign Room */}
             {activeModal === 'move' && (
                 <div className="fixed inset-0 bg-[#070b13]/90 z-[9999] flex items-center justify-center p-4">
-                    <motion.div 
+                    <motion.div
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
                         className="bg-[#1e293b] border border-[#334155] rounded-2xl w-full max-w-md overflow-hidden shadow-2xl p-6 flex flex-col gap-5 text-slate-100"
@@ -820,7 +820,7 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
                             {/* Select Vacant Room */}
                             <div className="flex flex-col gap-1.5">
                                 <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Select Vacant Room</label>
-                                <select 
+                                <CustomSelect
                                     value={moveForm.data.new_room_id}
                                     onChange={e => moveForm.setData('new_room_id', e.target.value)}
                                     required
@@ -832,7 +832,7 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
                                             Room {r.room_number} ({r.type?.type_name})
                                         </option>
                                     ))}
-                                </select>
+                                </CustomSelect>
                                 {moveForm.errors.new_room_id && <span className="text-[10px] text-red-400 mt-1">{moveForm.errors.new_room_id}</span>}
                             </div>
 
@@ -864,7 +864,7 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
             {/* Modal: Cancel stays */}
             {activeModal === 'cancel' && (
                 <div className="fixed inset-0 bg-[#070b13]/90 z-[9999] flex items-center justify-center p-4">
-                    <motion.div 
+                    <motion.div
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
                         className="bg-[#1e293b] border border-[#334155] rounded-2xl w-full max-w-md overflow-hidden shadow-2xl p-6 flex flex-col gap-5 text-slate-100"

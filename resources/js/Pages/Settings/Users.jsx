@@ -3,6 +3,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, useForm } from '@inertiajs/react';
 import { Users2, PlusCircle, Edit2, Shield, X, User } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import CustomSelect from '@/Components/CustomSelect';
 
 export default function Users({ users }) {
     const [isAddOpen, setIsAddOpen] = useState(false);
@@ -104,8 +105,8 @@ export default function Users({ users }) {
                                     </span>
 
                                     <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold uppercase ${u.is_active
-                                            ? 'bg-emerald-950/50 border border-emerald-800/40 text-emerald-400'
-                                            : 'bg-red-950/50 border border-red-800/40 text-red-400'
+                                        ? 'bg-emerald-950/50 border border-emerald-800/40 text-emerald-400'
+                                        : 'bg-red-950/50 border border-red-800/40 text-red-400'
                                         }`}>
                                         {u.is_active ? 'Active Profile' : 'Suspended'}
                                     </span>
@@ -200,7 +201,7 @@ export default function Users({ users }) {
                                     {/* Role Selection */}
                                     <div className="flex flex-col gap-1">
                                         <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Assigned Role Authorization</label>
-                                        <select
+                                        <CustomSelect
                                             value={addForm.data.role}
                                             onChange={e => addForm.setData('role', e.target.value)}
                                             className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-xs text-slate-100 px-4 py-2.5 focus:outline-none focus:border-brand-500"
@@ -209,7 +210,7 @@ export default function Users({ users }) {
                                             <option value="front_desk">Front Desk Agent</option>
                                             <option value="cashier">Drawer Cashier</option>
                                             <option value="housekeeping">Room Housekeeping</option>
-                                        </select>
+                                        </CustomSelect>
                                     </div>
 
                                     {/* Profile Photo */}
@@ -282,7 +283,7 @@ export default function Users({ users }) {
                                     {/* Role Selection */}
                                     <div className="flex flex-col gap-1">
                                         <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Assigned Role Authorization</label>
-                                        <select
+                                        <CustomSelect
                                             value={editForm.data.role}
                                             onChange={e => editForm.setData('role', e.target.value)}
                                             className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-xs text-slate-100 px-4 py-2.5 focus:outline-none focus:border-brand-500"
@@ -291,7 +292,7 @@ export default function Users({ users }) {
                                             <option value="front_desk">Front Desk Agent</option>
                                             <option value="cashier">Drawer Cashier</option>
                                             <option value="housekeeping">Room Housekeeping</option>
-                                        </select>
+                                        </CustomSelect>
                                     </div>
 
                                     {/* Optional Reset Password */}

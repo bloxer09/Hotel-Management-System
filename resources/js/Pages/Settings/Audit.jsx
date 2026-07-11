@@ -5,6 +5,7 @@ import { Shield, Eye, Clock, User, HardDrive, HelpCircle, X, ChevronDown, Chevro
 import { motion, AnimatePresence } from 'framer-motion';
 import SortableHeader from '@/Components/SortableHeader';
 import Pagination from '@/Components/Pagination';
+import CustomSelect from '@/Components/CustomSelect';
 
 export default function Audit({ logs, users = [], modules = [], filters = {}, sortBy, sortDir }) {
     const [keyword, setKeyword] = useState(filters.keyword || '');
@@ -153,7 +154,7 @@ export default function Audit({ logs, users = [], modules = [], filters = {}, so
 
                     <div className="flex flex-col gap-1.5">
                         <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Staff</label>
-                        <select
+                        <CustomSelect
                             value={userId}
                             onChange={(e) => setUserId(e.target.value)}
                             className="bg-[#0f172a] border border-[#334155] rounded-xl px-4 py-2.5 text-slate-100 text-xs focus:outline-none focus:border-brand-500/60 focus:ring-1 focus:ring-brand-500/20 transition-all"
@@ -162,12 +163,12 @@ export default function Audit({ logs, users = [], modules = [], filters = {}, so
                             {users.map(u => (
                                 <option key={u.id} value={u.id}>{u.full_name || u.username} ({u.role.replace('_', ' ').toUpperCase()})</option>
                             ))}
-                        </select>
+                        </CustomSelect>
                     </div>
 
                     <div className="flex flex-col gap-1.5">
                         <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Module</label>
-                        <select
+                        <CustomSelect
                             value={moduleFilter}
                             onChange={(e) => setModuleFilter(e.target.value)}
                             className="bg-[#0f172a] border border-[#334155] rounded-xl px-4 py-2.5 text-slate-100 text-xs focus:outline-none focus:border-brand-500/60 focus:ring-1 focus:ring-brand-500/20 transition-all"
@@ -176,7 +177,7 @@ export default function Audit({ logs, users = [], modules = [], filters = {}, so
                             {modules.map(m => (
                                 <option key={m} value={m}>{m.toUpperCase()}</option>
                             ))}
-                        </select>
+                        </CustomSelect>
                     </div>
 
                     <div className="flex flex-col gap-1.5">
@@ -250,8 +251,8 @@ export default function Audit({ logs, users = [], modules = [], filters = {}, so
                                             <tr
                                                 onClick={() => (log.old_values || log.new_values) && toggleExpandRow(log.id)}
                                                 className={`transition-colors cursor-pointer select-none border-b border-[#334155]/50 ${expandedLogId === log.id
-                                                        ? 'bg-[#0f172a]/50 border-l-2 border-brand-500'
-                                                        : 'hover:bg-[#0f172a]/40'
+                                                    ? 'bg-[#0f172a]/50 border-l-2 border-brand-500'
+                                                    : 'hover:bg-[#0f172a]/40'
                                                     }`}
                                             >
                                                 <td className="py-3.5 font-mono text-slate-400">

@@ -185,7 +185,7 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
             ...data,
             _method: 'PUT',
         }));
-        
+
         editForm.post(route('bookings.update', editingBooking.id), {
             onSuccess: () => {
                 setShowEditModal(false);
@@ -537,11 +537,10 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
                     <div className="flex items-center gap-2 w-full sm:w-auto">
                         <button
                             onClick={handleToggleGroupsOnly}
-                            className={`px-3.5 py-2.5 rounded-xl font-outfit font-bold text-xs transition-all border flex items-center gap-1.5 active:scale-95 shrink-0 ${
-                                showGroupsOnly
-                                    ? 'bg-indigo-600 hover:bg-indigo-500 text-white border-indigo-500/30'
-                                    : 'bg-[#1e293b] border-[#334155] text-slate-400 hover:text-slate-200'
-                            }`}
+                            className={`px-3.5 py-2.5 rounded-xl font-outfit font-bold text-xs transition-all border flex items-center gap-1.5 active:scale-95 shrink-0 ${showGroupsOnly
+                                ? 'bg-indigo-600 hover:bg-indigo-500 text-white border-indigo-500/30'
+                                : 'bg-[#1e293b] border-[#334155] text-slate-400 hover:text-slate-200'
+                                }`}
                         >
                             <span className={`w-1.5 h-1.5 rounded-full bg-indigo-400 ${showGroupsOnly ? 'opacity-100' : 'opacity-40'}`} />
                             Group Bookings
@@ -610,11 +609,10 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
                                                             {bookingsList.map(b => (
                                                                 <span key={b.id} className="inline-flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-bold bg-[#0f172a] border border-[#334155] text-slate-350">
                                                                     Room {b.room?.room_number}
-                                                                    <span className={`w-1.5 h-1.5 rounded-full ${
-                                                                        b.status === 'active' ? 'bg-emerald-400' :
+                                                                    <span className={`w-1.5 h-1.5 rounded-full ${b.status === 'active' ? 'bg-emerald-400' :
                                                                         b.status === 'reserved' ? 'bg-indigo-400' :
-                                                                        b.status === 'checked_out' ? 'bg-slate-400' : 'bg-red-400'
-                                                                    }`} title={b.status} />
+                                                                            b.status === 'checked_out' ? 'bg-slate-400' : 'bg-red-400'
+                                                                        }`} title={b.status} />
                                                                 </span>
                                                             ))}
                                                         </div>
@@ -717,8 +715,8 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
                                             </td>
                                             <td className="px-4 py-3">
                                                 <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-black uppercase ${b.booking_type === 'overnight'
-                                                        ? 'bg-brand-500/10 text-brand-400 border border-brand-500/20'
-                                                        : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                                                    ? 'bg-brand-500/10 text-brand-400 border border-brand-500/20'
+                                                    : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
                                                     }`}>
                                                     <BedDouble size={9} />
                                                     {b.booking_type === 'overnight' ? 'Overnight' : `${b.short_time_hours}h`}
@@ -915,14 +913,14 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
                                                 </div>
                                                 <div className="flex flex-col gap-1">
                                                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Rooms (Multiple) *</label>
-                                                    <button 
-                                                        type="button" 
+                                                    <button
+                                                        type="button"
                                                         onClick={() => setShowRoomSelectModal(true)}
                                                         className={`w-full text-left flex items-center justify-between px-3 py-2 bg-[#0f172a]/60 border border-[#334155] hover:border-[#475569] rounded-xl transition-all ${inputCls.replace('px-3 py-2.5', '').replace('bg-[#0f172a]', '')} font-bold`}
                                                     >
                                                         <span className={data.room_ids.length ? 'text-slate-200' : 'text-slate-500'}>
-                                                            {data.room_ids.length > 0 
-                                                                ? `${data.room_ids.length} Room${data.room_ids.length > 1 ? 's' : ''} Selected` 
+                                                            {data.room_ids.length > 0
+                                                                ? `${data.room_ids.length} Room${data.room_ids.length > 1 ? 's' : ''} Selected`
                                                                 : 'Select Rooms...'}
                                                         </span>
                                                         <div className="w-5 h-5 rounded bg-[#1e293b] flex items-center justify-center border border-[#334155] text-slate-400">
@@ -933,10 +931,10 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
                                                 </div>
                                                 <div className="flex flex-col gap-1">
                                                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Stay Type</label>
-                                                    <select value={data.booking_type} onChange={e => setData('booking_type', e.target.value)} className={`${inputCls} font-bold`}>
+                                                    <CustomSelect value={data.booking_type} onChange={e => setData('booking_type', e.target.value)} className={`${inputCls} font-bold`}>
                                                         <option value="overnight">Overnight</option>
                                                         <option value="short_time">Short-time (Hourly)</option>
-                                                    </select>
+                                                    </CustomSelect>
                                                 </div>
                                                 {data.booking_type === 'overnight' ? (
                                                     <div className="flex flex-col gap-1">
@@ -946,10 +944,10 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
                                                 ) : (
                                                     <div className="flex flex-col gap-1">
                                                         <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Hours</label>
-                                                        <select value={data.short_time_hours} onChange={e => setData('short_time_hours', Number(e.target.value))} className={`${inputCls} font-mono font-bold`}>
+                                                        <CustomSelect value={data.short_time_hours} onChange={e => setData('short_time_hours', Number(e.target.value))} className={`${inputCls} font-mono font-bold`}>
                                                             <option value={3}>3 Hours</option><option value={6}>6 Hours</option>
                                                             <option value={12}>12 Hours</option><option value={24}>24 Hours</option>
-                                                        </select>
+                                                        </CustomSelect>
                                                     </div>
                                                 )}
 
@@ -977,7 +975,7 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
                                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                                 <div className="flex flex-col gap-1">
                                                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Discount</label>
-                                                    <select value={data.discount_type} onChange={e => setData('discount_type', e.target.value)} className={`${inputCls} font-semibold`}>
+                                                    <CustomSelect value={data.discount_type} onChange={e => setData('discount_type', e.target.value)} className={`${inputCls} font-semibold`}>
                                                         <option value="none">No Discount</option>
                                                         <option value="loyalty">Loyalty (10%)</option>
                                                         <option value="senior">Senior Citizen (20%)</option>
@@ -987,7 +985,7 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
                                                             <option value="staff">Staff Override</option>
                                                             <option value="complimentary">Complimentary</option>
                                                         </>}
-                                                    </select>
+                                                    </CustomSelect>
                                                 </div>
                                                 {['promo', 'staff'].includes(data.discount_type) && !data.promo_code && (
                                                     <div className="flex flex-col gap-1">
@@ -1042,13 +1040,13 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
                                                 </div>
                                                 <div className="flex flex-col gap-1">
                                                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Payment Method</label>
-                                                    <select value={data.payment_method} onChange={e => setData('payment_method', e.target.value)} className={`${inputCls} font-bold`}>
+                                                    <CustomSelect value={data.payment_method} onChange={e => setData('payment_method', e.target.value)} className={`${inputCls} font-bold`}>
                                                         <option value="cash">Cash</option>
                                                         <option value="gcash">GCash</option>
                                                         <option value="card">Card</option>
                                                         <option value="bank_transfer">Bank Transfer</option>
                                                         <option value="split">Split (Cash + GCash)</option>
-                                                    </select>
+                                                    </CustomSelect>
                                                 </div>
                                                 {['cash', 'split'].includes(data.payment_method) && (
                                                     <div className="flex flex-col gap-1">
@@ -1455,21 +1453,21 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
                                                 </div>
                                                 <div className="flex flex-col gap-1">
                                                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Room *</label>
-                                                    <select value={editForm.data.room_id} onChange={e => editForm.setData('room_id', e.target.value)} required className={`${inputCls} font-bold`}>
+                                                    <CustomSelect value={editForm.data.room_id} onChange={e => editForm.setData('room_id', e.target.value)} required className={`${inputCls} font-bold`}>
                                                         <option value="">Select Room</option>
                                                         {editingBooking?.room && !rooms.some(r => r.id === editingBooking.room.id) && (
                                                             <option value={editingBooking.room.id}>Room {editingBooking.room.room_number} ({editingBooking.room.type?.type_name}) — {editingBooking.room.status} [Current]</option>
                                                         )}
                                                         {rooms.map(r => <option key={r.id} value={r.id}>Room {r.room_number} ({r.type?.type_name}) — {r.status}</option>)}
-                                                    </select>
+                                                    </CustomSelect>
                                                     {editForm.errors.room_id && <span className="text-[10px] text-red-400">{editForm.errors.room_id}</span>}
                                                 </div>
                                                 <div className="flex flex-col gap-1">
                                                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Stay Type</label>
-                                                    <select value={editForm.data.booking_type} onChange={e => editForm.setData('booking_type', e.target.value)} className={`${inputCls} font-bold`}>
+                                                    <CustomSelect value={editForm.data.booking_type} onChange={e => editForm.setData('booking_type', e.target.value)} className={`${inputCls} font-bold`}>
                                                         <option value="overnight">Overnight</option>
                                                         <option value="short_time">Short-time (Hourly)</option>
-                                                    </select>
+                                                    </CustomSelect>
                                                 </div>
                                                 {editForm.data.booking_type === 'overnight' ? (
                                                     <div className="flex flex-col gap-1">
@@ -1479,10 +1477,10 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
                                                 ) : (
                                                     <div className="flex flex-col gap-1">
                                                         <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Hours</label>
-                                                        <select value={editForm.data.short_time_hours} onChange={e => editForm.setData('short_time_hours', Number(e.target.value))} className={`${inputCls} font-mono font-bold`}>
+                                                        <CustomSelect value={editForm.data.short_time_hours} onChange={e => editForm.setData('short_time_hours', Number(e.target.value))} className={`${inputCls} font-mono font-bold`}>
                                                             <option value={3}>3 Hours</option><option value={6}>6 Hours</option>
                                                             <option value={12}>12 Hours</option><option value={24}>24 Hours</option>
-                                                        </select>
+                                                        </CustomSelect>
                                                     </div>
                                                 )}
                                             </div>
@@ -1509,7 +1507,7 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
                                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                                 <div className="flex flex-col gap-1">
                                                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Discount</label>
-                                                    <select value={editForm.data.discount_type} onChange={e => editForm.setData('discount_type', e.target.value)} className={`${inputCls} font-semibold`}>
+                                                    <CustomSelect value={editForm.data.discount_type} onChange={e => editForm.setData('discount_type', e.target.value)} className={`${inputCls} font-semibold`}>
                                                         <option value="none">No Discount</option>
                                                         <option value="loyalty">Loyalty (10%)</option>
                                                         <option value="senior">Senior Citizen (20%)</option>
@@ -1519,7 +1517,7 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
                                                             <option value="staff">Staff Override</option>
                                                             <option value="complimentary">Complimentary</option>
                                                         </>}
-                                                    </select>
+                                                    </CustomSelect>
                                                 </div>
                                                 {['promo', 'staff'].includes(editForm.data.discount_type) && !editForm.data.promo_code && (
                                                     <div className="flex flex-col gap-1">
@@ -1574,13 +1572,13 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
                                                 </div>
                                                 <div className="flex flex-col gap-1">
                                                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Payment Method</label>
-                                                    <select value={editForm.data.payment_method} onChange={e => editForm.setData('payment_method', e.target.value)} className={`${inputCls} font-bold`}>
+                                                    <CustomSelect value={editForm.data.payment_method} onChange={e => editForm.setData('payment_method', e.target.value)} className={`${inputCls} font-bold`}>
                                                         <option value="cash">Cash</option>
                                                         <option value="gcash">GCash</option>
                                                         <option value="card">Card</option>
                                                         <option value="bank_transfer">Bank Transfer</option>
                                                         <option value="split">Split (Cash + GCash)</option>
-                                                    </select>
+                                                    </CustomSelect>
                                                 </div>
                                                 {['gcash', 'split'].includes(editForm.data.payment_method) && (
                                                     <div className="flex flex-col gap-1">
@@ -1723,18 +1721,18 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
                                                 </div>
                                                 <div className="flex flex-col gap-1">
                                                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Room *</label>
-                                                    <select value={rescheduleForm.data.room_id} onChange={e => rescheduleForm.setData('room_id', e.target.value)} required className={`${inputCls} font-bold`}>
+                                                    <CustomSelect value={rescheduleForm.data.room_id} onChange={e => rescheduleForm.setData('room_id', e.target.value)} required className={`${inputCls} font-bold`}>
                                                         <option value="">Select Room</option>
                                                         {rooms.map(r => <option key={r.id} value={r.id}>Room {r.room_number} ({r.type?.type_name}) — {r.status}</option>)}
-                                                    </select>
+                                                    </CustomSelect>
                                                     {rescheduleForm.errors.room_id && <span className="text-[10px] text-red-400">{rescheduleForm.errors.room_id}</span>}
                                                 </div>
                                                 <div className="flex flex-col gap-1">
                                                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Stay Type</label>
-                                                    <select value={rescheduleForm.data.booking_type} onChange={e => rescheduleForm.setData('booking_type', e.target.value)} className={`${inputCls} font-bold`}>
+                                                    <CustomSelect value={rescheduleForm.data.booking_type} onChange={e => rescheduleForm.setData('booking_type', e.target.value)} className={`${inputCls} font-bold`}>
                                                         <option value="overnight">Overnight</option>
                                                         <option value="short_time">Short-time (Hourly)</option>
-                                                    </select>
+                                                    </CustomSelect>
                                                 </div>
                                                 {rescheduleForm.data.booking_type === 'overnight' ? (
                                                     <div className="flex flex-col gap-1">
@@ -1744,10 +1742,10 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
                                                 ) : (
                                                     <div className="flex flex-col gap-1">
                                                         <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Hours</label>
-                                                        <select value={rescheduleForm.data.short_time_hours} onChange={e => rescheduleForm.setData('short_time_hours', Number(e.target.value))} className={`${inputCls} font-mono font-bold`}>
+                                                        <CustomSelect value={rescheduleForm.data.short_time_hours} onChange={e => rescheduleForm.setData('short_time_hours', Number(e.target.value))} className={`${inputCls} font-mono font-bold`}>
                                                             <option value={3}>3 Hours</option><option value={6}>6 Hours</option>
                                                             <option value={12}>12 Hours</option><option value={24}>24 Hours</option>
-                                                        </select>
+                                                        </CustomSelect>
                                                     </div>
                                                 )}
                                             </div>
@@ -1909,27 +1907,27 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
             </ActionModal>
 
             {/* Room Multi-Select Modal */}
-            <ActionModal 
-                isOpen={showRoomSelectModal} 
+            <ActionModal
+                isOpen={showRoomSelectModal}
                 onClose={() => setShowRoomSelectModal(false)}
                 title="Select Rooms"
             >
                 {/* Filter Tabs */}
                 <div className="flex gap-1 overflow-x-auto custom-scrollbar pb-2 mb-2 border-b border-[#334155]/50">
-                    <button 
+                    <button
                         onClick={() => setRoomFilter('all')}
                         className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${roomFilter === 'all' ? 'bg-brand-600 text-white shadow' : 'bg-[#1e293b] text-slate-400 hover:text-slate-200 border border-[#334155]'}`}
                     >
                         All Rooms
                     </button>
-                    <button 
+                    <button
                         onClick={() => setRoomFilter('vacant')}
                         className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${roomFilter === 'vacant' ? 'bg-emerald-600 text-white shadow' : 'bg-[#1e293b] text-slate-400 hover:text-slate-200 border border-[#334155]'}`}
                     >
                         Vacant Only
                     </button>
-                    {[...new Set(availableRooms.map(r => r.floor))].filter(Boolean).sort((a,b) => a - b).map(f => (
-                        <button 
+                    {[...new Set(availableRooms.map(r => r.floor))].filter(Boolean).sort((a, b) => a - b).map(f => (
+                        <button
                             key={`floor-${f}`}
                             onClick={() => setRoomFilter(`floor-${f}`)}
                             className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${roomFilter === `floor-${f}` ? 'bg-indigo-600 text-white shadow' : 'bg-[#1e293b] text-slate-400 hover:text-slate-200 border border-[#334155]'}`}
@@ -1938,7 +1936,7 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
                         </button>
                     ))}
                     {[...new Set(availableRooms.map(r => r.type?.type_name))].filter(Boolean).sort().map(type => (
-                        <button 
+                        <button
                             key={`type-${type}`}
                             onClick={() => setRoomFilter(`type-${type}`)}
                             className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${roomFilter === `type-${type}` ? 'bg-amber-600 text-white shadow' : 'bg-[#1e293b] text-slate-400 hover:text-slate-200 border border-[#334155]'}`}
@@ -1958,8 +1956,8 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
                         return true;
                     }).map(r => (
                         <label key={r.id} className="flex items-center gap-3 p-3 rounded-xl bg-[#0f172a]/60 border border-[#334155] cursor-pointer hover:bg-[#1e293b]/60 transition-colors">
-                            <input 
-                                type="checkbox" 
+                            <input
+                                type="checkbox"
                                 className="rounded bg-[#1e293b] border-[#475569] text-brand-500 focus:ring-brand-500"
                                 checked={data.room_ids.some(id => id.toString() === r.id.toString())}
                                 onChange={(e) => {
@@ -1975,11 +1973,10 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
                                 <span className="font-outfit font-bold text-slate-200 text-sm flex items-center gap-2">
                                     Room {r.room_number}
                                     {r.status !== 'vacant' && (
-                                        <span className={`text-[8px] uppercase px-1.5 py-0.5 rounded-full ${
-                                            r.status === 'occupied' ? 'bg-rose-500/20 text-rose-400' :
+                                        <span className={`text-[8px] uppercase px-1.5 py-0.5 rounded-full ${r.status === 'occupied' ? 'bg-rose-500/20 text-rose-400' :
                                             r.status === 'cleaning' ? 'bg-amber-500/20 text-amber-400' :
-                                            'bg-slate-500/20 text-slate-400'
-                                        }`}>{r.status}</span>
+                                                'bg-slate-500/20 text-slate-400'
+                                            }`}>{r.status}</span>
                                     )}
                                 </span>
                                 <span className="text-[10px] text-slate-400 font-medium">{r.type?.type_name}</span>
@@ -1992,8 +1989,8 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
                 </div>
                 <div className="mt-4 pt-3 border-t border-[#334155] flex justify-between items-center">
                     <span className="text-xs font-bold text-slate-400">{data.room_ids.length} selected</span>
-                    <button 
-                        type="button" 
+                    <button
+                        type="button"
                         onClick={() => setShowRoomSelectModal(false)}
                         className="px-6 py-2 bg-brand-600 hover:bg-brand-500 text-white rounded-xl text-sm font-bold transition-all"
                     >

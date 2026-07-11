@@ -123,17 +123,6 @@ export default function Index({ guests, currentSearch, currentVip, stats, sortBy
                         </h1>
                         <p className="text-xs sm:text-sm text-slate-400 font-medium mt-1">Query unified guest profiles, track transaction histories, and manage privileged VIP classifications.</p>
                     </div>
-                    {user.role === 'admin' && (
-                        <form onSubmit={handleSyncSubmit}>
-                            <button
-                                type="submit"
-                                disabled={syncForm.processing}
-                                className="flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl bg-slate-800 border border-slate-700/60 hover:bg-slate-700 text-slate-200 text-xs font-bold font-outfit shadow-sm transition-all disabled:opacity-50 active:scale-95 shrink-0 w-full sm:w-auto justify-center"
-                            >
-                                <RefreshCw size={14} className={syncForm.processing ? 'animate-spin' : ''} /> Sync from Bookings
-                            </button>
-                        </form>
-                    )}
                 </div>
 
                 {/* Tabs + Search */}

@@ -10,7 +10,7 @@ body {
     color-scheme: dark;
 }
 
-/* Dark background for all native <select> and <option> elements */
+/* Dark background for all native <CustomSelect> and <option> elements */
 select {
     color-scheme: dark;
     background-color: #0f172a !important;
@@ -32,29 +32,37 @@ option:checked {
 * {
     /* Support for Firefox */
     scrollbar-width: thin;
-    scrollbar-color: rgba(148, 163, 184, 0.25) transparent; /* Slate-400 with 0.25 opacity */
+    scrollbar-color: rgba(148, 163, 184, 0.25) transparent;
+    /* Slate-400 with 0.25 opacity */
 }
 
 /* Chrome, Edge, Safari, Opera (WebKit browsers) */
 ::-webkit-scrollbar {
-    width: 6px; /* Super thin width */
-    height: 6px; /* Super thin height for horizontal scrollbars */
+    width: 6px;
+    /* Super thin width */
+    height: 6px;
+    /* Super thin height for horizontal scrollbars */
 }
 
 ::-webkit-scrollbar-track {
-    background: transparent; /* No ugly white background - perfectly matches any container/page background */
+    background: transparent;
+    /* No ugly white background - perfectly matches any container/page background */
 }
 
 ::-webkit-scrollbar-thumb {
-    background: rgba(148, 163, 184, 0.25); /* Sleek slate-400 color with low opacity for elegance */
-    border-radius: 100px; /* Fully rounded capsule/pill shape */
-    border: 1px solid transparent; /* Subtle padding-like effect */
+    background: rgba(148, 163, 184, 0.25);
+    /* Sleek slate-400 color with low opacity for elegance */
+    border-radius: 100px;
+    /* Fully rounded capsule/pill shape */
+    border: 1px solid transparent;
+    /* Subtle padding-like effect */
     background-clip: padding-box;
     transition: background-color 0.2s ease-in-out;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: rgba(148, 163, 184, 0.5); /* Brightens smoothly on hover */
+    background: rgba(148, 163, 184, 0.5);
+    /* Brightens smoothly on hover */
     background-clip: padding-box;
 }
 
@@ -80,6 +88,7 @@ th {
 
 /* Fix mobile table crushing: Allow horizontal scroll on small devices */
 @media (max-width: 768px) {
+
     /* All table-fixed tables inside scroll containers get a minimum width
        so they scroll horizontally instead of crushing columns */
     .overflow-x-auto table.table-fixed,
@@ -96,6 +105,7 @@ th {
 
 /* Very small screens (320px) need even more space optimization */
 @media (max-width: 374px) {
+
     .overflow-x-auto table.table-fixed,
     .overflow-x-auto table {
         min-width: 600px;
@@ -105,6 +115,7 @@ th {
 /* ─── Touch-Friendly Targets ───────────────────────────────────────────── */
 /* Ensure interactive elements meet 44px minimum tap target on touch devices */
 @media (pointer: coarse) {
+
     input[type="text"],
     input[type="number"],
     input[type="email"],
@@ -138,12 +149,14 @@ th {
     scrollbar-width: none;
     -ms-overflow-style: none;
 }
+
 .mobile-scroll-tabs::-webkit-scrollbar {
     display: none;
 }
 
 /* ─── Global Print Layout Reset ──────────────────────────────────────────── */
 @media print {
+
     /* Prevent screen-based height/overflow constraints from clipping content in print previews */
     html,
     body,
@@ -157,4 +170,3 @@ th {
         overflow: visible !important;
     }
 }
-

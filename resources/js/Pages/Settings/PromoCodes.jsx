@@ -5,6 +5,7 @@ import { Ticket, Plus, Trash2, Calendar, Edit3, X, Eye, BadgePercent, Check, Ale
 import { motion, AnimatePresence } from 'framer-motion';
 import ActionModal from '@/Components/ActionModal';
 import ConfirmModal from '@/Components/ConfirmModal';
+import CustomSelect from '@/Components/CustomSelect';
 
 export default function PromoCodes({ promoCodes }) {
     const [isOpen, setIsOpen] = useState(false);
@@ -126,10 +127,10 @@ export default function PromoCodes({ promoCodes }) {
                                         const isValid = promo.is_active && !isExpired && !isLimitReached;
 
                                         return (
-                                            <motion.tr 
-                                                key={promo.id} 
-                                                initial={{ opacity: 0, y: 6 }} 
-                                                animate={{ opacity: 1, y: 0 }} 
+                                            <motion.tr
+                                                key={promo.id}
+                                                initial={{ opacity: 0, y: 6 }}
+                                                animate={{ opacity: 1, y: 0 }}
                                                 transition={{ delay: i * 0.03 }}
                                                 className="border-b border-[#334155]/50 hover:bg-[#0f172a]/40 transition-colors"
                                             >
@@ -177,8 +178,8 @@ export default function PromoCodes({ promoCodes }) {
                                                 </td>
                                                 <td className="px-4 py-3">
                                                     <span className={`inline-flex items-center gap-1 px-2.5 py-1 text-[10px] uppercase font-bold rounded-lg border ${isValid
-                                                            ? 'bg-emerald-950/40 border-emerald-800 text-emerald-400'
-                                                            : 'bg-red-950/40 border-red-800 text-red-400'
+                                                        ? 'bg-emerald-950/40 border-emerald-800 text-emerald-400'
+                                                        : 'bg-red-950/40 border-red-800 text-red-400'
                                                         }`}>
                                                         {isValid ? (
                                                             <>
@@ -285,14 +286,14 @@ export default function PromoCodes({ promoCodes }) {
                                             <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
                                                 Discount Mode
                                             </label>
-                                            <select
+                                            <CustomSelect
                                                 value={form.data.discount_type}
                                                 onChange={e => form.setData('discount_type', e.target.value)}
                                                 className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-xs text-slate-100 px-4 py-2.5 focus:outline-none focus:border-brand-500"
                                             >
                                                 <option value="percent">Percentage (%)</option>
                                                 <option value="fixed">Fixed Cash (₱)</option>
-                                            </select>
+                                            </CustomSelect>
                                         </div>
 
                                         {/* Surcharge Rate */}

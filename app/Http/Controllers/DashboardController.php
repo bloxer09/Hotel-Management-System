@@ -198,10 +198,6 @@ class DashboardController extends Controller
             ];
         }
 
-        // RevPAR KPI: total revenue in 30 days / (total rooms * 30)
-        $availableRoomNights = max(1, $roomsCount) * 30;
-        $revpar30d = round($totalRevenue30d / $availableRoomNights, 2);
-
         // Room Type Revenue Breakdown
         $roomTypeRevenue = [];
         $roomTypes = RoomType::all();
@@ -399,8 +395,6 @@ class DashboardController extends Controller
                         'label' => "This Year"
                     ],
                 ],
-                'revpar' => $revpar30d,
-                'revenue_30d' => $totalRevenue30d,
             ],
             'charts' => [
                 'dailyOccupancy' => $dailyOccupancy,

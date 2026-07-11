@@ -5,6 +5,7 @@ import { CalendarDays, Plus, Trash2, Calendar, ShieldAlert, X, Settings2, Edit, 
 import { motion, AnimatePresence } from 'framer-motion';
 import ConfirmModal from '@/Components/ConfirmModal';
 import ActionModal from '@/Components/ActionModal';
+import CustomSelect from '@/Components/CustomSelect';
 
 export default function Peaks({ peakDates }) {
     const [isOpen, setIsOpen] = useState(false);
@@ -113,10 +114,10 @@ export default function Peaks({ peakDates }) {
                             <tbody>
                                 {peakDates.length > 0 ? (
                                     peakDates.map((pd, i) => (
-                                        <motion.tr 
-                                            key={pd.id} 
-                                            initial={{ opacity: 0, y: 6 }} 
-                                            animate={{ opacity: 1, y: 0 }} 
+                                        <motion.tr
+                                            key={pd.id}
+                                            initial={{ opacity: 0, y: 6 }}
+                                            animate={{ opacity: 1, y: 0 }}
                                             transition={{ delay: i * 0.03 }}
                                             className="border-b border-[#334155]/50 hover:bg-[#0f172a]/40 transition-colors"
                                         >
@@ -139,8 +140,8 @@ export default function Peaks({ peakDates }) {
                                             <td className="px-4 py-3">
                                                 <span
                                                     className={`px-3 py-1 text-[10px] uppercase font-bold rounded-lg ${pd.is_active
-                                                            ? 'bg-emerald-950/65 border border-emerald-800 text-emerald-400'
-                                                            : 'bg-slate-900 border border-slate-700 text-slate-500'
+                                                        ? 'bg-emerald-950/65 border border-emerald-800 text-emerald-400'
+                                                        : 'bg-slate-900 border border-slate-700 text-slate-500'
                                                         }`}
                                                 >
                                                     {pd.is_active ? 'Active' : 'Disabled'}
@@ -225,14 +226,14 @@ export default function Peaks({ peakDates }) {
                                         {/* Surcharge Type Selection */}
                                         <div className="flex flex-col gap-1">
                                             <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Surcharge Type</label>
-                                            <select
+                                            <CustomSelect
                                                 value={form.data.surcharge_type}
                                                 onChange={e => form.setData('surcharge_type', e.target.value)}
                                                 className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-xs text-slate-100 px-4 py-2.5 focus:outline-none focus:border-brand-500"
                                             >
                                                 <option value="fixed">Fixed Amount (₱)</option>
                                                 <option value="percent">Percentage Surcharge (%)</option>
-                                            </select>
+                                            </CustomSelect>
                                         </div>
 
                                         {/* Surcharge Rate */}

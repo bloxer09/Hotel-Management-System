@@ -51,8 +51,6 @@ A full-featured, web-based **Property Management System (PMS)** built for Uptown
 
 ### 📊 Sales & Reports
 - Daily revenue breakdown: Room Lodging vs. Inventory/Product Sales
-- RevPAR (Revenue Per Available Room) — 30-day rolling average
-- Today's occupancy rate with sparkline charts
 - End-of-Day (EOD) shift summary modal
 - Filterable date-range sales reports
 - CSV export of financial data

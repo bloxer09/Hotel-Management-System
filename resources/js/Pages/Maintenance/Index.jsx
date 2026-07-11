@@ -375,7 +375,7 @@ export default function Maintenance({ tickets, rooms, filters = {}, sortBy, sort
                                     {/* Select Room */}
                                     <div className="flex flex-col gap-1">
                                         <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Select Affected Room</label>
-                                        <select
+                                        <CustomSelect
                                             value={form.data.room_id}
                                             onChange={e => form.setData('room_id', e.target.value)}
                                             className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-xs text-slate-100 px-4 py-2.5 focus:outline-none focus:border-brand-500"
@@ -387,7 +387,7 @@ export default function Maintenance({ tickets, rooms, filters = {}, sortBy, sort
                                                     Room {room.room_number} ({room.status})
                                                 </option>
                                             ))}
-                                        </select>
+                                        </CustomSelect>
                                         {form.errors.room_id && <span className="text-[10px] text-red-400 font-semibold">{form.errors.room_id}</span>}
                                     </div>
 
@@ -421,7 +421,7 @@ export default function Maintenance({ tickets, rooms, filters = {}, sortBy, sort
                                     {/* Priority */}
                                     <div className="flex flex-col gap-1">
                                         <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Severity Priority</label>
-                                        <select
+                                        <CustomSelect
                                             value={form.data.priority}
                                             onChange={e => form.setData('priority', e.target.value)}
                                             className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-xs text-slate-100 px-4 py-2.5 focus:outline-none focus:border-brand-500"
@@ -430,7 +430,7 @@ export default function Maintenance({ tickets, rooms, filters = {}, sortBy, sort
                                             <option value="medium">Medium (Requires attention)</option>
                                             <option value="high">High (Disturbing stay)</option>
                                             <option value="critical">Critical (Needs immediate fix / Room unusable)</option>
-                                        </select>
+                                        </CustomSelect>
                                     </div>
 
                                     {/* Reported At */}
@@ -483,7 +483,7 @@ export default function Maintenance({ tickets, rooms, filters = {}, sortBy, sort
                                     {/* Select Room */}
                                     <div className="flex flex-col gap-1">
                                         <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Select Affected Room</label>
-                                        <select
+                                        <CustomSelect
                                             value={editForm.data.room_id}
                                             onChange={e => editForm.setData('room_id', e.target.value)}
                                             className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-xs text-slate-100 px-4 py-2.5 focus:outline-none focus:border-brand-500"
@@ -495,7 +495,7 @@ export default function Maintenance({ tickets, rooms, filters = {}, sortBy, sort
                                                     Room {room.room_number} ({room.status})
                                                 </option>
                                             ))}
-                                        </select>
+                                        </CustomSelect>
                                         {editForm.errors.room_id && <span className="text-[10px] text-red-400 font-semibold">{editForm.errors.room_id}</span>}
                                     </div>
 
@@ -529,7 +529,7 @@ export default function Maintenance({ tickets, rooms, filters = {}, sortBy, sort
                                     {/* Priority */}
                                     <div className="flex flex-col gap-1">
                                         <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Severity Priority</label>
-                                        <select
+                                        <CustomSelect
                                             value={editForm.data.priority}
                                             onChange={e => editForm.setData('priority', e.target.value)}
                                             className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-xs text-slate-100 px-4 py-2.5 focus:outline-none focus:border-brand-500"
@@ -538,7 +538,7 @@ export default function Maintenance({ tickets, rooms, filters = {}, sortBy, sort
                                             <option value="medium">Medium (Requires attention)</option>
                                             <option value="high">High (Disturbing stay)</option>
                                             <option value="critical">Critical (Needs immediate fix / Room unusable)</option>
-                                        </select>
+                                        </CustomSelect>
                                     </div>
 
                                     {/* File Attachment */}

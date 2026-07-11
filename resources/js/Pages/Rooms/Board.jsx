@@ -101,12 +101,12 @@ export default function Board({ rooms, roomTypes, housekeepers = [] }) {
         const days = Math.floor(totalMins / 1440);
         const hours = Math.floor((totalMins % 1440) / 60);
         const mins = totalMins % 60;
-        
+
         let parts = [];
         if (days > 0) parts.push(`${days}d`);
         if (hours > 0 || days > 0) parts.push(`${hours}h`);
         parts.push(`${mins}m`);
-        
+
         return parts.join(' ');
     };
 
@@ -132,7 +132,7 @@ export default function Board({ rooms, roomTypes, housekeepers = [] }) {
     const [extLoading, setExtLoading] = useState(false);
     const [alertMessage, setAlertMessage] = useState(null);
     const [confirmAction, setConfirmAction] = useState(null);
-    
+
     const extForm = useForm({
         hours: '',
         days: '',
@@ -219,7 +219,7 @@ export default function Board({ rooms, roomTypes, housekeepers = [] }) {
         try {
             const res = await axios.post(route('bookings.preview_extend', selectedRoom.active_booking.id), params);
             setExtCalc(res.data);
-            
+
             // Set defaults on form data
             extForm.setData(prev => {
                 const total = res.data.total_amount;
@@ -321,7 +321,7 @@ export default function Board({ rooms, roomTypes, housekeepers = [] }) {
         const matchesStatus = statusFilter === 'all' || room.status === statusFilter;
         const matchesFloor = floorFilter === 'all' || room.floor.toString() === floorFilter;
         const matchesType = typeFilter === 'all' || room.room_type_id.toString() === typeFilter;
-        const matchesSearch = !roomSearch || 
+        const matchesSearch = !roomSearch ||
             room.room_number.toLowerCase().includes(roomSearch.toLowerCase()) ||
             (room.active_booking?.guest_name && room.active_booking.guest_name.toLowerCase().includes(roomSearch.toLowerCase())) ||
             (room.type?.type_name && room.type.type_name.toLowerCase().includes(roomSearch.toLowerCase()));
@@ -399,11 +399,11 @@ export default function Board({ rooms, roomTypes, housekeepers = [] }) {
                             onChange={setStatusFilter}
                             containerClassName="sm:w-48"
                             options={[
-                                { key: 'all',          label: `All Rooms (${rooms.length})` },
-                                { key: 'vacant',       label: `Vacant (${countStatus('vacant')})` },
-                                { key: 'occupied',     label: `Occupied (${countStatus('occupied')})` },
-                                { key: 'cleaning',     label: `Cleaning (${countStatus('cleaning')})` },
-                                { key: 'out_of_order',  label: `Out of Order (${countStatus('out_of_order')})` },
+                                { key: 'all', label: `All Rooms (${rooms.length})` },
+                                { key: 'vacant', label: `Vacant (${countStatus('vacant')})` },
+                                { key: 'occupied', label: `Occupied (${countStatus('occupied')})` },
+                                { key: 'cleaning', label: `Cleaning (${countStatus('cleaning')})` },
+                                { key: 'out_of_order', label: `Out of Order (${countStatus('out_of_order')})` },
                             ]}
                         />
 
@@ -616,7 +616,7 @@ export default function Board({ rooms, roomTypes, housekeepers = [] }) {
                                             <form onSubmit={handleHousekeepingSubmit} className="space-y-3">
                                                 <div>
                                                     <label className="text-[9px] uppercase font-bold text-slate-400 tracking-wider mb-1 block">Assigned Housekeeper</label>
-                                                    <select
+                                                    <CustomSelect
                                                         value={hkForm.data.assigned_housekeeper}
                                                         onChange={e => hkForm.setData('assigned_housekeeper', e.target.value)}
                                                         className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 px-3 py-2 text-xs focus:outline-none focus:border-brand-500 font-bold"
@@ -625,9 +625,9 @@ export default function Board({ rooms, roomTypes, housekeepers = [] }) {
                                                         {housekeepers.map(hk => (
                                                             <option key={hk.id} value={hk.name}>{hk.name} ({hk.role})</option>
                                                         ))}
-                                                    </select>
+                                                    </CustomSelect>
                                                 </div>
-                                                
+
                                                 <div className="flex gap-2 pt-1">
                                                     <button
                                                         type="submit"
@@ -739,14 +739,14 @@ export default function Board({ rooms, roomTypes, housekeepers = [] }) {
                                     </div>
                                     <div>
                                         <label className="text-xs font-semibold text-slate-400 mb-1 block">Room Type *</label>
-                                        <select value={addForm.data.room_type_id}
+                                        <CustomSelect value={addForm.data.room_type_id}
                                             onChange={e => addForm.setData('room_type_id', e.target.value)} required
                                             className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 px-3 py-2.5 text-sm focus:outline-none focus:border-brand-500">
                                             <option value="">Select Room Type</option>
                                             {roomTypes.map(t => (
                                                 <option key={t.id} value={t.id}>{t.type_name} - ₱{Number(t.base_rate).toLocaleString()}/night</option>
                                             ))}
-                                        </select>
+                                        </CustomSelect>
                                     </div>
                                     <div className="flex justify-end gap-3 pt-2">
                                         <button type="submit" disabled={addForm.processing}
@@ -798,9 +798,9 @@ export default function Board({ rooms, roomTypes, housekeepers = [] }) {
                 )}
             </AnimatePresence>
 
-            <RoomAvailabilityModal 
-                isOpen={isAvailabilityOpen} 
-                onClose={() => setIsAvailabilityOpen(false)} 
+            <RoomAvailabilityModal
+                isOpen={isAvailabilityOpen}
+                onClose={() => setIsAvailabilityOpen(false)}
             />
 
             <AlertModal

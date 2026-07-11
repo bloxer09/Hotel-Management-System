@@ -2,27 +2,28 @@ import React, { useState, useMemo, Fragment } from 'react';
 import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, useForm, Link, router } from '@inertiajs/react';
-import { 
-    Package, 
-    ArrowLeft, 
-    Plus, 
-    Minus, 
-    Trash2, 
-    ShoppingCart, 
-    User, 
-    Search, 
-    X, 
-    Check, 
-    Utensils, 
-    Bath, 
-    Tv, 
-    FileText, 
+import {
+    Package,
+    ArrowLeft,
+    Plus,
+    Minus,
+    Trash2,
+    ShoppingCart,
+    User,
+    Search,
+    X,
+    Check,
+    Utensils,
+    Bath,
+    Tv,
+    FileText,
     Wind,
     CircleCheck,
     BedDouble,
     ShoppingBag
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import CustomSelect from '@/Components/CustomSelect';
 
 export default function BulkUsageModal({ isOpen, onClose, items = [], activeBookings = [] }) {
     // Left category menu selection
@@ -52,7 +53,7 @@ export default function BulkUsageModal({ isOpen, onClose, items = [], activeBook
     // Curated high-resolution Unsplash images for products based on category/name
     const getProductImage = (itemName = '', category = '') => {
         const name = itemName.toLowerCase();
-        
+
         if (name.includes('coke') || name.includes('cola') || name.includes('soda') || name.includes('soft drink')) {
             return 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=300&auto=format&fit=crop&q=60';
         }
@@ -134,7 +135,7 @@ export default function BulkUsageModal({ isOpen, onClose, items = [], activeBook
     // Cart Helper Actions
     const addToCart = (item) => {
         if (item.current_stock <= 0) return;
-        
+
         const existingIndex = usageForm.data.items.findIndex(i => i.item_id === item.id);
         const list = [...usageForm.data.items];
 
@@ -196,7 +197,7 @@ export default function BulkUsageModal({ isOpen, onClose, items = [], activeBook
     // Handle POS Checkout Submission
     const handleCheckout = (e) => {
         e.preventDefault();
-        
+
         if (usageForm.data.items.length === 0) {
             showToast('Your active cart is empty. Add items from the catalog.');
             return;
@@ -237,7 +238,7 @@ export default function BulkUsageModal({ isOpen, onClose, items = [], activeBook
                     target: targetLabel,
                     orderNo: Math.floor(1000 + Math.random() * 9000)
                 });
-                
+
                 setCheckoutSuccess(true);
                 setIsCartOpen(false);
 
@@ -282,535 +283,530 @@ export default function BulkUsageModal({ isOpen, onClose, items = [], activeBook
                         <DialogPanel className={`bg-[#0f172a] border border-[#334155] rounded-3xl shadow-2xl w-full flex flex-col overflow-hidden relative z-10 transition-all ${!checkoutSuccess ? 'max-w-7xl max-h-[95vh]' : 'max-w-sm p-6 bg-[#1e293b] rounded-2xl shadow-2xl'}`}>
                             {!checkoutSuccess ? (
                                 <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 text-slate-100 relative">
-                        
-                        {/* Clean Header matching other PMS pages */}
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0 mb-6">
-                            <div className="flex items-center gap-4">
-                                <button 
-                                    type="button"
-                                    onClick={onClose}
-                                    className="p-2.5 rounded-xl bg-[#1e293b] border border-[#334155] text-slate-400 hover:text-slate-200 hover:bg-[#334155]/60 transition-all shadow-md"
-                                >
-                                    <ArrowLeft size={16} />
-                                </button>
-                                <div>
-                                    <h1 className="text-3xl font-outfit font-extrabold tracking-tight text-slate-100">
-                                        Bulk Item Usage
-                                    </h1>
-                                    <p className="text-sm text-slate-400 font-medium mt-0.5">Quick administrative console to record inventory consumption and charge room stays or log direct sales.</p>
-                                </div>
-                            </div>
-                            <button 
-                                type="button"
-                                onClick={onClose}
-                                className="p-2 rounded-xl bg-[#1e293b] border border-[#334155] text-slate-400 hover:text-white hover:bg-red-500/20 hover:border-red-500/50 transition-all"
-                            >
-                                <X size={20} />
-                            </button>
-                        </div>
 
-                {/* Main POS Container - Spacious Catalog first */}
-                <div className="flex flex-col gap-6 w-full pb-24">
-                    
-                    {/* Search and Category pills (Full Width, Airy) */}
-                    <div className="flex flex-col gap-4 bg-[#1e293b] border border-[#334155] rounded-3xl p-5 shadow-xl shrink-0">
-                        {/* Search Input bar */}
-                        <div className="relative">
-                            <span className="absolute inset-y-0 left-4 flex items-center pointer-events-none text-slate-500">
-                                <Search size={18} className="text-slate-400" />
-                            </span>
-                            <input
-                                type="text"
-                                placeholder="Search items by name... (e.g. Sprite, Soap)"
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full pl-12 pr-10 py-3.5 rounded-2xl bg-[#0f172a] border border-[#334155] text-slate-100 placeholder-slate-500 font-sans text-xs focus:border-brand-500 focus:ring-1 focus:ring-brand-500/20 shadow-inner transition-all"
-                            />
-                            {searchQuery && (
-                                <button
-                                    onClick={() => setSearchQuery('')}
-                                    className="absolute inset-y-0 right-4 flex items-center text-slate-400 hover:text-slate-200"
-                                >
-                                    <X size={18} />
-                                </button>
-                            )}
-                        </div>
-
-                        {/* categories selector */}
-                        <div className="flex items-center gap-2.5 overflow-x-auto pb-1 scrollbar-none">
-                            {categories.map((cat) => {
-                                const IconComp = cat.icon;
-                                const isSelected = selectedCategory === cat.id;
-                                return (
-                                    <button
-                                        key={cat.id}
-                                        onClick={() => setSelectedCategory(cat.id)}
-                                        className={`px-5 py-2.5 rounded-2xl flex items-center gap-2 transition-all border text-xs font-bold whitespace-nowrap shadow-sm ${
-                                            isSelected 
-                                                ? 'bg-brand-600 border-brand-500 text-white shadow-lg shadow-brand-600/20' 
-                                                : 'bg-[#0f172a]/50 border-[#334155]/40 text-slate-400 hover:bg-[#334155]/40 hover:text-slate-100'
-                                        }`}
-                                    >
-                                        <IconComp size={14} className="shrink-0" />
-                                        <span>{cat.name}</span>
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    </div>
-
-                    {/* Product Grid Area inside Spacious Container */}
-                    <div className="bg-[#1e293b] border border-[#334155] rounded-3xl p-6 shadow-xl">
-                        {filteredItems.length === 0 ? (
-                            <div className="py-20 flex flex-col items-center justify-center text-slate-500 p-8">
-                                <Package size={48} className="stroke-[1.5] mb-3.5 opacity-40 text-slate-400" />
-                                <p className="font-outfit font-bold text-sm">No items found matching criteria</p>
-                                <p className="text-xs text-slate-650 mt-1">Try selecting a different category or clearing search</p>
-                            </div>
-                        ) : (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-                                {filteredItems.map((item) => {
-                                    const isInCart = usageForm.data.items.find(i => i.item_id === item.id);
-                                    const cartQty = isInCart ? isInCart.quantity : 0;
-                                    const isLowStock = item.current_stock > 0 && item.current_stock <= item.minimum_stock;
-                                    const isOutOfStock = item.current_stock <= 0;
-
-                                    return (
-                                        <div
-                                            key={item.id}
-                                            className={`rounded-2xl border bg-[#0f172a]/30 flex flex-col overflow-hidden relative transition-all duration-300 group ${
-                                                isInCart 
-                                                    ? 'border-brand-500 shadow-md ring-1 ring-brand-500/20 bg-brand-500/5' 
-                                                    : 'border-[#334155]/60 hover:border-[#475569] hover:bg-[#0f172a]/55'
-                                            }`}
-                                        >
-                                            {/* Mini badge count if already added */}
-                                            {cartQty > 0 && (
-                                                <div className="absolute top-3 right-3 bg-brand-600 text-white font-mono font-bold text-[10px] h-6 w-6 rounded-full flex items-center justify-center shadow-lg border border-brand-400 z-10 animate-pulse-subtle">
-                                                    {cartQty}
-                                                </div>
-                                            )}
-
-                                            <div className="p-4 flex-1 flex flex-col justify-between gap-4">
-                                                {/* Media Block representing Catalog Item */}
-                                                <div className="h-36 rounded-xl bg-slate-950/70 flex items-center justify-center relative overflow-hidden border border-[#334155]/30 shadow-inner">
-                                                    <img 
-                                                        src={getProductImage(item.item_name, item.category)} 
-                                                        alt={item.item_name}
-                                                        className="absolute inset-0 h-full w-full object-cover opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all duration-500 ease-out" 
-                                                    />
-                                                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/20 to-transparent" />
-                                                    
-                                                    {/* Dynamic Category Pill */}
-                                                    <span className="absolute bottom-2 left-2 text-[8px] uppercase tracking-wider font-extrabold px-2 py-0.5 rounded bg-slate-900/90 border border-slate-800 text-slate-400">
-                                                        {item.category}
-                                                    </span>
-
-                                                    {/* Stock Status Badge */}
-                                                    <span className={`absolute top-2 left-2 text-[8px] uppercase tracking-widest font-black px-2 py-0.5 rounded shadow ${
-                                                        isOutOfStock 
-                                                            ? 'bg-red-950/90 text-red-400 border border-red-500/20' 
-                                                            : isLowStock 
-                                                                ? 'bg-amber-950/90 text-amber-400 border border-amber-500/20' 
-                                                                : 'bg-emerald-950/90 text-emerald-400 border border-emerald-500/20'
-                                                    }`}>
-                                                        {isOutOfStock ? 'Out of Stock' : `${item.current_stock} ${item.unit}s`}
-                                                    </span>
-                                                </div>
-
-                                                <div>
-                                                    <h3 className="font-outfit font-extrabold text-sm tracking-wide text-slate-200 line-clamp-2 min-h-[36px] leading-snug group-hover:text-white transition-colors" title={item.item_name}>
-                                                        {item.item_name}
-                                                    </h3>
-                                                    <div className="flex items-baseline justify-between mt-1">
-                                                        <span className="text-base font-outfit font-black text-brand-400">
-                                                            ₱{Number(item.selling_price).toFixed(2)}
-                                                        </span>
-                                                        <span className="text-[10px] text-slate-500 font-bold">
-                                                            per {item.unit}
-                                                        </span>
-                                                    </div>
-                                                </div>
+                                    {/* Clean Header matching other PMS pages */}
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0 mb-6">
+                                        <div className="flex items-center gap-4">
+                                            <button
+                                                type="button"
+                                                onClick={onClose}
+                                                className="p-2.5 rounded-xl bg-[#1e293b] border border-[#334155] text-slate-400 hover:text-slate-200 hover:bg-[#334155]/60 transition-all shadow-md"
+                                            >
+                                                <ArrowLeft size={16} />
+                                            </button>
+                                            <div>
+                                                <h1 className="text-3xl font-outfit font-extrabold tracking-tight text-slate-100">
+                                                    Bulk Item Usage
+                                                </h1>
+                                                <p className="text-sm text-slate-400 font-medium mt-0.5">Quick administrative console to record inventory consumption and charge room stays or log direct sales.</p>
                                             </div>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={onClose}
+                                            className="p-2 rounded-xl bg-[#1e293b] border border-[#334155] text-slate-400 hover:text-white hover:bg-red-500/20 hover:border-red-500/50 transition-all"
+                                        >
+                                            <X size={20} />
+                                        </button>
+                                    </div>
 
-                                            {/* Action Buttons */}
-                                            <div className="px-4 pb-4 shrink-0">
-                                                {isOutOfStock ? (
+                                    {/* Main POS Container - Spacious Catalog first */}
+                                    <div className="flex flex-col gap-6 w-full pb-24">
+
+                                        {/* Search and Category pills (Full Width, Airy) */}
+                                        <div className="flex flex-col gap-4 bg-[#1e293b] border border-[#334155] rounded-3xl p-5 shadow-xl shrink-0">
+                                            {/* Search Input bar */}
+                                            <div className="relative">
+                                                <span className="absolute inset-y-0 left-4 flex items-center pointer-events-none text-slate-500">
+                                                    <Search size={18} className="text-slate-400" />
+                                                </span>
+                                                <input
+                                                    type="text"
+                                                    placeholder="Search items by name... (e.g. Sprite, Soap)"
+                                                    value={searchQuery}
+                                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                                    className="w-full pl-12 pr-10 py-3.5 rounded-2xl bg-[#0f172a] border border-[#334155] text-slate-100 placeholder-slate-500 font-sans text-xs focus:border-brand-500 focus:ring-1 focus:ring-brand-500/20 shadow-inner transition-all"
+                                                />
+                                                {searchQuery && (
                                                     <button
-                                                        disabled
-                                                        className="w-full py-2.5 rounded-xl bg-slate-800 text-slate-600 font-outfit font-bold text-[10px] uppercase tracking-wider border border-[#334155] cursor-not-allowed text-center"
+                                                        onClick={() => setSearchQuery('')}
+                                                        className="absolute inset-y-0 right-4 flex items-center text-slate-400 hover:text-slate-200"
                                                     >
-                                                        Unavailable
-                                                    </button>
-                                                ) : cartQty > 0 ? (
-                                                    <div className="flex items-center gap-1 bg-[#0f172a] rounded-xl p-1 border border-brand-500/30">
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => updateQuantity(item.id, -1)}
-                                                            className="h-8 w-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition-colors shadow"
-                                                        >
-                                                            <Minus size={12} />
-                                                        </button>
-                                                        <span className="flex-1 text-center font-mono font-bold text-[11px] text-white">
-                                                            {cartQty} {item.unit}s
-                                                        </span>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => addToCart(item)}
-                                                            className="h-8 w-8 rounded-lg bg-brand-600 hover:bg-brand-500 text-white flex items-center justify-center transition-colors shadow"
-                                                        >
-                                                            <Plus size={12} />
-                                                        </button>
-                                                    </div>
-                                                ) : (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => {
-                                                            addToCart(item);
-                                                        }}
-                                                        className="w-full py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-outfit font-extrabold text-[10px] uppercase tracking-wider shadow transition-all flex items-center justify-center gap-1.5 border border-brand-500/30 active:scale-95"
-                                                    >
-                                                        <Plus size={12} /> Select Item
+                                                        <X size={18} />
                                                     </button>
                                                 )}
                                             </div>
+
+                                            {/* categories selector */}
+                                            <div className="flex items-center gap-2.5 overflow-x-auto pb-1 scrollbar-none">
+                                                {categories.map((cat) => {
+                                                    const IconComp = cat.icon;
+                                                    const isSelected = selectedCategory === cat.id;
+                                                    return (
+                                                        <button
+                                                            key={cat.id}
+                                                            onClick={() => setSelectedCategory(cat.id)}
+                                                            className={`px-5 py-2.5 rounded-2xl flex items-center gap-2 transition-all border text-xs font-bold whitespace-nowrap shadow-sm ${isSelected
+                                                                ? 'bg-brand-600 border-brand-500 text-white shadow-lg shadow-brand-600/20'
+                                                                : 'bg-[#0f172a]/50 border-[#334155]/40 text-slate-400 hover:bg-[#334155]/40 hover:text-slate-100'
+                                                                }`}
+                                                        >
+                                                            <IconComp size={14} className="shrink-0" />
+                                                            <span>{cat.name}</span>
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
                                         </div>
-                                    );
-                                })}
-                            </div>
-                        )}
-                    </div>
-                </div>
 
-                {/* Floating Bottom Cart Pill Trigger */}
-                <AnimatePresence>
-                    {cartTotals.count > 0 && (
-                        <motion.div
-                            initial={{ opacity: 0, y: 50, scale: 0.9 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            exit={{ opacity: 0, y: 50, scale: 0.9 }}
-                            className="fixed bottom-6 right-6 z-40"
-                        >
-                            <button
-                                onClick={() => setIsCartOpen(true)}
-                                className="flex items-center gap-3 px-6 py-4 bg-brand-600 hover:bg-brand-500 border border-brand-400 text-white rounded-full font-outfit font-extrabold text-xs uppercase tracking-widest shadow-2xl hover:shadow-brand-500/30 active:scale-95 transition-all duration-200"
-                            >
-                                <ShoppingCart size={16} />
-                                <span>View Cart</span>
-                                <span className="bg-white/20 px-2 py-0.5 rounded-full text-[10px] font-bold">
-                                    {cartTotals.count}
-                                </span>
-                                <span className="border-l border-white/20 pl-3 text-brand-100 font-mono">
-                                    ₱{cartTotals.total.toFixed(2)}
-                                </span>
-                            </button>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
+                                        {/* Product Grid Area inside Spacious Container */}
+                                        <div className="bg-[#1e293b] border border-[#334155] rounded-3xl p-6 shadow-xl">
+                                            {filteredItems.length === 0 ? (
+                                                <div className="py-20 flex flex-col items-center justify-center text-slate-500 p-8">
+                                                    <Package size={48} className="stroke-[1.5] mb-3.5 opacity-40 text-slate-400" />
+                                                    <p className="font-outfit font-bold text-sm">No items found matching criteria</p>
+                                                    <p className="text-xs text-slate-650 mt-1">Try selecting a different category or clearing search</p>
+                                                </div>
+                                            ) : (
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+                                                    {filteredItems.map((item) => {
+                                                        const isInCart = usageForm.data.items.find(i => i.item_id === item.id);
+                                                        const cartQty = isInCart ? isInCart.quantity : 0;
+                                                        const isLowStock = item.current_stock > 0 && item.current_stock <= item.minimum_stock;
+                                                        const isOutOfStock = item.current_stock <= 0;
 
-                {/* Centered Checkout Modal */}
-                <AnimatePresence>
-                    {isCartOpen && (
-                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
-                            {/* Modal Backdrop */}
-                            <motion.div
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 0.6 }}
-                                exit={{ opacity: 0 }}
-                                onClick={() => setIsCartOpen(false)}
-                                className="absolute inset-0 bg-[#070b13]/90"
-                            />
-
-                            {/* Centered Modal Card Container */}
-                            <motion.div
-                                initial={{ scale: 0.95, opacity: 0, y: 15 }}
-                                animate={{ scale: 1, opacity: 1, y: 0 }}
-                                exit={{ scale: 0.95, opacity: 0, y: 15 }}
-                                transition={{ type: 'spring', damping: 25, stiffness: 220 }}
-                                className="w-full max-w-md bg-[#1e293b] border border-[#334155] rounded-2xl shadow-2xl p-6 relative z-10 flex flex-col overflow-hidden"
-                            >
-                                {/* Header — matches standard add modals */}
-                                <div className="flex items-center justify-between mb-5 shrink-0">
-                                    <div className="flex items-center gap-2 text-slate-100">
-                                        <ShoppingCart className="text-emerald-400 shrink-0" size={18} />
-                                        <h2 className="font-outfit font-black text-lg text-slate-100">Purchase Cart</h2>
-                                        <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] px-2.5 py-0.5 rounded-full font-bold ml-1">
-                                            {cartTotals.count} items
-                                        </span>
-                                    </div>
-         
-                                    <div className="flex items-center gap-3">
-                                        {usageForm.data.items.length > 0 && (
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    clearCart();
-                                                    setIsCartOpen(false);
-                                                }}
-                                                className="text-[10px] text-slate-500 hover:text-red-400 font-bold uppercase tracking-wider flex items-center gap-1 transition-colors"
-                                            >
-                                                <Trash2 size={12} /> Clear
-                                            </button>
-                                        )}
-                                        <button 
-                                            type="button"
-                                            onClick={() => setIsCartOpen(false)}
-                                            className="p-1.5 rounded-lg bg-[#0f172a] border border-[#334155] text-slate-400 hover:text-slate-100 transition-colors"
-                                        >
-                                            <X size={18} />
-                                        </button>
-                                    </div>
-                                </div>
-
-                                {/* Main scrollable form body container */}
-                                <form onSubmit={handleCheckout} className="flex flex-col gap-4 flex-1 overflow-y-auto max-h-[75vh] pr-1.5 -mr-1.5 scrollbar-thin">
-                                    
-                                    {/* Order Cart Items List */}
-                                    <div className="space-y-3.5 shrink-0 max-h-[180px] overflow-y-auto pr-1 scrollbar-thin">
-                                        {usageForm.data.items.length === 0 ? (
-                                            <div className="py-8 flex flex-col items-center justify-center text-slate-500 text-center px-2">
-                                                <ShoppingCart size={38} className="stroke-[1.5] mb-2 opacity-30 text-slate-400" />
-                                                <p className="font-outfit font-bold text-xs">Cart is empty</p>
-                                                <p className="text-[10px] text-slate-500 mt-1 max-w-[200px]">Select items in the catalog to add them to this purchase order.</p>
-                                            </div>
-                                        ) : (
-                                            <div className="space-y-2">
-                                                {usageForm.data.items.map((line) => (
-                                                    <div 
-                                                        key={line.item_id}
-                                                        className="p-3 rounded-xl bg-[#0f172a]/45 border border-[#334155]/60 flex items-center justify-between gap-3 group"
-                                                    >
-                                                        <div className="min-w-0 flex-1">
-                                                            <h4 className="font-outfit font-bold text-xs text-slate-200 truncate leading-tight">
-                                                                {line.name}
-                                                            </h4>
-                                                            <p className="text-[10px] text-slate-500 mt-0.5">
-                                                                ₱{line.price.toFixed(2)} / {line.unit}
-                                                            </p>
-                                                        </div>
-             
-                                                        {/* Quantity Editors */}
-                                                        <div className="flex items-center gap-1 shrink-0">
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => updateQuantity(line.item_id, -1)}
-                                                                className="h-7 w-7 rounded bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-100 flex items-center justify-center text-xs"
+                                                        return (
+                                                            <div
+                                                                key={item.id}
+                                                                className={`rounded-2xl border bg-[#0f172a]/30 flex flex-col overflow-hidden relative transition-all duration-300 group ${isInCart
+                                                                    ? 'border-brand-500 shadow-md ring-1 ring-brand-500/20 bg-brand-500/5'
+                                                                    : 'border-[#334155]/60 hover:border-[#475569] hover:bg-[#0f172a]/55'
+                                                                    }`}
                                                             >
-                                                                <Minus size={10} />
-                                                            </button>
-                                                            <span className="font-mono text-xs font-bold w-6 text-center text-slate-200">
-                                                                {line.quantity}
-                                                            </span>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => updateQuantity(line.item_id, 1)}
-                                                                className="h-7 w-7 rounded bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-100 flex items-center justify-center text-xs"
-                                                            >
-                                                                <Plus size={10} />
-                                                            </button>
-                                                        </div>
-             
-                                                        {/* Line Price & Remove */}
-                                                        <div className="text-right shrink-0 min-w-[70px] flex flex-col items-end">
-                                                            <span className="font-mono font-bold text-xs text-brand-400">
-                                                                ₱{(line.price * line.quantity).toFixed(2)}
-                                                            </span>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => removeFromCart(line.item_id)}
-                                                                className="text-[9px] text-slate-650 hover:text-red-400 mt-0.5"
-                                                            >
-                                                                Remove
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </div>
+                                                                {/* Mini badge count if already added */}
+                                                                {cartQty > 0 && (
+                                                                    <div className="absolute top-3 right-3 bg-brand-600 text-white font-mono font-bold text-[10px] h-6 w-6 rounded-full flex items-center justify-center shadow-lg border border-brand-400 z-10 animate-pulse-subtle">
+                                                                        {cartQty}
+                                                                    </div>
+                                                                )}
 
-                                    {/* Toggle assignment selection */}
-                                    <div className="space-y-1.5 border-t border-[#334155]/60 pt-3">
-                                        <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Bill Charge Target</span>
-                                        <div className="grid grid-cols-2 gap-2">
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    usageForm.setData(data => ({
-                                                        ...data,
-                                                        target_type: 'booking',
-                                                        consumer_name: ''
-                                                    }));
-                                                }}
-                                                className={`py-2 rounded-xl text-center font-outfit font-extrabold text-[10px] uppercase tracking-wider border transition-all flex items-center justify-center gap-1.5 ${
-                                                    usageForm.data.target_type === 'booking'
-                                                        ? 'bg-brand-600 text-white border-brand-500 shadow-md'
-                                                        : 'bg-[#0f172a]/50 text-slate-400 border-transparent hover:bg-[#0f172a] hover:text-slate-200'
-                                                }`}
-                                            >
-                                                <BedDouble size={12} /> Charge Room
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    usageForm.setData(data => ({
-                                                        ...data,
-                                                        target_type: 'walk_in',
-                                                        booking_id: ''
-                                                    }));
-                                                }}
-                                                className={`py-2 rounded-xl text-center font-outfit font-extrabold text-[10px] uppercase tracking-wider border transition-all flex items-center justify-center gap-1.5 ${
-                                                    usageForm.data.target_type === 'walk_in'
-                                                        ? 'bg-brand-600 text-white border-brand-500 shadow-md'
-                                                        : 'bg-[#0f172a]/50 text-slate-400 border-transparent hover:bg-[#0f172a] hover:text-slate-200'
-                                                }`}
-                                            >
-                                                <User size={12} /> Direct Sale
-                                            </button>
+                                                                <div className="p-4 flex-1 flex flex-col justify-between gap-4">
+                                                                    {/* Media Block representing Catalog Item */}
+                                                                    <div className="h-36 rounded-xl bg-slate-950/70 flex items-center justify-center relative overflow-hidden border border-[#334155]/30 shadow-inner">
+                                                                        <img
+                                                                            src={getProductImage(item.item_name, item.category)}
+                                                                            alt={item.item_name}
+                                                                            className="absolute inset-0 h-full w-full object-cover opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all duration-500 ease-out"
+                                                                        />
+                                                                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/20 to-transparent" />
+
+                                                                        {/* Dynamic Category Pill */}
+                                                                        <span className="absolute bottom-2 left-2 text-[8px] uppercase tracking-wider font-extrabold px-2 py-0.5 rounded bg-slate-900/90 border border-slate-800 text-slate-400">
+                                                                            {item.category}
+                                                                        </span>
+
+                                                                        {/* Stock Status Badge */}
+                                                                        <span className={`absolute top-2 left-2 text-[8px] uppercase tracking-widest font-black px-2 py-0.5 rounded shadow ${isOutOfStock
+                                                                            ? 'bg-red-950/90 text-red-400 border border-red-500/20'
+                                                                            : isLowStock
+                                                                                ? 'bg-amber-950/90 text-amber-400 border border-amber-500/20'
+                                                                                : 'bg-emerald-950/90 text-emerald-400 border border-emerald-500/20'
+                                                                            }`}>
+                                                                            {isOutOfStock ? 'Out of Stock' : `${item.current_stock} ${item.unit}s`}
+                                                                        </span>
+                                                                    </div>
+
+                                                                    <div>
+                                                                        <h3 className="font-outfit font-extrabold text-sm tracking-wide text-slate-200 line-clamp-2 min-h-[36px] leading-snug group-hover:text-white transition-colors" title={item.item_name}>
+                                                                            {item.item_name}
+                                                                        </h3>
+                                                                        <div className="flex items-baseline justify-between mt-1">
+                                                                            <span className="text-base font-outfit font-black text-brand-400">
+                                                                                ₱{Number(item.selling_price).toFixed(2)}
+                                                                            </span>
+                                                                            <span className="text-[10px] text-slate-500 font-bold">
+                                                                                per {item.unit}
+                                                                            </span>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+
+                                                                {/* Action Buttons */}
+                                                                <div className="px-4 pb-4 shrink-0">
+                                                                    {isOutOfStock ? (
+                                                                        <button
+                                                                            disabled
+                                                                            className="w-full py-2.5 rounded-xl bg-slate-800 text-slate-600 font-outfit font-bold text-[10px] uppercase tracking-wider border border-[#334155] cursor-not-allowed text-center"
+                                                                        >
+                                                                            Unavailable
+                                                                        </button>
+                                                                    ) : cartQty > 0 ? (
+                                                                        <div className="flex items-center gap-1 bg-[#0f172a] rounded-xl p-1 border border-brand-500/30">
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => updateQuantity(item.id, -1)}
+                                                                                className="h-8 w-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition-colors shadow"
+                                                                            >
+                                                                                <Minus size={12} />
+                                                                            </button>
+                                                                            <span className="flex-1 text-center font-mono font-bold text-[11px] text-white">
+                                                                                {cartQty} {item.unit}s
+                                                                            </span>
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => addToCart(item)}
+                                                                                className="h-8 w-8 rounded-lg bg-brand-600 hover:bg-brand-500 text-white flex items-center justify-center transition-colors shadow"
+                                                                            >
+                                                                                <Plus size={12} />
+                                                                            </button>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => {
+                                                                                addToCart(item);
+                                                                            }}
+                                                                            className="w-full py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-outfit font-extrabold text-[10px] uppercase tracking-wider shadow transition-all flex items-center justify-center gap-1.5 border border-brand-500/30 active:scale-95"
+                                                                        >
+                                                                            <Plus size={12} /> Select Item
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
 
-                                    {/* Conditional Form fields */}
-                                    <AnimatePresence mode="wait">
-                                        {usageForm.data.target_type === 'booking' ? (
+                                    {/* Floating Bottom Cart Pill Trigger */}
+                                    <AnimatePresence>
+                                        {cartTotals.count > 0 && (
                                             <motion.div
-                                                key="booking-field"
-                                                initial={{ opacity: 0, y: 5 }}
-                                                animate={{ opacity: 1, y: 0 }}
-                                                exit={{ opacity: 0, y: -5 }}
-                                                className="space-y-1"
+                                                initial={{ opacity: 0, y: 50, scale: 0.9 }}
+                                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                                exit={{ opacity: 0, y: 50, scale: 0.9 }}
+                                                className="fixed bottom-6 right-6 z-40"
                                             >
-                                                <label className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">Select Active Room Stay</label>
-                                                <select
-                                                    value={usageForm.data.booking_id}
-                                                    onChange={e => usageForm.setData('booking_id', e.target.value)}
-                                                    className="w-full py-2 px-3 rounded-xl bg-[#0f172a] border border-[#334155] text-slate-200 text-xs font-semibold focus:border-brand-500 focus:ring-1 focus:ring-brand-500/20 transition-all"
+                                                <button
+                                                    onClick={() => setIsCartOpen(true)}
+                                                    className="flex items-center gap-3 px-6 py-4 bg-brand-600 hover:bg-brand-500 border border-brand-400 text-white rounded-full font-outfit font-extrabold text-xs uppercase tracking-widest shadow-2xl hover:shadow-brand-500/30 active:scale-95 transition-all duration-200"
                                                 >
-                                                    <option value="">Select Stay / Guest...</option>
-                                                    {activeBookings.map(b => (
-                                                        <option key={b.id} value={b.id}>
-                                                            Room {b.room?.room_number || 'N/A'} — {b.guest_name}
-                                                        </option>
-                                                    ))}
-                                                </select>
-                                            </motion.div>
-                                        ) : (
-                                            <motion.div
-                                                key="walk-in-field"
-                                                initial={{ opacity: 0, y: 5 }}
-                                                animate={{ opacity: 1, y: 0 }}
-                                                exit={{ opacity: 0, y: -5 }}
-                                                className="space-y-1"
-                                            >
-                                                <label className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">Consumer / Usage Label</label>
-                                                <input
-                                                    type="text"
-                                                    placeholder="e.g. Walk-in Customer, Coffee Shop, Front Desk"
-                                                    value={usageForm.data.consumer_name}
-                                                    onChange={e => usageForm.setData('consumer_name', e.target.value)}
-                                                    className="w-full py-2 px-3 rounded-xl bg-[#0f172a] border border-[#334155] text-slate-200 placeholder-slate-650 text-xs font-semibold focus:border-brand-500 focus:ring-1 focus:ring-brand-500/20 transition-all"
-                                                />
+                                                    <ShoppingCart size={16} />
+                                                    <span>View Cart</span>
+                                                    <span className="bg-white/20 px-2 py-0.5 rounded-full text-[10px] font-bold">
+                                                        {cartTotals.count}
+                                                    </span>
+                                                    <span className="border-l border-white/20 pl-3 text-brand-100 font-mono">
+                                                        ₱{cartTotals.total.toFixed(2)}
+                                                    </span>
+                                                </button>
                                             </motion.div>
                                         )}
                                     </AnimatePresence>
 
-                                    {/* Calculations card */}
-                                    <div className="p-3.5 rounded-xl bg-[#0f172a]/60 border border-[#334155]/65 space-y-2 text-xs text-slate-400 shrink-0">
-                                        <div className="flex justify-between font-medium">
-                                            <span>Subtotal</span>
-                                            <span className="font-mono text-slate-200">₱{cartTotals.subtotal.toFixed(2)}</span>
-                                        </div>
-                                        <div className="border-t border-[#334155]/60 pt-2 flex justify-between items-baseline">
-                                            <span className="font-outfit font-extrabold text-slate-200 text-xs uppercase tracking-wide">Total Charge</span>
-                                            <span className="font-mono text-base font-black text-brand-400">₱{cartTotals.total.toFixed(2)}</span>
-                                        </div>
-                                    </div>
+                                    {/* Centered Checkout Modal */}
+                                    <AnimatePresence>
+                                        {isCartOpen && (
+                                            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
+                                                {/* Modal Backdrop */}
+                                                <motion.div
+                                                    initial={{ opacity: 0 }}
+                                                    animate={{ opacity: 0.6 }}
+                                                    exit={{ opacity: 0 }}
+                                                    onClick={() => setIsCartOpen(false)}
+                                                    className="absolute inset-0 bg-[#070b13]/90"
+                                                />
 
-                                    {/* Action buttons — perfectly matched standard modals */}
-                                    <div className="flex justify-end gap-3 pt-3 border-t border-[#334155]/60 shrink-0">
-                                        <button 
-                                            type="button" 
-                                            onClick={() => setIsCartOpen(false)} 
-                                            className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold font-outfit transition-colors"
-                                        >
-                                            Cancel
-                                        </button>
-                                        <button 
-                                            type="submit" 
-                                            disabled={usageForm.processing || usageForm.data.items.length === 0} 
-                                            className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl text-white font-bold text-xs font-outfit transition-all flex items-center gap-1.5 shadow-md shadow-emerald-950/20"
-                                        >
-                                            <Check size={12} />
-                                            Record Purchase
-                                        </button>
-                                    </div>
-                                </form>
-                            </motion.div>
-                        </div>
-                    )}
-                </AnimatePresence>
+                                                {/* Centered Modal Card Container */}
+                                                <motion.div
+                                                    initial={{ scale: 0.95, opacity: 0, y: 15 }}
+                                                    animate={{ scale: 1, opacity: 1, y: 0 }}
+                                                    exit={{ scale: 0.95, opacity: 0, y: 15 }}
+                                                    transition={{ type: 'spring', damping: 25, stiffness: 220 }}
+                                                    className="w-full max-w-md bg-[#1e293b] border border-[#334155] rounded-2xl shadow-2xl p-6 relative z-10 flex flex-col overflow-hidden"
+                                                >
+                                                    {/* Header — matches standard add modals */}
+                                                    <div className="flex items-center justify-between mb-5 shrink-0">
+                                                        <div className="flex items-center gap-2 text-slate-100">
+                                                            <ShoppingCart className="text-emerald-400 shrink-0" size={18} />
+                                                            <h2 className="font-outfit font-black text-lg text-slate-100">Purchase Cart</h2>
+                                                            <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] px-2.5 py-0.5 rounded-full font-bold ml-1">
+                                                                {cartTotals.count} items
+                                                            </span>
+                                                        </div>
+
+                                                        <div className="flex items-center gap-3">
+                                                            {usageForm.data.items.length > 0 && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        clearCart();
+                                                                        setIsCartOpen(false);
+                                                                    }}
+                                                                    className="text-[10px] text-slate-500 hover:text-red-400 font-bold uppercase tracking-wider flex items-center gap-1 transition-colors"
+                                                                >
+                                                                    <Trash2 size={12} /> Clear
+                                                                </button>
+                                                            )}
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setIsCartOpen(false)}
+                                                                className="p-1.5 rounded-lg bg-[#0f172a] border border-[#334155] text-slate-400 hover:text-slate-100 transition-colors"
+                                                            >
+                                                                <X size={18} />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Main scrollable form body container */}
+                                                    <form onSubmit={handleCheckout} className="flex flex-col gap-4 flex-1 overflow-y-auto max-h-[75vh] pr-1.5 -mr-1.5 scrollbar-thin">
+
+                                                        {/* Order Cart Items List */}
+                                                        <div className="space-y-3.5 shrink-0 max-h-[180px] overflow-y-auto pr-1 scrollbar-thin">
+                                                            {usageForm.data.items.length === 0 ? (
+                                                                <div className="py-8 flex flex-col items-center justify-center text-slate-500 text-center px-2">
+                                                                    <ShoppingCart size={38} className="stroke-[1.5] mb-2 opacity-30 text-slate-400" />
+                                                                    <p className="font-outfit font-bold text-xs">Cart is empty</p>
+                                                                    <p className="text-[10px] text-slate-500 mt-1 max-w-[200px]">Select items in the catalog to add them to this purchase order.</p>
+                                                                </div>
+                                                            ) : (
+                                                                <div className="space-y-2">
+                                                                    {usageForm.data.items.map((line) => (
+                                                                        <div
+                                                                            key={line.item_id}
+                                                                            className="p-3 rounded-xl bg-[#0f172a]/45 border border-[#334155]/60 flex items-center justify-between gap-3 group"
+                                                                        >
+                                                                            <div className="min-w-0 flex-1">
+                                                                                <h4 className="font-outfit font-bold text-xs text-slate-200 truncate leading-tight">
+                                                                                    {line.name}
+                                                                                </h4>
+                                                                                <p className="text-[10px] text-slate-500 mt-0.5">
+                                                                                    ₱{line.price.toFixed(2)} / {line.unit}
+                                                                                </p>
+                                                                            </div>
+
+                                                                            {/* Quantity Editors */}
+                                                                            <div className="flex items-center gap-1 shrink-0">
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => updateQuantity(line.item_id, -1)}
+                                                                                    className="h-7 w-7 rounded bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-100 flex items-center justify-center text-xs"
+                                                                                >
+                                                                                    <Minus size={10} />
+                                                                                </button>
+                                                                                <span className="font-mono text-xs font-bold w-6 text-center text-slate-200">
+                                                                                    {line.quantity}
+                                                                                </span>
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => updateQuantity(line.item_id, 1)}
+                                                                                    className="h-7 w-7 rounded bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-100 flex items-center justify-center text-xs"
+                                                                                >
+                                                                                    <Plus size={10} />
+                                                                                </button>
+                                                                            </div>
+
+                                                                            {/* Line Price & Remove */}
+                                                                            <div className="text-right shrink-0 min-w-[70px] flex flex-col items-end">
+                                                                                <span className="font-mono font-bold text-xs text-brand-400">
+                                                                                    ₱{(line.price * line.quantity).toFixed(2)}
+                                                                                </span>
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => removeFromCart(line.item_id)}
+                                                                                    className="text-[9px] text-slate-650 hover:text-red-400 mt-0.5"
+                                                                                >
+                                                                                    Remove
+                                                                                </button>
+                                                                            </div>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+                                                        </div>
+
+                                                        {/* Toggle assignment selection */}
+                                                        <div className="space-y-1.5 border-t border-[#334155]/60 pt-3">
+                                                            <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Bill Charge Target</span>
+                                                            <div className="grid grid-cols-2 gap-2">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        usageForm.setData(data => ({
+                                                                            ...data,
+                                                                            target_type: 'booking',
+                                                                            consumer_name: ''
+                                                                        }));
+                                                                    }}
+                                                                    className={`py-2 rounded-xl text-center font-outfit font-extrabold text-[10px] uppercase tracking-wider border transition-all flex items-center justify-center gap-1.5 ${usageForm.data.target_type === 'booking'
+                                                                        ? 'bg-brand-600 text-white border-brand-500 shadow-md'
+                                                                        : 'bg-[#0f172a]/50 text-slate-400 border-transparent hover:bg-[#0f172a] hover:text-slate-200'
+                                                                        }`}
+                                                                >
+                                                                    <BedDouble size={12} /> Charge Room
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        usageForm.setData(data => ({
+                                                                            ...data,
+                                                                            target_type: 'walk_in',
+                                                                            booking_id: ''
+                                                                        }));
+                                                                    }}
+                                                                    className={`py-2 rounded-xl text-center font-outfit font-extrabold text-[10px] uppercase tracking-wider border transition-all flex items-center justify-center gap-1.5 ${usageForm.data.target_type === 'walk_in'
+                                                                        ? 'bg-brand-600 text-white border-brand-500 shadow-md'
+                                                                        : 'bg-[#0f172a]/50 text-slate-400 border-transparent hover:bg-[#0f172a] hover:text-slate-200'
+                                                                        }`}
+                                                                >
+                                                                    <User size={12} /> Direct Sale
+                                                                </button>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Conditional Form fields */}
+                                                        <AnimatePresence mode="wait">
+                                                            {usageForm.data.target_type === 'booking' ? (
+                                                                <motion.div
+                                                                    key="booking-field"
+                                                                    initial={{ opacity: 0, y: 5 }}
+                                                                    animate={{ opacity: 1, y: 0 }}
+                                                                    exit={{ opacity: 0, y: -5 }}
+                                                                    className="space-y-1"
+                                                                >
+                                                                    <label className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">Select Active Room Stay</label>
+                                                                    <CustomSelect
+                                                                        value={usageForm.data.booking_id}
+                                                                        onChange={e => usageForm.setData('booking_id', e.target.value)}
+                                                                        className="w-full py-2 px-3 rounded-xl bg-[#0f172a] border border-[#334155] text-slate-200 text-xs font-semibold focus:border-brand-500 focus:ring-1 focus:ring-brand-500/20 transition-all"
+                                                                    >
+                                                                        <option value="">Select Stay / Guest...</option>
+                                                                        {activeBookings.map(b => (
+                                                                            <option key={b.id} value={b.id}>
+                                                                                Room {b.room?.room_number || 'N/A'} — {b.guest_name}
+                                                                            </option>
+                                                                        ))}
+                                                                    </CustomSelect>
+                                                                </motion.div>
+                                                            ) : (
+                                                                <motion.div
+                                                                    key="walk-in-field"
+                                                                    initial={{ opacity: 0, y: 5 }}
+                                                                    animate={{ opacity: 1, y: 0 }}
+                                                                    exit={{ opacity: 0, y: -5 }}
+                                                                    className="space-y-1"
+                                                                >
+                                                                    <label className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">Consumer / Usage Label</label>
+                                                                    <input
+                                                                        type="text"
+                                                                        placeholder="e.g. Walk-in Customer, Coffee Shop, Front Desk"
+                                                                        value={usageForm.data.consumer_name}
+                                                                        onChange={e => usageForm.setData('consumer_name', e.target.value)}
+                                                                        className="w-full py-2 px-3 rounded-xl bg-[#0f172a] border border-[#334155] text-slate-200 placeholder-slate-650 text-xs font-semibold focus:border-brand-500 focus:ring-1 focus:ring-brand-500/20 transition-all"
+                                                                    />
+                                                                </motion.div>
+                                                            )}
+                                                        </AnimatePresence>
+
+                                                        {/* Calculations card */}
+                                                        <div className="p-3.5 rounded-xl bg-[#0f172a]/60 border border-[#334155]/65 space-y-2 text-xs text-slate-400 shrink-0">
+                                                            <div className="flex justify-between font-medium">
+                                                                <span>Subtotal</span>
+                                                                <span className="font-mono text-slate-200">₱{cartTotals.subtotal.toFixed(2)}</span>
+                                                            </div>
+                                                            <div className="border-t border-[#334155]/60 pt-2 flex justify-between items-baseline">
+                                                                <span className="font-outfit font-extrabold text-slate-200 text-xs uppercase tracking-wide">Total Charge</span>
+                                                                <span className="font-mono text-base font-black text-brand-400">₱{cartTotals.total.toFixed(2)}</span>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Action buttons — perfectly matched standard modals */}
+                                                        <div className="flex justify-end gap-3 pt-3 border-t border-[#334155]/60 shrink-0">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setIsCartOpen(false)}
+                                                                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold font-outfit transition-colors"
+                                                            >
+                                                                Cancel
+                                                            </button>
+                                                            <button
+                                                                type="submit"
+                                                                disabled={usageForm.processing || usageForm.data.items.length === 0}
+                                                                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl text-white font-bold text-xs font-outfit transition-all flex items-center gap-1.5 shadow-md shadow-emerald-950/20"
+                                                            >
+                                                                <Check size={12} />
+                                                                Record Purchase
+                                                            </button>
+                                                        </div>
+                                                    </form>
+                                                </motion.div>
+                                            </div>
+                                        )}
+                                    </AnimatePresence>
 
                                 </div>
                             ) : (
                                 lastOrderDetails && (
                                     <div className="relative overflow-hidden w-full flex flex-col gap-2">
-                                    <div className="text-center pb-4 mb-4 border-b border-[#334155]/60 flex flex-col items-center">
-                                        <div className="h-12 w-12 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-full flex items-center justify-center mb-3">
-                                            <CircleCheck size={26} />
+                                        <div className="text-center pb-4 mb-4 border-b border-[#334155]/60 flex flex-col items-center">
+                                            <div className="h-12 w-12 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-full flex items-center justify-center mb-3">
+                                                <CircleCheck size={26} />
+                                            </div>
+                                            <h3 className="font-outfit font-extrabold text-base text-emerald-400 uppercase tracking-wider">
+                                                Purchase Logged!
+                                            </h3>
+                                            <p className="text-[11px] text-slate-400 mt-0.5">Inventory Transaction slip recorded successfully</p>
                                         </div>
-                                        <h3 className="font-outfit font-extrabold text-base text-emerald-400 uppercase tracking-wider">
-                                            Purchase Logged!
-                                        </h3>
-                                        <p className="text-[11px] text-slate-400 mt-0.5">Inventory Transaction slip recorded successfully</p>
-                                    </div>
 
-                                    {/* Reference Transaction Number */}
-                                    <div className="text-center py-2.5 bg-[#0f172a]/60 rounded-xl mb-4 border border-[#334155]/40 flex flex-col items-center">
-                                        <span className="text-[9px] text-slate-500 uppercase tracking-widest font-bold">Transaction Reference ID</span>
-                                        <span className="font-mono font-bold text-xl text-brand-400 tracking-wide mt-0.5">
-                                            #TXN-{lastOrderDetails.orderNo}
-                                        </span>
-                                    </div>
-
-                                    {/* Summary Receipt details */}
-                                    <div className="space-y-3.5 mb-6 text-xs">
-                                        <div className="flex justify-between">
-                                            <span className="text-slate-400 uppercase font-bold text-[9px] tracking-wider">Bill Target</span>
-                                            <span className="text-slate-200 font-bold">{lastOrderDetails.target}</span>
+                                        {/* Reference Transaction Number */}
+                                        <div className="text-center py-2.5 bg-[#0f172a]/60 rounded-xl mb-4 border border-[#334155]/40 flex flex-col items-center">
+                                            <span className="text-[9px] text-slate-500 uppercase tracking-widest font-bold">Transaction Reference ID</span>
+                                            <span className="font-mono font-bold text-xl text-brand-400 tracking-wide mt-0.5">
+                                                #TXN-{lastOrderDetails.orderNo}
+                                            </span>
                                         </div>
-                                        <div className="space-y-1.5">
-                                            <span className="text-slate-400 uppercase font-bold text-[9px] tracking-wider block">Items Disbursed</span>
-                                            <div className="max-h-32 overflow-y-auto space-y-1.5 pr-1 scrollbar-thin">
-                                                {lastOrderDetails.items.map((line, idx) => (
-                                                    <div key={idx} className="flex justify-between items-baseline font-mono text-[11px] text-slate-300">
-                                                        <span>{line.name} <span className="text-slate-500 font-bold">x{line.quantity}</span></span>
-                                                        <span className="text-slate-400">₱{(line.price * line.quantity).toFixed(2)}</span>
-                                                    </div>
-                                                ))}
+
+                                        {/* Summary Receipt details */}
+                                        <div className="space-y-3.5 mb-6 text-xs">
+                                            <div className="flex justify-between">
+                                                <span className="text-slate-400 uppercase font-bold text-[9px] tracking-wider">Bill Target</span>
+                                                <span className="text-slate-200 font-bold">{lastOrderDetails.target}</span>
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <span className="text-slate-400 uppercase font-bold text-[9px] tracking-wider block">Items Disbursed</span>
+                                                <div className="max-h-32 overflow-y-auto space-y-1.5 pr-1 scrollbar-thin">
+                                                    {lastOrderDetails.items.map((line, idx) => (
+                                                        <div key={idx} className="flex justify-between items-baseline font-mono text-[11px] text-slate-300">
+                                                            <span>{line.name} <span className="text-slate-500 font-bold">x{line.quantity}</span></span>
+                                                            <span className="text-slate-400">₱{(line.price * line.quantity).toFixed(2)}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                            <div className="border-t border-[#334155]/60 pt-3.5 flex justify-between items-baseline">
+                                                <span className="text-slate-400 uppercase font-bold text-[9px] tracking-wider">Total Charge Rec.</span>
+                                                <span className="font-mono text-sm font-bold text-brand-400">₱{lastOrderDetails.total.toFixed(2)}</span>
                                             </div>
                                         </div>
-                                        <div className="border-t border-[#334155]/60 pt-3.5 flex justify-between items-baseline">
-                                            <span className="text-slate-400 uppercase font-bold text-[9px] tracking-wider">Total Charge Rec.</span>
-                                            <span className="font-mono text-sm font-bold text-brand-400">₱{lastOrderDetails.total.toFixed(2)}</span>
-                                        </div>
-                                    </div>
 
-                                    {/* Done buttons */}
-                                    <div className="space-y-2">
-                                        <button
-                                            onClick={() => setCheckoutSuccess(false)}
-                                            className="w-full py-2.5 bg-brand-600 hover:bg-brand-500 text-white font-outfit font-extrabold text-xs uppercase tracking-wider rounded-lg shadow transition-colors flex items-center justify-center gap-1.5"
-                                        >
-                                            Done
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={onClose}
-                                            className="w-full py-2.5 bg-[#0f172a] hover:bg-slate-900 border border-[#334155] text-slate-300 hover:text-slate-100 font-outfit font-bold text-xs uppercase tracking-wider rounded-lg transition-all flex items-center justify-center"
-                                        >
-                                            Close
-                                        </button>
-                                    </div>
+                                        {/* Done buttons */}
+                                        <div className="space-y-2">
+                                            <button
+                                                onClick={() => setCheckoutSuccess(false)}
+                                                className="w-full py-2.5 bg-brand-600 hover:bg-brand-500 text-white font-outfit font-extrabold text-xs uppercase tracking-wider rounded-lg shadow transition-colors flex items-center justify-center gap-1.5"
+                                            >
+                                                Done
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={onClose}
+                                                className="w-full py-2.5 bg-[#0f172a] hover:bg-slate-900 border border-[#334155] text-slate-300 hover:text-slate-100 font-outfit font-bold text-xs uppercase tracking-wider rounded-lg transition-all flex items-center justify-center"
+                                            >
+                                                Close
+                                            </button>
+                                        </div>
                                     </div>
                                 )
                             )}

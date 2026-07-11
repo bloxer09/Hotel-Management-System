@@ -98,7 +98,7 @@ export default function GroupSettleModal({ isOpen, groupRef, onClose, onSuccess 
                 const bal = Math.max(0.00, total - Number(r.amount_paid));
                 newDue += bal;
             });
-            
+
             // Re-fill initial payment amount
             if (form.payment_method === 'cash') {
                 setFormData(prev => ({ ...prev, waive_late_fee: checked, cash_amount: Number(newDue), gcash_amount: 0, bank_amount: 0 }));
@@ -247,7 +247,7 @@ export default function GroupSettleModal({ isOpen, groupRef, onClose, onSuccess 
                                             <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-2 flex items-center gap-2">
                                                 <Receipt size={14} className="text-indigo-400" /> Consolidated Billing Breakdown
                                             </h4>
-                                            
+
                                             <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-slate-400">
                                                 <div className="flex justify-between">
                                                     <span>Room Stays (Base):</span>
@@ -292,11 +292,11 @@ export default function GroupSettleModal({ isOpen, groupRef, onClose, onSuccess 
                                             {/* Waive Fees checkbox */}
                                             {Number(activeData.totals.late) > 0 && (
                                                 <label className="flex items-center gap-2 p-3 bg-amber-500/5 border border-amber-500/20 rounded-xl cursor-pointer hover:bg-amber-500/10 transition-colors mt-2 text-amber-300 font-medium">
-                                                    <input 
-                                                        type="checkbox" 
-                                                        checked={form.waive_late_fee} 
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={form.waive_late_fee}
                                                         onChange={handleWaiveChange}
-                                                        className="rounded bg-[#0f172a] border-[#334155] text-amber-500 focus:ring-amber-500/30" 
+                                                        className="rounded bg-[#0f172a] border-[#334155] text-amber-500 focus:ring-amber-500/30"
                                                     />
                                                     Waive Group Overstay / Late Check-Out Fees
                                                 </label>
@@ -313,7 +313,7 @@ export default function GroupSettleModal({ isOpen, groupRef, onClose, onSuccess 
                                                 <>
                                                     <div className="flex flex-col gap-1.5">
                                                         <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Payment Method</label>
-                                                        <select
+                                                        <CustomSelect
                                                             value={form.payment_method}
                                                             onChange={handleMethodChange}
                                                             className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 px-3 py-2 focus:outline-none focus:border-brand-500 text-xs"
@@ -322,7 +322,7 @@ export default function GroupSettleModal({ isOpen, groupRef, onClose, onSuccess 
                                                             <option value="gcash">GCash Digital Wallet</option>
                                                             <option value="bank_transfer">Bank Transfer</option>
                                                             <option value="split">Split (Multi-Channel)</option>
-                                                        </select>
+                                                        </CustomSelect>
                                                     </div>
 
                                                     {['cash', 'split'].includes(form.payment_method) && (
@@ -419,7 +419,7 @@ export default function GroupSettleModal({ isOpen, groupRef, onClose, onSuccess 
 
                                             <div className="flex flex-col gap-1.5">
                                                 <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Transaction Notes</label>
-                                                <textarea 
+                                                <textarea
                                                     value={form.transaction_notes}
                                                     onChange={e => setFormData('transaction_notes', e.target.value)}
                                                     placeholder="E.g., paid in 1000s bill, client checkout notes..."
@@ -430,11 +430,10 @@ export default function GroupSettleModal({ isOpen, groupRef, onClose, onSuccess 
                                             <button
                                                 type="submit"
                                                 disabled={processing}
-                                                className={`w-full py-3 rounded-xl font-outfit font-black uppercase text-xs tracking-wider transition-all select-none ${
-                                                    processing
-                                                        ? 'bg-slate-600 text-slate-400 cursor-not-allowed'
-                                                        : 'bg-brand-600 hover:bg-brand-500 text-white shadow-lg shadow-brand-600/20 active:scale-95'
-                                                }`}
+                                                className={`w-full py-3 rounded-xl font-outfit font-black uppercase text-xs tracking-wider transition-all select-none ${processing
+                                                    ? 'bg-slate-600 text-slate-400 cursor-not-allowed'
+                                                    : 'bg-brand-600 hover:bg-brand-500 text-white shadow-lg shadow-brand-600/20 active:scale-95'
+                                                    }`}
                                             >
                                                 {processing ? 'Processing Settlement...' : activeData.totals.balance > 0 ? 'Settle & Check Out Group' : 'Confirm Group Check-Out'}
                                             </button>

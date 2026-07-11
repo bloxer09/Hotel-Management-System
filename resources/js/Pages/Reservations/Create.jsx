@@ -21,6 +21,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import ConfirmModal from '@/Components/ConfirmModal';
 import ActionModal from '@/Components/ActionModal';
+import CustomSelect from '@/Components/CustomSelect';
 
 export default function Create({ rooms = [], roomTypes = [], prefilledGuest, promoCodes = [] }) {
     const [conflictAlert, setConflictAlert] = useState(false);
@@ -402,7 +403,7 @@ export default function Create({ rooms = [], roomTypes = [], prefilledGuest, pro
                                 </div>
                                 <div className="flex flex-col gap-1.5">
                                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">ID Card Type Presented</label>
-                                    <select
+                                    <CustomSelect
                                         value={data.guest_id_type}
                                         onChange={e => setData('guest_id_type', e.target.value)}
                                         className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 px-3 py-2.5 focus:outline-none focus:border-brand-500 text-xs"
@@ -412,7 +413,7 @@ export default function Create({ rooms = [], roomTypes = [], prefilledGuest, pro
                                         <option value="UMID">UMID / National ID</option>
                                         <option value="SSS / GSIS">SSS / GSIS</option>
                                         <option value="Senior Citizen ID">Senior / PWD ID</option>
-                                    </select>
+                                    </CustomSelect>
                                 </div>
                                 <div className="flex flex-col gap-1.5">
                                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">ID Number</label>
@@ -452,14 +453,14 @@ export default function Create({ rooms = [], roomTypes = [], prefilledGuest, pro
                                 {/* Room Selector */}
                                 <div className="flex flex-col gap-1.5">
                                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Rooms (Multiple) *</label>
-                                    <button 
-                                        type="button" 
+                                    <button
+                                        type="button"
                                         onClick={() => setShowRoomSelectModal(true)}
                                         className="w-full text-left flex items-center justify-between px-3 py-2 border border-[#334155] hover:border-[#475569] rounded-xl transition-all font-bold"
                                     >
                                         <span className={data.room_ids.length ? 'text-slate-200' : 'text-slate-500'}>
-                                            {data.room_ids.length > 0 
-                                                ? `${data.room_ids.length} Room${data.room_ids.length > 1 ? 's' : ''} Selected` 
+                                            {data.room_ids.length > 0
+                                                ? `${data.room_ids.length} Room${data.room_ids.length > 1 ? 's' : ''} Selected`
                                                 : 'Select Rooms...'}
                                         </span>
                                         <div className="w-5 h-5 rounded bg-[#1e293b] flex items-center justify-center border border-[#334155] text-slate-400">
@@ -474,14 +475,14 @@ export default function Create({ rooms = [], roomTypes = [], prefilledGuest, pro
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                                 <div className="flex flex-col gap-1.5">
                                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Booking Type</label>
-                                    <select
+                                    <CustomSelect
                                         value={data.booking_type}
                                         onChange={e => setData('booking_type', e.target.value)}
                                         className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 px-3 py-2.5 focus:outline-none focus:border-brand-500 text-xs font-bold"
                                     >
                                         <option value="overnight">Overnight Stay</option>
                                         <option value="short_time">Short time (Hourly)</option>
-                                    </select>
+                                    </CustomSelect>
                                 </div>
 
                                 {data.booking_type === 'overnight' ? (
@@ -498,7 +499,7 @@ export default function Create({ rooms = [], roomTypes = [], prefilledGuest, pro
                                 ) : (
                                     <div className="flex flex-col gap-1.5">
                                         <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Short-Time Hours Tier</label>
-                                        <select
+                                        <CustomSelect
                                             value={data.short_time_hours}
                                             onChange={e => setData('short_time_hours', Number(e.target.value))}
                                             className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 px-3 py-2.5 focus:outline-none focus:border-brand-500 text-xs font-mono font-bold"
@@ -507,7 +508,7 @@ export default function Create({ rooms = [], roomTypes = [], prefilledGuest, pro
                                             <option value={6}>6 Hours</option>
                                             <option value={12}>12 Hours</option>
                                             <option value={24}>24 Hours</option>
-                                        </select>
+                                        </CustomSelect>
                                     </div>
                                 )}
                             </div>
@@ -542,7 +543,7 @@ export default function Create({ rooms = [], roomTypes = [], prefilledGuest, pro
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div className="flex flex-col gap-1.5">
                                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Discounts</label>
-                                    <select
+                                    <CustomSelect
                                         value={data.discount_type}
                                         onChange={e => setData('discount_type', e.target.value)}
                                         className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 px-3 py-2.5 focus:outline-none focus:border-brand-500 text-xs font-semibold"
@@ -558,7 +559,7 @@ export default function Create({ rooms = [], roomTypes = [], prefilledGuest, pro
                                                 <option value="complimentary">Complimentary stay (100% Free)</option>
                                             </>
                                         )}
-                                    </select>
+                                    </CustomSelect>
                                 </div>
 
                                 {['promo', 'staff'].includes(data.discount_type) && !data.promo_code && (
@@ -652,7 +653,7 @@ export default function Create({ rooms = [], roomTypes = [], prefilledGuest, pro
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                                 <div className="flex flex-col gap-1.5">
                                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Payment Method</label>
-                                    <select
+                                    <CustomSelect
                                         value={data.payment_method}
                                         onChange={e => setData('payment_method', e.target.value)}
                                         className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 px-3 py-2.5 focus:outline-none focus:border-brand-500 text-xs font-bold"
@@ -662,7 +663,7 @@ export default function Create({ rooms = [], roomTypes = [], prefilledGuest, pro
                                         <option value="card">Card</option>
                                         <option value="bank_transfer">Bank Transfer</option>
                                         <option value="split">Split Payment (Cash + GCash)</option>
-                                    </select>
+                                    </CustomSelect>
                                 </div>
 
                                 {['gcash', 'split'].includes(data.payment_method) && (
@@ -896,28 +897,28 @@ export default function Create({ rooms = [], roomTypes = [], prefilledGuest, pro
                     </div>
                 </form>
             </div>
-            
+
             {/* Modal Room Selection */}
-            <ActionModal 
-                isOpen={showRoomSelectModal} 
+            <ActionModal
+                isOpen={showRoomSelectModal}
                 onClose={() => setShowRoomSelectModal(false)}
                 title="Select Rooms"
             >
                 <div className="flex gap-1 overflow-x-auto custom-scrollbar pb-2 mb-2 border-b border-[#334155]/50">
-                    <button 
+                    <button
                         onClick={() => setRoomFilter('all')}
                         className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${roomFilter === 'all' ? 'bg-brand-600 text-white shadow' : 'bg-[#1e293b] text-slate-400 hover:text-slate-200 border border-[#334155]'}`}
                     >
                         All Rooms
                     </button>
-                    <button 
+                    <button
                         onClick={() => setRoomFilter('vacant')}
                         className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${roomFilter === 'vacant' ? 'bg-emerald-600 text-white shadow' : 'bg-[#1e293b] text-slate-400 hover:text-slate-200 border border-[#334155]'}`}
                     >
                         Vacant Only
                     </button>
-                    {[...new Set(availableRooms.map(r => r.floor))].filter(Boolean).sort((a,b) => a - b).map(f => (
-                        <button 
+                    {[...new Set(availableRooms.map(r => r.floor))].filter(Boolean).sort((a, b) => a - b).map(f => (
+                        <button
                             key={`floor-${f}`}
                             onClick={() => setRoomFilter(`floor-${f}`)}
                             className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${roomFilter === `floor-${f}` ? 'bg-indigo-600 text-white shadow' : 'bg-[#1e293b] text-slate-400 hover:text-slate-200 border border-[#334155]'}`}
@@ -926,7 +927,7 @@ export default function Create({ rooms = [], roomTypes = [], prefilledGuest, pro
                         </button>
                     ))}
                     {[...new Set(availableRooms.map(r => r.type?.type_name))].filter(Boolean).sort().map(type => (
-                        <button 
+                        <button
                             key={`type-${type}`}
                             onClick={() => setRoomFilter(`type-${type}`)}
                             className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${roomFilter === `type-${type}` ? 'bg-amber-600 text-white shadow' : 'bg-[#1e293b] text-slate-400 hover:text-slate-200 border border-[#334155]'}`}
@@ -946,8 +947,8 @@ export default function Create({ rooms = [], roomTypes = [], prefilledGuest, pro
                         return true;
                     }).map(r => (
                         <label key={r.id} className="flex items-center gap-3 p-3 rounded-xl bg-[#0f172a]/60 border border-[#334155] cursor-pointer hover:bg-[#1e293b]/60 transition-colors">
-                            <input 
-                                type="checkbox" 
+                            <input
+                                type="checkbox"
                                 className="rounded bg-[#1e293b] border-[#475569] text-brand-500 focus:ring-brand-500"
                                 checked={data.room_ids.some(id => id.toString() === r.id.toString())}
                                 onChange={(e) => {
@@ -963,11 +964,10 @@ export default function Create({ rooms = [], roomTypes = [], prefilledGuest, pro
                                 <span className="font-outfit font-bold text-slate-200 text-sm flex items-center gap-2">
                                     Room {r.room_number}
                                     {r.status !== 'vacant' && (
-                                        <span className={`text-[8px] uppercase px-1.5 py-0.5 rounded-full ${
-                                            r.status === 'occupied' ? 'bg-rose-500/20 text-rose-400' :
+                                        <span className={`text-[8px] uppercase px-1.5 py-0.5 rounded-full ${r.status === 'occupied' ? 'bg-rose-500/20 text-rose-400' :
                                             r.status === 'cleaning' ? 'bg-amber-500/20 text-amber-400' :
-                                            'bg-slate-500/20 text-slate-400'
-                                        }`}>{r.status}</span>
+                                                'bg-slate-500/20 text-slate-400'
+                                            }`}>{r.status}</span>
                                     )}
                                 </span>
                                 <span className="text-[10px] text-slate-400 font-medium">{r.type?.type_name}</span>
@@ -980,8 +980,8 @@ export default function Create({ rooms = [], roomTypes = [], prefilledGuest, pro
                 </div>
                 <div className="mt-4 pt-3 border-t border-[#334155] flex justify-between items-center">
                     <span className="text-xs font-bold text-slate-400">{data.room_ids.length} selected</span>
-                    <button 
-                        type="button" 
+                    <button
+                        type="button"
                         onClick={() => setShowRoomSelectModal(false)}
                         className="px-6 py-2 bg-brand-600 hover:bg-brand-500 text-white rounded-xl text-sm font-bold transition-all"
                     >

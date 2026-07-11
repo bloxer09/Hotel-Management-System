@@ -18,6 +18,7 @@ import ActionModal from '@/Components/ActionModal';
 import SortableHeader from '@/Components/SortableHeader';
 import Pagination from '@/Components/Pagination';
 import ConfirmModal from '@/Components/ConfirmModal';
+import CustomSelect from '@/Components/CustomSelect';
 
 export default function IncomesIndex({ incomes, filters, summary, sortBy, sortDir }) {
     const { auth } = usePage().props;
@@ -253,11 +254,10 @@ export default function IncomesIndex({ incomes, filters, summary, sortBy, sortDi
                                             </span>
                                         </td>
                                         <td className="px-4 py-3">
-                                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border ${
-                                                inc.cash_drawer === 'minibar' 
-                                                    ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' 
-                                                    : 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'
-                                            }`}>
+                                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border ${inc.cash_drawer === 'minibar'
+                                                ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                                                : 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'
+                                                }`}>
                                                 {inc.cash_drawer === 'minibar' ? 'Minibar' : 'Room'}
                                             </span>
                                         </td>
@@ -353,14 +353,14 @@ export default function IncomesIndex({ incomes, filters, summary, sortBy, sortDi
                                     </div>
                                     <div className="flex flex-col gap-1">
                                         <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Cash Drawer *</label>
-                                        <select
+                                        <CustomSelect
                                             value={cashDrawer}
                                             onChange={e => setCashDrawer(e.target.value)}
                                             className={inputCls}
                                         >
                                             <option value="room">Room Cash Drawer</option>
                                             <option value="minibar">Minibar Cash Drawer</option>
-                                        </select>
+                                        </CustomSelect>
                                     </div>
                                     <div className="flex flex-col gap-1">
                                         <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Notes / Description</label>
@@ -449,14 +449,14 @@ export default function IncomesIndex({ incomes, filters, summary, sortBy, sortDi
                                     </div>
                                     <div className="flex flex-col gap-1">
                                         <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Cash Drawer *</label>
-                                        <select
+                                        <CustomSelect
                                             value={cashDrawer}
                                             onChange={e => setCashDrawer(e.target.value)}
                                             className={inputCls}
                                         >
                                             <option value="room">Room Cash Drawer</option>
                                             <option value="minibar">Minibar Cash Drawer</option>
-                                        </select>
+                                        </CustomSelect>
                                     </div>
                                     <div className="flex flex-col gap-1">
                                         <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Notes / Description</label>

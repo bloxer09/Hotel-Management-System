@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, usePage, router } from '@inertiajs/react';
 import Modal from '@/Components/Modal';
+import CustomSelect from '@/Components/CustomSelect';
 import {
     Plus,
     Download,
@@ -255,11 +256,10 @@ export default function ExpensesIndex({ expenses, filters, summary, sortBy, sort
                                             </span>
                                         </td>
                                         <td className="px-4 py-3">
-                                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border ${
-                                                exp.cash_drawer === 'minibar' 
-                                                    ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' 
-                                                    : 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'
-                                            }`}>
+                                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border ${exp.cash_drawer === 'minibar'
+                                                ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                                                : 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'
+                                                }`}>
                                                 {exp.cash_drawer === 'minibar' ? 'Minibar' : 'Room'}
                                             </span>
                                         </td>
@@ -355,14 +355,14 @@ export default function ExpensesIndex({ expenses, filters, summary, sortBy, sort
                                     </div>
                                     <div className="flex flex-col gap-1">
                                         <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Cash Drawer *</label>
-                                        <select
+                                        <CustomSelect
                                             value={cashDrawer}
                                             onChange={e => setCashDrawer(e.target.value)}
                                             className={inputCls}
                                         >
                                             <option value="room">Room Cash Drawer</option>
                                             <option value="minibar">Minibar Cash Drawer</option>
-                                        </select>
+                                        </CustomSelect>
                                     </div>
                                     <div className="flex flex-col gap-1">
                                         <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Notes / Description</label>
@@ -451,14 +451,14 @@ export default function ExpensesIndex({ expenses, filters, summary, sortBy, sort
                                     </div>
                                     <div className="flex flex-col gap-1">
                                         <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Cash Drawer *</label>
-                                        <select
+                                        <CustomSelect
                                             value={cashDrawer}
                                             onChange={e => setCashDrawer(e.target.value)}
                                             className={inputCls}
                                         >
                                             <option value="room">Room Cash Drawer</option>
                                             <option value="minibar">Minibar Cash Drawer</option>
-                                        </select>
+                                        </CustomSelect>
                                     </div>
                                     <div className="flex flex-col gap-1">
                                         <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Notes / Description</label>

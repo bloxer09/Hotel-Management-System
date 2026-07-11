@@ -386,7 +386,7 @@ export default function Index({ items, activeBookings = [], currentSearch, curre
 
                                         <div className="flex flex-col gap-1">
                                             <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Category</label>
-                                            <select
+                                            <CustomSelect
                                                 value={createForm.data.category}
                                                 onChange={e => createForm.setData('category', e.target.value)}
                                                 className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-xs text-slate-100 px-4 py-2.5 focus:outline-none focus:border-brand-500"
@@ -396,7 +396,7 @@ export default function Index({ items, activeBookings = [], currentSearch, curre
                                                 <option value="laundry">Laundry</option>
                                                 <option value="amenities">Amenities</option>
                                                 <option value="supplies">Supplies</option>
-                                            </select>
+                                            </CustomSelect>
                                         </div>
 
                                         <div className="flex flex-col gap-1">
@@ -532,7 +532,7 @@ export default function Index({ items, activeBookings = [], currentSearch, curre
 
                                         <div className="flex flex-col gap-1">
                                             <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Category</label>
-                                            <select
+                                            <CustomSelect
                                                 value={editForm.data.category}
                                                 onChange={e => editForm.setData('category', e.target.value)}
                                                 className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-xs text-slate-100 px-4 py-2.5 focus:outline-none focus:border-brand-500"
@@ -542,7 +542,7 @@ export default function Index({ items, activeBookings = [], currentSearch, curre
                                                 <option value="laundry">Laundry</option>
                                                 <option value="amenities">Amenities</option>
                                                 <option value="supplies">Supplies</option>
-                                            </select>
+                                            </CustomSelect>
                                         </div>
 
                                         <div className="flex flex-col gap-1">

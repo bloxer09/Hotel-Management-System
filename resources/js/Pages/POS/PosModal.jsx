@@ -1,12 +1,13 @@
 import React, { useState, useMemo, useEffect, Fragment } from 'react';
 import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
 import { useForm, router } from '@inertiajs/react';
-import { 
-    Search, X, Plus, Minus, ShoppingCart, 
-    User, Check, CircleCheck, Utensils, Bath, 
+import {
+    Search, X, Plus, Minus, ShoppingCart,
+    User, Check, CircleCheck, Utensils, Bath,
     Tv, FileText, Wind, BedDouble, ShoppingBag
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import CustomSelect from '@/Components/CustomSelect';
 
 export default function PosModal({ isOpen, onClose, items = [], activeBookings = [] }) {
     const [selectedCategory, setSelectedCategory] = useState('all');
@@ -207,18 +208,18 @@ export default function PosModal({ isOpen, onClose, items = [], activeBookings =
                         leaveTo="opacity-0 scale-95"
                     >
                         <DialogPanel className="bg-[#0f172a] border border-[#334155] rounded-3xl shadow-2xl w-full max-w-7xl max-h-[90vh] h-[850px] relative z-10 flex flex-col overflow-hidden">
-                        {/* Header */}
-                        <div className="h-16 flex items-center justify-between px-6 border-b border-[#334155] bg-[#1e293b] shrink-0">
-                            <h2 className="font-outfit font-extrabold text-lg text-slate-100 flex items-center gap-2">
-                                <ShoppingCart size={20} className="text-brand-400"/> New POS Sale
-                            </h2>
-                            <button onClick={onClose} className="p-2 bg-[#0f172a] hover:bg-slate-800 rounded-xl text-slate-400 transition-colors">
-                                <X size={20} />
-                            </button>
-                        </div>
+                            {/* Header */}
+                            <div className="h-16 flex items-center justify-between px-6 border-b border-[#334155] bg-[#1e293b] shrink-0">
+                                <h2 className="font-outfit font-extrabold text-lg text-slate-100 flex items-center gap-2">
+                                    <ShoppingCart size={20} className="text-brand-400" /> New POS Sale
+                                </h2>
+                                <button onClick={onClose} className="p-2 bg-[#0f172a] hover:bg-slate-800 rounded-xl text-slate-400 transition-colors">
+                                    <X size={20} />
+                                </button>
+                            </div>
 
-                        <div className="flex-1 flex flex-col lg:flex-row min-h-0 overflow-hidden">
-                                
+                            <div className="flex-1 flex flex-col lg:flex-row min-h-0 overflow-hidden">
+
                                 {/* Catalog Area */}
                                 <div className="flex-1 flex flex-col p-4 md:p-6 min-h-0 relative border-r border-[#334155]">
                                     <div className="flex gap-4 mb-4 shrink-0">
@@ -238,11 +239,10 @@ export default function PosModal({ isOpen, onClose, items = [], activeBookings =
                                             <button
                                                 key={cat.id}
                                                 onClick={() => setSelectedCategory(cat.id)}
-                                                className={`px-4 py-2 rounded-xl flex items-center gap-2 whitespace-nowrap text-[11px] font-bold uppercase tracking-wider transition-all ${
-                                                    selectedCategory === cat.id 
-                                                        ? 'bg-brand-600 text-white shadow-lg shadow-brand-500/20 border border-brand-500' 
-                                                        : 'bg-[#1e293b] text-slate-400 border border-[#334155] hover:bg-[#334155]'
-                                                }`}
+                                                className={`px-4 py-2 rounded-xl flex items-center gap-2 whitespace-nowrap text-[11px] font-bold uppercase tracking-wider transition-all ${selectedCategory === cat.id
+                                                    ? 'bg-brand-600 text-white shadow-lg shadow-brand-500/20 border border-brand-500'
+                                                    : 'bg-[#1e293b] text-slate-400 border border-[#334155] hover:bg-[#334155]'
+                                                    }`}
                                             >
                                                 <cat.icon size={14} />
                                                 {cat.name}
@@ -252,16 +252,15 @@ export default function PosModal({ isOpen, onClose, items = [], activeBookings =
                                     <div className="flex-1 overflow-y-auto pr-2 scrollbar-thin">
                                         <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4 pb-4">
                                             {filteredItems.map(item => (
-                                                <div 
-                                                    key={item.id} 
+                                                <div
+                                                    key={item.id}
                                                     onClick={() => addToCart(item)}
-                                                    className={`group bg-[#1e293b] border border-[#334155]/60 rounded-2xl overflow-hidden cursor-pointer transition-all hover:-translate-y-1 ${
-                                                        item.current_stock <= 0 ? 'opacity-50 grayscale cursor-not-allowed' : 'hover:shadow-xl hover:border-brand-500/30 hover:shadow-brand-500/5'
-                                                    }`}
+                                                    className={`group bg-[#1e293b] border border-[#334155]/60 rounded-2xl overflow-hidden cursor-pointer transition-all hover:-translate-y-1 ${item.current_stock <= 0 ? 'opacity-50 grayscale cursor-not-allowed' : 'hover:shadow-xl hover:border-brand-500/30 hover:shadow-brand-500/5'
+                                                        }`}
                                                 >
                                                     <div className="h-28 bg-[#0f172a] relative">
-                                                        <img 
-                                                            src={item.image_path || getProductImage(item.item_name, item.category)} 
+                                                        <img
+                                                            src={item.image_path || getProductImage(item.item_name, item.category)}
                                                             alt={item.item_name}
                                                             className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
                                                         />
@@ -334,18 +333,18 @@ export default function PosModal({ isOpen, onClose, items = [], activeBookings =
                                         <div className="space-y-1.5 border-t border-[#334155]/60 pt-4 mt-auto">
                                             <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Bill Target</span>
                                             <div className="grid grid-cols-2 gap-2">
-                                                <button type="button" onClick={() => usageForm.setData(d => ({...d, target_type: 'booking', consumer_name: ''}))} className={`py-2 rounded-xl text-center font-outfit font-extrabold text-[10px] uppercase tracking-wider border transition-all flex items-center justify-center gap-1.5 ${usageForm.data.target_type === 'booking' ? 'bg-brand-600 text-white border-brand-500 shadow-md' : 'bg-[#0f172a]/50 text-slate-400 border-transparent hover:bg-[#0f172a]'}`}><BedDouble size={12} /> Charge Room</button>
-                                                <button type="button" onClick={() => usageForm.setData(d => ({...d, target_type: 'walk_in', booking_id: ''}))} className={`py-2 rounded-xl text-center font-outfit font-extrabold text-[10px] uppercase tracking-wider border transition-all flex items-center justify-center gap-1.5 ${usageForm.data.target_type === 'walk_in' ? 'bg-brand-600 text-white border-brand-500 shadow-md' : 'bg-[#0f172a]/50 text-slate-400 border-transparent hover:bg-[#0f172a]'}`}><User size={12} /> Direct Sale</button>
+                                                <button type="button" onClick={() => usageForm.setData(d => ({ ...d, target_type: 'booking', consumer_name: '' }))} className={`py-2 rounded-xl text-center font-outfit font-extrabold text-[10px] uppercase tracking-wider border transition-all flex items-center justify-center gap-1.5 ${usageForm.data.target_type === 'booking' ? 'bg-brand-600 text-white border-brand-500 shadow-md' : 'bg-[#0f172a]/50 text-slate-400 border-transparent hover:bg-[#0f172a]'}`}><BedDouble size={12} /> Charge Room</button>
+                                                <button type="button" onClick={() => usageForm.setData(d => ({ ...d, target_type: 'walk_in', booking_id: '' }))} className={`py-2 rounded-xl text-center font-outfit font-extrabold text-[10px] uppercase tracking-wider border transition-all flex items-center justify-center gap-1.5 ${usageForm.data.target_type === 'walk_in' ? 'bg-brand-600 text-white border-brand-500 shadow-md' : 'bg-[#0f172a]/50 text-slate-400 border-transparent hover:bg-[#0f172a]'}`}><User size={12} /> Direct Sale</button>
                                             </div>
                                         </div>
 
                                         {usageForm.data.target_type === 'booking' ? (
-                                            <select value={usageForm.data.booking_id} onChange={e => usageForm.setData('booking_id', e.target.value)} className="w-full py-2.5 px-3 rounded-xl bg-[#0f172a] border border-[#334155] text-slate-200 text-xs font-semibold focus:border-brand-500 focus:ring-1">
+                                            <CustomSelect value={usageForm.data.booking_id} onChange={e => usageForm.setData('booking_id', e.target.value)} className="w-full py-2.5 px-3 rounded-xl bg-[#0f172a] border border-[#334155] text-slate-200 text-xs font-semibold focus:border-brand-500 focus:ring-1">
                                                 <option value="">Select Stay / Guest...</option>
                                                 {activeBookings.map(b => (
                                                     <option key={b.id} value={b.id}>Room {b.room?.room_number || 'N/A'} — {b.guest_name}</option>
                                                 ))}
-                                            </select>
+                                            </CustomSelect>
                                         ) : (
                                             <input type="text" placeholder="Walk-in Customer Name..." value={usageForm.data.consumer_name} onChange={e => usageForm.setData('consumer_name', e.target.value)} className="w-full py-2.5 px-3 rounded-xl bg-[#0f172a] border border-[#334155] text-slate-200 text-xs font-semibold focus:border-brand-500 focus:ring-1" />
                                         )}
@@ -354,12 +353,12 @@ export default function PosModal({ isOpen, onClose, items = [], activeBookings =
                                         <div className="pt-3 border-t border-[#334155]/60 space-y-3 shrink-0">
                                             <div className="flex flex-col gap-1.5">
                                                 <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Payment Method</label>
-                                                <select value={usageForm.data.payment_method} onChange={e => usageForm.setData('payment_method', e.target.value)} className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 px-3 py-2.5 font-bold text-xs focus:border-brand-500">
+                                                <CustomSelect value={usageForm.data.payment_method} onChange={e => usageForm.setData('payment_method', e.target.value)} className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 px-3 py-2.5 font-bold text-xs focus:border-brand-500">
                                                     <option value="cash">Cash</option>
                                                     <option value="gcash">GCash</option>
                                                     <option value="bank_transfer">Bank Transfer</option>
                                                     <option value="split">Split Payment</option>
-                                                </select>
+                                                </CustomSelect>
                                             </div>
 
                                             {['gcash', 'split'].includes(usageForm.data.payment_method) && (
@@ -399,7 +398,7 @@ export default function PosModal({ isOpen, onClose, items = [], activeBookings =
                                                 <div className="flex justify-between items-baseline pt-2 border-t border-[#334155]/60 mt-2">
                                                     <span className="font-outfit font-extrabold text-slate-200 text-[11px] uppercase tracking-wide">Change</span>
                                                     <span className="font-mono text-sm font-black text-emerald-400">
-                                                        ₱{Math.max(0, (usageForm.data.cash_amount || 0) - (usageForm.data.payment_method === 'split' ? (cartTotals.total - (usageForm.data.gcash_amount||0) - (usageForm.data.bank_amount||0)) : cartTotals.total)).toFixed(2)}
+                                                        ₱{Math.max(0, (usageForm.data.cash_amount || 0) - (usageForm.data.payment_method === 'split' ? (cartTotals.total - (usageForm.data.gcash_amount || 0) - (usageForm.data.bank_amount || 0)) : cartTotals.total)).toFixed(2)}
                                                     </span>
                                                 </div>
                                             )}
@@ -413,18 +412,18 @@ export default function PosModal({ isOpen, onClose, items = [], activeBookings =
                             </div>
 
 
-                        <AnimatePresence>
-                            {toastMessage && (
-                                <motion.div initial={{ opacity: 0, y: 20, x: '-50%' }} animate={{ opacity: 1, y: 0, x: '-50%' }} exit={{ opacity: 0, y: 20, x: '-50%' }} className="absolute bottom-6 left-1/2 z-[99999] px-5 py-3.5 bg-red-950/90 border border-red-500/40 text-red-200 rounded-2xl shadow-2xl backdrop-blur-md text-xs font-bold flex items-center gap-2.5">
-                                    <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0" />
-                                    <span>{toastMessage}</span>
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
-                    </DialogPanel>
-                </TransitionChild>
-            </div>
-        </Dialog>
-    </Transition>
+                            <AnimatePresence>
+                                {toastMessage && (
+                                    <motion.div initial={{ opacity: 0, y: 20, x: '-50%' }} animate={{ opacity: 1, y: 0, x: '-50%' }} exit={{ opacity: 0, y: 20, x: '-50%' }} className="absolute bottom-6 left-1/2 z-[99999] px-5 py-3.5 bg-red-950/90 border border-red-500/40 text-red-200 rounded-2xl shadow-2xl backdrop-blur-md text-xs font-bold flex items-center gap-2.5">
+                                        <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0" />
+                                        <span>{toastMessage}</span>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+                        </DialogPanel>
+                    </TransitionChild>
+                </div>
+            </Dialog>
+        </Transition>
     );
 }

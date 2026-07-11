@@ -1,19 +1,20 @@
 import React from 'react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, router } from '@inertiajs/react';
-import { 
-    Calendar, 
-    ChevronLeft, 
-    ChevronRight, 
-    HelpCircle, 
-    FileText, 
-    User, 
-    Wrench, 
-    RefreshCw, 
-    CheckCircle2, 
-    BedDouble 
+import {
+    Calendar,
+    ChevronLeft,
+    ChevronRight,
+    HelpCircle,
+    FileText,
+    User,
+    Wrench,
+    RefreshCw,
+    CheckCircle2,
+    BedDouble
 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import CustomSelect from '@/Components/CustomSelect';
 
 export default function Analytics({ month, dailyStats, roomsCount, rooms = [], selectedRoomId = null }) {
     // Parse year and month
@@ -41,11 +42,11 @@ export default function Analytics({ month, dailyStats, roomsCount, rooms = [], s
     const highestOccupiedDay = [...dailyStats].sort((a, b) => b.occupied - a.occupied)[0];
 
     // Single room specific metrics
-    const roomOccupiedNights = isRoomFiltered 
-        ? dailyStats.filter(s => s.occupied > 0).length 
+    const roomOccupiedNights = isRoomFiltered
+        ? dailyStats.filter(s => s.occupied > 0).length
         : 0;
-    const roomOccupancyRate = daysInMonth > 0 
-        ? Math.round((roomOccupiedNights / daysInMonth) * 100) 
+    const roomOccupancyRate = daysInMonth > 0
+        ? Math.round((roomOccupiedNights / daysInMonth) * 100)
         : 0;
 
     // Navigation and filter changes
@@ -77,7 +78,7 @@ export default function Analytics({ month, dailyStats, roomsCount, rooms = [], s
     // Add days
     dailyStats.forEach((stat) => {
         const isToday = new Date().toDateString() === new Date(stat.date).toDateString();
-        
+
         let statusBlock = null;
         if (isRoomFiltered) {
             if (stat.occupied > 0) {
@@ -186,14 +187,12 @@ export default function Analytics({ month, dailyStats, roomsCount, rooms = [], s
         gridItems.push(
             <div
                 key={stat.date}
-                className={`min-h-[105px] border border-[#334155]/60 p-2 flex flex-col justify-between transition-all hover:bg-[#1e293b]/40 rounded-xl ${
-                    isToday ? 'bg-brand-500/10 border-brand-500 shadow-inner' : 'bg-[#1e293b]/30'
-                }`}
+                className={`min-h-[105px] border border-[#334155]/60 p-2 flex flex-col justify-between transition-all hover:bg-[#1e293b]/40 rounded-xl ${isToday ? 'bg-brand-500/10 border-brand-500 shadow-inner' : 'bg-[#1e293b]/30'
+                    }`}
             >
                 <div className="flex justify-between items-start shrink-0">
-                    <span className={`font-mono text-xs font-bold leading-none w-5 h-5 rounded-full flex items-center justify-center ${
-                        isToday ? 'bg-brand-500 text-slate-50' : 'text-slate-400'
-                    }`}>
+                    <span className={`font-mono text-xs font-bold leading-none w-5 h-5 rounded-full flex items-center justify-center ${isToday ? 'bg-brand-500 text-slate-50' : 'text-slate-400'
+                        }`}>
                         {stat.day}
                     </span>
                     {isToday && <span className="text-[8px] bg-brand-500/20 text-brand-400 px-1.5 py-0.5 rounded font-bold uppercase">Today</span>}
@@ -216,7 +215,7 @@ export default function Analytics({ month, dailyStats, roomsCount, rooms = [], s
                             Room Availability Calendar
                         </h1>
                         <p className="text-sm text-slate-400 font-medium mt-1">
-                            {isRoomFiltered 
+                            {isRoomFiltered
                                 ? `Tracking availability schedule and reservations for Room ${selectedRoom.room_number}.`
                                 : "Track monthly occupancy distributions and daily occupied, vacant, cleaning, or maintenance states."
                             }
@@ -247,13 +246,12 @@ export default function Analytics({ month, dailyStats, roomsCount, rooms = [], s
                             <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
                                 {isRoomFiltered ? 'Current Live Status' : 'Peak Occupancy Day'}
                             </span>
-                            <span className={`text-base font-outfit font-black mt-1 uppercase ${
-                                isRoomFiltered 
-                                    ? (selectedRoom.status === 'vacant' ? 'text-emerald-400' :
-                                       selectedRoom.status === 'occupied' ? 'text-rose-400' :
-                                       selectedRoom.status === 'cleaning' ? 'text-amber-400' : 'text-slate-400')
-                                    : 'text-slate-100'
-                            }`}>
+                            <span className={`text-base font-outfit font-black mt-1 uppercase ${isRoomFiltered
+                                ? (selectedRoom.status === 'vacant' ? 'text-emerald-400' :
+                                    selectedRoom.status === 'occupied' ? 'text-rose-400' :
+                                        selectedRoom.status === 'cleaning' ? 'text-amber-400' : 'text-slate-400')
+                                : 'text-slate-100'
+                                }`}>
                                 {isRoomFiltered ? (
                                     selectedRoom.status
                                 ) : (
@@ -261,13 +259,12 @@ export default function Analytics({ month, dailyStats, roomsCount, rooms = [], s
                                 )}
                             </span>
                         </div>
-                        <div className={`p-3 rounded-xl flex items-center justify-center ${
-                            isRoomFiltered 
-                                ? (selectedRoom.status === 'vacant' ? 'bg-emerald-500/10 text-emerald-400' :
-                                   selectedRoom.status === 'occupied' ? 'bg-rose-500/10 text-rose-400' :
-                                   selectedRoom.status === 'cleaning' ? 'bg-amber-500/10 text-amber-400' : 'bg-slate-500/10 text-slate-400')
-                                : 'bg-rose-500/10 text-rose-400'
-                        }`}>
+                        <div className={`p-3 rounded-xl flex items-center justify-center ${isRoomFiltered
+                            ? (selectedRoom.status === 'vacant' ? 'bg-emerald-500/10 text-emerald-400' :
+                                selectedRoom.status === 'occupied' ? 'bg-rose-500/10 text-rose-400' :
+                                    selectedRoom.status === 'cleaning' ? 'bg-amber-500/10 text-amber-400' : 'bg-slate-500/10 text-slate-400')
+                            : 'bg-rose-500/10 text-rose-400'
+                            }`}>
                             {isRoomFiltered ? <BedDouble size={18} /> : <FileText size={18} />}
                         </div>
                     </div>
@@ -299,7 +296,7 @@ export default function Analytics({ month, dailyStats, roomsCount, rooms = [], s
                             {/* Selector Room Filter Dropdown */}
                             <div className="flex items-center gap-2 bg-[#0f172a]/60 border border-[#334155]/40 p-1.5 rounded-xl">
                                 <span className="text-[10px] uppercase font-bold text-slate-500 pl-2">Filter Room:</span>
-                                <select
+                                <CustomSelect
                                     value={selectedRoomId || ''}
                                     onChange={handleRoomChange}
                                     className="bg-[#1e293b] border border-[#334155] rounded-lg text-xs text-slate-200 px-3 py-1.5 focus:outline-none focus:border-brand-500 font-medium"
@@ -310,7 +307,7 @@ export default function Analytics({ month, dailyStats, roomsCount, rooms = [], s
                                             Room {r.room_number} ({r.status})
                                         </option>
                                     ))}
-                                </select>
+                                </CustomSelect>
                             </div>
 
                             {/* Month Picker Controls */}
