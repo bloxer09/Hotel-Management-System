@@ -16,10 +16,27 @@ class PeakDateController extends Controller
             abort(403, 'Unauthorized access.');
         }
 
-        $peakDates = PeakDate::orderBy('date_from', 'asc')->get();
+        $query = PeakDate::query();
+
+        if ($request->filled('search')) {
+            $search = '%' . $request->search . '%';
+            $query->where('label', 'like', $search);
+        }
+
+        $sortBy = $request->input('sort_by', 'date_from');
+        $sortDir = $request->input('sort_dir', 'asc');
+
+        $allowedSorts = ['label', 'date_from', 'date_to', 'surcharge_amount', 'is_active'];
+        if (!in_array($sortBy, $allowedSorts)) $sortBy = 'date_from';
+        if (!in_array($sortDir, ['asc', 'desc'])) $sortDir = 'asc';
+
+        $peakDates = $query->orderBy($sortBy, $sortDir)->paginate(10)->withQueryString();
 
         return Inertia::render('Settings/Peaks', [
             'peakDates' => $peakDates,
+            'filters' => $request->only(['search']),
+            'sortBy' => $sortBy,
+            'sortDir' => $sortDir,
         ]);
     }
 

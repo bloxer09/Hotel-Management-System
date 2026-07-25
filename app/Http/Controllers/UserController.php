@@ -17,14 +17,43 @@ class UserController extends Controller
             abort(403, 'Unauthorized access.');
         }
 
-        $users = User::orderBy('full_name', 'asc')->get([
-            'id', 'username', 'full_name as name', 'role', 
-            'email', 'phone', 'avatar_path', 'is_active', 'last_login', 
-            'created_at', 'updated_at'
-        ]);
+        $query = User::query();
+
+        if ($request->filled('search')) {
+            $search = '%' . $request->search . '%';
+            $query->where(function ($q) use ($search) {
+                $q->where('full_name', 'like', $search)
+                  ->orWhere('username', 'like', $search)
+                  ->orWhere('email', 'like', $search);
+            });
+        }
+
+        $sortBy = $request->input('sort_by', 'full_name');
+        $sortDir = $request->input('sort_dir', 'asc');
+
+        $allowedSorts = ['full_name', 'role', 'is_active', 'last_login'];
+        if (!in_array($sortBy, $allowedSorts)) $sortBy = 'full_name';
+        if (!in_array($sortDir, ['asc', 'desc'])) $sortDir = 'asc';
+
+        $users = $query->orderBy($sortBy, $sortDir)
+            ->paginate(6, [
+                'id', 'username', 'full_name', 'role', 
+                'email', 'phone', 'avatar_path', 'is_active', 'last_login', 
+                'created_at', 'updated_at'
+            ])
+            ->withQueryString();
+
+        // Map collection to add 'name' attribute expected by frontend
+        $users->getCollection()->transform(function($u) {
+            $u->name = $u->full_name;
+            return $u;
+        });
 
         return Inertia::render('Settings/Users', [
             'users' => $users,
+            'filters' => $request->only(['search']),
+            'sortBy' => $sortBy,
+            'sortDir' => $sortDir,
         ]);
     }
 

@@ -170,3 +170,13 @@ th {
         overflow: visible !important;
     }
 }
+
+/* ─── Global keyboard focus indicators for accessibility compliance ─── */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+    outline: 2px solid #5479a4 !important; /* brand-500 */
+    outline-offset: 2px;
+}

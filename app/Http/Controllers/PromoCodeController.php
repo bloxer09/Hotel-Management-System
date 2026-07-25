@@ -15,12 +15,30 @@ class PromoCodeController extends Controller
             abort(403, 'Unauthorized access.');
         }
 
-        $promoCodes = PromoCode::with('creator')
-            ->orderBy('id', 'desc')
-            ->get();
+        $query = PromoCode::with('creator');
+
+        if ($request->filled('search')) {
+            $search = '%' . $request->search . '%';
+            $query->where(function ($q) use ($search) {
+                $q->where('code', 'like', $search)
+                  ->orWhere('label', 'like', $search);
+            });
+        }
+
+        $sortBy = $request->input('sort_by', 'id');
+        $sortDir = $request->input('sort_dir', 'desc');
+
+        $allowedSorts = ['id', 'code', 'label', 'discount_value', 'expires_at', 'is_active'];
+        if (!in_array($sortBy, $allowedSorts)) $sortBy = 'id';
+        if (!in_array($sortDir, ['asc', 'desc'])) $sortDir = 'desc';
+
+        $promoCodes = $query->orderBy($sortBy, $sortDir)->paginate(10)->withQueryString();
 
         return Inertia::render('Settings/PromoCodes', [
             'promoCodes' => $promoCodes,
+            'filters' => $request->only(['search']),
+            'sortBy' => $sortBy,
+            'sortDir' => $sortDir,
         ]);
     }
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link } from '@inertiajs/react';
 import {
@@ -36,6 +36,11 @@ import CustomSelect from '@/Components/CustomSelect';
 export default function Dashboard({ stats, charts, recentBookings, lowStockItems, activeShift, liveUpdates = [], upcomingCheckins = [], upcomingCheckouts = [], recentExpenses = [] }) {
     const [revenuePeriod, setRevenuePeriod] = useState('today');
     const [upcomingTab, setUpcomingTab] = useState('checkins');
+    const [chartTab, setChartTab] = useState('revenue'); // 'revenue' | 'payments' | 'occupancy'
+    const [chartPeriod, setChartPeriod] = useState(30); // 7 | 14 | 30
+
+    const filteredRevenueData = useMemo(() => charts?.dailyRevenue?.slice(-chartPeriod) || [], [charts, chartPeriod]);
+    const filteredOccupancyData = useMemo(() => charts?.dailyOccupancy?.slice(-chartPeriod) || [], [charts, chartPeriod]);
 
     const roomStats = stats?.rooms || { total: 0, occupied: 0, vacant: 0, cleaning: 0, out_of_order: 0 };
 
@@ -154,7 +159,7 @@ export default function Dashboard({ stats, charts, recentBookings, lowStockItems
                 </div>
 
                 {/* KPI Cards Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                     {cards.map((card, idx) => (
                         <motion.div
                             key={card.title}
@@ -174,6 +179,168 @@ export default function Dashboard({ stats, charts, recentBookings, lowStockItems
                             <div className="text-[10px] text-slate-500 mt-2">{card.desc}</div>
                         </motion.div>
                     ))}
+                </div>
+
+                {/* Visual Analytics Section */}
+                <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+                    {/* Charts Panel (2/3 width) */}
+                    <div className="xl:col-span-2 p-6 rounded-2xl bg-[#1e293b] border border-[#334155] shadow-xl flex flex-col gap-6">
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                            <div>
+                                <h3 className="font-outfit font-extrabold text-base text-slate-100 uppercase tracking-wider">Operational Trends</h3>
+                                <p className="text-[11px] text-slate-450 mt-0.5">Visualize occupancy rates and financial collection channels over time.</p>
+                            </div>
+                            
+                            {/* Chart Controls */}
+                            <div className="flex flex-wrap gap-2 items-center">
+                                {/* Tab Select */}
+                                <div className="flex bg-[#0f172a] p-0.5 rounded-lg border border-[#334155] text-[10px] font-black uppercase shadow-inner">
+                                    {[
+                                        { key: 'revenue', label: 'Revenue' },
+                                        { key: 'payments', label: 'Payments' },
+                                        { key: 'occupancy', label: 'Occupancy' }
+                                    ].map(tab => (
+                                        <button
+                                            key={tab.key}
+                                            type="button"
+                                            onClick={() => setChartTab(tab.key)}
+                                            className={`px-3 py-1.5 rounded transition-all ${chartTab === tab.key
+                                                ? 'bg-[#1e293b] text-slate-100 shadow border border-[#334155]/60'
+                                                : 'text-slate-400 hover:text-slate-200'
+                                                }`}
+                                        >
+                                            {tab.label}
+                                        </button>
+                                    ))}
+                                </div>
+                                
+                                {/* Period Select */}
+                                <div className="flex bg-[#0f172a] p-0.5 rounded-lg border border-[#334155] text-[10px] font-black uppercase shadow-inner">
+                                    {[
+                                        { key: 7, label: '7D' },
+                                        { key: 14, label: '14D' },
+                                        { key: 30, label: '30D' }
+                                    ].map(per => (
+                                        <button
+                                            key={per.key}
+                                            type="button"
+                                            onClick={() => setChartPeriod(per.key)}
+                                            className={`px-2.5 py-1.5 rounded transition-all ${chartPeriod === per.key
+                                                ? 'bg-[#1e293b] text-slate-100 shadow border border-[#334155]/60'
+                                                : 'text-slate-400 hover:text-slate-200'
+                                                }`}
+                                        >
+                                            {per.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Chart Render */}
+                        <div className="h-72 w-full">
+                            <ResponsiveContainer width="100%" height="100%">
+                                {chartTab === 'revenue' ? (
+                                    <AreaChart data={filteredRevenueData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                                        <defs>
+                                            <linearGradient id="colorRoom" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor="#6366f1" stopOpacity={0.2}/>
+                                                <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
+                                            </linearGradient>
+                                            <linearGradient id="colorProduct" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor="#10b981" stopOpacity={0.2}/>
+                                                <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                                            </linearGradient>
+                                        </defs>
+                                        <XAxis dataKey="date" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} />
+                                        <YAxis stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(v) => `₱${v}`} />
+                                        <Tooltip content={<CustomTooltip isCurrency={true} />} />
+                                        <Legend verticalAlign="top" height={36} iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '11px', color: '#cbd5e1' }} />
+                                        <Area type="monotone" name="Lodging Revenue" dataKey="room" stroke="#6366f1" strokeWidth={2} fillOpacity={1} fill="url(#colorRoom)" />
+                                        <Area type="monotone" name="Product Revenue" dataKey="product" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#colorProduct)" />
+                                    </AreaChart>
+                                ) : chartTab === 'payments' ? (
+                                    <BarChart data={filteredRevenueData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                                        <XAxis dataKey="date" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} />
+                                        <YAxis stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(v) => `₱${v}`} />
+                                        <Tooltip content={<CustomTooltip isCurrency={true} />} />
+                                        <Legend verticalAlign="top" height={36} iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '11px', color: '#cbd5e1' }} />
+                                        <Bar name="Cash" dataKey="cash" stackId="a" fill="#10b981" radius={[0, 0, 0, 0]} />
+                                        <Bar name="GCash" dataKey="gcash" stackId="a" fill="#6366f1" radius={[0, 0, 0, 0]} />
+                                        <Bar name="Bank Transfer" dataKey="bank_transfer" stackId="a" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                                    </BarChart>
+                                ) : (
+                                    <AreaChart data={filteredOccupancyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                                        <defs>
+                                            <linearGradient id="colorOcc" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.2}/>
+                                                <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                                            </linearGradient>
+                                        </defs>
+                                        <XAxis dataKey="date" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} />
+                                        <YAxis stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(v) => `${v}%`} />
+                                        <Tooltip content={<CustomTooltip isCurrency={false} />} />
+                                        <Legend verticalAlign="top" height={36} iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '11px', color: '#cbd5e1' }} />
+                                        <Area type="monotone" name="Occupancy Rate" dataKey="occupancy_rate" stroke="#3b82f6" strokeWidth={2} fillOpacity={1} fill="url(#colorOcc)" />
+                                    </AreaChart>
+                                )}
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+
+                    {/* Room Type Revenue Pie Chart (1/3 width) */}
+                    <div className="xl:col-span-1 p-6 rounded-2xl bg-[#1e293b] border border-[#334155] shadow-xl flex flex-col gap-6">
+                        <div>
+                            <h3 className="font-outfit font-extrabold text-base text-slate-100 uppercase tracking-wider">Revenue by Room Class</h3>
+                            <p className="text-[11px] text-slate-450 mt-0.5">30-day billing contributions grouped by class.</p>
+                        </div>
+
+                        <div className="h-56 w-full relative flex items-center justify-center">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                    <Pie
+                                        data={charts?.roomTypeRevenue || []}
+                                        cx="50%"
+                                        cy="50%"
+                                        innerRadius={60}
+                                        outerRadius={80}
+                                        paddingAngle={4}
+                                        dataKey="value"
+                                    >
+                                        {(charts?.roomTypeRevenue || []).map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip formatter={(value) => `₱${Number(value).toLocaleString()}`} />
+                                </PieChart>
+                            </ResponsiveContainer>
+                            
+                            {/* Center absolute indicator */}
+                            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none mt-2">
+                                <span className="text-[9px] uppercase font-bold text-slate-450 tracking-wider">Total Sales</span>
+                                <span className="font-outfit font-black text-sm text-slate-200 mt-0.5">
+                                    ₱{(charts?.roomTypeRevenue || []).reduce((sum, item) => sum + Number(item.value || 0), 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Room Type Legend List */}
+                        <div className="flex flex-col gap-2 overflow-y-auto max-h-[100px] scrollbar-thin">
+                            {(charts?.roomTypeRevenue || []).map((entry, index) => {
+                                const total = (charts?.roomTypeRevenue || []).reduce((sum, item) => sum + Number(item.value || 0), 0);
+                                const pct = total > 0 ? ((entry.value / total) * 100).toFixed(1) : 0;
+                                return (
+                                    <div key={entry.name} className="flex items-center justify-between text-[11px]">
+                                        <div className="flex items-center gap-2 min-w-0">
+                                            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
+                                            <span className="font-semibold text-slate-300 truncate">{entry.name}</span>
+                                        </div>
+                                        <span className="font-mono text-slate-400 shrink-0 font-bold ml-2">₱{Number(entry.value).toLocaleString()} ({pct}%)</span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
                 </div>
 
                 {/* Main Content Sections */}

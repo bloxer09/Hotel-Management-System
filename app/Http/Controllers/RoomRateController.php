@@ -16,10 +16,31 @@ class RoomRateController extends Controller
             abort(403, 'Unauthorized access to rates settings.');
         }
 
-        $roomTypes = RoomType::withCount('rooms')->get();
+        $query = RoomType::withCount('rooms');
+
+        if ($request->filled('search')) {
+            $search = '%' . $request->search . '%';
+            $query->where(function ($q) use ($search) {
+                $q->where('type_name', 'like', $search)
+                  ->orWhere('description', 'like', $search)
+                  ->orWhere('amenities', 'like', $search);
+            });
+        }
+
+        $sortBy = $request->input('sort_by', 'id');
+        $sortDir = $request->input('sort_dir', 'asc');
+
+        $allowedSorts = ['id', 'type_name', 'base_rate', 'max_occupancy', 'rooms_count'];
+        if (!in_array($sortBy, $allowedSorts)) $sortBy = 'id';
+        if (!in_array($sortDir, ['asc', 'desc'])) $sortDir = 'asc';
+
+        $roomTypes = $query->orderBy($sortBy, $sortDir)->paginate(10)->withQueryString();
 
         return Inertia::render('Settings/Rates', [
             'roomTypes' => $roomTypes,
+            'filters' => $request->only(['search']),
+            'sortBy' => $sortBy,
+            'sortDir' => $sortDir,
         ]);
     }
 

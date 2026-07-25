@@ -13,7 +13,9 @@ const Dropdown = ({ children }) => {
 
     return (
         <DropDownContext.Provider value={{ open, setOpen, toggleOpen }}>
-            <div className="relative">{children}</div>
+            <div className="relative">
+                {typeof children === 'function' ? children({ open, setOpen, toggleOpen }) : children}
+            </div>
         </DropDownContext.Provider>
     );
 };
@@ -38,7 +40,7 @@ const Trigger = ({ children }) => {
 const Content = ({
     align = 'right',
     width = '48',
-    contentClasses = 'py-1 bg-white',
+    contentClasses = 'py-1.5 bg-[#0f172a] border border-[#334155] text-slate-200',
     children,
 }) => {
     const { open, setOpen } = useContext(DropDownContext);
@@ -55,6 +57,10 @@ const Content = ({
 
     if (width === '48') {
         widthClasses = 'w-48';
+    } else if (width === 'full') {
+        widthClasses = 'w-full';
+    } else {
+        widthClasses = width;
     }
 
     return (
@@ -69,12 +75,12 @@ const Content = ({
                 leaveTo="opacity-0 scale-95"
             >
                 <div
-                    className={`absolute z-50 mt-2 rounded-md shadow-lg ${alignmentClasses} ${widthClasses}`}
+                    className={`absolute z-50 mt-2 rounded-xl shadow-lg ${alignmentClasses} ${widthClasses}`}
                     onClick={() => setOpen(false)}
                 >
                     <div
                         className={
-                            `rounded-md ring-1 ring-black ring-opacity-5 ` +
+                            `rounded-xl ring-1 ring-black ring-opacity-5 ` +
                             contentClasses
                         }
                     >
@@ -91,7 +97,7 @@ const DropdownLink = ({ className = '', children, ...props }) => {
         <Link
             {...props}
             className={
-                'block w-full px-4 py-2 text-start text-sm leading-5 text-gray-700 transition duration-150 ease-in-out hover:bg-gray-100 focus:bg-gray-100 focus:outline-none ' +
+                'block w-full px-4 py-2.5 text-start text-xs font-semibold text-slate-350 transition duration-150 ease-in-out hover:bg-[#1e293b] hover:text-slate-100 focus:outline-none ' +
                 className
             }
         >

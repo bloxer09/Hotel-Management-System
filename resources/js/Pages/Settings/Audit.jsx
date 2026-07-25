@@ -334,7 +334,7 @@ export default function Audit({ logs, users = [], modules = [], filters = {}, so
 
                     {/* Pagination control bar */}
                     {logs && logs.last_page > 1 && (
-                        <div className="pt-4 border-t border-[#334155]/60 flex flex-col sm:flex-row items-center justify-between gap-4">
+                        <div className="px-6 py-4 bg-[#0f172a]/30 border-t border-[#334155]/60 flex flex-col sm:flex-row items-center justify-between gap-4">
                             <span className="text-[10px] sm:text-xs text-slate-400 text-center sm:text-left">
                                 Showing records <span className="font-bold font-mono text-slate-300">{logs.from || 0}</span> to <span className="font-bold font-mono text-slate-300">{logs.to || 0}</span> of <span className="font-bold font-mono text-slate-300">{logs.total}</span> entries
                             </span>

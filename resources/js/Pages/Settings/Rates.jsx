@@ -1,19 +1,33 @@
 import React, { useState } from 'react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, useForm, router } from '@inertiajs/react';
-import { BedDouble, Edit3, ShieldAlert, X, Plus, Trash2, Settings2, Users } from 'lucide-react';
+import { BedDouble, Edit3, ShieldAlert, X, Plus, Trash2, Settings2, Users, Search } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ActionModal from '@/Components/ActionModal';
 import ConfirmModal from '@/Components/ConfirmModal';
 import AlertModal from '@/Components/AlertModal';
+import SortableHeader from '@/Components/SortableHeader';
+import Pagination from '@/Components/Pagination';
 
-export default function Rates({ roomTypes }) {
+export default function Rates({ roomTypes, filters = {}, sortBy, sortDir }) {
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [isAddOpen, setIsAddOpen] = useState(false);
     const [selectedType, setSelectedType] = useState(null);
 
     const [actionModalItem, setActionModalItem] = useState(null);
     const [confirmDelete, setConfirmDelete] = useState(null);
+
+    const [searchQuery, setSearchQuery] = useState(filters.search || '');
+
+    const handleSearchSubmit = (e) => {
+        e.preventDefault();
+        router.get(route('settings.rates.index'), { search: searchQuery, sort_by: sortBy, sort_dir: sortDir }, { preserveState: true });
+    };
+
+    const handleClearSearch = () => {
+        setSearchQuery('');
+        router.get(route('settings.rates.index'), { sort_by: sortBy, sort_dir: sortDir });
+    };
     const [alertMessage, setAlertMessage] = useState(null);
 
     const form = useForm({
@@ -118,21 +132,45 @@ export default function Rates({ roomTypes }) {
                     </button>
                 </div>
 
-                <div className="p-6 rounded-2xl bg-[#1e293b] border border-[#334155] shadow-xl">
+                {/* Search Panel */}
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <form onSubmit={handleSearchSubmit} className="relative w-full sm:w-80">
+                        <Search className="absolute left-4 top-3 text-slate-500" size={16} />
+                        <input
+                            type="text"
+                            value={searchQuery}
+                            onChange={e => setSearchQuery(e.target.value)}
+                            placeholder="Search room types..."
+                            className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 pl-11 pr-10 py-2.5 focus:outline-none focus:border-brand-500 text-xs font-bold"
+                        />
+                        {searchQuery && (
+                            <button
+                                type="button"
+                                onClick={handleClearSearch}
+                                className="absolute right-3 top-3 text-slate-400 hover:text-slate-200"
+                            >
+                                <X size={16} />
+                            </button>
+                        )}
+                    </form>
+                </div>
+
+                <div className="p-6 rounded-2xl bg-[#1e293b] border border-[#334155] shadow-xl flex flex-col gap-6">
                     <div className="overflow-x-auto">
                         <table className="w-full text-xs min-w-[850px]">
                             <thead>
                                 <tr className="border-b border-[#334155] bg-[#0f172a]/60">
-                                    <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left min-w-[200px]">Room Type Details</th>
-                                    <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Base Rates</th>
+                                    <SortableHeader sortKey="type_name" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left min-w-[200px]">Room Type Details</SortableHeader>
+                                    <SortableHeader sortKey="base_rate" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Base Rates</SortableHeader>
                                     <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Short-Time Rates</th>
-                                    <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Capacity</th>
-                                    <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Assigned Rooms</th>
+                                    <SortableHeader sortKey="max_occupancy" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Capacity</SortableHeader>
+                                    <SortableHeader sortKey="rooms_count" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Assigned Rooms</SortableHeader>
                                     <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-right">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {roomTypes.map((rt, i) => (
+                                {roomTypes.data.length > 0 ? (
+                                    roomTypes.data.map((rt, i) => (
                                     <motion.tr 
                                         key={rt.id} 
                                         initial={{ opacity: 0, y: 6 }} 
@@ -201,9 +239,9 @@ export default function Rates({ roomTypes }) {
                                             </button>
                                         </td>
                                     </motion.tr>
-                                ))}
-                                {roomTypes.length === 0 && (
-                                    <tr>
+                                ))
+                            ) : (
+                                <tr>
                                         <td colSpan="6" className="py-8 text-center text-slate-500">
                                             No room types configured. Add a room type to get started.
                                         </td>
@@ -212,6 +250,16 @@ export default function Rates({ roomTypes }) {
                             </tbody>
                         </table>
                     </div>
+
+                    {/* Pagination */}
+                    {roomTypes && roomTypes.last_page > 1 && (
+                        <div className="px-6 py-4 bg-[#0f172a]/30 border-t border-[#334155]/60 flex flex-col sm:flex-row items-center justify-between gap-4">
+                            <span className="text-[10px] sm:text-xs text-slate-400 text-center sm:text-left">
+                                Showing records <span className="font-bold font-mono text-slate-300">{roomTypes.from || 0}</span> to <span className="font-bold font-mono text-slate-300">{roomTypes.to || 0}</span> of <span className="font-bold font-mono text-slate-300">{roomTypes.total}</span> entries
+                            </span>
+                            <Pagination links={roomTypes.links} />
+                        </div>
+                    )}
                 </div>
 
                 {/* MODAL: ADD ROOM TYPE */}

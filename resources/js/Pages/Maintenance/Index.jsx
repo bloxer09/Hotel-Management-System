@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ActionModal from '@/Components/ActionModal';
+import Modal from '@/Components/Modal';
 import CustomSelect from '@/Components/CustomSelect';
 import SortableHeader from '@/Components/SortableHeader';
 import Pagination from '@/Components/Pagination';
@@ -209,25 +210,25 @@ export default function Maintenance({ tickets, rooms, filters = {}, sortBy, sort
                         options={FILTER_TABS}
                     />
                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
-                        <div className="flex items-center gap-2 bg-[#1e293b] p-1.5 rounded-xl border border-[#334155]">
+                        <div className="flex items-center gap-2 bg-[#1e293b] px-3 py-1.5 rounded-xl border border-[#334155]">
                             <input
                                 type="date"
                                 value={dateFrom}
                                 onChange={e => setDateFrom(e.target.value)}
-                                className="bg-[#0f172a] border border-[#334155] rounded-lg text-slate-100 px-2 py-1 focus:outline-none focus:border-brand-500 text-xs w-[120px]"
+                                className="bg-[#0f172a] border border-[#334155] rounded-lg text-slate-100 px-2.5 py-1.5 focus:outline-none focus:border-brand-500 text-xs w-[125px]"
                             />
                             <span className="text-slate-500 text-[10px] font-bold">TO</span>
                             <input
                                 type="date"
                                 value={dateTo}
                                 onChange={e => setDateTo(e.target.value)}
-                                className="bg-[#0f172a] border border-[#334155] rounded-lg text-slate-100 px-2 py-1 focus:outline-none focus:border-brand-500 text-xs w-[120px]"
+                                className="bg-[#0f172a] border border-[#334155] rounded-lg text-slate-100 px-2.5 py-1.5 focus:outline-none focus:border-brand-500 text-xs w-[125px]"
                             />
-                            <button type="button" onClick={handleSearch} className="px-2.5 py-1 bg-brand-600 hover:bg-brand-500 text-white font-bold text-[10px] rounded-lg transition-all">
+                            <button type="button" onClick={handleSearch} className="px-3.5 py-1.5 bg-brand-600 hover:bg-brand-500 text-white font-bold text-[10px] rounded-lg transition-all">
                                 Filter
                             </button>
                             {(searchTerm || dateFrom || dateTo) && (
-                                <button type="button" onClick={handleClearFilters} className="px-2 text-slate-400 hover:text-white text-xs font-bold">
+                                <button type="button" onClick={handleClearFilters} className="px-2 py-1.5 text-slate-400 hover:text-white text-xs font-bold">
                                     Clear
                                 </button>
                             )}
@@ -252,12 +253,12 @@ export default function Maintenance({ tickets, rooms, filters = {}, sortBy, sort
                         <table className="w-full text-xs table-fixed">
                             <thead>
                                 <tr className="border-b border-[#334155] bg-[#0f172a]/60">
-                                    <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Room / Issue</th>
-                                    <SortableHeader sortKey="priority" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Priority</SortableHeader>
-                                    <SortableHeader sortKey="created_at" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Reported By / Date</SortableHeader>
-                                    <SortableHeader sortKey="status" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Status</SortableHeader>
-                                    <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Resolution / Notes</th>
-                                    <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-right">Actions</th>
+                                    <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left w-[28%]">Room / Issue</th>
+                                    <SortableHeader sortKey="priority" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left w-[10%]">Priority</SortableHeader>
+                                    <SortableHeader sortKey="created_at" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left w-[18%]">Reported By / Date</SortableHeader>
+                                    <SortableHeader sortKey="status" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left w-[10%]">Status</SortableHeader>
+                                    <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left w-[24%]">Resolution / Notes</th>
+                                    <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-right w-[10%]">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -359,265 +360,244 @@ export default function Maintenance({ tickets, rooms, filters = {}, sortBy, sort
                 </div>
 
                 {/* MODAL: FILE NEW MAINTENANCE TICKET */}
-                <AnimatePresence>
-                    {isOpen && (
-                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-[#070b13]/90" onClick={() => setIsOpen(false)} />
-                            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-[#1e293b] border border-[#334155] rounded-2xl w-full max-w-md shadow-2xl relative z-10 overflow-hidden">
-                                <div className="p-6 border-b border-[#334155] flex items-center justify-between">
-                                    <h2 className="font-outfit font-black text-slate-100 text-lg flex items-center gap-2">
-                                        <Wrench size={20} className="text-brand-400 animate-pulse" /> File Maintenance Ticket
-                                    </h2>
-                                    <button onClick={() => setIsOpen(false)} className="text-slate-400 hover:text-slate-100"><X size={18} /></button>
-                                </div>
+                <Modal show={isOpen} onClose={() => setIsOpen(false)} maxWidth="md">
+                    <div className="p-6 border-b border-[#334155] flex items-center justify-between">
+                        <h2 className="font-outfit font-black text-slate-100 text-lg flex items-center gap-2">
+                            <Wrench size={20} className="text-brand-400 animate-pulse" /> File Maintenance Ticket
+                        </h2>
+                        <button onClick={() => setIsOpen(false)} className="text-slate-400 hover:text-slate-100"><X size={18} /></button>
+                    </div>
 
-                                <form onSubmit={handleFormSubmit} className="p-6 space-y-4">
-                                    {/* Select Room */}
-                                    <div className="flex flex-col gap-1">
-                                        <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Select Affected Room</label>
-                                        <CustomSelect
-                                            value={form.data.room_id}
-                                            onChange={e => form.setData('room_id', e.target.value)}
-                                            className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-xs text-slate-100 px-4 py-2.5 focus:outline-none focus:border-brand-500"
-                                            required
-                                        >
-                                            <option value="">-- Choose Room --</option>
-                                            {rooms.map(room => (
-                                                <option key={room.id} value={room.id}>
-                                                    Room {room.room_number} ({room.status})
-                                                </option>
-                                            ))}
-                                        </CustomSelect>
-                                        {form.errors.room_id && <span className="text-[10px] text-red-400 font-semibold">{form.errors.room_id}</span>}
-                                    </div>
-
-                                    {/* Issue Title */}
-                                    <div className="flex flex-col gap-1">
-                                        <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Issue Title</label>
-                                        <input
-                                            type="text"
-                                            value={form.data.title}
-                                            onChange={e => form.setData('title', e.target.value)}
-                                            placeholder="e.g. Broken Air Conditioning Unit, Leaking Faucet..."
-                                            className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-xs text-slate-100 px-4 py-2.5 focus:outline-none focus:border-brand-500"
-                                            required
-                                        />
-                                        {form.errors.title && <span className="text-[10px] text-red-400 font-semibold">{form.errors.title}</span>}
-                                    </div>
-
-                                    {/* Description */}
-                                    <div className="flex flex-col gap-1">
-                                        <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Additional details</label>
-                                        <textarea
-                                            value={form.data.description}
-                                            onChange={e => form.setData('description', e.target.value)}
-                                            placeholder="Provide detail reports (e.g. AC makes rattling noises, water leaks near the bathroom floor...)"
-                                            rows="4"
-                                            className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-xs text-slate-100 px-4 py-2.5 focus:outline-none focus:border-brand-500 resize-none"
-                                        />
-                                        {form.errors.description && <span className="text-[10px] text-red-400 font-semibold">{form.errors.description}</span>}
-                                    </div>
-
-                                    {/* Priority */}
-                                    <div className="flex flex-col gap-1">
-                                        <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Severity Priority</label>
-                                        <CustomSelect
-                                            value={form.data.priority}
-                                            onChange={e => form.setData('priority', e.target.value)}
-                                            className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-xs text-slate-100 px-4 py-2.5 focus:outline-none focus:border-brand-500"
-                                        >
-                                            <option value="low">Low (Standard repair)</option>
-                                            <option value="medium">Medium (Requires attention)</option>
-                                            <option value="high">High (Disturbing stay)</option>
-                                            <option value="critical">Critical (Needs immediate fix / Room unusable)</option>
-                                        </CustomSelect>
-                                    </div>
-
-                                    {/* Reported At */}
-                                    <div className="flex flex-col gap-1">
-                                        <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Reported Date & Time (Optional)</label>
-                                        <input
-                                            type="datetime-local"
-                                            value={form.data.created_at}
-                                            onChange={e => form.setData('created_at', e.target.value)}
-                                            className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-xs text-slate-100 px-4 py-2.5 focus:outline-none focus:border-brand-500 font-mono"
-                                        />
-                                        <p className="text-[9px] text-slate-500 mt-0.5">Leave empty to use the current date and time.</p>
-                                    </div>
-
-                                    {/* File Attachment */}
-                                    <div className="flex flex-col gap-1">
-                                        <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">File Attachment (Optional)</label>
-                                        <input
-                                            type="file"
-                                            onChange={e => form.setData('attachment', e.target.files[0])}
-                                            className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-xs text-slate-400 px-4 py-2 focus:outline-none focus:border-brand-500"
-                                        />
-                                        {form.errors.attachment && <span className="text-[10px] text-red-400 font-semibold">{form.errors.attachment}</span>}
-                                    </div>
-
-                                    <div className="pt-4 border-t border-[#334155]/60 flex justify-end gap-3">
-                                        <button type="button" onClick={() => setIsOpen(false)} className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold font-outfit">Cancel</button>
-                                        <button type="submit" disabled={form.processing} className="px-5 py-2.5 bg-brand-600 hover:bg-brand-500 text-slate-50 rounded-xl text-xs font-bold font-outfit shadow-md">Submit Ticket</button>
-                                    </div>
-                                </form>
-                            </motion.div>
+                    <form onSubmit={handleFormSubmit} className="p-6 space-y-4">
+                        {/* Select Room */}
+                        <div className="flex flex-col gap-1">
+                            <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Select Affected Room</label>
+                            <CustomSelect
+                                value={form.data.room_id}
+                                onChange={e => form.setData('room_id', e.target.value)}
+                                className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-xs text-slate-100 px-4 py-2.5 focus:outline-none focus:border-brand-500"
+                                required
+                            >
+                                <option value="">-- Choose Room --</option>
+                                {rooms.map(room => (
+                                    <option key={room.id} value={room.id}>
+                                        Room {room.room_number} ({room.status})
+                                    </option>
+                                ))}
+                            </CustomSelect>
+                            {form.errors.room_id && <span className="text-[10px] text-red-400 font-semibold">{form.errors.room_id}</span>}
                         </div>
-                    )}
-                </AnimatePresence>
+
+                        {/* Issue Title */}
+                        <div className="flex flex-col gap-1">
+                            <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Issue Title</label>
+                            <input
+                                type="text"
+                                value={form.data.title}
+                                onChange={e => form.setData('title', e.target.value)}
+                                placeholder="e.g. Broken Air Conditioning Unit, Leaking Faucet..."
+                                className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-xs text-slate-100 px-4 py-2.5 focus:outline-none focus:border-brand-500"
+                                required
+                            />
+                            {form.errors.title && <span className="text-[10px] text-red-400 font-semibold">{form.errors.title}</span>}
+                        </div>
+
+                        {/* Description */}
+                        <div className="flex flex-col gap-1">
+                            <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Additional details</label>
+                            <textarea
+                                value={form.data.description}
+                                onChange={e => form.setData('description', e.target.value)}
+                                placeholder="Provide detail reports (e.g. AC makes rattling noises, water leaks near the bathroom floor...)"
+                                rows="4"
+                                className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-xs text-slate-100 px-4 py-2.5 focus:outline-none focus:border-brand-500 resize-none"
+                            />
+                            {form.errors.description && <span className="text-[10px] text-red-400 font-semibold">{form.errors.description}</span>}
+                        </div>
+
+                        {/* Priority */}
+                        <div className="flex flex-col gap-1">
+                            <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Severity Priority</label>
+                            <CustomSelect
+                                value={form.data.priority}
+                                onChange={e => form.setData('priority', e.target.value)}
+                                className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-xs text-slate-100 px-4 py-2.5 focus:outline-none focus:border-brand-500"
+                            >
+                                <option value="low">Low (Standard repair)</option>
+                                <option value="medium">Medium (Requires attention)</option>
+                                <option value="high">High (Disturbing stay)</option>
+                                <option value="critical">Critical (Needs immediate fix / Room unusable)</option>
+                            </CustomSelect>
+                        </div>
+
+                        {/* Reported At */}
+                        <div className="flex flex-col gap-1">
+                            <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Reported Date & Time (Optional)</label>
+                            <input
+                                type="datetime-local"
+                                value={form.data.created_at}
+                                onChange={e => form.setData('created_at', e.target.value)}
+                                className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-xs text-slate-100 px-4 py-2.5 focus:outline-none focus:border-brand-500 font-mono"
+                            />
+                            <p className="text-[9px] text-slate-500 mt-0.5">Leave empty to use the current date and time.</p>
+                        </div>
+
+                        {/* File Attachment */}
+                        <div className="flex flex-col gap-1">
+                            <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">File Attachment (Optional)</label>
+                            <input
+                                type="file"
+                                onChange={e => form.setData('attachment', e.target.files[0])}
+                                className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-xs text-slate-400 px-4 py-2 focus:outline-none focus:border-brand-500"
+                            />
+                            {form.errors.attachment && <span className="text-[10px] text-red-400 font-semibold">{form.errors.attachment}</span>}
+                        </div>
+
+                        <div className="pt-4 border-t border-[#334155]/60 flex justify-end gap-3">
+                            <button type="button" onClick={() => setIsOpen(false)} className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold font-outfit">Cancel</button>
+                            <button type="submit" disabled={form.processing} className="px-5 py-2.5 bg-brand-600 hover:bg-brand-500 text-slate-50 rounded-xl text-xs font-bold font-outfit shadow-md">Submit Ticket</button>
+                        </div>
+                    </form>
+                </Modal>
 
                 {/* MODAL: EDIT MAINTENANCE TICKET */}
-                <AnimatePresence>
-                    {isEditOpen && editingTicket && (
-                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-[#070b13]/90" onClick={() => { setIsEditOpen(false); setEditingTicket(null); }} />
-                            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-[#1e293b] border border-[#334155] rounded-2xl w-full max-w-md shadow-2xl relative z-10 overflow-hidden">
-                                <div className="p-6 border-b border-[#334155] flex items-center justify-between">
-                                    <h2 className="font-outfit font-black text-slate-100 text-lg flex items-center gap-2">
-                                        <Wrench size={20} className="text-brand-400 animate-pulse" /> Edit Maintenance Ticket
-                                    </h2>
-                                    <button onClick={() => { setIsEditOpen(false); setEditingTicket(null); }} className="text-slate-400 hover:text-slate-100"><X size={18} /></button>
-                                </div>
+                <Modal show={isEditOpen && !!editingTicket} onClose={() => { setIsEditOpen(false); setEditingTicket(null); }} maxWidth="md">
+                    <div className="p-6 border-b border-[#334155] flex items-center justify-between">
+                        <h2 className="font-outfit font-black text-slate-100 text-lg flex items-center gap-2">
+                            <Wrench size={20} className="text-brand-400 animate-pulse" /> Edit Maintenance Ticket
+                        </h2>
+                        <button onClick={() => { setIsEditOpen(false); setEditingTicket(null); }} className="text-slate-400 hover:text-slate-100"><X size={18} /></button>
+                    </div>
 
-                                <form onSubmit={handleEditSubmit} className="p-6 space-y-4">
-                                    {/* Select Room */}
-                                    <div className="flex flex-col gap-1">
-                                        <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Select Affected Room</label>
-                                        <CustomSelect
-                                            value={editForm.data.room_id}
-                                            onChange={e => editForm.setData('room_id', e.target.value)}
-                                            className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-xs text-slate-100 px-4 py-2.5 focus:outline-none focus:border-brand-500"
-                                            required
-                                        >
-                                            <option value="">-- Choose Room --</option>
-                                            {rooms.map(room => (
-                                                <option key={room.id} value={room.id}>
-                                                    Room {room.room_number} ({room.status})
-                                                </option>
-                                            ))}
-                                        </CustomSelect>
-                                        {editForm.errors.room_id && <span className="text-[10px] text-red-400 font-semibold">{editForm.errors.room_id}</span>}
-                                    </div>
-
-                                    {/* Issue Title */}
-                                    <div className="flex flex-col gap-1">
-                                        <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Issue Title</label>
-                                        <input
-                                            type="text"
-                                            value={editForm.data.title}
-                                            onChange={e => editForm.setData('title', e.target.value)}
-                                            placeholder="e.g. Broken Air Conditioning Unit, Leaking Faucet..."
-                                            className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-xs text-slate-100 px-4 py-2.5 focus:outline-none focus:border-brand-500"
-                                            required
-                                        />
-                                        {editForm.errors.title && <span className="text-[10px] text-red-400 font-semibold">{editForm.errors.title}</span>}
-                                    </div>
-
-                                    {/* Description */}
-                                    <div className="flex flex-col gap-1">
-                                        <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Additional details</label>
-                                        <textarea
-                                            value={editForm.data.description}
-                                            onChange={e => editForm.setData('description', e.target.value)}
-                                            placeholder="Provide detail reports (e.g. AC makes rattling noises, water leaks near the bathroom floor...)"
-                                            rows="4"
-                                            className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-xs text-slate-100 px-4 py-2.5 focus:outline-none focus:border-brand-500 resize-none"
-                                        />
-                                        {editForm.errors.description && <span className="text-[10px] text-red-400 font-semibold">{editForm.errors.description}</span>}
-                                    </div>
-
-                                    {/* Priority */}
-                                    <div className="flex flex-col gap-1">
-                                        <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Severity Priority</label>
-                                        <CustomSelect
-                                            value={editForm.data.priority}
-                                            onChange={e => editForm.setData('priority', e.target.value)}
-                                            className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-xs text-slate-100 px-4 py-2.5 focus:outline-none focus:border-brand-500"
-                                        >
-                                            <option value="low">Low (Standard repair)</option>
-                                            <option value="medium">Medium (Requires attention)</option>
-                                            <option value="high">High (Disturbing stay)</option>
-                                            <option value="critical">Critical (Needs immediate fix / Room unusable)</option>
-                                        </CustomSelect>
-                                    </div>
-
-                                    {/* File Attachment */}
-                                    <div className="flex flex-col gap-1">
-                                        <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Change File Attachment (Optional)</label>
-                                        <input
-                                            type="file"
-                                            onChange={e => {
-                                                editForm.setData('attachment', e.target.files[0]);
-                                                editForm.setData('remove_attachment', false);
-                                            }}
-                                            className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-xs text-slate-400 px-4 py-2 focus:outline-none focus:border-brand-500"
-                                        />
-                                        {editingTicket.attachment_path && !editForm.data.remove_attachment && (
-                                            <div className="flex items-center justify-between mt-2 p-2 rounded-lg bg-[#0f172a]/60 border border-[#334155]/60 text-[10px]">
-                                                <span className="text-slate-350 truncate max-w-[200px]">Current: {editingTicket.attachment_path.split('/').pop()}</span>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        editForm.setData('remove_attachment', true);
-                                                        editForm.setData('attachment', null);
-                                                    }}
-                                                    className="text-red-400 hover:text-red-300 font-bold uppercase transition-colors"
-                                                >
-                                                    Remove
-                                                </button>
-                                            </div>
-                                        )}
-                                        {editForm.data.remove_attachment && (
-                                            <span className="text-[10px] text-amber-500 italic mt-1 block font-medium">Current attachment will be deleted upon save.</span>
-                                        )}
-                                        {editForm.errors.attachment && <span className="text-[10px] text-red-400 font-semibold">{editForm.errors.attachment}</span>}
-                                    </div>
-
-                                    <div className="pt-4 border-t border-[#334155]/60 flex justify-end gap-3">
-                                        <button type="button" onClick={() => { setIsEditOpen(false); setEditingTicket(null); }} className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold font-outfit">Cancel</button>
-                                        <button type="submit" disabled={editForm.processing} className="px-5 py-2.5 bg-brand-600 hover:bg-brand-500 text-slate-50 rounded-xl text-xs font-bold font-outfit shadow-md">Save Changes</button>
-                                    </div>
-                                </form>
-                            </motion.div>
+                    <form onSubmit={handleEditSubmit} className="p-6 space-y-4">
+                        {/* Select Room */}
+                        <div className="flex flex-col gap-1">
+                            <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Select Affected Room</label>
+                            <CustomSelect
+                                value={editForm.data.room_id}
+                                onChange={e => editForm.setData('room_id', e.target.value)}
+                                className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-xs text-slate-100 px-4 py-2.5 focus:outline-none focus:border-brand-500"
+                                required
+                            >
+                                <option value="">-- Choose Room --</option>
+                                {rooms.map(room => (
+                                    <option key={room.id} value={room.id}>
+                                        Room {room.room_number} ({room.status})
+                                    </option>
+                                ))}
+                            </CustomSelect>
+                            {editForm.errors.room_id && <span className="text-[10px] text-red-400 font-semibold">{editForm.errors.room_id}</span>}
                         </div>
-                    )}
-                </AnimatePresence>
+
+                        {/* Issue Title */}
+                        <div className="flex flex-col gap-1">
+                            <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Issue Title</label>
+                            <input
+                                type="text"
+                                value={editForm.data.title}
+                                onChange={e => editForm.setData('title', e.target.value)}
+                                placeholder="e.g. Broken Air Conditioning Unit, Leaking Faucet..."
+                                className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-xs text-slate-100 px-4 py-2.5 focus:outline-none focus:border-brand-500"
+                                required
+                            />
+                            {editForm.errors.title && <span className="text-[10px] text-red-400 font-semibold">{editForm.errors.title}</span>}
+                        </div>
+
+                        {/* Description */}
+                        <div className="flex flex-col gap-1">
+                            <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Additional details</label>
+                            <textarea
+                                value={editForm.data.description}
+                                onChange={e => editForm.setData('description', e.target.value)}
+                                placeholder="Provide detail reports (e.g. AC makes rattling noises, water leaks near the bathroom floor...)"
+                                rows="4"
+                                className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-xs text-slate-100 px-4 py-2.5 focus:outline-none focus:border-brand-500 resize-none"
+                            />
+                            {editForm.errors.description && <span className="text-[10px] text-red-400 font-semibold">{editForm.errors.description}</span>}
+                        </div>
+
+                        {/* Priority */}
+                        <div className="flex flex-col gap-1">
+                            <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Severity Priority</label>
+                            <CustomSelect
+                                value={editForm.data.priority}
+                                onChange={e => editForm.setData('priority', e.target.value)}
+                                className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-xs text-slate-100 px-4 py-2.5 focus:outline-none focus:border-brand-500"
+                            >
+                                <option value="low">Low (Standard repair)</option>
+                                <option value="medium">Medium (Requires attention)</option>
+                                <option value="high">High (Disturbing stay)</option>
+                                <option value="critical">Critical (Needs immediate fix / Room unusable)</option>
+                            </CustomSelect>
+                        </div>
+
+                        {/* File Attachment */}
+                        <div className="flex flex-col gap-1">
+                            <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Change File Attachment (Optional)</label>
+                            <input
+                                type="file"
+                                onChange={e => {
+                                    editForm.setData('attachment', e.target.files[0]);
+                                    editForm.setData('remove_attachment', false);
+                                }}
+                                className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-xs text-slate-400 px-4 py-2 focus:outline-none focus:border-brand-500"
+                            />
+                            {editingTicket.attachment_path && !editForm.data.remove_attachment && (
+                                <div className="flex items-center justify-between mt-2 p-2 rounded-lg bg-[#0f172a]/60 border border-[#334155]/60 text-[10px]">
+                                    <span className="text-slate-350 truncate max-w-[200px]">Current: {editingTicket.attachment_path.split('/').pop()}</span>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            editForm.setData('remove_attachment', true);
+                                            editForm.setData('attachment', null);
+                                        }}
+                                        className="text-red-400 hover:text-red-300 font-bold uppercase transition-colors"
+                                    >
+                                        Remove
+                                    </button>
+                                </div>
+                            )}
+                            {editForm.data.remove_attachment && (
+                                <span className="text-[10px] text-amber-500 italic mt-1 block font-medium">Current attachment will be deleted upon save.</span>
+                            )}
+                            {editForm.errors.attachment && <span className="text-[10px] text-red-400 font-semibold">{editForm.errors.attachment}</span>}
+                        </div>
+
+                        <div className="pt-4 border-t border-[#334155]/60 flex justify-end gap-3">
+                            <button type="button" onClick={() => { setIsEditOpen(false); setEditingTicket(null); }} className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold font-outfit">Cancel</button>
+                            <button type="submit" disabled={editForm.processing} className="px-5 py-2.5 bg-brand-600 hover:bg-brand-500 text-slate-50 rounded-xl text-xs font-bold font-outfit shadow-md">Save Changes</button>
+                        </div>
+                    </form>
+                </Modal>
 
                 {/* MODAL: NOTES BEFORE RESOLVING */}
-                <AnimatePresence>
-                    {isNotesOpen && selectedTicket && (
-                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-[#070b13]/90" onClick={() => setIsNotesOpen(false)} />
-                            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-[#1e293b] border border-[#334155] rounded-2xl w-full max-w-md shadow-2xl relative z-10 overflow-hidden">
-                                <div className="p-6 border-b border-[#334155] flex items-center justify-between">
-                                    <h2 className="font-outfit font-black text-slate-100 text-sm uppercase flex items-center gap-2">
-                                        <AlertOctagon size={16} className="text-emerald-400" /> Resolution notes
-                                    </h2>
-                                    <button onClick={() => setIsNotesOpen(false)} className="text-slate-400 hover:text-slate-100"><X size={18} /></button>
-                                </div>
+                <Modal show={isNotesOpen && !!selectedTicket} onClose={() => setIsNotesOpen(false)} maxWidth="md">
+                    <div className="p-6 border-b border-[#334155] flex items-center justify-between">
+                        <h2 className="font-outfit font-black text-slate-100 text-sm uppercase flex items-center gap-2">
+                            <AlertOctagon size={16} className="text-emerald-400" /> Resolution notes
+                        </h2>
+                        <button onClick={() => setIsNotesOpen(false)} className="text-slate-400 hover:text-slate-100"><X size={18} /></button>
+                    </div>
 
-                                <form onSubmit={handleNotesSubmit} className="p-6 space-y-4">
-                                    <div className="flex flex-col gap-1">
-                                        <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">How was the issue resolved?</label>
-                                        <textarea
-                                            value={statusForm.data.notes}
-                                            onChange={e => statusForm.setData('notes', e.target.value)}
-                                            placeholder="e.g. Replaced leaking copper valves; AC filters cleaned and checked..."
-                                            rows="4"
-                                            className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-xs text-slate-100 px-4 py-2.5 focus:outline-none focus:border-brand-500 resize-none"
-                                            required
-                                        />
-                                    </div>
-
-                                    <div className="pt-4 border-t border-[#334155]/60 flex justify-end gap-3">
-                                        <button type="button" onClick={() => setIsNotesOpen(false)} className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold font-outfit">Cancel</button>
-                                        <button type="submit" className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-slate-50 rounded-xl text-xs font-bold font-outfit shadow-md">Mark Resolved</button>
-                                    </div>
-                                </form>
-                            </motion.div>
+                    <form onSubmit={handleNotesSubmit} className="p-6 space-y-4">
+                        <div className="flex flex-col gap-1">
+                            <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">How was the issue resolved?</label>
+                            <textarea
+                                value={statusForm.data.notes}
+                                onChange={e => statusForm.setData('notes', e.target.value)}
+                                placeholder="e.g. Replaced leaking copper valves; AC filters cleaned and checked..."
+                                rows="4"
+                                className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-xs text-slate-100 px-4 py-2.5 focus:outline-none focus:border-brand-500 resize-none"
+                                required
+                            />
                         </div>
-                    )}
-                </AnimatePresence>
+
+                        <div className="pt-4 border-t border-[#334155]/60 flex justify-end gap-3">
+                            <button type="button" onClick={() => setIsNotesOpen(false)} className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold font-outfit">Cancel</button>
+                            <button type="submit" className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-slate-50 rounded-xl text-xs font-bold font-outfit shadow-md">Mark Resolved</button>
+                        </div>
+                    </form>
+                </Modal>
 
             </div>
 
