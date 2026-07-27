@@ -98,18 +98,79 @@ class PosController extends Controller
                     $usedItemNames[] = "{$item->item_name} x{$qty}";
                 }
 
+                $cashTendered = round((float) ($request->cash_amount ?: 0), 2);
+                $gcashTendered = round((float) ($request->gcash_amount ?: 0), 2);
+                $bankTendered = round((float) ($request->bank_amount ?: 0), 2);
+                $cashCollected = $cashTendered;
+                $gcashCollected = $gcashTendered;
+                $bankCollected = $bankTendered;
+                $changeGiven = 0.00;
+
+                // A walk-in POS payment must record the sale amount that remains
+                // in the drawer, never the cash tendered before change is given.
+                // Room charges retain their existing deferred-payment behavior.
+                if (! $bookingId) {
+                    if ($request->payment_method === 'cash') {
+                        if ($cashTendered + 0.01 < $grandTotal) {
+                            throw new \InvalidArgumentException('Cash received is insufficient for this sale.');
+                        }
+
+                        $cashCollected = $grandTotal;
+                        $gcashCollected = 0.00;
+                        $bankCollected = 0.00;
+                        $changeGiven = round($cashTendered - $cashCollected, 2);
+                    } elseif ($request->payment_method === 'gcash') {
+                        if (abs($gcashTendered - $grandTotal) > 0.01) {
+                            throw new \InvalidArgumentException('GCash payment must equal the POS sale total.');
+                        }
+
+                        $cashCollected = 0.00;
+                        $gcashCollected = $grandTotal;
+                        $bankCollected = 0.00;
+                    } elseif ($request->payment_method === 'bank_transfer') {
+                        if (abs($bankTendered - $grandTotal) > 0.01) {
+                            throw new \InvalidArgumentException('Bank transfer payment must equal the POS sale total.');
+                        }
+
+                        $cashCollected = 0.00;
+                        $gcashCollected = 0.00;
+                        $bankCollected = $grandTotal;
+                    } else { // Split payment
+                        $electronicTotal = round($gcashTendered + $bankTendered, 2);
+                        if ($electronicTotal > $grandTotal + 0.01) {
+                            throw new \InvalidArgumentException('Electronic split-payment amounts cannot exceed the POS sale total.');
+                        }
+
+                        $cashDue = round($grandTotal - $electronicTotal, 2);
+                        if ($cashTendered + 0.01 < $cashDue) {
+                            throw new \InvalidArgumentException('Cash received is insufficient for this split payment.');
+                        }
+
+                        $cashCollected = $cashDue;
+                        $gcashCollected = $gcashTendered;
+                        $bankCollected = $bankTendered;
+                        $changeGiven = round($cashTendered - $cashCollected, 2);
+                    }
+                }
+
+                $transactionNotes = $changeGiven > 0
+                    ? 'Cash tendered: ₱'.number_format($cashTendered, 2)
+                        .' | Change given: ₱'.number_format($changeGiven, 2)
+                    : null;
+
                 $transaction = \App\Models\Transaction::create([
                     'booking_id' => $bookingId,
                     'transaction_type' => 'pos_sale',
                     'description' => "POS Bulk Usage - " . implode(', ', $usedItemNames) . ($consumerName ? " (Consumer: {$consumerName})" : ""),
                     'amount' => $grandTotal,
                     'payment_method' => $request->payment_method,
-                    'cash_amount' => $request->cash_amount ?: 0,
-                    'gcash_amount' => $request->gcash_amount ?: 0,
+                    'cash_amount' => $cashCollected,
+                    'gcash_amount' => $gcashCollected,
                     'gcash_ref' => $request->gcash_ref,
-                    'bank_amount' => $request->bank_amount ?: 0,
+                    'bank_amount' => $bankCollected,
                     'bank_ref' => $request->bank_ref,
                     'processed_by' => $user->id,
+                    'notes' => $transactionNotes,
                 ]);
 
                 foreach ($usagesToCreate as $u) {
