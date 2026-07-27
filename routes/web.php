@@ -1,27 +1,28 @@
 <?php
 
-use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\RoomController;
-use App\Http\Controllers\CheckInController;
-use App\Http\Controllers\BookingController;
-use App\Http\Controllers\ReservationController;
-use App\Http\Controllers\GuestController;
-use App\Http\Controllers\ReportController;
-use App\Http\Controllers\InventoryController;
-use App\Http\Controllers\ShiftController;
-use App\Http\Controllers\RoomRateController;
-use App\Http\Controllers\PeakDateController;
-use App\Http\Controllers\UserController;
 use App\Http\Controllers\AuditLogController;
-use App\Http\Controllers\NotificationController;
-use App\Http\Controllers\SettingsController;
-use App\Http\Controllers\PromoCodeController;
-use App\Http\Controllers\MaintenanceController;
+use App\Http\Controllers\BookingController;
+use App\Http\Controllers\CheckInController;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ExpenseController;
+use App\Http\Controllers\FrontDeskReportController;
+use App\Http\Controllers\GuestController;
 use App\Http\Controllers\IncomeController;
+use App\Http\Controllers\InventoryController;
+use App\Http\Controllers\MaintenanceController;
+use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\PaymentController;
+use App\Http\Controllers\PeakDateController;
+use App\Http\Controllers\PosController;
+use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\PromoCodeController;
+use App\Http\Controllers\ReportController;
+use App\Http\Controllers\ReservationController;
+use App\Http\Controllers\RoomController;
+use App\Http\Controllers\RoomRateController;
+use App\Http\Controllers\ShiftController;
+use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
-
 
 // Home redirect
 Route::get('/', function () {
@@ -75,9 +76,9 @@ Route::middleware('auth')->group(function () {
             Route::get('/reservations', [ReservationController::class, 'index'])->name('reservations.index');
 
             // POS (requiring active shift)
-            Route::get('/pos', [\App\Http\Controllers\PosController::class, 'index'])->name('pos.index');
-            Route::post('/pos/checkout', [\App\Http\Controllers\PosController::class, 'checkout'])->name('pos.checkout');
-            Route::get('/pos/export', [\App\Http\Controllers\PosController::class, 'export'])->name('pos.export');
+            Route::get('/pos', [PosController::class, 'index'])->name('pos.index');
+            Route::post('/pos/checkout', [PosController::class, 'checkout'])->name('pos.checkout');
+            Route::get('/pos/export', [PosController::class, 'export'])->name('pos.export');
 
             // Expenses (requiring active shift)
             Route::get('/expenses', [ExpenseController::class, 'index'])->name('expenses.index');
@@ -97,11 +98,12 @@ Route::middleware('auth')->group(function () {
         // Reservation Operations (Admin, Front Desk)
         Route::middleware('role:admin,front_desk')->group(function () {
             // /reservations/create now opens a modal on the index page — redirect old URL
-            Route::get('/reservations/create', fn() => redirect()->route('reservations.index'))->name('reservations.create');
+            Route::get('/reservations/create', fn () => redirect()->route('reservations.index'))->name('reservations.create');
             Route::post('/reservations', [ReservationController::class, 'store'])->name('reservations.store');
             Route::post('/reservations/calculate', [ReservationController::class, 'calculate'])->name('reservations.calculate');
             Route::post('/reservations/available-rooms', [ReservationController::class, 'getAvailableRooms'])->name('reservations.available_rooms');
             Route::post('/reservations/{booking}/checkin', [ReservationController::class, 'checkin'])->name('reservations.checkin');
+            Route::post('/reservations/{booking}/settle-checkin', [ReservationController::class, 'settleAndCheckin'])->name('reservations.settle_checkin');
             Route::post('/reservations/group-checkin/{groupRef}', [ReservationController::class, 'groupCheckin'])->name('reservations.group_checkin');
             Route::post('/reservations/{booking}/cancel', [ReservationController::class, 'cancel'])->name('reservations.cancel');
             Route::post('/reservations/{booking}/noshow', [ReservationController::class, 'noshow'])->name('reservations.noshow');
@@ -119,10 +121,9 @@ Route::middleware('auth')->group(function () {
             Route::post('/bookings/{booking}/preview-extend', [BookingController::class, 'previewExtend'])->name('bookings.preview_extend');
             Route::post('/bookings/{booking}/items', [BookingController::class, 'addItems'])->name('bookings.items');
             Route::post('/bookings/{booking}/cancel', [BookingController::class, 'cancel'])->name('bookings.cancel');
+            Route::post('/payments', [PaymentController::class, 'store'])->name('payments.store');
         });
     });
-
-
 
     // Guest Directory (Admin, Front Desk, Cashier)
     Route::middleware('role:admin,front_desk,cashier')->group(function () {
@@ -133,8 +134,6 @@ Route::middleware('auth')->group(function () {
         Route::post('/guests/sync', [GuestController::class, 'sync'])->name('guests.sync');
         Route::get('/bookings/{booking}/receipt', [BookingController::class, 'receipt'])->name('bookings.receipt');
     });
-
-
 
     // Inventory & Stock Controls (Admin, Front Desk)
     Route::middleware('role:admin,front_desk')->group(function () {
@@ -151,6 +150,10 @@ Route::middleware('auth')->group(function () {
         Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
         Route::get('/reports/export', [ReportController::class, 'export'])->name('reports.export');
         Route::get('/reports/analytics', [ReportController::class, 'analytics'])->name('reports.analytics');
+        Route::get('/reports/front-desk', [FrontDeskReportController::class, 'index'])->name('reports.front_desk');
+        Route::post('/payments/{payment}/verify', [PaymentController::class, 'verify'])->name('payments.verify');
+        Route::post('/payments/{payment}/reject', [PaymentController::class, 'reject'])->name('payments.reject');
+        Route::post('/payments/{payment}/refund', [PaymentController::class, 'refund'])->name('payments.refund');
     });
 
     // Maintenance (all authenticated roles)
@@ -160,7 +163,6 @@ Route::middleware('auth')->group(function () {
 
     // Promo code validation (all authenticated roles)
     Route::post('/promo-codes/validate', [PromoCodeController::class, 'validateCode'])->name('promo_codes.validate');
-
 
     // Admin Configurations Settings
     Route::middleware('role:admin')->prefix('settings')->name('settings.')->group(function () {
@@ -194,6 +196,6 @@ Route::middleware('auth')->group(function () {
 
 });
 
-Route::get('/api/notifications', [App\Http\Controllers\NotificationController::class, 'getNotifications'])->name('api.notifications');
+Route::get('/api/notifications', [NotificationController::class, 'getNotifications'])->name('api.notifications');
 
 require __DIR__.'/auth.php';

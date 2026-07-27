@@ -259,6 +259,13 @@ export default function AuthenticatedLayout({ children }) {
             current: route().current('reports.index')
         },
         {
+            name: 'Front Desk Payments',
+            icon: Coins,
+            href: route('reports.front_desk'),
+            roles: ['admin', 'front_desk', 'cashier'],
+            current: route().current('reports.front_desk')
+        },
+        {
             name: 'Expenses',
             icon: Receipt,
             href: route('expenses.index'),

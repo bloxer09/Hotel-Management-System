@@ -24,7 +24,7 @@ import CustomSelect from '@/Components/CustomSelect';
 
 const fmt = (val) => '₱' + Number(val || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-export default function Index({ dateFrom, dateTo, summary, byCashier, byRoomType, transactions, occupancy, productRevenue = 0, roomRevenue = 0 }) {
+export default function Index({ dateFrom, dateTo, summary, byCashier, byRoomType, transactions, occupancy, productRevenue = 0, roomRevenue = 0, ledgerSummary = {} }) {
     const { auth } = usePage().props;
     const user = auth.user;
 
@@ -181,6 +181,32 @@ export default function Index({ dateFrom, dateTo, summary, byCashier, byRoomType
                             <div className="text-[10px] text-slate-500 mt-1">{sub}</div>
                         </div>
                     ))}
+                </div>
+
+                <div className="rounded-2xl border border-brand-500/30 bg-brand-950/10 p-5">
+                    <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <h2 className="text-sm font-black uppercase tracking-wider text-slate-200">Collections vs Revenue</h2>
+                            <p className="mt-1 text-[10px] text-slate-500">Collections use payment-received date. Revenue uses the stay/check-in period.</p>
+                        </div>
+                        <button type="button" onClick={() => router.visit(route('reports.front_desk'))} className="text-xs font-bold text-brand-400 hover:text-brand-300">
+                            Open Front Desk Payment Report
+                        </button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+                        {[
+                            ['Collections Received', ledgerSummary.collections_received],
+                            ['Refunds Issued', ledgerSummary.refunds_issued],
+                            ['Net Collections', ledgerSummary.net_collections],
+                            ['Future-stay Deposits', ledgerSummary.advance_deposits],
+                            ['Recognized Stay Revenue', ledgerSummary.recognized_stay_revenue],
+                        ].map(([label, value]) => (
+                            <div key={label} className="rounded-xl border border-[#334155] bg-[#0f172a]/70 p-3">
+                                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{label}</div>
+                                <div className="mt-2 font-mono text-base font-extrabold text-slate-200">{fmt(value)}</div>
+                            </div>
+                        ))}
+                    </div>
                 </div>
 
                 {/* Rooms vs Products Income Separation */}

@@ -2,17 +2,19 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Booking;
+use App\Models\GuestProfile;
+use App\Models\PromoCode;
 use App\Models\Room;
 use App\Models\RoomType;
-use App\Models\GuestProfile;
-use App\Models\Booking;
-use App\Models\Transaction;
 use App\Services\BookingService;
-use Illuminate\Http\Request;
-use Inertia\Inertia;
-use Illuminate\Support\Str;
+use App\Services\PaymentService;
+use App\Services\ShiftService;
 use Carbon\Carbon;
 use DB;
+use Illuminate\Http\Request;
+use Illuminate\Support\Str;
+use Inertia\Inertia;
 
 class CheckInController extends Controller
 {
@@ -31,32 +33,38 @@ class CheckInController extends Controller
             $prefilledGuest = GuestProfile::find($request->input('guest_id'));
         }
 
-        $promoCodes = \App\Models\PromoCode::where('is_active', true)
-            ->where(function($query) {
+        $promoCodes = PromoCode::where('is_active', true)
+            ->where(function ($query) {
                 $query->whereNull('expires_at')
-                      ->orWhere('expires_at', '>', now());
+                    ->orWhere('expires_at', '>', now());
             })
-            ->where(function($query) {
+            ->where(function ($query) {
                 $query->whereNull('max_uses')
-                      ->orWhereColumn('used_count', '<', 'max_uses');
+                    ->orWhereColumn('used_count', '<', 'max_uses');
             })
             ->orderBy('code', 'asc')
             ->get(['code', 'discount_type', 'discount_value']);
 
         // Stay list data (paginated)
         $status = $request->input('status', 'active');
-        if ($status === 'groups') $status = 'all';
+        if ($status === 'groups') {
+            $status = 'all';
+        }
         $sortBy = $request->input('sort_by', 'id');
         $sortDir = $request->input('sort_dir', 'desc');
         $showGroupsOnly = $request->boolean('show_groups_only', false);
 
         $allowedSorts = ['id', 'guest_name', 'status', 'check_in_time', 'expected_check_out', 'amount'];
-        if (!in_array($sortBy, $allowedSorts)) $sortBy = 'id';
-        if (!in_array($sortDir, ['asc', 'desc'])) $sortDir = 'desc';
+        if (! in_array($sortBy, $allowedSorts)) {
+            $sortBy = 'id';
+        }
+        if (! in_array($sortDir, ['asc', 'desc'])) {
+            $sortDir = 'desc';
+        }
 
         $bookings = Booking::with(['room', 'room.type'])
-            ->when($status && $status !== 'all', fn($q) => $q->where('status', $status))
-            ->when($showGroupsOnly, fn($q) => $q->whereNotNull('group_ref'))
+            ->when($status && $status !== 'all', fn ($q) => $q->where('status', $status))
+            ->when($showGroupsOnly, fn ($q) => $q->whereNotNull('group_ref'))
             ->orderBy($sortBy, $sortDir)
             ->paginate(15)
             ->withQueryString();
@@ -69,23 +77,23 @@ class CheckInController extends Controller
 
         $groupBookings = [];
         foreach ($groupBookingsRaw->groupBy('group_ref') as $groupRef => $groupItems) {
-            $hasActiveOrReserved = $groupItems->contains(fn($b) => in_array($b->status, ['active', 'reserved']));
+            $hasActiveOrReserved = $groupItems->contains(fn ($b) => in_array($b->status, ['active', 'reserved']));
             if ($hasActiveOrReserved) {
                 $groupBookings[$groupRef] = $groupItems;
             }
         }
 
         return Inertia::render('CheckIn/Index', [
-            'vacantRooms'   => $rooms,
-            'roomTypes'     => $roomTypes,
-            'prefilledGuest'=> $prefilledGuest,
-            'promoCodes'    => $promoCodes,
-            'bookings'      => $bookings,
-            'groupBookings' => (object)$groupBookings,
+            'vacantRooms' => $rooms,
+            'roomTypes' => $roomTypes,
+            'prefilledGuest' => $prefilledGuest,
+            'promoCodes' => $promoCodes,
+            'bookings' => $bookings,
+            'groupBookings' => (object) $groupBookings,
             'currentFilter' => $status,
-            'showGroupsOnly'=> $showGroupsOnly,
-            'sortBy'        => $sortBy,
-            'sortDir'       => $sortDir,
+            'showGroupsOnly' => $showGroupsOnly,
+            'sortBy' => $sortBy,
+            'sortDir' => $sortDir,
         ]);
     }
 
@@ -106,42 +114,42 @@ class CheckInController extends Controller
 
         $user = $request->user();
         $discountType = $request->discount_type;
-        if (in_array($discountType, ['promo', 'staff', 'complimentary']) && $user->role !== 'admin' && !$request->filled('promo_code')) {
+        if (in_array($discountType, ['promo', 'staff', 'complimentary']) && $user->role !== 'admin' && ! $request->filled('promo_code')) {
             return response()->json(['error' => 'Only administrators can apply promo, staff, or complimentary discounts.'], 403);
         }
 
         $checkIn = $request->filled('check_in')
             ? Carbon::parse($request->check_in)->format('Y-m-d H:i:s')
             : now()->format('Y-m-d H:i:s');
-        
+
         $rooms = Room::whereIn('id', $request->room_ids)->get();
         $numRooms = count($rooms);
-        
+
         $reqDiscountType = $request->discount_type ?: '';
-        $reqDiscountAmountTotal = (float)($request->discount_amount ?: 0);
+        $reqDiscountAmountTotal = (float) ($request->discount_amount ?: 0);
 
         if ($request->filled('promo_code')) {
-            $promo = \App\Models\PromoCode::where('code', $request->promo_code)->first();
+            $promo = PromoCode::where('code', $request->promo_code)->first();
             if ($promo && $promo->isValid()) {
                 $reqDiscountType = 'promo';
                 $combinedSubtotal = 0;
-                foreach($rooms as $room) {
+                foreach ($rooms as $room) {
                     $t = BookingService::calculateBookingAmounts($room, $request->booking_type, $checkIn, $request->num_nights ?: 1, $request->short_time_hours ?: 3, '', 0);
                     $combinedSubtotal += $t['base_amount'] + $t['peak_surcharge'];
                 }
-                
+
                 if ($promo->discount_type === 'percent') {
                     $reqDiscountAmountTotal = round($combinedSubtotal * ($promo->discount_value / 100), 2);
                 } else {
-                    $reqDiscountAmountTotal = min($combinedSubtotal, (float)$promo->discount_value);
+                    $reqDiscountAmountTotal = min($combinedSubtotal, (float) $promo->discount_value);
                 }
             } else {
                 return response()->json(['error' => 'The promo code is invalid or expired.'], 422);
             }
         }
-        
-        $discountPerRoom = in_array($reqDiscountType, ['promo', 'staff']) && $numRooms > 0 
-            ? round($reqDiscountAmountTotal / $numRooms, 2) 
+
+        $discountPerRoom = in_array($reqDiscountType, ['promo', 'staff']) && $numRooms > 0
+            ? round($reqDiscountAmountTotal / $numRooms, 2)
             : 0;
 
         $totals = [
@@ -157,7 +165,7 @@ class CheckInController extends Controller
 
         foreach ($rooms as $room) {
             $extraPax = $request->extra_pax[$room->id] ?? 0;
-            $numGuestsPerRoom = max(1, (int)$room->type->max_occupancy) + (int)$extraPax;
+            $numGuestsPerRoom = max(1, (int) $room->type->max_occupancy) + (int) $extraPax;
 
             $amounts = BookingService::calculateBookingAmounts(
                 $room,
@@ -176,8 +184,10 @@ class CheckInController extends Controller
             $totals['discount_amount'] += $amounts['discount_amount'];
             $totals['total_amount'] += $amounts['total_amount'];
             $totals['expected_check_out'] = $amounts['expected_check_out'];
-            if ($amounts['is_peak']) $totals['is_peak'] = true;
-            
+            if ($amounts['is_peak']) {
+                $totals['is_peak'] = true;
+            }
+
             $room_breakdown[$room->id] = $amounts;
         }
 
@@ -206,16 +216,16 @@ class CheckInController extends Controller
             'extra_pax' => 'nullable|array',
             'extra_pax.*' => 'integer|min:0',
             'check_in' => 'nullable|date',
-            
+
             'booking_type' => 'required|in:overnight,short_time',
             'num_nights' => 'nullable|integer|min:1',
             'short_time_hours' => 'nullable|integer|in:3,6,12,24',
-            
+
             'discount_type' => 'nullable|string',
             'discount_amount' => 'nullable|numeric|min:0',
             'promo_code' => 'nullable|string',
-            
-            'payment_method' => 'required|in:cash,gcash,card,bank_transfer,split',
+
+            'payment_method' => 'required|in:cash,gcash,card,bank_transfer,maya,other_ewallet,other,split',
             'cash_amount' => 'nullable|numeric|min:0',
             'gcash_amount' => 'nullable|numeric|min:0',
             'gcash_ref' => 'nullable|string|max:50',
@@ -225,13 +235,13 @@ class CheckInController extends Controller
         ]);
 
         $user = $request->user();
-        
+
         $discountType = $request->discount_type;
-        if (in_array($discountType, ['promo', 'staff', 'complimentary']) && $user->role !== 'admin' && !$request->filled('promo_code')) {
+        if (in_array($discountType, ['promo', 'staff', 'complimentary']) && $user->role !== 'admin' && ! $request->filled('promo_code')) {
             return back()->withErrors(['discount_type' => 'Only administrators can apply promo, staff, or complimentary discounts.']);
         }
-        
-        if (!\App\Services\ShiftService::requireActiveShift($user)) {
+
+        if (! ShiftService::requireActiveShift($user)) {
             return back()->with('error', 'You must have an active shift to process a check-in.');
         }
 
@@ -244,44 +254,44 @@ class CheckInController extends Controller
             return DB::transaction(function () use ($request, $user, $idImagePath) {
                 $rooms = Room::with('type')->whereIn('id', $request->room_ids)->get();
                 $numRooms = count($rooms);
-                
+
                 $roomGuests = [];
                 foreach ($rooms as $room) {
                     if ($room->status !== 'vacant') {
                         throw new \Exception("Room {$room->room_number} is not vacant.");
                     }
                     $extraPax = $request->extra_pax[$room->id] ?? 0;
-                    $roomGuests[$room->id] = max(1, (int)$room->type->max_occupancy) + (int)$extraPax;
+                    $roomGuests[$room->id] = max(1, (int) $room->type->max_occupancy) + (int) $extraPax;
                 }
 
                 $checkInTime = $request->filled('check_in') ? Carbon::parse($request->check_in) : now();
-                
+
                 $reqDiscountType = $request->discount_type ?: '';
-                $reqDiscountAmountTotal = (float)($request->discount_amount ?: 0);
+                $reqDiscountAmountTotal = (float) ($request->discount_amount ?: 0);
                 $promoCodeModel = null;
 
                 if ($request->filled('promo_code')) {
-                    $promoCodeModel = \App\Models\PromoCode::where('code', $request->promo_code)->lockForUpdate()->first();
+                    $promoCodeModel = PromoCode::where('code', $request->promo_code)->lockForUpdate()->first();
                     if ($promoCodeModel && $promoCodeModel->isValid()) {
                         $reqDiscountType = 'promo';
                         $combinedSubtotal = 0;
-                        foreach($rooms as $room) {
+                        foreach ($rooms as $room) {
                             $t = BookingService::calculateBookingAmounts($room, $request->booking_type, $checkInTime->format('Y-m-d H:i:s'), $request->num_nights ?: 1, $request->short_time_hours ?: 3, '', 0, $roomGuests[$room->id]);
                             $combinedSubtotal += $t['base_amount'] + $t['peak_surcharge'];
                         }
-                        
+
                         if ($promoCodeModel->discount_type === 'percent') {
                             $reqDiscountAmountTotal = round($combinedSubtotal * ($promoCodeModel->discount_value / 100), 2);
                         } else {
-                            $reqDiscountAmountTotal = min($combinedSubtotal, (float)$promoCodeModel->discount_value);
+                            $reqDiscountAmountTotal = min($combinedSubtotal, (float) $promoCodeModel->discount_value);
                         }
                     } else {
-                        throw new \Exception("The promo code is invalid or expired.");
+                        throw new \Exception('The promo code is invalid or expired.');
                     }
                 }
 
-                $discountPerRoom = in_array($reqDiscountType, ['promo', 'staff']) && $numRooms > 0 
-                    ? round($reqDiscountAmountTotal / $numRooms, 2) 
+                $discountPerRoom = in_array($reqDiscountType, ['promo', 'staff']) && $numRooms > 0
+                    ? round($reqDiscountAmountTotal / $numRooms, 2)
                     : 0;
 
                 $totalCombinedAmount = 0;
@@ -298,7 +308,7 @@ class CheckInController extends Controller
                         $discountPerRoom,
                         $roomGuests[$room->id]
                     );
-                    
+
                     $totalCombinedAmount += $pricing['total_amount'];
                     $roomPricings[$room->id] = $pricing;
                 }
@@ -310,19 +320,38 @@ class CheckInController extends Controller
                 $bankAmountTotal = 0.00;
                 $gcashRef = $request->gcash_ref ?: null;
                 $bankRef = $request->reference_number ?: null;
+                $paymentComponents = [];
+                if ($paymentMethod !== 'cash' && blank($gcashRef ?: $bankRef)) {
+                    throw new \InvalidArgumentException('A payment reference is required for non-cash payments.');
+                }
 
                 if ($paymentMethod === 'cash') {
                     $cashAmountTotal = $totalCombinedAmount;
+                    $paymentComponents[] = ['payment_method_code' => 'cash', 'amount' => $totalCombinedAmount];
                 } elseif ($paymentMethod === 'gcash') {
                     $gcashAmountTotal = $totalCombinedAmount;
-                } elseif ($paymentMethod === 'card' || $paymentMethod === 'bank_transfer') {
+                    $paymentComponents[] = [
+                        'payment_method_code' => 'gcash',
+                        'amount' => $totalCombinedAmount,
+                        'reference_number' => $gcashRef,
+                    ];
+                } elseif (in_array($paymentMethod, ['card', 'bank_transfer', 'maya', 'other_ewallet', 'other'], true)) {
                     $bankAmountTotal = $totalCombinedAmount;
+                    $paymentComponents[] = [
+                        'payment_method_code' => $paymentMethod,
+                        'amount' => $totalCombinedAmount,
+                        'reference_number' => $bankRef,
+                    ];
                 } else { // split
-                    $cashAmountTotal = (float)($request->cash_amount ?: 0);
-                    $gcashAmountTotal = (float)($request->gcash_amount ?: 0);
+                    $cashAmountTotal = (float) ($request->cash_amount ?: 0);
+                    $gcashAmountTotal = (float) ($request->gcash_amount ?: 0);
                     if (abs(($cashAmountTotal + $gcashAmountTotal) - $totalCombinedAmount) > 0.01) {
                         throw new \Exception("Split amounts ($cashAmountTotal + $gcashAmountTotal) must equal the total amount ($totalCombinedAmount).");
                     }
+                    $paymentComponents = [
+                        ['payment_method_code' => 'cash', 'amount' => $cashAmountTotal],
+                        ['payment_method_code' => 'gcash', 'amount' => $gcashAmountTotal, 'reference_number' => $gcashRef],
+                    ];
                 }
 
                 // Find or Create guest profile
@@ -337,8 +366,8 @@ class CheckInController extends Controller
                         'address' => $request->guest_address,
                     ]
                 );
-                
-                if (!$guestProfile->wasRecentlyCreated) {
+
+                if (! $guestProfile->wasRecentlyCreated) {
                     $guestProfile->update([
                         'contact_number' => $request->guest_contact ?: $guestProfile->contact_number,
                         'id_type' => $request->guest_id_type ?: $guestProfile->id_type,
@@ -355,26 +384,27 @@ class CheckInController extends Controller
                 $guestProfile->save();
 
                 // Create Bookings
-                $groupRef = $numRooms > 1 ? 'GRP-' . strtoupper(Str::random(4)) . $checkInTime->format('ymdHi') : null;
+                $groupRef = $numRooms > 1 ? 'GRP-'.strtoupper(Str::random(4)).$checkInTime->format('ymdHi') : null;
                 $createdBookingIds = [];
-
-                // Split the deposit evenly
-                $amountPaidPerRoom = round($totalCombinedAmount / $numRooms, 2);
-                $cashPerRoom = round($cashAmountTotal / $numRooms, 2);
-                $gcashPerRoom = round($gcashAmountTotal / $numRooms, 2);
-                $bankPerRoom = round($bankAmountTotal / $numRooms, 2);
+                $paymentAllocations = [];
 
                 foreach ($rooms as $room) {
                     $pricing = $roomPricings[$room->id];
-                    $bookingRef = 'BKG-' . strtoupper(Str::random(4)) . $checkInTime->format('ymdHis') . $room->id;
-                    
+                    $bookingRef = 'BKG-'.strtoupper(Str::random(4)).$checkInTime->format('ymdHis').$room->id;
+                    $legacyPaymentMethod = in_array($paymentMethod, ['cash', 'gcash', 'card', 'bank_transfer', 'split'], true)
+                        ? $paymentMethod
+                        : 'bank_transfer';
+
                     $booking = Booking::create([
                         'booking_ref' => $bookingRef,
                         'group_ref' => $groupRef,
                         'room_id' => $room->id,
                         'guest_profile_id' => $guestProfile->id,
+                        'booked_by_user_id' => $user->id,
                         'guest_name' => $guestProfile->full_name,
+                        'booker_name' => $guestProfile->full_name,
                         'guest_contact' => $guestProfile->contact_number,
+                        'booker_contact' => $guestProfile->contact_number,
                         'guest_id_type' => $guestProfile->id_type,
                         'guest_id_number' => $guestProfile->id_number,
                         'guest_id_image_path' => $idImagePath ?: $guestProfile->id_image_path,
@@ -384,52 +414,54 @@ class CheckInController extends Controller
                         'check_in' => $checkInTime->format('Y-m-d H:i:s'),
                         'expected_check_out' => $pricing['expected_check_out'],
                         'status' => 'active',
-                        'payment_status' => 'paid',
+                        'payment_status' => 'unpaid',
                         'base_amount' => $pricing['base_amount'],
                         'peak_surcharge' => $pricing['peak_surcharge'],
                         'extra_pax_charges' => $pricing['extra_pax_charges'] ?? 0,
                         'discount_type' => $reqDiscountType ?: null,
                         'discount_amount' => $pricing['discount_amount'],
                         'total_amount' => $pricing['total_amount'],
-                        'amount_paid' => $pricing['total_amount'],
-                        'payment_method' => $paymentMethod,
-                        'cash_amount' => $cashPerRoom,
-                        'gcash_amount' => $gcashPerRoom,
-                        'gcash_ref' => $gcashRef ?: $bankRef,
+                        'amount_paid' => 0,
+                        'payment_method' => $legacyPaymentMethod,
+                        'cash_amount' => 0,
+                        'gcash_amount' => 0,
+                        'gcash_ref' => null,
                         'is_peak' => $pricing['is_peak'],
-                        'notes' => $request->notes ? trim($request->notes . ($request->filled('promo_code') ? "\nApplied Promo Code: " . $request->promo_code : '')) : ($request->filled('promo_code') ? "Applied Promo Code: " . $request->promo_code : null),
+                        'notes' => $request->notes ? trim($request->notes.($request->filled('promo_code') ? "\nApplied Promo Code: ".$request->promo_code : '')) : ($request->filled('promo_code') ? 'Applied Promo Code: '.$request->promo_code : null),
                         'checked_in_by' => $user->id,
-                    ]);
-
-                    // Create transaction
-                    Transaction::create([
-                        'booking_id' => $booking->id,
-                        'transaction_type' => 'check_in',
-                        'description' => "Initial check-in payment for Reference: {$bookingRef}. Room {$room->room_number}" . ($request->filled('promo_code') ? " (Promo: {$request->promo_code})" : ""),
-                        'amount' => $amountPaidPerRoom,
-                        'payment_method' => $paymentMethod,
-                        'cash_amount' => $cashPerRoom,
-                        'gcash_amount' => $gcashPerRoom,
-                        'bank_amount' => $bankPerRoom,
-                        'gcash_ref' => $gcashRef,
-                        'bank_ref' => $bankRef,
-                        'processed_by' => $user->id,
-                        'notes' => $request->transaction_notes,
                     ]);
 
                     // Set room status to occupied
                     $room->status = 'occupied';
                     $room->save();
-                    
+
                     $createdBookingIds[] = $booking->id;
+                    $paymentAllocations[$booking->id] = (float) $pricing['total_amount'];
                 }
+
+                $payment = app(PaymentService::class)->record([
+                    'payer_name' => $guestProfile->full_name,
+                    'payer_contact' => $guestProfile->contact_number,
+                    'payment_method_code' => $paymentMethod,
+                    'reference_number' => $gcashRef ?: $bankRef,
+                    'amount' => $totalCombinedAmount,
+                    'payment_type' => 'full',
+                    'status' => 'verified',
+                    'recorded_by' => $user->id,
+                    'verified_by' => $user->id,
+                    'verified_at' => now(),
+                    'remarks' => $request->transaction_notes,
+                ], $paymentAllocations, $paymentComponents, [
+                    'transaction_type' => 'check_in',
+                    'description' => 'Initial walk-in check-in payment for '.($groupRef ?: $createdBookingIds[0]),
+                ]);
 
                 if ($promoCodeModel) {
                     $promoCodeModel->increment('used_count');
                 }
 
                 $roomNumbers = $rooms->pluck('room_number')->join(', ');
-                $msg = $numRooms > 1 
+                $msg = $numRooms > 1
                     ? "Group Check-in {$groupRef} successful for Rooms: {$roomNumbers}."
                     : "Guest {$guestProfile->full_name} successfully checked into Room {$roomNumbers}.";
 
@@ -440,7 +472,7 @@ class CheckInController extends Controller
                     $createdBookingIds[0],
                     null,
                     $groupRef ?? 'SINGLE',
-                    $msg . " Collected ₱{$totalCombinedAmount} via {$paymentMethod}."
+                    $msg." Payment {$payment->receipt_number} verified: ₱{$totalCombinedAmount} via {$paymentMethod}."
                 );
 
                 return redirect()->route('checkin.index')->with('success', $msg);

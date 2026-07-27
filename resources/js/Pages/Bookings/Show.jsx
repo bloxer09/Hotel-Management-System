@@ -60,6 +60,19 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
         notes: ''
     });
 
+    const paymentForm = useForm({
+        booking_id: booking.id,
+        payer_name: booking.booker_name || booking.guest_name,
+        payer_contact: booking.booker_contact || booking.guest_contact || '',
+        payment_method_code: 'cash',
+        reference_number: '',
+        amount: Math.max(0, Number(booking.total_amount || 0) - Number(booking.amount_paid || 0)),
+        payment_type: 'partial',
+        cash_amount: 0,
+        electronic_amount: 0,
+        remarks: '',
+    });
+
     // Form: Cancel stay
     const cancelForm = useForm({
         reason: ''
@@ -133,6 +146,28 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
             onSuccess: () => {
                 setActiveModal(null);
             }
+        });
+    };
+
+    const handlePaymentSubmit = (e) => {
+        e.preventDefault();
+        const data = { ...paymentForm.data };
+        if (data.payment_method_code === 'split') {
+            data.components = [
+                { payment_method_code: 'cash', amount: Number(data.cash_amount || 0) },
+                { payment_method_code: 'gcash', amount: Number(data.electronic_amount || 0), reference_number: data.reference_number },
+            ];
+        }
+        // Inertia's transform() does not return the form instance, so submit in
+        // a separate statement instead of chaining transform().post().
+        paymentForm.transform(() => data);
+        paymentForm.post(route('payments.store'), {
+            preserveScroll: true,
+            onSuccess: () => {
+                setActiveModal(null);
+                paymentForm.reset('reference_number', 'remarks', 'cash_amount', 'electronic_amount');
+            },
+            onFinish: () => paymentForm.transform(values => values),
         });
     };
 
@@ -322,7 +357,32 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
 
                         {/* Payment Details */}
                         <div className="p-6 rounded-2xl bg-[#1e293b] border border-[#334155] shadow-xl">
-                            <h2 className="text-lg font-outfit font-bold text-slate-200 border-b border-[#334155] pb-3 mb-5">Payment Details</h2>
+                            <div className="mb-5 flex items-center justify-between border-b border-[#334155] pb-3">
+                                <h2 className="text-lg font-outfit font-bold text-slate-200">Payment Details</h2>
+                                {!['cancelled', 'no_show', 'checked_out'].includes(booking.status) && (
+                                    <button type="button" onClick={() => setActiveModal('payment')}
+                                        className="rounded-lg bg-brand-600 px-3 py-2 text-[10px] font-bold uppercase text-white hover:bg-brand-500">
+                                        Record Payment
+                                    </button>
+                                )}
+                            </div>
+
+                            {booking.payments?.length > 0 && (
+                                <div className="mb-4 grid gap-2">
+                                    {booking.payments.map(payment => (
+                                        <div key={payment.id} className="flex flex-col justify-between gap-2 rounded-xl border border-[#334155] bg-[#0f172a]/50 p-3 text-xs sm:flex-row sm:items-center">
+                                            <div>
+                                                <div className="font-mono font-bold text-brand-400">{payment.receipt_number}</div>
+                                                <div className="capitalize text-slate-500">{payment.payment_type} · {String(payment.payment_method_code).replaceAll('_', ' ')}</div>
+                                            </div>
+                                            <div className="text-right">
+                                                <div className="font-mono font-bold text-slate-200">₱{Number(payment.pivot?.allocated_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+                                                <div className={`text-[10px] font-bold uppercase ${payment.status === 'verified' ? 'text-emerald-400' : 'text-amber-400'}`}>{payment.status}</div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
 
                             <div className="space-y-4">
                                 {booking.transactions && booking.transactions.length > 0 ? (
@@ -550,13 +610,18 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
                                             >
                                                 <option value="cash">Cash</option>
                                                 <option value="gcash">GCash</option>
+                                                <option value="bank_transfer">Bank Transfer</option>
+                                                <option value="card">Card</option>
+                                                <option value="maya">Maya</option>
+                                                <option value="other_ewallet">Other E-wallet</option>
+                                                <option value="other">Other</option>
                                                 <option value="split">Split (Cash + GCash)</option>
                                             </CustomSelect>
                                         </div>
 
-                                        {['gcash', 'split'].includes(extendForm.data.payment_method) && (
+                                        {extendForm.data.payment_method !== 'cash' && (
                                             <div className="flex flex-col gap-1.5">
-                                                <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">GCash 13-Digit Ref</label>
+                                                <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Payment Reference</label>
                                                 <input
                                                     type="text"
                                                     value={extendForm.data.gcash_ref}
@@ -686,6 +751,81 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
             )}
 
             {/* Modal: Process Checkout */}
+            {activeModal === 'payment' && (
+                <div className="fixed inset-0 bg-[#070b13]/90 z-[9999] flex items-center justify-center p-4">
+                    <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
+                        className="w-full max-w-lg rounded-2xl border border-[#334155] bg-[#1e293b] p-6 text-slate-100 shadow-2xl">
+                        <div className="mb-5 flex items-center justify-between border-b border-[#334155] pb-3">
+                            <div>
+                                <h3 className="font-outfit font-extrabold">Record Additional Payment</h3>
+                                <p className="text-[10px] text-slate-500">Electronic payments remain pending until verified.</p>
+                            </div>
+                            <button type="button" onClick={() => setActiveModal(null)} className="rounded bg-[#0f172a] p-1 text-slate-400"><X size={14} /></button>
+                        </div>
+                        <form onSubmit={handlePaymentSubmit} className="grid gap-4 text-xs sm:grid-cols-2">
+                            <label className="space-y-1 text-slate-400">Payer name
+                                <input required value={paymentForm.data.payer_name} onChange={e => paymentForm.setData('payer_name', e.target.value)}
+                                    className="w-full rounded-xl border border-[#334155] bg-[#0f172a] px-3 py-2.5 text-slate-100" />
+                            </label>
+                            <label className="space-y-1 text-slate-400">Contact
+                                <input value={paymentForm.data.payer_contact} onChange={e => paymentForm.setData('payer_contact', e.target.value)}
+                                    className="w-full rounded-xl border border-[#334155] bg-[#0f172a] px-3 py-2.5 text-slate-100" />
+                            </label>
+                            <label className="space-y-1 text-slate-400">Method
+                                <select value={paymentForm.data.payment_method_code} onChange={e => paymentForm.setData('payment_method_code', e.target.value)}
+                                    className="w-full rounded-xl border border-[#334155] bg-[#0f172a] px-3 py-2.5 text-slate-100">
+                                    <option value="cash">Cash</option><option value="gcash">GCash</option>
+                                    <option value="bank_transfer">Bank transfer</option><option value="card">Card</option>
+                                    <option value="maya">Maya</option><option value="other_ewallet">Other e-wallet</option>
+                                    <option value="other">Other</option><option value="split">Split (Cash + GCash)</option>
+                                </select>
+                            </label>
+                            <label className="space-y-1 text-slate-400">Payment type
+                                <select value={paymentForm.data.payment_type} onChange={e => paymentForm.setData('payment_type', e.target.value)}
+                                    className="w-full rounded-xl border border-[#334155] bg-[#0f172a] px-3 py-2.5 text-slate-100">
+                                    <option value="deposit">Deposit</option><option value="partial">Partial</option>
+                                    <option value="full">Full</option><option value="final">Final settlement</option>
+                                </select>
+                            </label>
+                            <label className="space-y-1 text-slate-400">Amount
+                                <input required type="number" min="0.01" step="0.01" value={paymentForm.data.amount}
+                                    onChange={e => paymentForm.setData('amount', e.target.value)}
+                                    className="w-full rounded-xl border border-[#334155] bg-[#0f172a] px-3 py-2.5 font-mono text-slate-100" />
+                            </label>
+                            {paymentForm.data.payment_method_code !== 'cash' && (
+                                <label className="space-y-1 text-slate-400">Reference number
+                                    <input required value={paymentForm.data.reference_number} onChange={e => paymentForm.setData('reference_number', e.target.value)}
+                                        className="w-full rounded-xl border border-[#334155] bg-[#0f172a] px-3 py-2.5 font-mono text-slate-100" />
+                                </label>
+                            )}
+                            {paymentForm.data.payment_method_code === 'split' && (
+                                <>
+                                    <label className="space-y-1 text-slate-400">Cash component
+                                        <input required type="number" min="0.01" step="0.01" value={paymentForm.data.cash_amount}
+                                            onChange={e => paymentForm.setData('cash_amount', e.target.value)}
+                                            className="w-full rounded-xl border border-[#334155] bg-[#0f172a] px-3 py-2.5 font-mono text-slate-100" />
+                                    </label>
+                                    <label className="space-y-1 text-slate-400">GCash component
+                                        <input required type="number" min="0.01" step="0.01" value={paymentForm.data.electronic_amount}
+                                            onChange={e => paymentForm.setData('electronic_amount', e.target.value)}
+                                            className="w-full rounded-xl border border-[#334155] bg-[#0f172a] px-3 py-2.5 font-mono text-slate-100" />
+                                    </label>
+                                </>
+                            )}
+                            <label className="space-y-1 text-slate-400 sm:col-span-2">Remarks
+                                <textarea rows="2" value={paymentForm.data.remarks} onChange={e => paymentForm.setData('remarks', e.target.value)}
+                                    className="w-full rounded-xl border border-[#334155] bg-[#0f172a] p-3 text-slate-100" />
+                            </label>
+                            <button type="submit" disabled={paymentForm.processing}
+                                className="rounded-xl bg-brand-600 px-4 py-3 font-bold text-white hover:bg-brand-500 sm:col-span-2">
+                                Record Payment
+                            </button>
+                        </form>
+                    </motion.div>
+                </div>
+            )}
+
+            {/* Modal: Process Checkout */}
             {activeModal === 'checkout' && (
                 <div className="fixed inset-0 bg-[#070b13]/90 z-[9999] flex items-center justify-center p-4">
                     <motion.div
@@ -719,13 +859,18 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
                                             >
                                                 <option value="cash">Cash</option>
                                                 <option value="gcash">GCash</option>
+                                                <option value="bank_transfer">Bank Transfer</option>
+                                                <option value="card">Card</option>
+                                                <option value="maya">Maya</option>
+                                                <option value="other_ewallet">Other E-wallet</option>
+                                                <option value="other">Other</option>
                                                 <option value="split">Split (Cash + GCash)</option>
                                             </CustomSelect>
                                         </div>
 
-                                        {['gcash', 'split'].includes(checkoutForm.data.payment_method) && (
+                                        {checkoutForm.data.payment_method !== 'cash' && (
                                             <div className="flex flex-col gap-1.5">
-                                                <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">GCash 13-Digit Ref</label>
+                                                <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Payment Reference</label>
                                                 <input
                                                     type="text"
                                                     value={checkoutForm.data.gcash_ref}

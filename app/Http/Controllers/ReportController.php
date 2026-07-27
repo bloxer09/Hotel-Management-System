@@ -2,36 +2,45 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Transaction;
-use App\Models\Room;
-use App\Models\RoomType;
 use App\Models\Booking;
 use App\Models\InventoryUsage;
-use App\Models\User;
-use Illuminate\Http\Request;
-use Inertia\Inertia;
+use App\Models\MaintenanceTicket;
+use App\Models\Payment;
+use App\Models\Room;
+use App\Models\Transaction;
 use Carbon\Carbon;
 use DB;
+use Illuminate\Http\Request;
+use Inertia\Inertia;
+use Shuchkin\SimpleXLSXGen;
 
 class ReportController extends Controller
 {
     public function index(Request $request)
     {
         $user = $request->user();
-        if (!in_array($user->role, ['admin', 'front_desk', 'cashier'], true)) {
+        if (! in_array($user->role, ['admin', 'front_desk', 'cashier'], true)) {
             abort(403, 'Unauthorized access to financial reports.');
         }
 
         $dateFrom = $request->input('from', date('Y-m-d'));
-        $dateTo   = $request->input('to',   date('Y-m-d'));
+        $dateTo = $request->input('to', date('Y-m-d'));
 
         // Validate date formats
-        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateFrom)) $dateFrom = date('Y-m-d');
-        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateTo))   $dateTo   = $dateFrom;
-        if ($dateFrom > $dateTo) { $tmp = $dateFrom; $dateFrom = $dateTo; $dateTo = $tmp; }
+        if (! preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateFrom)) {
+            $dateFrom = date('Y-m-d');
+        }
+        if (! preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateTo)) {
+            $dateTo = $dateFrom;
+        }
+        if ($dateFrom > $dateTo) {
+            $tmp = $dateFrom;
+            $dateFrom = $dateTo;
+            $dateTo = $tmp;
+        }
 
         $startCarbon = Carbon::parse($dateFrom)->startOfDay();
-        $endCarbon   = Carbon::parse($dateTo)->endOfDay();
+        $endCarbon = Carbon::parse($dateTo)->endOfDay();
 
         // Summary from bookings table (matching reference)
         $summary = DB::table('bookings')
@@ -53,20 +62,22 @@ class ReportController extends Controller
             ")
             ->first();
 
-        // By cashier (who performed checkout)
-        $byCashier = DB::table('bookings as b')
-            ->join('users as u', 'b.checked_out_by', '=', 'u.id')
-            ->whereBetween(DB::raw('DATE(b.check_in)'), [$dateFrom, $dateTo])
-            ->where('b.status', 'checked_out')
+        // Cashier collections are grouped by the staff who recorded the payment,
+        // using received_at instead of the stay/check-in date.
+        $byCashier = DB::table('payments as p')
+            ->join('payment_components as pc', 'pc.payment_id', '=', 'p.id')
+            ->join('users as u', 'p.recorded_by', '=', 'u.id')
+            ->where('p.status', 'verified')
+            ->whereBetween('p.received_at', [$startCarbon, $endCarbon])
             ->selectRaw("
                 u.full_name, u.username, u.role,
-                COUNT(b.id) as txn_count,
-                COALESCE(SUM(b.amount_paid),0) as total_collected,
-                COALESCE(SUM(b.cash_amount),0) as cash,
-                COALESCE(SUM(b.gcash_amount),0) as gcash,
-                COALESCE(SUM(CASE WHEN b.payment_method='split' THEN b.amount_paid ELSE 0 END),0) as split_total
+                COUNT(DISTINCT p.id) as txn_count,
+                COALESCE(SUM(CASE WHEN p.payment_type NOT IN ('refund','reversal') THEN pc.amount ELSE -pc.amount END),0) as total_collected,
+                COALESCE(SUM(CASE WHEN pc.payment_method_code='cash' AND p.payment_type NOT IN ('refund','reversal') THEN pc.amount WHEN pc.payment_method_code='cash' THEN -pc.amount ELSE 0 END),0) as cash,
+                COALESCE(SUM(CASE WHEN pc.payment_method_code='gcash' AND p.payment_type NOT IN ('refund','reversal') THEN pc.amount WHEN pc.payment_method_code='gcash' THEN -pc.amount ELSE 0 END),0) as gcash,
+                COALESCE(SUM(CASE WHEN p.payment_method_code='split' AND p.payment_type NOT IN ('refund','reversal') THEN pc.amount WHEN p.payment_method_code='split' THEN -pc.amount ELSE 0 END),0) as split_total
             ")
-            ->groupBy('b.checked_out_by', 'u.full_name', 'u.username', 'u.role')
+            ->groupBy('p.recorded_by', 'u.full_name', 'u.username', 'u.role')
             ->orderByDesc('total_collected')
             ->get();
 
@@ -76,7 +87,7 @@ class ReportController extends Controller
             ->join('room_types as rt', 'r.room_type_id', '=', 'rt.id')
             ->whereBetween(DB::raw('DATE(b.check_in)'), [$dateFrom, $dateTo])
             ->whereNotIn('b.status', ['cancelled', 'no_show'])
-            ->selectRaw("rt.type_name, COUNT(b.id) as cnt, COALESCE(SUM(b.amount_paid),0) as revenue")
+            ->selectRaw('rt.type_name, COUNT(b.id) as cnt, COALESCE(SUM(b.base_amount + b.peak_surcharge + b.extra_pax_charges - b.discount_amount + b.extension_fee + b.late_checkout_fee),0) as revenue')
             ->groupBy('rt.id', 'rt.type_name')
             ->orderByDesc('revenue')
             ->get();
@@ -88,7 +99,7 @@ class ReportController extends Controller
             ->leftJoin('users as u', 'b.checked_out_by', '=', 'u.id')
             ->whereBetween(DB::raw('DATE(b.check_in)'), [$dateFrom, $dateTo])
             ->whereNotIn('b.status', ['cancelled', 'no_show'])
-            ->selectRaw("
+            ->selectRaw('
                 b.id, b.booking_ref, b.guest_name, b.booking_type, b.check_in, b.check_out, b.expected_check_out,
                 b.base_amount, b.peak_surcharge, b.discount_type, b.discount_amount,
                 b.extension_fee, b.late_checkout_fee, b.total_amount, b.amount_paid,
@@ -96,64 +107,118 @@ class ReportController extends Controller
                 b.status, b.notes, b.is_peak,
                 r.room_number, rt.type_name,
                 u.full_name as cashier_name
-            ")
+            ')
             ->orderByDesc('b.check_in')
             ->get();
 
         // Occupancy board live status counts
         $roomsCount = Room::count();
-        $vacant     = Room::where('status', 'vacant')->count();
-        $occupied   = Room::where('status', 'occupied')->count();
-        $cleaning   = Room::where('status', 'cleaning')->count();
-        $ooo        = Room::where('status', 'out_of_order')->count();
+        $vacant = Room::where('status', 'vacant')->count();
+        $occupied = Room::where('status', 'occupied')->count();
+        $cleaning = Room::where('status', 'cleaning')->count();
+        $ooo = Room::where('status', 'out_of_order')->count();
 
         // Advanced Lodging Rooms vs Inventory Products Revenue Reconciliations
-        $bookingsInventoryRevenue = (float)\App\Models\InventoryUsage::whereNotNull('booking_id')
+        $bookingsInventoryRevenue = (float) InventoryUsage::whereNotNull('booking_id')
             ->whereBetween(DB::raw('DATE(created_at)'), [$dateFrom, $dateTo])
             ->sum('total_price');
 
-        $walkinInventoryRevenue = (float)\App\Models\InventoryUsage::whereNull('booking_id')
+        $walkinInventoryRevenue = (float) InventoryUsage::whereNull('booking_id')
             ->whereBetween(DB::raw('DATE(created_at)'), [$dateFrom, $dateTo])
             ->sum('total_price');
 
         $productRevenue = $bookingsInventoryRevenue + $walkinInventoryRevenue;
-        $roomRevenue = max(0.00, (float)$summary->total_revenue - $bookingsInventoryRevenue);
-        $unifiedTotalRevenue = $roomRevenue + $productRevenue;
 
-        // Merge unifiedTotalRevenue into summary so total_revenue has the corrected figure
+        // Collection date and revenue-recognition date are intentionally separate.
+        // The payment ledger is the source of truth for money received; stay dates
+        // remain the source for operational/recognized lodging revenue.
+        $ledgerPayments = Payment::where('status', 'verified')
+            ->whereBetween('received_at', [$startCarbon, $endCarbon]);
+        $collectionsReceived = (float) (clone $ledgerPayments)
+            ->whereNotIn('payment_type', ['refund', 'reversal'])
+            ->sum('amount');
+        $refundsIssued = (float) (clone $ledgerPayments)
+            ->whereIn('payment_type', ['refund', 'reversal'])
+            ->sum('amount');
+
+        $advanceDepositRow = DB::table('payment_allocations as pa')
+            ->join('payments as p', 'p.id', '=', 'pa.payment_id')
+            ->join('bookings as b', 'b.id', '=', 'pa.booking_id')
+            ->where('p.status', 'verified')
+            ->whereBetween('p.received_at', [$startCarbon, $endCarbon])
+            ->where('b.check_in', '>', now())
+            ->selectRaw("
+                COALESCE(SUM(CASE WHEN p.payment_type NOT IN ('refund','reversal') THEN pa.allocated_amount ELSE 0 END),0)
+                - COALESCE(SUM(CASE WHEN p.payment_type IN ('refund','reversal') THEN pa.allocated_amount ELSE 0 END),0) AS net
+            ")
+            ->first();
+        $advanceDeposits = (float) ($advanceDepositRow->net ?? 0);
+
+        $recognizedStayRevenueRow = Booking::whereIn('status', ['active', 'checked_out'])
+            ->whereBetween('check_in', [$startCarbon, $endCarbon])
+            ->selectRaw('COALESCE(SUM(base_amount + peak_surcharge + extra_pax_charges - discount_amount + extension_fee + late_checkout_fee), 0) AS total')
+            ->first();
+        $recognizedStayRevenue = (float) ($recognizedStayRevenueRow->total ?? 0);
+        $collectionChannels = DB::table('payment_components as pc')
+            ->join('payments as p', 'p.id', '=', 'pc.payment_id')
+            ->where('p.status', 'verified')
+            ->whereBetween('p.received_at', [$startCarbon, $endCarbon])
+            ->groupBy('pc.payment_method_code')
+            ->selectRaw("pc.payment_method_code, COALESCE(SUM(CASE WHEN p.payment_type NOT IN ('refund','reversal') THEN pc.amount ELSE -pc.amount END),0) AS net")
+            ->pluck('net', 'payment_method_code');
+
+        // Main revenue is stay-period lodging revenue plus product revenue. Money
+        // received is shown only in the separate ledger collection metrics.
         $summaryArray = (array) $summary;
-        $summaryArray['total_revenue'] = $unifiedTotalRevenue;
+        $summaryArray['total_revenue'] = round($recognizedStayRevenue + $productRevenue, 2);
+        $summaryArray['total_cash'] = round((float) ($collectionChannels['cash'] ?? 0), 2);
+        $summaryArray['total_gcash'] = round((float) ($collectionChannels['gcash'] ?? 0), 2);
 
         return Inertia::render('Reports/Index', [
-            'dateFrom'      => $dateFrom,
-            'dateTo'        => $dateTo,
-            'summary'       => $summaryArray,
-            'byCashier'     => $byCashier,
-            'byRoomType'    => $byRoomType,
-            'transactions'  => $transactions,
-            'occupancy'     => compact('roomsCount', 'vacant', 'occupied', 'cleaning', 'ooo'),
+            'dateFrom' => $dateFrom,
+            'dateTo' => $dateTo,
+            'summary' => $summaryArray,
+            'byCashier' => $byCashier,
+            'byRoomType' => $byRoomType,
+            'transactions' => $transactions,
+            'occupancy' => compact('roomsCount', 'vacant', 'occupied', 'cleaning', 'ooo'),
             'productRevenue' => $productRevenue,
-            'roomRevenue'   => $roomRevenue,
+            'roomRevenue' => $recognizedStayRevenue,
+            'ledgerSummary' => [
+                'collections_received' => round($collectionsReceived, 2),
+                'refunds_issued' => round($refundsIssued, 2),
+                'net_collections' => round($collectionsReceived - $refundsIssued, 2),
+                'advance_deposits' => round($advanceDeposits, 2),
+                'recognized_stay_revenue' => round($recognizedStayRevenue, 2),
+            ],
         ]);
     }
 
     public function export(Request $request)
     {
         $user = $request->user();
-        if (!in_array($user->role, ['admin', 'front_desk', 'cashier'], true)) {
+        if (! in_array($user->role, ['admin', 'front_desk', 'cashier'], true)) {
             abort(403);
         }
 
         $dateFrom = $request->input('from', date('Y-m-d'));
-        $dateTo   = $request->input('to',   date('Y-m-d'));
-        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateFrom)) $dateFrom = date('Y-m-d');
-        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateTo))   $dateTo   = $dateFrom;
-        if ($dateFrom > $dateTo) { $tmp = $dateFrom; $dateFrom = $dateTo; $dateTo = $tmp; }
+        $dateTo = $request->input('to', date('Y-m-d'));
+        if (! preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateFrom)) {
+            $dateFrom = date('Y-m-d');
+        }
+        if (! preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateTo)) {
+            $dateTo = $dateFrom;
+        }
+        if ($dateFrom > $dateTo) {
+            $tmp = $dateFrom;
+            $dateFrom = $dateTo;
+            $dateTo = $tmp;
+        }
 
         $summary = DB::table('bookings')
             ->whereBetween(DB::raw('DATE(check_in)'), [$dateFrom, $dateTo])
             ->whereNotIn('status', ['cancelled', 'no_show'])
-            ->selectRaw("COUNT(*) as total_bookings,COALESCE(SUM(amount_paid),0) as total_revenue,COALESCE(SUM(cash_amount),0) as total_cash,COALESCE(SUM(gcash_amount),0) as total_gcash,COALESCE(SUM(discount_amount),0) as total_discount")
+            ->selectRaw('COUNT(*) as total_bookings,COALESCE(SUM(amount_paid),0) as total_revenue,COALESCE(SUM(cash_amount),0) as total_cash,COALESCE(SUM(gcash_amount),0) as total_gcash,COALESCE(SUM(discount_amount),0) as total_discount')
             ->first();
 
         $transactions = DB::table('bookings as b')
@@ -162,29 +227,65 @@ class ReportController extends Controller
             ->leftJoin('users as u', 'b.checked_out_by', '=', 'u.id')
             ->whereBetween(DB::raw('DATE(b.check_in)'), [$dateFrom, $dateTo])
             ->whereNotIn('b.status', ['cancelled', 'no_show'])
-            ->selectRaw("b.booking_ref,b.guest_name,r.room_number,rt.type_name,b.check_in,b.check_out,b.booking_type,b.base_amount,b.peak_surcharge,b.discount_type,b.discount_amount,b.extension_fee,b.late_checkout_fee,b.total_amount,b.amount_paid,b.payment_method,b.cash_amount,b.gcash_amount,b.gcash_ref,u.full_name as cashier_name,b.status,b.notes")
+            ->selectRaw('b.booking_ref,b.guest_name,r.room_number,rt.type_name,b.check_in,b.check_out,b.booking_type,b.base_amount,b.peak_surcharge,b.discount_type,b.discount_amount,b.extension_fee,b.late_checkout_fee,b.total_amount,b.amount_paid,b.payment_method,b.cash_amount,b.gcash_amount,b.gcash_ref,u.full_name as cashier_name,b.status,b.notes')
             ->orderByDesc('b.check_in')
             ->get();
 
-        $byCashier = DB::table('bookings as b')
-            ->join('users as u', 'b.checked_out_by', '=', 'u.id')
-            ->whereBetween(DB::raw('DATE(b.check_in)'), [$dateFrom, $dateTo])
-            ->where('b.status', 'checked_out')
-            ->selectRaw("u.full_name,u.username,u.role,COUNT(b.id) as txn_count,COALESCE(SUM(b.cash_amount),0) as cash,COALESCE(SUM(b.gcash_amount),0) as gcash,COALESCE(SUM(CASE WHEN b.payment_method='split' THEN b.amount_paid ELSE 0 END),0) as split_total,COALESCE(SUM(b.amount_paid),0) as total_collected")
-            ->groupBy('b.checked_out_by', 'u.full_name', 'u.username', 'u.role')
+        $exportStart = Carbon::parse($dateFrom)->startOfDay();
+        $exportEnd = Carbon::parse($dateTo)->endOfDay();
+        $byCashier = DB::table('payments as p')
+            ->join('payment_components as pc', 'pc.payment_id', '=', 'p.id')
+            ->join('users as u', 'p.recorded_by', '=', 'u.id')
+            ->where('p.status', 'verified')
+            ->whereBetween('p.received_at', [$exportStart, $exportEnd])
+            ->selectRaw("
+                u.full_name,u.username,u.role,COUNT(DISTINCT p.id) as txn_count,
+                COALESCE(SUM(CASE WHEN pc.payment_method_code='cash' AND p.payment_type NOT IN ('refund','reversal') THEN pc.amount WHEN pc.payment_method_code='cash' THEN -pc.amount ELSE 0 END),0) as cash,
+                COALESCE(SUM(CASE WHEN pc.payment_method_code='gcash' AND p.payment_type NOT IN ('refund','reversal') THEN pc.amount WHEN pc.payment_method_code='gcash' THEN -pc.amount ELSE 0 END),0) as gcash,
+                COALESCE(SUM(CASE WHEN p.payment_method_code='split' AND p.payment_type NOT IN ('refund','reversal') THEN pc.amount WHEN p.payment_method_code='split' THEN -pc.amount ELSE 0 END),0) as split_total,
+                COALESCE(SUM(CASE WHEN p.payment_type NOT IN ('refund','reversal') THEN pc.amount ELSE -pc.amount END),0) as total_collected
+            ")
+            ->groupBy('p.recorded_by', 'u.full_name', 'u.username', 'u.role')
             ->get();
 
-        $bookingsInventoryRevenue = (float)\App\Models\InventoryUsage::whereNotNull('booking_id')
+        $bookingsInventoryRevenue = (float) InventoryUsage::whereNotNull('booking_id')
             ->whereBetween(DB::raw('DATE(created_at)'), [$dateFrom, $dateTo])
             ->sum('total_price');
 
-        $walkinInventoryRevenue = (float)\App\Models\InventoryUsage::whereNull('booking_id')
+        $walkinInventoryRevenue = (float) InventoryUsage::whereNull('booking_id')
             ->whereBetween(DB::raw('DATE(created_at)'), [$dateFrom, $dateTo])
             ->sum('total_price');
 
         $productRevenue = $bookingsInventoryRevenue + $walkinInventoryRevenue;
-        $roomRevenue = max(0.00, (float)$summary->total_revenue - $bookingsInventoryRevenue);
+        $start = Carbon::parse($dateFrom)->startOfDay();
+        $end = Carbon::parse($dateTo)->endOfDay();
+        $ledgerPayments = Payment::where('status', 'verified')->whereBetween('received_at', [$start, $end]);
+        $collectionsReceived = (float) (clone $ledgerPayments)
+            ->whereNotIn('payment_type', ['refund', 'reversal'])->sum('amount');
+        $refundsIssued = (float) (clone $ledgerPayments)
+            ->whereIn('payment_type', ['refund', 'reversal'])->sum('amount');
+        $advanceRow = DB::table('payment_allocations as pa')
+            ->join('payments as p', 'p.id', '=', 'pa.payment_id')
+            ->join('bookings as b', 'b.id', '=', 'pa.booking_id')
+            ->where('p.status', 'verified')
+            ->whereBetween('p.received_at', [$start, $end])
+            ->where('b.check_in', '>', now())
+            ->selectRaw("COALESCE(SUM(CASE WHEN p.payment_type NOT IN ('refund','reversal') THEN pa.allocated_amount ELSE 0 END),0) - COALESCE(SUM(CASE WHEN p.payment_type IN ('refund','reversal') THEN pa.allocated_amount ELSE 0 END),0) AS net")
+            ->first();
+        $advanceDeposits = (float) ($advanceRow->net ?? 0);
+        $revenueRow = Booking::whereIn('status', ['active', 'checked_out'])
+            ->whereBetween('check_in', [$start, $end])
+            ->selectRaw('COALESCE(SUM(base_amount + peak_surcharge + extra_pax_charges - discount_amount + extension_fee + late_checkout_fee), 0) AS total')
+            ->first();
+        $roomRevenue = (float) ($revenueRow->total ?? 0);
         $unifiedTotalRevenue = $roomRevenue + $productRevenue;
+        $channelTotals = DB::table('payment_components as pc')
+            ->join('payments as p', 'p.id', '=', 'pc.payment_id')
+            ->where('p.status', 'verified')
+            ->whereBetween('p.received_at', [$start, $end])
+            ->groupBy('pc.payment_method_code')
+            ->selectRaw("pc.payment_method_code, COALESCE(SUM(CASE WHEN p.payment_type NOT IN ('refund','reversal') THEN pc.amount ELSE -pc.amount END),0) AS net")
+            ->pluck('net', 'payment_method_code');
 
         $filename = "sales_report_{$dateFrom}_to_{$dateTo}.xlsx";
 
@@ -200,10 +301,14 @@ class ReportController extends Controller
         $rows[] = ['Total Bookings', $summary->total_bookings];
         $rows[] = ['Rooms & Lodging Revenue', $roomRevenue];
         $rows[] = ['Inventory & Products Revenue', $productRevenue];
-        $rows[] = ['Total Revenue', $unifiedTotalRevenue];
-        $rows[] = ['Total Cash', $summary->total_cash];
-        $rows[] = ['Total GCash', $summary->total_gcash];
-        $rows[] = ['Discounts Given', '-' . $summary->total_discount];
+        $rows[] = ['Recognized Revenue', $unifiedTotalRevenue];
+        $rows[] = ['Collections Received', $collectionsReceived];
+        $rows[] = ['Refunds Issued', -$refundsIssued];
+        $rows[] = ['Net Collections', $collectionsReceived - $refundsIssued];
+        $rows[] = ['Future-stay Advance Deposits', $advanceDeposits];
+        $rows[] = ['Net Cash Collections', (float) ($channelTotals['cash'] ?? 0)];
+        $rows[] = ['Net GCash Collections', (float) ($channelTotals['gcash'] ?? 0)];
+        $rows[] = ['Discounts Given', '-'.$summary->total_discount];
         $rows[] = [];
 
         $rows[] = ['=== TRANSACTION DETAILS ==='];
@@ -211,7 +316,7 @@ class ReportController extends Controller
             'Receipt/Ref#', 'Guest Name', 'Room', 'Room Type', 'Check-In', 'Check-Out', 'Booking Type',
             'Base Amount', 'Peak Surcharge', 'Discount Type', 'Discount Amt', 'Extension Fee',
             'Late Checkout Fee', 'Total Amount', 'Amount Paid', 'Payment Method', 'Cash Amt',
-            'GCash Amt', 'GCash Ref', 'Cashier', 'Status', 'Notes'
+            'GCash Amt', 'GCash Ref', 'Cashier', 'Status', 'Notes',
         ];
         foreach ($transactions as $t) {
             $rows[] = [
@@ -236,7 +341,7 @@ class ReportController extends Controller
                 $t->gcash_ref ?? '',
                 $t->cashier_name ?? '',
                 $t->status,
-                $t->notes ?? ''
+                $t->notes ?? '',
             ];
         }
         $rows[] = [];
@@ -252,12 +357,13 @@ class ReportController extends Controller
                 $c->cash,
                 $c->gcash,
                 $c->split_total,
-                $c->total_collected
+                $c->total_collected,
             ];
         }
 
-        $xlsx = \Shuchkin\SimpleXLSXGen::fromArray($rows);
-        return response()->streamDownload(function() use ($xlsx) {
+        $xlsx = SimpleXLSXGen::fromArray($rows);
+
+        return response()->streamDownload(function () use ($xlsx) {
             echo (string) $xlsx;
         }, $filename, [
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -267,15 +373,15 @@ class ReportController extends Controller
     public function analytics(Request $request)
     {
         $user = $request->user();
-        if (!in_array($user->role, ['admin', 'front_desk'], true)) {
+        if (! in_array($user->role, ['admin', 'front_desk'], true)) {
             abort(403, 'Unauthorized access to analytics.');
         }
 
         $monthStr = $request->input('month', Carbon::today()->format('Y-m'));
         $selectedRoomId = $request->input('room_id');
-        
+
         try {
-            $month = Carbon::parse($monthStr . '-01');
+            $month = Carbon::parse($monthStr.'-01');
         } catch (\Exception $e) {
             $month = Carbon::today()->startOfMonth();
             $monthStr = $month->format('Y-m');
@@ -287,27 +393,27 @@ class ReportController extends Controller
         $rooms = Room::orderBy('room_number', 'asc')->get(['id', 'room_number', 'status']);
         $roomsCount = $rooms->count();
         $selectedRoom = $selectedRoomId ? Room::find($selectedRoomId) : null;
-        
+
         // Get bookings active during this month (filtered by selected room if applicable)
         $bookingsQuery = Booking::where('status', '!=', 'cancelled')
             ->where('check_in', '<=', $monthEnd)
-            ->where(function($q) use ($monthStart) {
+            ->where(function ($q) use ($monthStart) {
                 $q->whereNull('check_out')
-                  ->orWhere('check_out', '>=', $monthStart);
+                    ->orWhere('check_out', '>=', $monthStart);
             });
-        
+
         if ($selectedRoom) {
             $bookingsQuery->where('room_id', $selectedRoom->id);
         }
         $bookings = $bookingsQuery->get();
 
         // Get maintenance tickets open during this month (filtered by selected room if applicable)
-        $ticketsQuery = \App\Models\MaintenanceTicket::where('created_at', '<=', $monthEnd)
-            ->where(function($q) use ($monthStart) {
+        $ticketsQuery = MaintenanceTicket::where('created_at', '<=', $monthEnd)
+            ->where(function ($q) use ($monthStart) {
                 $q->whereNull('resolved_at')
-                  ->orWhere('resolved_at', '>=', $monthStart);
+                    ->orWhere('resolved_at', '>=', $monthStart);
             });
-        
+
         if ($selectedRoom) {
             $ticketsQuery->where('room_id', $selectedRoom->id);
         }
@@ -395,12 +501,12 @@ class ReportController extends Controller
                     // Check if room is out of order on this specific day
                     $ooo = 0;
                     $ticketTitle = null;
-                    if (!$occupied && !$reserved) {
+                    if (! $occupied && ! $reserved) {
                         foreach ($tickets as $ticket) {
                             $created = Carbon::parse($ticket->created_at);
                             $resolved = $ticket->resolved_at ? Carbon::parse($ticket->resolved_at) : null;
 
-                            if ($created->lt($dayEnd) && (!$resolved || $resolved->gt($dayStart))) {
+                            if ($created->lt($dayEnd) && (! $resolved || $resolved->gt($dayStart))) {
                                 $ooo = 1;
                                 $ticketTitle = $ticket->title;
                                 break;
@@ -408,7 +514,7 @@ class ReportController extends Controller
                         }
                     }
 
-                    $vacant = (!$occupied && !$reserved && !$ooo) ? 1 : 0;
+                    $vacant = (! $occupied && ! $reserved && ! $ooo) ? 1 : 0;
 
                     $dailyStats[] = [
                         'date' => $dayStr,
@@ -479,8 +585,8 @@ class ReportController extends Controller
                         $created = Carbon::parse($ticket->created_at);
                         $resolved = $ticket->resolved_at ? Carbon::parse($ticket->resolved_at) : null;
 
-                        if ($created->lt($dayEnd) && (!$resolved || $resolved->gt($dayStart))) {
-                            if (!in_array($ticket->room_id, $occupiedRoomIds) && !in_array($ticket->room_id, $reservedRoomIds)) {
+                        if ($created->lt($dayEnd) && (! $resolved || $resolved->gt($dayStart))) {
+                            if (! in_array($ticket->room_id, $occupiedRoomIds) && ! in_array($ticket->room_id, $reservedRoomIds)) {
                                 $ooo++;
                             }
                         }
@@ -511,7 +617,7 @@ class ReportController extends Controller
             'dailyStats' => $dailyStats,
             'roomsCount' => $roomsCount,
             'rooms' => $rooms,
-            'selectedRoomId' => $selectedRoomId ? (int)$selectedRoomId : null,
+            'selectedRoomId' => $selectedRoomId ? (int) $selectedRoomId : null,
         ];
 
         if ($request->wantsJson()) {

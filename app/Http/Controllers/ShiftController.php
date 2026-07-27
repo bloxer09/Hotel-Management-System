@@ -14,6 +14,21 @@ use DB;
 
 class ShiftController extends Controller
 {
+    private const DENOMINATION_VALUES = [
+        '0.01' => 0.01,
+        '0.05' => 0.05,
+        '0.25' => 0.25,
+        '1' => 1.00,
+        '5' => 5.00,
+        '10' => 10.00,
+        '20' => 20.00,
+        '50' => 50.00,
+        '100' => 100.00,
+        '200' => 200.00,
+        '500' => 500.00,
+        '1000' => 1000.00,
+    ];
+
     public function index(Request $request)
     {
         $user = $request->user();
@@ -95,8 +110,10 @@ class ShiftController extends Controller
             'shift_code' => 'required|in:morning,evening,night',
             'opening_cash' => 'required|numeric|min:0',
             'opening_denominations' => 'nullable|array',
+            'opening_denominations.*' => 'integer|min:0',
             'opening_cash_minibar' => 'required|numeric|min:0',
             'opening_denominations_minibar' => 'nullable|array',
+            'opening_denominations_minibar.*' => 'integer|min:0',
             'notes' => 'nullable|string',
         ]);
 
@@ -111,20 +128,33 @@ class ShiftController extends Controller
             return back()->with('warning', 'You already have an active shift. Please end your current shift first.');
         }
 
+        $openingDenominations = $this->sanitizeDenominations($request->opening_denominations);
+        $openingDenominationsMinibar = $this->sanitizeDenominations($request->opening_denominations_minibar);
+        $hasOpeningDenominations = is_array($request->opening_denominations)
+            && count($request->opening_denominations) > 0;
+        $hasOpeningDenominationsMinibar = is_array($request->opening_denominations_minibar)
+            && count($request->opening_denominations_minibar) > 0;
+        $openingCash = $hasOpeningDenominations
+            ? $this->calculateDenominationTotal($openingDenominations)
+            : (float) $request->opening_cash;
+        $openingCashMinibar = $hasOpeningDenominationsMinibar
+            ? $this->calculateDenominationTotal($openingDenominationsMinibar)
+            : (float) $request->opening_cash_minibar;
+
         $shift = ShiftSession::create([
             'user_id' => $user->id,
             'shift_code' => $request->shift_code,
-            'opening_cash' => $request->opening_cash,
-            'opening_denominations' => $request->opening_denominations,
-            'opening_cash_minibar' => $request->opening_cash_minibar,
-            'opening_denominations_minibar' => $request->opening_denominations_minibar,
+            'opening_cash' => $openingCash,
+            'opening_denominations' => $openingDenominations,
+            'opening_cash_minibar' => $openingCashMinibar,
+            'opening_denominations_minibar' => $openingDenominationsMinibar,
             'started_at' => now(),
             'notes' => $request->notes,
         ]);
 
         \Illuminate\Support\Facades\Cache::forget("active_shift_{$user->id}");
 
-        BookingService::auditLog($user->id, 'SHIFT_START', 'shift_sessions', $shift->id, null, $request->shift_code, 'Shift started. Rooms opening cash: ' . $request->opening_cash . ', Minibar opening cash: ' . $request->opening_cash_minibar);
+        BookingService::auditLog($user->id, 'SHIFT_START', 'shift_sessions', $shift->id, null, $request->shift_code, 'Shift started. Rooms opening cash: ' . $openingCash . ', Minibar opening cash: ' . $openingCashMinibar);
 
         return redirect()->route('shifts.index')->with('success', 'Shift started successfully: ' . ucfirst($request->shift_code) . ' Shift.');
     }
@@ -134,8 +164,10 @@ class ShiftController extends Controller
         $request->validate([
             'closing_cash' => 'required|numeric|min:0',
             'closing_denominations' => 'nullable|array',
+            'closing_denominations.*' => 'integer|min:0',
             'closing_cash_minibar' => 'required|numeric|min:0',
             'closing_denominations_minibar' => 'nullable|array',
+            'closing_denominations_minibar.*' => 'integer|min:0',
             'notes' => 'nullable|string',
         ]);
 
@@ -149,11 +181,20 @@ class ShiftController extends Controller
             return back()->with('error', 'No active shift found to end.');
         }
 
+        $closingDenominations = $this->sanitizeDenominations($request->closing_denominations);
+        $closingDenominationsMinibar = $this->sanitizeDenominations($request->closing_denominations_minibar);
+        $closingCash = $request->closing_denominations !== null
+            ? $this->calculateDenominationTotal($closingDenominations)
+            : (float) $request->closing_cash;
+        $closingCashMinibar = $request->closing_denominations_minibar !== null
+            ? $this->calculateDenominationTotal($closingDenominationsMinibar)
+            : (float) $request->closing_cash_minibar;
+
         $activeShift->ended_at = now();
-        $activeShift->closing_cash = $request->closing_cash;
-        $activeShift->closing_denominations = $request->closing_denominations;
-        $activeShift->closing_cash_minibar = $request->closing_cash_minibar;
-        $activeShift->closing_denominations_minibar = $request->closing_denominations_minibar;
+        $activeShift->closing_cash = $closingCash;
+        $activeShift->closing_denominations = $closingDenominations;
+        $activeShift->closing_cash_minibar = $closingCashMinibar;
+        $activeShift->closing_denominations_minibar = $closingDenominationsMinibar;
         if ($request->notes) {
             $activeShift->notes = trim($activeShift->notes . "\nClosing Notes: " . $request->notes);
         }
@@ -161,7 +202,7 @@ class ShiftController extends Controller
 
         \Illuminate\Support\Facades\Cache::forget("active_shift_{$user->id}");
 
-        BookingService::auditLog($user->id, 'SHIFT_END', 'shift_sessions', $activeShift->id, null, null, 'Shift ended. Rooms closing cash: ' . $request->closing_cash . ', Minibar closing cash: ' . $request->closing_cash_minibar);
+        BookingService::auditLog($user->id, 'SHIFT_END', 'shift_sessions', $activeShift->id, null, null, 'Shift ended. Rooms closing cash: ' . $closingCash . ', Minibar closing cash: ' . $closingCashMinibar);
 
         return redirect()->route('shifts.report', $activeShift->id)->with('success', 'Shift ended. Here is your Shift Report.');
     }
@@ -285,11 +326,18 @@ class ShiftController extends Controller
         $bookings = \App\Models\Booking::with(['room', 'room.type', 'transactions'])
             ->where(function($query) use ($bookingIds, $shiftUserId, $start, $end) {
                 $query->whereIn('id', $bookingIds)
+                      ->orWhere(fn($q) => $q->where('booked_by_user_id', $shiftUserId)->whereBetween('created_at', [$start, $end]))
                       ->orWhere(fn($q) => $q->where('checked_in_by', $shiftUserId)->whereBetween('check_in', [$start, $end]))
                       ->orWhere(fn($q) => $q->where('checked_out_by', $shiftUserId)->whereBetween('check_out', [$start, $end]));
             })
             ->orderBy('check_in', 'asc')
             ->get();
+        $stayCollections = $this->appendBookingPaymentSummaries(
+            $bookings,
+            $shiftUserId,
+            $start,
+            $end
+        );
 
         // 6c. Detailed inventory usages list
         $inventoryUsageDetails = \App\Models\InventoryUsage::with(['item', 'booking.room', 'recorder'])
@@ -381,6 +429,7 @@ class ShiftController extends Controller
                 'waived_late_fees_sum' => $totalWaivedLateFeesSum,
                 'maintenance_tickets' => $maintenanceTickets,
                 'bookings' => $bookings,
+                'stay_collections' => $stayCollections,
                 'inventory_usage_details' => $inventoryUsageDetails,
 
                 // New fields for print report redesign
@@ -484,5 +533,197 @@ class ShiftController extends Controller
             'rooms_gcash' => round($roomsGcash, 2),
             'minibar_gcash' => round($minibarGcash, 2),
         ];
+    }
+
+    private function sanitizeDenominations(?array $denominations): ?array
+    {
+        if ($denominations === null) {
+            return null;
+        }
+
+        $sanitized = [];
+        foreach (self::DENOMINATION_VALUES as $key => $value) {
+            $sanitized[$key] = max(0, (int) ($denominations[$key] ?? 0));
+        }
+
+        return $sanitized;
+    }
+
+    private function calculateDenominationTotal(?array $denominations): float
+    {
+        if ($denominations === null) {
+            return 0.00;
+        }
+
+        $totalInCentavos = 0;
+        foreach (self::DENOMINATION_VALUES as $key => $value) {
+            $quantity = max(0, (int) ($denominations[$key] ?? 0));
+            $totalInCentavos += (int) round($value * 100) * $quantity;
+        }
+
+        return round($totalInCentavos / 100, 2);
+    }
+
+    private function appendBookingPaymentSummaries($bookings, int $userId, $start, $end): array
+    {
+        $methodKeys = [
+            'cash',
+            'gcash',
+            'bank_transfer',
+            'card',
+            'maya',
+            'other_ewallet',
+            'other',
+        ];
+        $summary = array_fill_keys($methodKeys, 0.00);
+        $summary['total_received'] = 0.00;
+        $summary['refunds'] = 0.00;
+        $summary['net_collections'] = 0.00;
+
+        $bookingIds = $bookings->pluck('id')->map(fn ($id) => (int) $id)->all();
+        if (empty($bookingIds)) {
+            return $summary;
+        }
+
+        $bookingCollections = [];
+        $bookingRefunds = [];
+        $bookingMethods = [];
+
+        $ledgerRows = DB::table('payment_allocations as pa')
+            ->join('payments as p', 'p.id', '=', 'pa.payment_id')
+            ->join('payment_components as pc', 'pc.payment_id', '=', 'p.id')
+            ->whereIn('pa.booking_id', $bookingIds)
+            ->where('p.status', 'verified')
+            ->where('p.recorded_by', $userId)
+            ->whereBetween('p.received_at', [$start, $end])
+            ->selectRaw("
+                pa.booking_id,
+                pc.payment_method_code,
+                SUM(CASE
+                    WHEN p.payment_type NOT IN ('refund', 'reversal')
+                    THEN pc.amount * (pa.allocated_amount / NULLIF(p.amount, 0))
+                    ELSE 0
+                END) AS received_amount,
+                SUM(CASE
+                    WHEN p.payment_type IN ('refund', 'reversal')
+                    THEN pc.amount * (pa.allocated_amount / NULLIF(p.amount, 0))
+                    ELSE 0
+                END) AS refund_amount
+            ")
+            ->groupBy('pa.booking_id', 'pc.payment_method_code')
+            ->get();
+
+        foreach ($ledgerRows as $row) {
+            $bookingId = (int) $row->booking_id;
+            $method = $this->normalizeCollectionMethod((string) $row->payment_method_code);
+            $received = round((float) $row->received_amount, 2);
+            $refund = round((float) $row->refund_amount, 2);
+
+            $bookingCollections[$bookingId] = ($bookingCollections[$bookingId] ?? 0) + $received;
+            $bookingRefunds[$bookingId] = ($bookingRefunds[$bookingId] ?? 0) + $refund;
+            $bookingMethods[$bookingId][$method] = ($bookingMethods[$bookingId][$method] ?? 0) + $received;
+            $summary[$method] += $received;
+            $summary['refunds'] += $refund;
+        }
+
+        // Compatibility for receipts created before the payment ledger migration.
+        // Ledger-backed transactions are excluded here to prevent double counting.
+        $legacyTransactions = Transaction::whereIn('booking_id', $bookingIds)
+            ->where('processed_by', $userId)
+            ->whereNull('payment_id')
+            ->whereNotIn('payment_method', ['na', ''])
+            ->whereBetween('created_at', [$start, $end])
+            ->get();
+
+        foreach ($legacyTransactions as $transaction) {
+            $bookingId = (int) $transaction->booking_id;
+            $components = [
+                'cash' => (float) $transaction->cash_amount,
+                'gcash' => (float) $transaction->gcash_amount,
+            ];
+
+            $bankMethod = in_array($transaction->payment_method, ['card', 'bank_transfer'], true)
+                ? $transaction->payment_method
+                : 'other';
+            $components[$bankMethod] = ($components[$bankMethod] ?? 0) + (float) $transaction->bank_amount;
+
+            if (array_sum(array_map('abs', $components)) < 0.01 && abs((float) $transaction->amount) >= 0.01) {
+                $fallbackMethod = $this->normalizeCollectionMethod((string) $transaction->payment_method);
+                $components[$fallbackMethod] = ($components[$fallbackMethod] ?? 0) + (float) $transaction->amount;
+            }
+
+            foreach ($components as $method => $amount) {
+                if (abs($amount) < 0.01) {
+                    continue;
+                }
+
+                $method = $this->normalizeCollectionMethod($method);
+                if ($amount > 0) {
+                    $bookingCollections[$bookingId] = ($bookingCollections[$bookingId] ?? 0) + $amount;
+                    $bookingMethods[$bookingId][$method] = ($bookingMethods[$bookingId][$method] ?? 0) + $amount;
+                    $summary[$method] += $amount;
+                } else {
+                    $refund = abs($amount);
+                    $bookingRefunds[$bookingId] = ($bookingRefunds[$bookingId] ?? 0) + $refund;
+                    $summary['refunds'] += $refund;
+                }
+            }
+        }
+
+        $pendingByBooking = DB::table('payment_allocations as pa')
+            ->join('payments as p', 'p.id', '=', 'pa.payment_id')
+            ->whereIn('pa.booking_id', $bookingIds)
+            ->where('p.status', 'pending')
+            ->selectRaw('pa.booking_id, SUM(pa.allocated_amount) AS pending_amount')
+            ->groupBy('pa.booking_id')
+            ->pluck('pending_amount', 'booking_id');
+
+        foreach ($bookings as $booking) {
+            $bookingId = (int) $booking->id;
+            $paid = round((float) $booking->amount_paid, 2);
+            $balance = round(max(0, (float) $booking->total_amount - $paid), 2);
+            $received = round((float) ($bookingCollections[$bookingId] ?? 0), 2);
+            $refund = round((float) ($bookingRefunds[$bookingId] ?? 0), 2);
+            $pending = round((float) ($pendingByBooking[$bookingId] ?? 0), 2);
+
+            $booking->setAttribute('paid_amount', $paid);
+            $booking->setAttribute('balance_amount', $balance);
+            $booking->setAttribute('shift_collection_amount', $received);
+            $booking->setAttribute('shift_refund_amount', $refund);
+            $booking->setAttribute('pending_payment_amount', $pending);
+            $booking->setAttribute(
+                'report_payment_status',
+                $pending > 0 ? 'pending_verification' : $booking->payment_status
+            );
+            $booking->setAttribute(
+                'shift_collection_methods',
+                collect($bookingMethods[$bookingId] ?? [])
+                    ->filter(fn ($amount) => $amount > 0)
+                    ->map(fn ($amount) => round((float) $amount, 2))
+                    ->all()
+            );
+        }
+
+        foreach ($methodKeys as $method) {
+            $summary[$method] = round((float) $summary[$method], 2);
+            $summary['total_received'] += $summary[$method];
+        }
+        $summary['total_received'] = round($summary['total_received'], 2);
+        $summary['refunds'] = round($summary['refunds'], 2);
+        $summary['net_collections'] = round($summary['total_received'] - $summary['refunds'], 2);
+
+        return $summary;
+    }
+
+    private function normalizeCollectionMethod(string $method): string
+    {
+        return in_array($method, [
+            'cash',
+            'gcash',
+            'bank_transfer',
+            'card',
+            'maya',
+            'other_ewallet',
+        ], true) ? $method : 'other';
     }
 }

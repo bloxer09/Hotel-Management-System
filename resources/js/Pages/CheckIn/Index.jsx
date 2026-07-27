@@ -898,7 +898,7 @@ export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCod
                                                 </div>
                                                 <div className="flex flex-col gap-1">
                                                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Stay Type</label>
-                                                    <CustomSelect value={data.booking_type} onChange={e => setData('booking_type', e.target.value)} className={`${inputCls} font-bold`}>
+                                                    <CustomSelect value={data.booking_type} onChange={e => setData('booking_type', e.target.value)} className={`${inputCls} font-bold`} elevateWhenOpen>
                                                         <option value="overnight">Overnight</option>
                                                         <option value="short_time">Short-time (Hourly)</option>
                                                     </CustomSelect>
@@ -964,8 +964,12 @@ export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCod
                                             </div>
                                         </div>
 
-                                        {/* Section 3: Payment */}
-                                        <div className="p-5 rounded-2xl bg-[#1e293b] border border-[#334155] flex flex-col gap-4">
+                                        <div className="rounded-2xl border border-brand-500/30 bg-brand-950/10 p-4 text-xs text-brand-200">
+                                            Editing stay details does not change payment history. Record any new collection from the booking details page.
+                                        </div>
+
+                                        {/* Legacy edit-payment controls intentionally hidden. */}
+                                        <div className="hidden p-5 rounded-2xl bg-[#1e293b] border border-[#334155] flex-col gap-4">
                                             <div className="flex items-center gap-3 mb-1">
                                                 <div className="p-2 bg-brand-500/10 text-brand-400 rounded-xl"><Coins size={16} /></div>
                                                 <h3 className="text-sm font-outfit font-bold text-slate-200">Payment Details</h3>
@@ -978,6 +982,9 @@ export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCod
                                                         <option value="gcash">GCash</option>
                                                         <option value="card">Card</option>
                                                         <option value="bank_transfer">Bank Transfer</option>
+                                                        <option value="maya">Maya</option>
+                                                        <option value="other_ewallet">Other E-wallet</option>
+                                                        <option value="other">Other</option>
                                                         <option value="split">Split (Cash + GCash)</option>
                                                     </CustomSelect>
                                                 </div>
@@ -994,11 +1001,11 @@ export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCod
                                                             placeholder="2083920..." className={`${inputCls} font-mono font-bold`} />
                                                     </div>
                                                 )}
-                                                {['card', 'bank_transfer'].includes(data.payment_method) && (
+                                                {['card', 'bank_transfer', 'maya', 'other_ewallet', 'other'].includes(data.payment_method) && (
                                                     <div className="flex flex-col gap-1">
-                                                        <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">{data.payment_method === 'card' ? 'Approval Code' : 'Bank Ref'}</label>
+                                                        <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Payment Reference</label>
                                                         <input type="text" value={data.reference_number} onChange={e => setData('reference_number', e.target.value)} required
-                                                            placeholder={data.payment_method === 'card' ? 'Auth Code...' : 'BDO-9821...'} className={`${inputCls} font-mono font-bold`} />
+                                                            placeholder="Reference / approval code" className={`${inputCls} font-mono font-bold`} />
                                                     </div>
                                                 )}
                                             </div>
@@ -1319,7 +1326,7 @@ export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCod
                                                 </div>
                                                 <div className="flex flex-col gap-1">
                                                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Stay Type</label>
-                                                    <CustomSelect value={editForm.data.booking_type} onChange={e => editForm.setData('booking_type', e.target.value)} className={`${inputCls} font-bold`}>
+                                                    <CustomSelect value={editForm.data.booking_type} onChange={e => editForm.setData('booking_type', e.target.value)} className={`${inputCls} font-bold`} elevateWhenOpen>
                                                         <option value="overnight">Overnight</option>
                                                         <option value="short_time">Short-time (Hourly)</option>
                                                     </CustomSelect>

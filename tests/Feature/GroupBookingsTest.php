@@ -2,13 +2,14 @@
 
 namespace Tests\Feature;
 
-use Tests\TestCase;
-use App\Models\User;
-use App\Models\RoomType;
-use App\Models\Room;
 use App\Models\Booking;
+use App\Models\Room;
+use App\Models\RoomType;
 use App\Models\ShiftSession;
+use App\Models\Transaction;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
 
 class GroupBookingsTest extends TestCase
 {
@@ -92,12 +93,12 @@ class GroupBookingsTest extends TestCase
         // 5. Test Check-In index endpoint returns groupBookings
         $response = $this->actingAs($user)->get(route('checkin.index'));
         $response->assertStatus(200);
-        $this->assertArrayHasKey($groupRef, (array)$response->viewData('page')['props']['groupBookings']);
+        $this->assertArrayHasKey($groupRef, (array) $response->viewData('page')['props']['groupBookings']);
 
         // 6. Test Reservations index endpoint returns groupBookings
         $response2 = $this->actingAs($user)->get(route('reservations.index'));
         $response2->assertStatus(200);
-        $this->assertArrayHasKey($groupRef, (array)$response2->viewData('page')['props']['groupBookings']);
+        $this->assertArrayHasKey($groupRef, (array) $response2->viewData('page')['props']['groupBookings']);
 
         // 7. Perform group check-in
         $checkinResponse = $this->actingAs($user)->post(route('reservations.group_checkin', $groupRef));
@@ -192,6 +193,27 @@ class GroupBookingsTest extends TestCase
             'total_amount' => 1000.00,
             'amount_paid' => 900.00, // 100 unpaid
             'checked_in_by' => $user->id,
+        ]);
+
+        // Pre-ledger bookings must have auditable legacy receipts matching the
+        // cached amount_paid values. The backfill command migrates these rows.
+        Transaction::create([
+            'booking_id' => $booking1->id,
+            'transaction_type' => 'check_in',
+            'description' => 'Legacy room deposit',
+            'amount' => 800.00,
+            'payment_method' => 'cash',
+            'cash_amount' => 800.00,
+            'processed_by' => $user->id,
+        ]);
+        Transaction::create([
+            'booking_id' => $booking2->id,
+            'transaction_type' => 'check_in',
+            'description' => 'Legacy room deposit',
+            'amount' => 900.00,
+            'payment_method' => 'cash',
+            'cash_amount' => 900.00,
+            'processed_by' => $user->id,
         ]);
 
         // 3. Test Preview endpoint

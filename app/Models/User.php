@@ -3,13 +3,14 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable
 {
-    /** @use HasFactory<\Database\Factories\UserFactory> */
+    /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
 
     /**
@@ -42,7 +43,7 @@ class User extends Authenticatable
 
     public function getAvatarUrlAttribute()
     {
-        return $this->avatar_path ? asset('storage/' . $this->avatar_path) : null;
+        return $this->avatar_path ? asset('storage/'.$this->avatar_path) : null;
     }
 
     /**
@@ -87,6 +88,16 @@ class User extends Authenticatable
     public function transactions()
     {
         return $this->hasMany(Transaction::class, 'processed_by');
+    }
+
+    public function recordedPayments()
+    {
+        return $this->hasMany(Payment::class, 'recorded_by');
+    }
+
+    public function verifiedPayments()
+    {
+        return $this->hasMany(Payment::class, 'verified_by');
     }
 
     public function auditLogs()

@@ -21,8 +21,17 @@ import CustomSelect from '@/Components/CustomSelect';
 export default function Index({ activeShift, suggestedShift, suggestedOpeningCash, suggestedOpeningDenominations, suggestedOpeningCashMinibar, suggestedOpeningDenominationsMinibar, liveSummary, recentShifts }) {
     const [showShutdownConfirm, setShowShutdownConfirm] = useState(false);
 
-    const COINS = [0.01, 0.05, 0.25, 1, 5, 10, 20];
+    const COINS = [0.01, 0.05, 0.25, 1, 5, 10];
     const BILLS = [20, 50, 100, 200, 500, 1000];
+    const DENOMINATIONS = [...COINS, ...BILLS];
+
+    const sanitizeQuantity = (qty) => Math.max(0, parseInt(qty, 10) || 0);
+
+    const calculateDenominationTotal = (denominations = {}) => DENOMINATIONS.reduce(
+        (total, denomination) => total
+            + denomination * sanitizeQuantity(denominations[denomination.toString()]),
+        0
+    );
 
     // Start shift form
     const startForm = useForm({
@@ -36,65 +45,49 @@ export default function Index({ activeShift, suggestedShift, suggestedOpeningCas
 
     // End shift form
     const defaultDenominations = {};
-    [...COINS, ...BILLS].forEach(d => { defaultDenominations[d.toString()] = 0; });
+    DENOMINATIONS.forEach(d => { defaultDenominations[d.toString()] = 0; });
 
     const endForm = useForm({
         closing_cash: 0.00,
-        closing_denominations: defaultDenominations,
+        closing_denominations: { ...defaultDenominations },
         closing_cash_minibar: 0.00,
-        closing_denominations_minibar: defaultDenominations,
+        closing_denominations_minibar: { ...defaultDenominations },
         notes: ''
     });
 
     const handleDenominationChange = (denom, qty) => {
-        const newDenoms = { ...endForm.data.closing_denominations, [denom]: parseInt(qty) || 0 };
-        let total = 0;
-        Object.entries(newDenoms).forEach(([d, q]) => {
-            total += parseFloat(d) * (parseInt(q) || 0);
-        });
+        const newDenoms = { ...endForm.data.closing_denominations, [denom]: sanitizeQuantity(qty) };
         endForm.setData(data => ({
             ...data,
             closing_denominations: newDenoms,
-            closing_cash: total
+            closing_cash: calculateDenominationTotal(newDenoms)
         }));
     };
 
     const handleDenominationMinibarChange = (denom, qty) => {
-        const newDenoms = { ...endForm.data.closing_denominations_minibar, [denom]: parseInt(qty) || 0 };
-        let total = 0;
-        Object.entries(newDenoms).forEach(([d, q]) => {
-            total += parseFloat(d) * (parseInt(q) || 0);
-        });
+        const newDenoms = { ...endForm.data.closing_denominations_minibar, [denom]: sanitizeQuantity(qty) };
         endForm.setData(data => ({
             ...data,
             closing_denominations_minibar: newDenoms,
-            closing_cash_minibar: total
+            closing_cash_minibar: calculateDenominationTotal(newDenoms)
         }));
     };
 
     const handleStartDenominationChange = (denom, qty) => {
-        const newDenoms = { ...startForm.data.opening_denominations, [denom]: parseInt(qty) || 0 };
-        let total = 0;
-        Object.entries(newDenoms).forEach(([d, q]) => {
-            total += parseFloat(d) * (parseInt(q) || 0);
-        });
+        const newDenoms = { ...startForm.data.opening_denominations, [denom]: sanitizeQuantity(qty) };
         startForm.setData(data => ({
             ...data,
             opening_denominations: newDenoms,
-            opening_cash: total
+            opening_cash: calculateDenominationTotal(newDenoms)
         }));
     };
 
     const handleStartDenominationMinibarChange = (denom, qty) => {
-        const newDenoms = { ...startForm.data.opening_denominations_minibar, [denom]: parseInt(qty) || 0 };
-        let total = 0;
-        Object.entries(newDenoms).forEach(([d, q]) => {
-            total += parseFloat(d) * (parseInt(q) || 0);
-        });
+        const newDenoms = { ...startForm.data.opening_denominations_minibar, [denom]: sanitizeQuantity(qty) };
         startForm.setData(data => ({
             ...data,
             opening_denominations_minibar: newDenoms,
-            opening_cash_minibar: total
+            opening_cash_minibar: calculateDenominationTotal(newDenoms)
         }));
     };
 

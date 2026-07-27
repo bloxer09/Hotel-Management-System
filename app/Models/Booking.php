@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 
 class Booking extends Model
@@ -11,8 +12,11 @@ class Booking extends Model
         'room_id',
         'group_ref',
         'guest_profile_id',
+        'booked_by_user_id',
         'guest_name',
+        'booker_name',
         'guest_contact',
+        'booker_contact',
         'guest_id_type',
         'guest_id_number',
         'guest_id_image_path',
@@ -65,12 +69,42 @@ class Booking extends Model
         'gcash_amount' => 'float',
     ];
 
+    /**
+     * Legacy overnight bookings may predate the num_nights column. Resolve
+     * their stay length from the confirmed dates so forms and reports never
+     * silently present a multi-night stay as one night.
+     */
+    public function getNumNightsAttribute($value): ?int
+    {
+        if ($value !== null) {
+            return max(1, (int) $value);
+        }
+
+        if (($this->attributes['booking_type'] ?? null) !== 'overnight') {
+            return null;
+        }
+
+        $checkIn = $this->attributes['check_in'] ?? null;
+        $expectedCheckOut = $this->attributes['expected_check_out'] ?? null;
+        if (! $checkIn || ! $expectedCheckOut) {
+            return 1;
+        }
+
+        try {
+            return max(
+                1,
+                (int) Carbon::parse($checkIn)->startOfDay()
+                    ->diffInDays(Carbon::parse($expectedCheckOut)->startOfDay())
+            );
+        } catch (\Throwable) {
+            return 1;
+        }
+    }
+
     public function room()
     {
         return $this->belongsTo(Room::class);
     }
-
-
 
     public function guestProfile()
     {
@@ -80,6 +114,23 @@ class Booking extends Model
     public function transactions()
     {
         return $this->hasMany(Transaction::class);
+    }
+
+    public function paymentAllocations()
+    {
+        return $this->hasMany(PaymentAllocation::class);
+    }
+
+    public function payments()
+    {
+        return $this->belongsToMany(Payment::class, 'payment_allocations')
+            ->withPivot('allocated_amount')
+            ->withTimestamps();
+    }
+
+    public function bookedBy()
+    {
+        return $this->belongsTo(User::class, 'booked_by_user_id');
     }
 
     public function inventoryUsages()

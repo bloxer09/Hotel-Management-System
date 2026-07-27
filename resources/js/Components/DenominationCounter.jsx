@@ -8,7 +8,6 @@ const DEFAULT_DENOMINATIONS = {
     c_1: 0,
     c_5: 0,
     c_10: 0,
-    c_20: 0,
     b_20: 0,
     b_50: 0,
     b_100: 0,
@@ -24,7 +23,6 @@ const COIN_TYPES = [
     { key: 'c_1', label: '₱1', value: 1.00 },
     { key: 'c_5', label: '₱5', value: 5.00 },
     { key: 'c_10', label: '₱10', value: 10.00 },
-    { key: 'c_20', label: '₱20', value: 20.00 },
 ];
 
 const BILL_TYPES = [

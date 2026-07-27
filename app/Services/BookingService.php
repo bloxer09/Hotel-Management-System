@@ -30,7 +30,9 @@ class BookingService
     public static function buildOvernightExpectedCheckOut($inputDateTime, $numNights = 1): DateTime
     {
         $numNights = max(1, (int)$numNights);
-        $dt = self::buildOvernightCheckIn($inputDateTime);
+        // Use the arrival date from the supplied datetime as-is (do NOT force 2 PM via
+        // buildOvernightCheckIn). Add the selected nights, then pin checkout to 12:00 PM.
+        $dt = new DateTime($inputDateTime ?: 'now');
         $dt->modify('+' . $numNights . ' day');
         $dt->setTime(self::OVERNIGHT_CHECKOUT_HOUR, 0, 0);
         return $dt;

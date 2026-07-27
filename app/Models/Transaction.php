@@ -3,11 +3,13 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 
 class Transaction extends Model
 {
     protected $fillable = [
         'booking_id',
+        'payment_id',
         'transaction_type',
         'description',
         'amount',
@@ -37,16 +39,16 @@ class Transaction extends Model
         static::creating(function ($transaction) {
             if ($transaction->amount > 0 && in_array($transaction->payment_method, ['cash', 'gcash', 'card', 'bank_transfer', 'split'])) {
                 // Fetch current OR sequence in a transaction to avoid race conditions
-                \Illuminate\Support\Facades\DB::transaction(function () use ($transaction) {
-                    $setting = \App\Models\Setting::where('key', 'or_sequence')->lockForUpdate()->first();
-                    $sequence = $setting ? (int)$setting->value : 1;
+                DB::transaction(function () use ($transaction) {
+                    $setting = Setting::where('key', 'or_sequence')->lockForUpdate()->first();
+                    $sequence = $setting ? (int) $setting->value : 1;
                     $transaction->or_number = $sequence;
-                    
+
                     if ($setting) {
-                        $setting->value = (string)($sequence + 1);
+                        $setting->value = (string) ($sequence + 1);
                         $setting->save();
                     } else {
-                        \App\Models\Setting::create(['key' => 'or_sequence', 'value' => (string)($sequence + 1)]);
+                        Setting::create(['key' => 'or_sequence', 'value' => (string) ($sequence + 1)]);
                     }
                 });
             }
@@ -55,14 +57,22 @@ class Transaction extends Model
 
     public function getFormattedOrNumberAttribute()
     {
-        if (!$this->or_number) return null;
-        $prefix = \App\Models\Setting::getValue('or_prefix', 'OR');
-        return $prefix . '-' . str_pad($this->or_number, 6, '0', STR_PAD_LEFT);
+        if (! $this->or_number) {
+            return null;
+        }
+        $prefix = Setting::getValue('or_prefix', 'OR');
+
+        return $prefix.'-'.str_pad($this->or_number, 6, '0', STR_PAD_LEFT);
     }
 
     public function booking()
     {
         return $this->belongsTo(Booking::class);
+    }
+
+    public function payment()
+    {
+        return $this->belongsTo(Payment::class);
     }
 
     public function cashier()

@@ -67,15 +67,45 @@ export default function Report({ shift, report }) {
         }, 150);
     };
 
-    // --- Stay Bookings calculations for circle totals ---
-    const cashBookings = report.bookings?.filter(b => b.payment_method?.toLowerCase() === 'cash') || [];
-    const gcashBookings = report.bookings?.filter(b => b.payment_method?.toLowerCase() === 'gcash') || [];
-    const otherBookings = report.bookings?.filter(b => !['cash', 'gcash'].includes(b.payment_method?.toLowerCase())) || [];
+    // Stay collections are verified receipts received during this shift.
+    // Booking totals, cumulative paid amounts, and balances remain separate.
+    const stayCollections = report.stay_collections || {};
+    const cashBookingsTotal = Number(stayCollections.cash || 0);
+    const gcashBookingsTotal = Number(stayCollections.gcash || 0);
+    const otherBookingsTotal = ['bank_transfer', 'card', 'maya', 'other_ewallet', 'other']
+        .reduce((sum, method) => sum + Number(stayCollections[method] || 0), 0);
+    const staysTotalCollection = Number(stayCollections.total_received || 0);
+    const staysRefunds = Number(stayCollections.refunds || 0);
+    const staysNetCollection = Number(stayCollections.net_collections || 0);
 
-    const cashBookingsTotal = cashBookings.reduce((sum, b) => sum + Number(b.total_amount || 0), 0);
-    const gcashBookingsTotal = gcashBookings.reduce((sum, b) => sum + Number(b.total_amount || 0), 0);
-    const otherBookingsTotal = otherBookings.reduce((sum, b) => sum + Number(b.total_amount || 0), 0);
-    const staysTotalCollection = report.bookings?.reduce((sum, b) => sum + Number(b.total_amount || 0), 0) || 0;
+    const formatPaymentMethods = (booking) => {
+        const labels = {
+            cash: 'Cash',
+            gcash: 'GCash',
+            bank_transfer: 'Bank',
+            card: 'Card',
+            maya: 'Maya',
+            other_ewallet: 'E-wallet',
+            other: 'Other',
+        };
+        const methods = Object.entries(booking.shift_collection_methods || {})
+            .filter(([, amount]) => Number(amount) > 0)
+            .map(([method]) => labels[method] || method);
+
+        return methods.length > 0 ? methods.join(' + ') : (booking.payment_method || '-');
+    };
+
+    const formatPaymentStatus = (booking) => {
+        if (booking.report_payment_status === 'pending_verification') {
+            return `Pending ${formatCurrency(booking.pending_payment_amount)}`;
+        }
+
+        return {
+            paid: 'Paid',
+            partial: 'Partial',
+            unpaid: 'Unpaid',
+        }[booking.report_payment_status] || booking.report_payment_status || 'Unpaid';
+    };
 
     // Helper component for printing headers on every page
     const PrintHeader = ({ title, pageNum }) => (
@@ -468,10 +498,13 @@ export default function Report({ shift, report }) {
                                             <th>ROOM RATE</th>
                                             <th>EXP. / ADDL</th>
                                             <th>TOTAL</th>
+                                            <th>PAID / ADV.</th>
+                                            <th>BALANCE</th>
                                             <th>MOP</th>
                                             <th>GUEST NAME</th>
                                             <th>CONTACT NUMBER</th>
                                             <th>RM NO.</th>
+                                            <th>STATUS</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -491,20 +524,22 @@ export default function Report({ shift, report }) {
                                                         </td>
                                                         <td className="text-right">{formatCurrency(rate)}</td>
                                                         <td className="text-right text-indigo-300">{addl !== 0 ? formatCurrency(addl) : '-'}</td>
-                                                        <td className="text-right font-bold text-emerald-400">{formatCurrency(booking.total_amount)}</td>
-                                                        <td className="text-center font-sans uppercase font-bold text-[10px] text-slate-300">{booking.payment_method || 'CASH'}</td>
+                                                        <td className="text-right font-bold">{formatCurrency(booking.total_amount)}</td>
+                                                        <td className="text-right font-bold text-emerald-400">{formatCurrency(booking.paid_amount)}</td>
+                                                        <td className={`text-right font-bold ${Number(booking.balance_amount) > 0 ? 'text-amber-300' : 'text-slate-400'}`}>{formatCurrency(booking.balance_amount)}</td>
+                                                        <td className="text-center font-sans uppercase font-bold text-[10px] text-slate-300">{formatPaymentMethods(booking)}</td>
                                                         <td className="font-bold text-slate-200">{booking.guest_name}</td>
                                                         <td>{booking.guest_contact || '-'}</td>
                                                         <td className="text-center font-bold text-indigo-400">{booking.room?.room_number || '-'}</td>
-                                                        <td className="text-[10px] font-sans text-slate-400 italic text-center">
-                                                            {booking.status === 'checked_out' ? 'Checked Out' : 'Active Stay'}
+                                                        <td className={`text-[10px] font-sans font-bold text-center uppercase ${booking.report_payment_status === 'paid' ? 'text-emerald-400' : 'text-amber-300'}`}>
+                                                            {formatPaymentStatus(booking)}
                                                         </td>
                                                     </tr>
                                                 );
                                             })
                                         ) : (
                                             <tr>
-                                                <td colSpan="14" className="text-center py-6 text-slate-500 font-sans">
+                                                <td colSpan="16" className="text-center py-6 text-slate-500 font-sans">
                                                     No stay bookings checked in or checked out during this shift.
                                                 </td>
                                             </tr>
@@ -527,8 +562,18 @@ export default function Report({ shift, report }) {
                                     </div>
                                 )}
                                 <div className="ledger-handwritten-circle text-slate-100 text-sm border-emerald-400">
-                                    Total Stays: {formatCurrency(staysTotalCollection)}
+                                    Verified Received: {formatCurrency(staysTotalCollection)}
                                 </div>
+                                {staysRefunds > 0 && (
+                                    <>
+                                        <div className="ledger-handwritten-circle text-rose-300 text-xs">
+                                            Refunds: {formatCurrency(staysRefunds)}
+                                        </div>
+                                        <div className="ledger-handwritten-circle text-slate-100 text-sm">
+                                            Net Collections: {formatCurrency(staysNetCollection)}
+                                        </div>
+                                    </>
+                                )}
                             </div>
                         </div>
                     )}
@@ -1047,11 +1092,14 @@ export default function Report({ shift, report }) {
                                     <th className="w-[6%]">HRS</th>
                                     <th className="w-[9%]">ROOM RATE</th>
                                     <th className="w-[9%]">EXP/ADDL</th>
-                                    <th className="w-[10%]">TOTAL</th>
+                                    <th className="w-[7%]">TOTAL</th>
+                                    <th className="w-[7%]">PAID/ADV.</th>
+                                    <th className="w-[7%]">BALANCE</th>
                                     <th className="w-[6%]">FINANCE</th>
-                                    <th className="w-[16%]">GUEST NAME</th>
-                                    <th className="w-[11%]">CONTACT</th>
-                                    <th className="w-[5%]">RM NO.</th>
+                                    <th className="w-[12%]">GUEST NAME</th>
+                                    <th className="w-[9%]">CONTACT</th>
+                                    <th className="w-[4%]">RM</th>
+                                    <th className="w-[6%]">STATUS</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -1070,17 +1118,19 @@ export default function Report({ shift, report }) {
                                                 <td className="text-right">{formatCurrency(rate)}</td>
                                                 <td className="text-right">{addl !== 0 ? formatCurrency(addl) : '-'}</td>
                                                 <td className="text-right font-bold">{formatCurrency(booking.total_amount)}</td>
-                                                <td className="text-center uppercase font-bold text-[8px]">{booking.payment_method || 'CASH'}</td>
+                                                <td className="text-right font-bold">{formatCurrency(booking.paid_amount)}</td>
+                                                <td className="text-right font-bold">{formatCurrency(booking.balance_amount)}</td>
+                                                <td className="text-center uppercase font-bold text-[7px]">{formatPaymentMethods(booking)}</td>
                                                 <td className="font-bold truncate max-w-[120px]">{booking.guest_name}</td>
                                                 <td className="text-center">{booking.guest_contact || '-'}</td>
                                                 <td className="text-center font-bold">{booking.room?.room_number || '-'}</td>
-                                                <td className="text-center text-[7px] text-gray-400">______</td>
+                                                <td className="text-center uppercase font-bold text-[7px]">{formatPaymentStatus(booking)}</td>
                                             </tr>
                                         );
                                     })
                                 ) : (
                                     <tr>
-                                        <td colSpan="14" className="text-center py-6">
+                                        <td colSpan="16" className="text-center py-6">
                                             No stay bookings checked in or checked out during this shift.
                                         </td>
                                     </tr>
@@ -1103,8 +1153,18 @@ export default function Report({ shift, report }) {
                             </div>
                         )}
                         <div className="ledger-handwritten-circle text-[10px] border-black">
-                            Total Stay Collections: {formatCurrency(staysTotalCollection)}
+                            Verified Received: {formatCurrency(staysTotalCollection)}
                         </div>
+                        {staysRefunds > 0 && (
+                            <>
+                                <div className="ledger-handwritten-circle text-[9px]">
+                                    Refunds: {formatCurrency(staysRefunds)}
+                                </div>
+                                <div className="ledger-handwritten-circle text-[10px] border-black">
+                                    Net Collections: {formatCurrency(staysNetCollection)}
+                                </div>
+                            </>
+                        )}
                     </div>
 
                     <PrintFooter title="Stays Ledger (Log Book Format)" />

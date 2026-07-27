@@ -58,11 +58,22 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
     const [selectedCheckInRes, setSelectedCheckInRes] = useState(null);
     const [alertMessage, setAlertMessage] = useState(null);
     const [confirmAction, setConfirmAction] = useState(null);
+    const settlementForm = useForm({
+        payer_name: '',
+        payer_contact: '',
+        payment_method_code: 'cash',
+        reference_number: '',
+        cash_amount: 0,
+        gcash_amount: 0,
+        remarks: '',
+    });
 
     // ── Cancel Modal ──
     const [showCancelModal, setShowCancelModal] = useState(false);
     const [selectedCancelRes, setSelectedCancelRes] = useState(null);
     const [cancelReason, setCancelReason] = useState('');
+    const [cancelDisposition, setCancelDisposition] = useState('retain');
+    const [cancelRefundAmount, setCancelRefundAmount] = useState('');
 
     const [isImageModalOpen, setIsImageModalOpen] = useState(false);
     const [previewImage, setPreviewImage] = useState(null);
@@ -105,7 +116,7 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
 
     const { data, setData, post, processing, errors, reset } = useForm({
         room_ids: [], check_in: defaultCheckIn,
-        guest_name: '', guest_contact: '', guest_id_type: 'Driver License',
+        guest_name: '', guest_contact: '', booker_name: '', booker_contact: '', guest_id_type: 'Driver License',
         guest_id_number: '', id_image: null, guest_email: '', guest_address: '', extra_pax: {},
         booking_type: 'overnight', num_nights: 1, short_time_hours: 3,
         discount_type: 'none', discount_amount: 0, promo_code: '',
@@ -128,33 +139,23 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
         guest_id_number: '', id_image: null, guest_email: '', guest_address: '', num_guests: 1,
         booking_type: 'overnight', num_nights: 1, short_time_hours: 3,
         discount_type: 'none', discount_amount: 0, promo_code: '',
-        payment_ratio: 'full',
-        payment_method: 'cash', cash_amount: 0.00, gcash_amount: 0.00,
-        gcash_ref: '', reference_number: '', notes: ''
+        notes: ''
     });
 
     // Live pricing + conflict check for edit form
     useEffect(() => {
         if (editForm.data.room_id && editForm.data.check_in) {
             axios.post(route('reservations.calculate'), {
-                room_id: editForm.data.room_id, check_in: editForm.data.check_in,
+                room_ids: [editForm.data.room_id], check_in: editForm.data.check_in,
                 booking_type: editForm.data.booking_type, num_nights: editForm.data.num_nights,
                 short_time_hours: editForm.data.short_time_hours, discount_type: editForm.data.discount_type,
                 num_guests: editForm.data.num_guests,
                 discount_amount: editForm.data.discount_amount, promo_code: editForm.data.promo_code
             }).then(res => {
                 setEditCalc(res.data);
-                editForm.setData(prev => {
-                    const total = res.data.total_amount;
-                    const due = prev.payment_ratio === 'half' ? Math.round(total / 2) : total;
-                    if (prev.payment_method === 'cash') return { ...prev, cash_amount: due, gcash_amount: 0 };
-                    if (prev.payment_method === 'gcash') return { ...prev, gcash_amount: due, cash_amount: 0 };
-                    if (prev.payment_method === 'split') return { ...prev, cash_amount: Math.round(due / 2), gcash_amount: due - Math.round(due / 2) };
-                    return { ...prev, cash_amount: 0, gcash_amount: 0 };
-                });
             }).catch(() => { });
         }
-    }, [editForm.data.room_id, editForm.data.check_in, editForm.data.booking_type, editForm.data.num_nights, editForm.data.short_time_hours, editForm.data.discount_type, editForm.data.discount_amount, editForm.data.promo_code, editForm.data.payment_ratio, editForm.data.payment_method, editForm.data.num_guests]);
+    }, [editForm.data.room_id, editForm.data.check_in, editForm.data.booking_type, editForm.data.num_nights, editForm.data.short_time_hours, editForm.data.discount_type, editForm.data.discount_amount, editForm.data.promo_code, editForm.data.num_guests]);
 
     const selectEditGuest = (g) => {
         editForm.setData(prev => ({
@@ -178,19 +179,6 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
                 } else setPromoError(res.data.message || 'Invalid promo code.');
             })
             .catch(err => setPromoError(err.response?.data?.error || 'Failed to validate.'));
-    };
-
-    const handleEditCashInput = (e) => {
-        const totalVal = editCalc.totals?.total_amount ?? editCalc.total_amount ?? 0;
-        const due = editForm.data.payment_ratio === 'half' ? Math.round(totalVal / 2) : totalVal;
-        const cash = Math.min(due, Math.max(0, Number(e.target.value) || 0));
-        editForm.setData(prev => ({ ...prev, cash_amount: cash, gcash_amount: Math.max(0, due - cash) }));
-    };
-    const handleEditGCashInput = (e) => {
-        const totalVal = editCalc.totals?.total_amount ?? editCalc.total_amount ?? 0;
-        const due = editForm.data.payment_ratio === 'half' ? Math.round(totalVal / 2) : totalVal;
-        const gcash = Math.min(due, Math.max(0, Number(e.target.value) || 0));
-        editForm.setData(prev => ({ ...prev, gcash_amount: gcash, cash_amount: Math.max(0, due - gcash) }));
     };
 
     const handleEditFormSubmit = (e) => {
@@ -230,12 +218,6 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
             discount_type: booking.discount_type || 'none',
             discount_amount: booking.discount_amount || 0,
             promo_code: booking.promo_code || '',
-            payment_ratio: Number(booking.amount_paid) < Number(booking.total_amount) ? 'half' : 'full',
-            payment_method: booking.payment_method || 'cash',
-            cash_amount: booking.cash_amount || 0.00,
-            gcash_amount: booking.gcash_amount || 0.00,
-            gcash_ref: booking.gcash_ref || '',
-            reference_number: booking.gcash_ref || '',
             notes: booking.notes || ''
         });
         setEditCalc({
@@ -494,18 +476,127 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
         setIsGroupSettleOpen(true);
     };
 
-    const triggerCheckIn = (res) => { setSelectedCheckInRes(res); setShowCheckInModal(true); };
+    const triggerCheckIn = (res) => {
+        const balance = Math.max(0, Number(res.total_amount || 0) - Number(res.amount_paid || 0));
+        setSelectedCheckInRes(res);
+        settlementForm.setData({
+            payer_name: res.booker_name || res.guest_name || '',
+            payer_contact: res.booker_contact || res.guest_contact || '',
+            payment_method_code: 'cash',
+            reference_number: '',
+            cash_amount: balance,
+            gcash_amount: 0,
+            remarks: `Arrival balance for ${res.booking_ref}`,
+        });
+        setShowCheckInModal(true);
+    };
+
+    const closeCheckInModal = () => {
+        setShowCheckInModal(false);
+        setSelectedCheckInRes(null);
+        settlementForm.clearErrors();
+    };
+
     const confirmCheckIn = () => {
         if (!selectedCheckInRes) return;
-        router.post(route('reservations.checkin', selectedCheckInRes.id), {}, {
-            onSuccess: () => { setShowCheckInModal(false); setSelectedCheckInRes(null); }
+        const balance = Math.max(0, Number(selectedCheckInRes.total_amount || 0) - Number(selectedCheckInRes.amount_paid || 0));
+
+        if (balance <= 0.01) {
+            router.post(route('reservations.checkin', selectedCheckInRes.id), {}, {
+                onSuccess: closeCheckInModal,
+            });
+            return;
+        }
+
+        const payload = {
+            payer_name: settlementForm.data.payer_name,
+            payer_contact: settlementForm.data.payer_contact,
+            payment_method_code: settlementForm.data.payment_method_code,
+            reference_number: settlementForm.data.reference_number,
+            remarks: settlementForm.data.remarks,
+        };
+        if (settlementForm.data.payment_method_code === 'split') {
+            payload.components = [
+                {
+                    payment_method_code: 'cash',
+                    amount: Number(settlementForm.data.cash_amount || 0),
+                },
+                {
+                    payment_method_code: 'gcash',
+                    amount: Number(settlementForm.data.gcash_amount || 0),
+                    reference_number: settlementForm.data.reference_number,
+                },
+            ];
+        }
+
+        // Inertia's transform() mutates the form transform callback but does not
+        // return the form instance, so it cannot be chained with post().
+        settlementForm.transform(() => payload);
+        settlementForm.post(route('reservations.settle_checkin', selectedCheckInRes.id), {
+            preserveScroll: true,
+            onSuccess: (page) => {
+                if (!page.props.flash?.error) closeCheckInModal();
+            },
+            onFinish: () => settlementForm.transform(values => values),
         });
     };
-    const triggerCancel = (res) => { setSelectedCancelRes(res); setCancelReason(''); setShowCancelModal(true); };
+    const selectedCheckInBalance = selectedCheckInRes
+        ? Math.max(0, Number(selectedCheckInRes.total_amount || 0) - Number(selectedCheckInRes.amount_paid || 0))
+        : 0;
+    const selectedPendingPayment = Number(selectedCheckInRes?.pending_payment_amount || 0);
+
+    const handleSettlementMethodChange = (method) => {
+        settlementForm.setData(prev => ({
+            ...prev,
+            payment_method_code: method,
+            reference_number: '',
+            cash_amount: method === 'cash'
+                ? selectedCheckInBalance
+                : (method === 'split' ? Math.floor(selectedCheckInBalance / 2) : 0),
+            gcash_amount: method === 'split'
+                ? selectedCheckInBalance - Math.floor(selectedCheckInBalance / 2)
+                : 0,
+        }));
+    };
+
+    const handleSettlementCashChange = (value) => {
+        const cash = Math.min(selectedCheckInBalance, Math.max(0, Number(value) || 0));
+        settlementForm.setData(prev => ({
+            ...prev,
+            cash_amount: cash,
+            gcash_amount: Math.max(0, selectedCheckInBalance - cash),
+        }));
+    };
+
+    const handleSettlementGcashChange = (value) => {
+        const gcash = Math.min(selectedCheckInBalance, Math.max(0, Number(value) || 0));
+        settlementForm.setData(prev => ({
+            ...prev,
+            gcash_amount: gcash,
+            cash_amount: Math.max(0, selectedCheckInBalance - gcash),
+        }));
+    };
+    const triggerCancel = (res) => {
+        setSelectedCancelRes(res);
+        setCancelReason('');
+        setCancelDisposition('retain');
+        setCancelRefundAmount('');
+        setShowCancelModal(true);
+    };
     const confirmCancel = () => {
         if (!selectedCancelRes || !cancelReason.trim()) return;
-        router.post(route('reservations.cancel', selectedCancelRes.id), { reason: cancelReason }, {
-            onSuccess: () => { setShowCancelModal(false); setSelectedCancelRes(null); setCancelReason(''); }
+        router.post(route('reservations.cancel', selectedCancelRes.id), {
+            reason: cancelReason,
+            payment_disposition: cancelDisposition,
+            refund_amount: cancelDisposition === 'partial_refund' ? cancelRefundAmount : null,
+        }, {
+            onSuccess: () => {
+                setShowCancelModal(false);
+                setSelectedCancelRes(null);
+                setCancelReason('');
+                setCancelDisposition('retain');
+                setCancelRefundAmount('');
+            }
         });
     };
 
@@ -880,6 +971,16 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
                                                     <input type="text" value={data.guest_contact} onChange={e => setData('guest_contact', e.target.value)} className={inputCls} />
                                                 </div>
                                                 <div className="flex flex-col gap-1">
+                                                    <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Person Who Booked / Payer</label>
+                                                    <input type="text" value={data.booker_name} onChange={e => setData('booker_name', e.target.value)}
+                                                        placeholder="Leave blank if same as guest" className={inputCls} />
+                                                </div>
+                                                <div className="flex flex-col gap-1">
+                                                    <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Booker Contact</label>
+                                                    <input type="text" value={data.booker_contact} onChange={e => setData('booker_contact', e.target.value)}
+                                                        placeholder="Leave blank if same as guest" className={inputCls} />
+                                                </div>
+                                                <div className="flex flex-col gap-1">
                                                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">ID Type</label>
                                                     <input
                                                         type="text"
@@ -1032,8 +1133,12 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
                                             </div>
                                         </div>
 
-                                        {/* Payment */}
-                                        <div className="p-5 rounded-2xl bg-[#1e293b] border border-[#334155] flex flex-col gap-4">
+                                        <div className="rounded-2xl border border-brand-500/30 bg-brand-950/10 p-4 text-xs text-brand-200">
+                                            Editing stay details does not change payment history. Use <strong>Record Payment</strong> from the booking details page for any new collection.
+                                        </div>
+
+                                        {/* Legacy edit-payment controls intentionally hidden; payment actions are separate ledger entries. */}
+                                        <div className="hidden p-5 rounded-2xl bg-[#1e293b] border border-[#334155] flex-col gap-4">
                                             <div className="flex items-center gap-3 mb-1">
                                                 <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-xl"><Coins size={16} /></div>
                                                 <h3 className="text-sm font-outfit font-bold text-slate-200">Deposit Payment</h3>
@@ -1059,6 +1164,9 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
                                                         <option value="gcash">GCash</option>
                                                         <option value="card">Card</option>
                                                         <option value="bank_transfer">Bank Transfer</option>
+                                                        <option value="maya">Maya</option>
+                                                        <option value="other_ewallet">Other E-wallet</option>
+                                                        <option value="other">Other</option>
                                                         <option value="split">Split (Cash + GCash)</option>
                                                     </CustomSelect>
                                                 </div>
@@ -1074,10 +1182,10 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
                                                         <input type="text" value={data.gcash_ref} onChange={e => setData('gcash_ref', e.target.value)} required placeholder="2083920..." className={`${inputCls} font-mono font-bold`} />
                                                     </div>
                                                 )}
-                                                {['card', 'bank_transfer'].includes(data.payment_method) && (
+                                                {['card', 'bank_transfer', 'maya', 'other_ewallet', 'other'].includes(data.payment_method) && (
                                                     <div className="flex flex-col gap-1">
-                                                        <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">{data.payment_method === 'card' ? 'Approval Code' : 'Bank Ref'}</label>
-                                                        <input type="text" value={data.reference_number} onChange={e => setData('reference_number', e.target.value)} required placeholder={data.payment_method === 'card' ? 'Auth Code...' : 'BDO-9821...'} className={`${inputCls} font-mono font-bold`} />
+                                                        <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Payment Reference</label>
+                                                        <input type="text" value={data.reference_number} onChange={e => setData('reference_number', e.target.value)} required placeholder="Reference / approval code" className={`${inputCls} font-mono font-bold`} />
                                                     </div>
                                                 )}
                                             </div>
@@ -1245,39 +1353,111 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
                 {showCheckInModal && selectedCheckInRes && (
                     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
                         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                            onClick={() => setShowCheckInModal(false)} className="fixed inset-0 bg-[#070b13]/90" />
+                            onClick={closeCheckInModal} className="fixed inset-0 bg-[#070b13]/90" />
                         <motion.div initial={{ scale: 0.95, opacity: 0, y: 15 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 15 }}
                             transition={{ type: 'spring', damping: 25, stiffness: 350 }}
-                            className="relative w-full max-w-md bg-[#1e293b] border border-[#334155] rounded-3xl p-6 shadow-2xl z-10">
+                            className="relative w-full max-w-lg max-h-[92vh] overflow-y-auto bg-[#1e293b] border border-[#334155] rounded-3xl p-6 shadow-2xl z-10">
                             <div className="flex flex-col items-center text-center gap-4">
                                 <div className="p-3.5 bg-emerald-500/10 text-emerald-400 rounded-2xl"><UserCheck size={28} /></div>
                                 <div>
-                                    <h3 className="font-outfit font-black text-slate-100 text-lg uppercase tracking-wide">Confirm Check-In</h3>
-                                    <p className="text-xs text-slate-400 mt-1">Check in <strong className="text-slate-200">{selectedCheckInRes.guest_name}</strong> into Room <strong className="text-slate-200">{selectedCheckInRes.room?.room_number}</strong>?</p>
+                                    <h3 className="font-outfit font-black text-slate-100 text-lg uppercase tracking-wide">
+                                        {selectedCheckInBalance > 0 ? 'Settle Balance & Check In' : 'Confirm Check-In'}
+                                    </h3>
+                                    <p className="text-xs text-slate-400 mt-1">
+                                        <strong className="text-slate-200">{selectedCheckInRes.guest_name}</strong> · Room <strong className="text-slate-200">{selectedCheckInRes.room?.room_number}</strong>
+                                    </p>
                                 </div>
                                 <div className="w-full bg-[#0f172a]/60 border border-[#334155]/60 rounded-2xl p-4 text-left text-xs space-y-2">
                                     <div className="flex justify-between"><span className="text-slate-400">Ref:</span><span className="font-mono text-slate-200 font-bold">{selectedCheckInRes.booking_ref}</span></div>
-                                    <div className="flex justify-between"><span className="text-slate-400">Scheduled:</span><span className="font-mono text-slate-200">{new Date(selectedCheckInRes.check_in).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</span></div>
-                                    <div className="flex justify-between"><span className="text-slate-400">Total Amount:</span><span className="font-mono text-slate-200">₱{Number(selectedCheckInRes.total_amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
-                                    <div className="flex justify-between"><span className="text-slate-400">Paid Amount:</span><span className="font-mono text-emerald-400 font-bold">₱{Number(selectedCheckInRes.amount_paid).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
-                                    {Number(selectedCheckInRes.amount_paid) < Number(selectedCheckInRes.total_amount) && (
-                                        <div className="flex justify-between border-t border-[#334155] pt-2 mt-2"><span className="text-rose-400 font-bold">Outstanding Balance:</span><span className="font-mono text-rose-400 font-extrabold">₱{Number(selectedCheckInRes.total_amount - selectedCheckInRes.amount_paid).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
+                                    <div className="flex justify-between"><span className="text-slate-400">Scheduled:</span><span className="font-mono text-slate-200">{parseLocalDatetime(selectedCheckInRes.check_in)?.toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</span></div>
+                                    <div className="flex justify-between"><span className="text-slate-400">Confirmed Booking Total:</span><span className="font-mono text-slate-200">₱{Number(selectedCheckInRes.total_amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
+                                    <div className="flex justify-between"><span className="text-slate-400">Previous Verified Advance:</span><span className="font-mono text-emerald-400 font-bold">₱{Number(selectedCheckInRes.amount_paid).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
+                                    {selectedCheckInBalance > 0 && (
+                                        <div className="flex justify-between border-t border-[#334155] pt-2 mt-2"><span className="text-rose-400 font-bold">Balance Due Today:</span><span className="font-mono text-rose-400 font-extrabold">₱{selectedCheckInBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
                                     )}
                                 </div>
-                                {Number(selectedCheckInRes.amount_paid) < Number(selectedCheckInRes.total_amount) && (
-                                    <div className="p-3.5 bg-rose-950/20 border border-rose-500/30 text-rose-300 text-[11px] rounded-xl flex items-start gap-2.5 text-left w-full">
-                                        <AlertTriangle className="h-4 w-4 text-rose-400 mt-0.5 shrink-0" />
+
+                                {selectedPendingPayment > 0 && (
+                                    <div className="p-3.5 bg-amber-950/20 border border-amber-500/30 text-amber-300 text-[11px] rounded-xl flex items-start gap-2.5 text-left w-full">
+                                        <Clock className="h-4 w-4 text-amber-400 mt-0.5 shrink-0" />
                                         <div>
-                                            <span className="font-bold text-rose-400 block font-outfit uppercase text-[10px] tracking-wide">Check-In Blocked</span>
-                                            Cannot check in. Remaining balance must be paid first. Edit this reservation and process full payment.
+                                            <span className="font-bold text-amber-400 block font-outfit uppercase text-[10px] tracking-wide">Payment Pending Verification</span>
+                                            A payment of ₱{selectedPendingPayment.toLocaleString(undefined, { minimumFractionDigits: 2 })} is already pending.
+                                            Verify or reject it in Front Desk Payments before checking in.
+                                            <Link href={route('reports.front_desk')} className="mt-2 block font-bold text-brand-400 hover:text-brand-300">Open verification queue →</Link>
                                         </div>
                                     </div>
                                 )}
+
+                                {selectedCheckInBalance > 0 && selectedPendingPayment <= 0 && (
+                                    <div className="w-full rounded-2xl border border-[#334155] bg-[#0f172a]/40 p-4 text-left space-y-3">
+                                        <div>
+                                            <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-400">Payment Method</label>
+                                            <select value={settlementForm.data.payment_method_code} onChange={e => handleSettlementMethodChange(e.target.value)}
+                                                className="w-full rounded-xl border border-[#334155] bg-[#0f172a] px-3 py-2.5 text-xs font-bold text-slate-100">
+                                                <option value="cash">Cash — verify and check in now</option>
+                                                <option value="gcash">GCash</option>
+                                                <option value="bank_transfer">Bank Transfer</option>
+                                                <option value="card">Card</option>
+                                                <option value="maya">Maya</option>
+                                                <option value="other_ewallet">Other E-wallet</option>
+                                                <option value="other">Other</option>
+                                                <option value="split">Split — Cash + GCash</option>
+                                            </select>
+                                        </div>
+
+                                        {settlementForm.data.payment_method_code !== 'cash' && (
+                                            <div>
+                                                <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-400">Reference Number *</label>
+                                                <input required value={settlementForm.data.reference_number}
+                                                    onChange={e => settlementForm.setData('reference_number', e.target.value)}
+                                                    className="w-full rounded-xl border border-[#334155] bg-[#0f172a] px-3 py-2.5 text-xs font-mono text-slate-100"
+                                                    placeholder="Enter transaction / approval reference" />
+                                                {settlementForm.errors.reference_number && <div className="mt-1 text-[10px] text-rose-400">{settlementForm.errors.reference_number}</div>}
+                                            </div>
+                                        )}
+
+                                        {settlementForm.data.payment_method_code === 'split' && (
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <div>
+                                                    <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-400">Cash</label>
+                                                    <input type="number" min="0.01" step="0.01" value={settlementForm.data.cash_amount}
+                                                        onChange={e => handleSettlementCashChange(e.target.value)}
+                                                        className="w-full rounded-xl border border-[#334155] bg-[#0f172a] px-3 py-2.5 text-xs font-mono text-slate-100" />
+                                                </div>
+                                                <div>
+                                                    <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-400">GCash</label>
+                                                    <input type="number" min="0.01" step="0.01" value={settlementForm.data.gcash_amount}
+                                                        onChange={e => handleSettlementGcashChange(e.target.value)}
+                                                        className="w-full rounded-xl border border-[#334155] bg-[#0f172a] px-3 py-2.5 text-xs font-mono text-slate-100" />
+                                                </div>
+                                                <div className="col-span-2 flex justify-between rounded-lg bg-[#1e293b] px-3 py-2 text-[10px]">
+                                                    <span className="text-slate-400">Split total</span>
+                                                    <span className="font-mono font-bold text-slate-200">₱{(Number(settlementForm.data.cash_amount || 0) + Number(settlementForm.data.gcash_amount || 0)).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {settlementForm.data.payment_method_code !== 'cash' && (
+                                            <p className="text-[10px] text-amber-300">
+                                                Electronic and split payments will be recorded as pending. Check-in remains blocked until verification.
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
+
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full">
-                                    <button onClick={() => setShowCheckInModal(false)} className="px-4 py-3 bg-[#0f172a] hover:bg-[#1e293b] border border-[#334155] rounded-xl text-xs font-black text-slate-400 uppercase transition-colors">Cancel</button>
-                                    <button onClick={confirmCheckIn} disabled={Number(selectedCheckInRes.amount_paid) < Number(selectedCheckInRes.total_amount)}
+                                    <button type="button" onClick={closeCheckInModal} className="px-4 py-3 bg-[#0f172a] hover:bg-[#1e293b] border border-[#334155] rounded-xl text-xs font-black text-slate-400 uppercase transition-colors">Cancel</button>
+                                    <button type="button" onClick={confirmCheckIn}
+                                        disabled={settlementForm.processing || selectedPendingPayment > 0 || (settlementForm.data.payment_method_code !== 'cash' && selectedCheckInBalance > 0 && !settlementForm.data.reference_number.trim())}
                                         className="px-4 py-3 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed rounded-xl text-xs font-black text-white uppercase transition-colors">
-                                        Confirm Check-In
+                                        {settlementForm.processing
+                                            ? 'Processing...'
+                                            : selectedCheckInBalance <= 0
+                                                ? 'Confirm Check-In'
+                                                : settlementForm.data.payment_method_code === 'cash'
+                                                    ? `Pay ₱${selectedCheckInBalance.toLocaleString()} & Check In`
+                                                    : `Record ₱${selectedCheckInBalance.toLocaleString()} for Verification`}
                                     </button>
                                 </div>
                             </div>
@@ -1306,9 +1486,27 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
                                     <textarea value={cancelReason} onChange={e => setCancelReason(e.target.value)} rows="3" required
                                         placeholder="Type reason here..." className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 p-3 focus:outline-none focus:border-brand-500 text-xs" />
                                 </div>
+                                <div className="w-full text-left flex flex-col gap-1.5">
+                                    <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Payment Disposition</label>
+                                    <select value={cancelDisposition} onChange={e => setCancelDisposition(e.target.value)}
+                                        className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 px-3 py-2.5 focus:outline-none focus:border-brand-500 text-xs">
+                                        <option value="retain">Retain payment / deposit</option>
+                                        <option value="full_refund">Full refund ({Number(selectedCancelRes.amount_paid || 0).toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })})</option>
+                                        <option value="partial_refund">Partial refund</option>
+                                    </select>
+                                    <p className="text-[10px] text-slate-500">Refunds are separate ledger entries; the original payment is never deleted.</p>
+                                </div>
+                                {cancelDisposition === 'partial_refund' && (
+                                    <div className="w-full text-left flex flex-col gap-1.5">
+                                        <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Refund Amount</label>
+                                        <input type="number" min="0.01" step="0.01" max={selectedCancelRes.amount_paid || 0}
+                                            value={cancelRefundAmount} onChange={e => setCancelRefundAmount(e.target.value)}
+                                            className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 px-3 py-2.5 focus:outline-none focus:border-brand-500 text-xs" />
+                                    </div>
+                                )}
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full">
                                     <button onClick={() => setShowCancelModal(false)} className="px-4 py-3 bg-[#0f172a] hover:bg-[#1e293b] border border-[#334155] rounded-xl text-xs font-black text-slate-400 uppercase transition-colors">Back</button>
-                                    <button onClick={confirmCancel} disabled={!cancelReason.trim()} className="px-4 py-3 bg-rose-600 hover:bg-rose-500 disabled:bg-rose-950/40 disabled:text-rose-400/50 rounded-xl text-xs font-black text-white uppercase transition-colors">Cancel Booking</button>
+                                    <button onClick={confirmCancel} disabled={!cancelReason.trim() || (cancelDisposition === 'partial_refund' && !Number(cancelRefundAmount))} className="px-4 py-3 bg-rose-600 hover:bg-rose-500 disabled:bg-rose-950/40 disabled:text-rose-400/50 rounded-xl text-xs font-black text-white uppercase transition-colors">Cancel Booking</button>
                                 </div>
                             </div>
                         </motion.div>
@@ -1564,61 +1762,13 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
                                             </div>
                                         </div>
 
-                                        {/* Payment */}
-                                        <div className="p-5 rounded-2xl bg-[#1e293b] border border-[#334155] flex flex-col gap-4">
-                                            <div className="flex items-center gap-3 mb-1">
-                                                <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-xl"><Coins size={16} /></div>
-                                                <h3 className="text-sm font-outfit font-bold text-slate-200">Deposit Payment</h3>
+                                        <div className="p-4 rounded-2xl bg-indigo-500/5 border border-indigo-500/20 flex items-start gap-3 text-xs text-slate-400">
+                                            <Coins size={17} className="text-indigo-400 shrink-0 mt-0.5" />
+                                            <div>
+                                                <span className="block font-bold text-indigo-300">Payment history is protected</span>
+                                                Editing guest, room, schedule, or pricing details never creates a payment.
+                                                Collect the exact remaining balance from <strong className="text-slate-300">Manage → Check In</strong>.
                                             </div>
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                                <div className="flex flex-col gap-1">
-                                                    <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Payment Option</label>
-                                                    <div className="grid grid-cols-2 gap-1 bg-[#0f172a] p-1 rounded-xl border border-[#334155]">
-                                                        <button type="button" onClick={() => editForm.setData('payment_ratio', 'full')}
-                                                            className={`py-1 px-2 rounded-lg text-[10px] font-bold transition-all ${editForm.data.payment_ratio === 'full' ? 'bg-brand-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'}`}>
-                                                            Full (100%)
-                                                        </button>
-                                                        <button type="button" onClick={() => editForm.setData('payment_ratio', 'half')}
-                                                            className={`py-1 px-2 rounded-lg text-[10px] font-bold transition-all ${editForm.data.payment_ratio === 'half' ? 'bg-brand-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'}`}>
-                                                            50% Deposit
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                                <div className="flex flex-col gap-1">
-                                                    <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Payment Method</label>
-                                                    <CustomSelect value={editForm.data.payment_method} onChange={e => editForm.setData('payment_method', e.target.value)} className={`${inputCls} font-bold`}>
-                                                        <option value="cash">Cash</option>
-                                                        <option value="gcash">GCash</option>
-                                                        <option value="card">Card</option>
-                                                        <option value="bank_transfer">Bank Transfer</option>
-                                                        <option value="split">Split (Cash + GCash)</option>
-                                                    </CustomSelect>
-                                                </div>
-                                                {['gcash', 'split'].includes(editForm.data.payment_method) && (
-                                                    <div className="flex flex-col gap-1">
-                                                        <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">GCash 13-Digit Ref #</label>
-                                                        <input type="text" value={editForm.data.gcash_ref} onChange={e => editForm.setData('gcash_ref', e.target.value)} required placeholder="2083920..." className={`${inputCls} font-mono font-bold`} />
-                                                    </div>
-                                                )}
-                                                {['card', 'bank_transfer'].includes(editForm.data.payment_method) && (
-                                                    <div className="flex flex-col gap-1">
-                                                        <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">{editForm.data.payment_method === 'card' ? 'Approval Code' : 'Bank Ref'}</label>
-                                                        <input type="text" value={editForm.data.reference_number} onChange={e => editForm.setData('reference_number', e.target.value)} required placeholder={editForm.data.payment_method === 'card' ? 'Auth Code...' : 'BDO-9821...'} className={`${inputCls} font-mono font-bold`} />
-                                                    </div>
-                                                )}
-                                            </div>
-                                            {editForm.data.payment_method === 'split' && (
-                                                <div className="p-4 rounded-xl bg-[#0f172a]/60 border border-[#334155] grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                                    <div className="flex flex-col gap-1">
-                                                        <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Cash (₱)</label>
-                                                        <input type="number" min="0" max={editForm.data.payment_ratio === 'half' ? Math.round((editCalc.totals?.total_amount ?? editCalc.total_amount ?? 0) / 2) : (editCalc.totals?.total_amount ?? editCalc.total_amount ?? 0)} step="any" value={editForm.data.cash_amount} onChange={handleEditCashInput} className={`${inputCls} font-mono font-bold`} />
-                                                    </div>
-                                                    <div className="flex flex-col gap-1">
-                                                        <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">GCash (₱)</label>
-                                                        <input type="number" min="0" max={editForm.data.payment_ratio === 'half' ? Math.round((editCalc.totals?.total_amount ?? editCalc.total_amount ?? 0) / 2) : (editCalc.totals?.total_amount ?? editCalc.total_amount ?? 0)} step="any" value={editForm.data.gcash_amount} onChange={handleEditGCashInput} className={`${inputCls} font-mono font-bold`} />
-                                                    </div>
-                                                </div>
-                                            )}
                                         </div>
                                     </div>
 
@@ -1657,17 +1807,16 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
                                                         <span className="font-outfit font-extrabold text-slate-100 uppercase text-[10px]">Total Stay Price:</span>
                                                         <span className="font-mono text-xs font-bold text-slate-300">₱{(editCalc.totals?.total_amount ?? editCalc.total_amount ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                                     </div>
-                                                    {editForm.data.payment_ratio === 'half' ? (
-                                                        <div className="flex justify-between items-baseline bg-brand-500/10 border border-brand-500/20 p-2.5 rounded-xl mt-1">
-                                                            <span className="font-outfit font-extrabold text-brand-400 uppercase text-[10px]">Due Today (50%):</span>
-                                                            <span className="font-mono text-base font-black text-brand-400">₱{Math.round((editCalc.totals?.total_amount ?? editCalc.total_amount ?? 0) / 2).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                                    <div className="rounded-xl border border-[#334155] bg-[#0f172a]/65 p-3">
+                                                        <div className="flex justify-between text-[10px] uppercase text-slate-500">
+                                                            <span>Verified payments retained</span>
+                                                            <span className="font-mono text-emerald-400">₱{Number(editingBooking?.amount_paid || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                                         </div>
-                                                    ) : (
-                                                        <div className="flex justify-between items-baseline bg-emerald-500/10 border border-emerald-500/20 p-2.5 rounded-xl mt-1">
-                                                            <span className="font-outfit font-extrabold text-emerald-400 uppercase text-[10px]">Due Today (100%):</span>
-                                                            <span className="font-mono text-base font-black text-emerald-400">₱{(editCalc.totals?.total_amount ?? editCalc.total_amount ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                                        <div className="mt-2 flex justify-between text-[10px] font-bold uppercase text-slate-300">
+                                                            <span>Recalculated balance</span>
+                                                            <span className="font-mono text-rose-400">₱{Math.max(0, Number(editCalc.totals?.total_amount ?? editCalc.total_amount ?? 0) - Number(editingBooking?.amount_paid || 0)).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                                         </div>
-                                                    )}
+                                                    </div>
                                                     <div className="flex flex-col gap-1 bg-[#0f172a]/65 p-3 rounded-xl border border-[#334155]">
                                                         <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1"><Calendar size={10} /> Expected Out</span>
                                                         <span className="text-xs text-slate-300 font-bold font-mono">{(editCalc.totals?.expected_check_out ?? editCalc.expected_check_out) ? parseLocalDatetime(editCalc.totals?.expected_check_out ?? editCalc.expected_check_out)?.toLocaleString() : '-'}</span>
