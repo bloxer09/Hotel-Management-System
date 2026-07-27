@@ -55,7 +55,7 @@ class ShiftController extends Controller
                 ->whereBetween('created_at', [$liveStart, $liveEnd])
                 ->sum('amount');
 
-            $expectedDrawerCash = $activeShift->opening_cash + $salesStats['rooms_cash'] + $incomesSum - $expensesSum;
+            $expectedDrawerCash = $activeShift->opening_cash + $salesStats['rooms_cash'];
             $expectedDrawerCashMinibar = $activeShift->opening_cash_minibar + $salesStats['minibar_cash'];
 
             $liveSummary = [
@@ -195,7 +195,7 @@ class ShiftController extends Controller
         $expensesSum = (float)$expenses->sum('amount');
         $incomesSum = (float)$incomes->sum('amount');
         
-        $expectedDrawerCash = $shift->opening_cash + $sales['rooms_cash'] + $incomesSum - $expensesSum;
+        $expectedDrawerCash = $shift->opening_cash + $sales['rooms_cash'];
         $cashVariance = null;
         if ($shift->ended_at !== null) {
             $cashVariance = round($shift->closing_cash - $expectedDrawerCash, 2);

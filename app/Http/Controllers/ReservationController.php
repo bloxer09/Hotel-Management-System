@@ -146,7 +146,7 @@ class ReservationController extends Controller
         }
 
         if ($request->booking_type === 'overnight') {
-            $checkIn = $checkInRaw->copy()->setTime(BookingService::OVERNIGHT_CHECKIN_HOUR, 0, 0)->format('Y-m-d H:i:s');
+            $checkIn = $checkInRaw->format('Y-m-d H:i:s');
         } else {
             $checkIn = $checkInRaw->format('Y-m-d H:i:s');
         }
@@ -257,7 +257,7 @@ class ReservationController extends Controller
 
         $checkInRaw = Carbon::parse($request->check_in);
         if ($request->booking_type === 'overnight') {
-            $checkInTime = $checkInRaw->copy()->setTime(BookingService::OVERNIGHT_CHECKIN_HOUR, 0, 0);
+            $checkInTime = $checkInRaw;
         } else {
             $checkInTime = $checkInRaw;
         }
@@ -351,7 +351,7 @@ class ReservationController extends Controller
                 }
                 $checkInRaw = Carbon::parse($request->check_in);
                 if ($request->booking_type === 'overnight') {
-                    $checkInTime = $checkInRaw->copy()->setTime(BookingService::OVERNIGHT_CHECKIN_HOUR, 0, 0);
+                    $checkInTime = $checkInRaw;
                 } else {
                     $checkInTime = $checkInRaw;
                 }
@@ -489,6 +489,7 @@ class ReservationController extends Controller
                         'num_guests' => $roomGuests[$room->id],
                         'booking_type' => $request->booking_type,
                         'short_time_hours' => $request->booking_type !== 'overnight' ? $request->short_time_hours : null,
+                        'num_nights' => $request->booking_type === 'overnight' ? $request->num_nights : null,
                         'check_in' => $checkInTime->format('Y-m-d H:i:s'),
                         'expected_check_out' => $pricing['expected_check_out'],
                         'status' => 'reserved',
@@ -738,7 +739,7 @@ class ReservationController extends Controller
         return DB::transaction(function () use ($booking, $request, $room, $user) {
             $checkInRaw = Carbon::parse($request->check_in);
             if ($request->booking_type === 'overnight') {
-                $checkInTime = $checkInRaw->copy()->setTime(BookingService::OVERNIGHT_CHECKIN_HOUR, 0, 0);
+                $checkInTime = $checkInRaw;
             } else {
                 $checkInTime = $checkInRaw;
             }

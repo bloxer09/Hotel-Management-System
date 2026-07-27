@@ -72,6 +72,22 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
     tomorrow.setDate(tomorrow.getDate() + 1);
     tomorrow.setHours(14, 0, 0, 0);
     const pad = (n) => String(n).padStart(2, '0');
+    // Parses a server datetime string ("YYYY-MM-DD HH:MM:SS" or "YYYY-MM-DDTHH:MM:SS")
+    // as hotel-local wall-clock time, never converting through UTC.
+    const parseLocalDatetime = (str) => {
+        if (!str) return null;
+        // Normalise: replace space separator with T, strip sub-seconds and timezone
+        const normalized = str.toString().replace(' ', 'T').replace(/\.\d+$/, '').replace(/Z$/, '').replace(/[+-]\d{2}:\d{2}$/, '');
+        const [datePart, timePart = '00:00'] = normalized.split('T');
+        const [y, mo, d] = datePart.split('-').map(Number);
+        const [h = 0, m = 0, s = 0] = (timePart || '00:00').split(':').map(Number);
+        return new Date(y, mo - 1, d, h, m, s);
+    };
+    const formatLocalForInput = (str) => {
+        const dt = parseLocalDatetime(str);
+        if (!dt) return '';
+        return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
+    };
     const defaultCheckIn = `${tomorrow.getFullYear()}-${pad(tomorrow.getMonth() + 1)}-${pad(tomorrow.getDate())}T${pad(tomorrow.getHours())}:${pad(tomorrow.getMinutes())}`;
 
     const [guestSearch, setGuestSearch] = useState('');
@@ -196,8 +212,7 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
 
     const openEditModal = (booking) => {
         setEditingBooking(booking);
-        const checkInDate = new Date(booking.check_in);
-        const formattedCheckIn = `${checkInDate.getFullYear()}-${pad(checkInDate.getMonth() + 1)}-${pad(checkInDate.getDate())}T${pad(checkInDate.getHours())}:${pad(checkInDate.getMinutes())}`;
+        const formattedCheckIn = formatLocalForInput(booking.check_in);
 
         editForm.setData({
             room_id: booking.room_id,
@@ -295,8 +310,7 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
 
     const openRescheduleModal = (booking) => {
         setReschedulingBooking(booking);
-        const checkInDate = new Date(booking.check_in);
-        const formattedCheckIn = `${checkInDate.getFullYear()}-${pad(checkInDate.getMonth() + 1)}-${pad(checkInDate.getDate())}T${pad(checkInDate.getHours())}:${pad(checkInDate.getMinutes())}`;
+        const formattedCheckIn = formatLocalForInput(booking.check_in);
         rescheduleForm.setData({
             room_id: booking.room_id,
             check_in: formattedCheckIn,
@@ -620,8 +634,8 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
                                                     <td className="px-4 py-3 text-slate-300 font-mono leading-normal">
                                                         {firstBooking.check_in ? (
                                                             <>
-                                                                <div className="text-[10px] text-slate-400 font-sans">IN: <span className="font-mono font-bold text-slate-300">{new Date(firstBooking.check_in).toLocaleString('en-US', { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</span></div>
-                                                                <div className="text-[10px] text-slate-400 font-sans mt-0.5">OUT: <span className="font-mono font-bold text-slate-300">{new Date(firstBooking.expected_check_out).toLocaleString('en-US', { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</span></div>
+                                                                <div className="text-[10px] text-slate-400 font-sans">IN: <span className="font-mono font-bold text-slate-300">{parseLocalDatetime(firstBooking.check_in)?.toLocaleString('en-US', { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</span></div>
+                                                                <div className="text-[10px] text-slate-400 font-sans mt-0.5">OUT: <span className="font-mono font-bold text-slate-300">{parseLocalDatetime(firstBooking.expected_check_out)?.toLocaleString('en-US', { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</span></div>
                                                             </>
                                                         ) : '-'}
                                                     </td>
@@ -710,8 +724,8 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
                                                 <span className="text-slate-500 text-[10px]">{b.guest_contact || '—'}</span>
                                             </td>
                                             <td className="px-4 py-3 leading-normal">
-                                                <div className="flex items-center gap-1 text-indigo-400 font-bold text-[10px]">IN: <span className="font-mono text-slate-300">{new Date(b.check_in).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</span></div>
-                                                <div className="flex items-center gap-1 text-slate-500 text-[10px]">OUT: <span className="font-mono text-slate-400">{new Date(b.expected_check_out).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</span></div>
+                                                <div className="flex items-center gap-1 text-indigo-400 font-bold text-[10px]">IN: <span className="font-mono text-slate-300">{parseLocalDatetime(b.check_in)?.toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</span></div>
+                                                <div className="flex items-center gap-1 text-slate-500 text-[10px]">OUT: <span className="font-mono text-slate-400">{parseLocalDatetime(b.expected_check_out)?.toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</span></div>
                                             </td>
                                             <td className="px-4 py-3">
                                                 <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-black uppercase ${b.booking_type === 'overnight'
@@ -931,7 +945,7 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
                                                 </div>
                                                 <div className="flex flex-col gap-1">
                                                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Stay Type</label>
-                                                    <CustomSelect value={data.booking_type} onChange={e => setData('booking_type', e.target.value)} className={`${inputCls} font-bold`}>
+                                                    <CustomSelect value={data.booking_type} onChange={e => setData('booking_type', e.target.value)} className={`${inputCls} font-bold`} elevateWhenOpen>
                                                         <option value="overnight">Overnight</option>
                                                         <option value="short_time">Short-time (Hourly)</option>
                                                     </CustomSelect>
@@ -1464,7 +1478,7 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
                                                 </div>
                                                 <div className="flex flex-col gap-1">
                                                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Stay Type</label>
-                                                    <CustomSelect value={editForm.data.booking_type} onChange={e => editForm.setData('booking_type', e.target.value)} className={`${inputCls} font-bold`}>
+                                                    <CustomSelect value={editForm.data.booking_type} onChange={e => editForm.setData('booking_type', e.target.value)} className={`${inputCls} font-bold`} elevateWhenOpen>
                                                         <option value="overnight">Overnight</option>
                                                         <option value="short_time">Short-time (Hourly)</option>
                                                     </CustomSelect>
@@ -1656,7 +1670,7 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
                                                     )}
                                                     <div className="flex flex-col gap-1 bg-[#0f172a]/65 p-3 rounded-xl border border-[#334155]">
                                                         <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1"><Calendar size={10} /> Expected Out</span>
-                                                        <span className="text-xs text-slate-300 font-bold font-mono">{(editCalc.totals?.expected_check_out ?? editCalc.expected_check_out) ? new Date(editCalc.totals?.expected_check_out ?? editCalc.expected_check_out).toLocaleString() : '-'}</span>
+                                                        <span className="text-xs text-slate-300 font-bold font-mono">{(editCalc.totals?.expected_check_out ?? editCalc.expected_check_out) ? parseLocalDatetime(editCalc.totals?.expected_check_out ?? editCalc.expected_check_out)?.toLocaleString() : '-'}</span>
                                                     </div>
                                                 </div>
                                             ) : (
@@ -1729,7 +1743,7 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
                                                 </div>
                                                 <div className="flex flex-col gap-1">
                                                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Stay Type</label>
-                                                    <CustomSelect value={rescheduleForm.data.booking_type} onChange={e => rescheduleForm.setData('booking_type', e.target.value)} className={`${inputCls} font-bold`}>
+                                                    <CustomSelect value={rescheduleForm.data.booking_type} onChange={e => rescheduleForm.setData('booking_type', e.target.value)} className={`${inputCls} font-bold`} elevateWhenOpen>
                                                         <option value="overnight">Overnight</option>
                                                         <option value="short_time">Short-time (Hourly)</option>
                                                     </CustomSelect>
@@ -1822,7 +1836,7 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
                                                     )}
                                                     <div className="flex flex-col gap-1 bg-[#0f172a]/65 p-3 rounded-xl border border-[#334155]">
                                                         <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1"><Calendar size={10} /> Expected Out</span>
-                                                        <span className="text-xs text-slate-300 font-bold font-mono">{rescheduleCalc.expected_check_out ? new Date(rescheduleCalc.expected_check_out).toLocaleString() : '-'}</span>
+                                                        <span className="text-xs text-slate-300 font-bold font-mono">{rescheduleCalc.expected_check_out ? parseLocalDatetime(rescheduleCalc.expected_check_out)?.toLocaleString() : '-'}</span>
                                                     </div>
                                                 </div>
                                             ) : (

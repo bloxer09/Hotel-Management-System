@@ -96,7 +96,7 @@ function CustomSelectInner({ value, onChange, options, selectOptions, selectedOp
     );
 }
 
-export default function CustomSelect({ value, onChange, options, children, className = '', containerClassName = '' }) {
+export default function CustomSelect({ value, onChange, options, children, className = '', containerClassName = '', elevateWhenOpen = false }) {
     // Resolve options from either the options prop or children option tags
     let resolvedOptions = options;
     if (!resolvedOptions && children) {
@@ -137,9 +137,9 @@ export default function CustomSelect({ value, onChange, options, children, class
     };
 
     return (
-        <div className={`relative inline-block w-full text-left shrink-0 z-30 ${containerClassName}`}>
-            <Dropdown>
-                {({ open, setOpen }) => (
+        <Dropdown>
+            {({ open, setOpen }) => (
+                <div className={`relative inline-block w-full text-left shrink-0 ${elevateWhenOpen && open ? 'z-[200]' : 'z-30'} ${containerClassName}`}>
                     <CustomSelectInner
                         value={value}
                         onChange={onChange}
@@ -151,8 +151,8 @@ export default function CustomSelect({ value, onChange, options, children, class
                         setOpen={setOpen}
                         handleSelect={handleSelect}
                     />
-                )}
-            </Dropdown>
-        </div>
+                </div>
+            )}
+        </Dropdown>
     );
 }

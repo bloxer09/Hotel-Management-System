@@ -659,7 +659,7 @@ class BookingController extends Controller
                 $checkInTime = $request->has('check_in') ? \Carbon\Carbon::parse($request->check_in) : \Carbon\Carbon::parse($booking->check_in);
                 
                 if ($booking->status === 'reserved' && $request->booking_type === 'overnight' && $request->has('check_in')) {
-                    $checkInTime = $checkInTime->copy()->setTime(BookingService::OVERNIGHT_CHECKIN_HOUR, 0, 0);
+                    // User-selected arrival time is preserved as-is
                 }
                 
                 $reqDiscountType = $request->discount_type ?: '';
@@ -737,6 +737,7 @@ class BookingController extends Controller
                 $booking->num_guests = $request->num_guests;
                 $booking->booking_type = $request->booking_type;
                 $booking->short_time_hours = $request->booking_type !== 'overnight' ? $request->short_time_hours : null;
+                $booking->num_nights = $request->booking_type === 'overnight' ? $request->num_nights : null;
                 $booking->check_in = $checkInTime->format('Y-m-d H:i:s');
                 $booking->expected_check_out = $pricing['expected_check_out'];
                 
