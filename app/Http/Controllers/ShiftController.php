@@ -490,6 +490,45 @@ class ShiftController extends Controller
         ]);
     }
 
+    public function printLedger($id, Request $request)
+    {
+        $user = $request->user();
+        
+        $shift = ShiftSession::with('user')->findOrFail($id);
+
+        // Security check: only admin or the shift owner can view this shift report
+        if ($user->role !== 'admin' && $shift->user_id !== $user->id) {
+            abort(403, 'Unauthorized access.');
+        }
+
+        $start = $shift->started_at;
+        $end = $shift->ended_at ?: now();
+        $shiftUserId = $shift->user_id;
+
+        // Detailed room bookings stays list for Log Book
+        $bookings = \App\Models\Booking::with(['room', 'room.type', 'transactions'])
+            ->where(function($query) use ($shiftUserId, $start, $end) {
+                $query->where(fn($q) => $q->where('checked_in_by', $shiftUserId)->whereBetween('check_in', [$start, $end]))
+                    ->orWhere(fn($q) => $q->where('checked_out_by', $shiftUserId)->whereBetween('check_out', [$start, $end]));
+            })
+            ->orderBy('check_in', 'asc')
+            ->get();
+            
+        $stayCollections = $this->appendBookingPaymentSummaries(
+            $bookings,
+            $shiftUserId,
+            $start,
+            $end
+        );
+
+        return Inertia::render('Reports/RoomBookingsLedgerPrint', [
+            'shift' => $shift,
+            'bookings' => $bookings,
+            'stay_collections' => $stayCollections,
+            'date_printed' => now()->format('n/j/Y, h:i:s A'),
+        ]);
+    }
+
     public function storeCashMovement($id, Request $request)
     {
         $shift = ShiftSession::findOrFail($id);

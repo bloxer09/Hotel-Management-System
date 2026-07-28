@@ -1238,61 +1238,115 @@ export default function Report({ shift, report }) {
 
                 {/* 2. ROOM BOOKINGS LEDGER */}
                 <div className={`print-page-break ${printMode === 'active' && activeTab !== 'bookings' ? 'hidden' : ''}`}>
-                    <PrintHeader title="II. ROOM BOOKINGS LEDGER (LOG BOOK)" pageNum={2} />
+                    {/* Custom Header for Room Bookings Ledger to match exact layout requested */}
+                    <div className="hidden print:flex justify-between items-start mb-2">
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <div>
+                                    <div className="font-bold text-[10px]">LARAVEL</div>
+                                    <h1 className="font-bold text-sm tracking-wide uppercase">II. ROOM BOOKINGS LEDGER (LOG BOOK)</h1>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="text-right text-[9px] leading-tight">
+                            <div><span className="font-semibold">Date:</span> {new Date(report.end).toLocaleDateString()}</div>
+                            <div><span className="font-semibold">Shift:</span> {(shift.shift_code || '-').toUpperCase()}</div>
+                            <div><span className="font-semibold">Cashier:</span> {shift.user?.name}</div>
+                            <div><span className="font-semibold">Prepared By:</span> {shift.user?.name}</div>
+                            <div><span className="font-semibold">Sheet:</span> 2</div>
+                        </div>
+                    </div>
 
                     <div className="mb-4">
-                        <p className="mb-2 text-[7px] italic">
+                        <p className="mb-2 text-[8px] italic text-gray-600 border-b border-blue-200 pb-1">
                             Room sales include only stays checked in or checked out during this shift. Future reservation deposits are excluded.
                         </p>
-                        <table className="w-full text-left border-collapse logbook-table">
+                        <table className="w-full text-center border-collapse border border-slate-300 mb-6 table-fixed">
                             <thead>
-                                <tr>
-                                    <th className="w-[5%]">ROOM NO.</th>
-                                    <th className="w-[8%]">DATE IN</th>
-                                    <th className="w-[7%]">TIME IN</th>
-                                    <th className="w-[8%]">DATE OUT</th>
-                                    <th className="w-[7%]">TIME OUT</th>
-                                    <th className="w-[6%]">HRS</th>
-                                    <th className="w-[9%]">ROOM RATE</th>
-                                    <th className="w-[7%]">PAID THIS<br />SHIFT</th>
-                                    <th className="w-[7%]">BALANCE<br />DUE</th>
-                                    <th className="w-[6%]">THIS SHIFT<br />MOP</th>
-                                    <th className="w-[12%]">GUEST NAME</th>
-                                    <th className="w-[9%]">CONTACT</th>
-                                    <th className="w-[6%]">STATUS</th>
+                                <tr className="bg-[#EBF1F5] text-slate-700 font-bold border-b-2 border-blue-200 text-[9px]">
+                                    <th className="border border-slate-300 px-1 py-2 w-[4%]">ROOM<br/>NO.</th>
+                                    <th className="border border-slate-300 px-1 py-2 w-[8%]">DATE IN</th>
+                                    <th className="border border-slate-300 px-1 py-2 w-[7%]">TIME IN</th>
+                                    <th className="border border-slate-300 px-1 py-2 w-[8%]">DATE OUT</th>
+                                    <th className="border border-slate-300 px-1 py-2 w-[7%]">TIME OUT</th>
+                                    <th className="border border-slate-300 px-1 py-2 w-[6%]">HRS</th>
+                                    <th className="border border-slate-300 px-1 py-2 w-[10%]">ROOM RATE</th>
+                                    <th className="border border-slate-300 px-1 py-2 w-[8%]">PAID THIS<br/>SHIFT</th>
+                                    <th className="border border-slate-300 px-1 py-2 w-[8%]">BALANCE<br/>DUE</th>
+                                    <th className="border border-slate-300 px-1 py-2 w-[8%]">THIS<br/>SHIFT<br/>MOP</th>
+                                    <th className="border border-slate-300 px-1 py-2 w-[12%]">GUEST NAME</th>
+                                    <th className="border border-slate-300 px-1 py-2 w-[8%]">CONTACT</th>
+                                    <th className="border border-slate-300 px-1 py-2 w-[6%]">STATUS</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                 {report.bookings && report.bookings.length > 0 ? (
-                                     report.bookings.map((booking) => {
-                                         const roomRate = getBookingRoomRate(booking);
-                                         return (
-                                            <tr key={booking.id} className="highlight-row text-[9px] leading-tight">
-                                                <td className="text-center font-bold">{booking.room?.room_number || '-'}</td>
-                                                <td className="text-center">{formatDate(booking.check_in)}</td>
-                                                <td className="text-center">{formatTime(booking.check_in)}</td>
-                                                <td className="text-center">{formatDate(booking.check_out || booking.expected_check_out)}</td>
-                                                <td className="text-center">{formatTime(booking.check_out || booking.expected_check_out)}</td>
-                                                <td className="text-center">{booking.booking_type === 'overnight' ? `${booking.num_nights} NTS` : `${booking.short_time_hours} HRS`}</td>
-                                                 <td className="text-right">
-                                                     <div className="font-bold">{formatCurrency(roomRate)}</div>
-                                                     <div className="text-[6px] font-normal">
-                                                         {booking.booking_type === 'overnight' ? '/ night' : `${booking.short_time_hours || 0}h rate`}
-                                                     </div>
-                                                 </td>
-                                                <td className="text-right font-bold">{formatCurrency(booking.shift_collection_amount)}</td>
-                                                <td className="text-right font-bold">{formatCurrency(booking.balance_amount)}</td>
-                                                 <td className="text-center uppercase font-bold text-[6px] leading-tight whitespace-pre-line break-words">{formatPaymentMethods(booking)}</td>
-                                                <td className="font-bold truncate max-w-[120px]">{booking.guest_name}</td>
-                                                <td className="text-center">{booking.guest_contact || '-'}</td>
-                                                <td className="text-center uppercase font-bold text-[7px]">{formatPaymentStatus(booking)}</td>
+                                {report.bookings && report.bookings.length > 0 ? (
+                                    report.bookings.map((booking, index) => {
+                                        const roomRate = getBookingRoomRate(booking);
+                                        const hrsNights = booking.booking_type === 'overnight'
+                                            ? `${booking.num_nights} NTS`
+                                            : `${booking.short_time_hours || booking.num_nights} HRS`;
+
+                                        let roomRateLabel = "";
+                                        if (booking.booking_type === 'short_time') {
+                                            roomRateLabel = `${formatCurrency(booking.base_amount)}\n/ ${booking.short_time_hours}h rate`;
+                                        } else if (booking.booking_type === 'hourly') {
+                                            roomRateLabel = `${formatCurrency(booking.base_amount)}\n/ hr rate`;
+                                        } else {
+                                            roomRateLabel = `${formatCurrency(booking.base_amount)}\n/ night`;
+                                        }
+
+                                        let mopArr = [];
+                                        if (booking.shift_collection_methods) {
+                                            Object.keys(booking.shift_collection_methods).forEach(method => {
+                                                if (booking.shift_collection_methods[method] > 0) {
+                                                    let methodStr = method.toUpperCase();
+                                                    if (booking.shift_collection_references && booking.shift_collection_references[method]) {
+                                                        booking.shift_collection_references[method].forEach(ref => {
+                                                            methodStr += `\nREF:\n${ref}`;
+                                                        });
+                                                    }
+                                                    mopArr.push(methodStr);
+                                                }
+                                            });
+                                        }
+                                        const mopDisplay = mopArr.join("\n") || "-";
+
+                                        let status = "UNPAID";
+                                        if ((booking.balance_amount || 0) <= 0 && booking.paid_amount > 0) {
+                                            status = "FULLY PAID";
+                                        } else if (booking.paid_amount > 0) {
+                                            status = "PARTIAL";
+                                        } else if (booking.status === "active" && (booking.balance_amount || 0) <= 0 && booking.paid_amount == 0 && booking.total_amount == 0) {
+                                            status = "FULLY PAID";
+                                        }
+
+                                        return (
+                                            <tr key={booking.id} className={`text-[8.5px] ${index % 2 === 0 ? 'bg-slate-50' : 'bg-white'}`}>
+                                                <td className="border border-slate-300 px-0.5 py-1 font-bold">{booking.room?.room_number || '-'}</td>
+                                                <td className="border border-slate-300 px-0.5 py-1">{formatDate(booking.check_in)}</td>
+                                                <td className="border border-slate-300 px-0.5 py-1">{formatTime(booking.check_in)}</td>
+                                                <td className="border border-slate-300 px-0.5 py-1">{formatDate(booking.check_out || booking.expected_check_out)}</td>
+                                                <td className="border border-slate-300 px-0.5 py-1">{formatTime(booking.check_out || booking.expected_check_out)}</td>
+                                                <td className="border border-slate-300 px-0.5 py-1 font-semibold">{hrsNights}</td>
+                                                <td className="border border-slate-300 px-0.5 py-1 font-bold whitespace-pre-line leading-tight">
+                                                    {roomRateLabel}
+                                                </td>
+                                                <td className="border border-slate-300 px-0.5 py-1 font-bold">{formatCurrency(booking.shift_collection_amount || 0)}</td>
+                                                <td className="border border-slate-300 px-0.5 py-1 font-bold">{formatCurrency(booking.balance_amount || 0)}</td>
+                                                <td className="border border-slate-300 px-0.5 py-1 font-semibold uppercase whitespace-pre-line text-[7px] break-words leading-tight">
+                                                    {mopDisplay}
+                                                </td>
+                                                <td className="border border-slate-300 px-0.5 py-1 font-semibold uppercase text-left break-words line-clamp-2">{booking.guest_name}</td>
+                                                <td className="border border-slate-300 px-0.5 py-1 break-words">{booking.guest_contact || '-'}</td>
+                                                <td className="border border-slate-300 px-0.5 py-1 font-bold uppercase text-[7.5px] break-words">{status}</td>
                                             </tr>
                                         );
                                     })
                                 ) : (
                                     <tr>
-                                        <td colSpan="13" className="text-center py-6">
-                                            No stay bookings checked in or checked out during this shift.
+                                        <td colSpan="13" className="border border-slate-300 px-2 py-6 text-gray-500 italic">
+                                            No room bookings were checked in or out during this shift.
                                         </td>
                                     </tr>
                                 )}
@@ -1300,32 +1354,17 @@ export default function Report({ shift, report }) {
                         </table>
                     </div>
 
-                    {/* Circular subtotals mimicking handwritten marks */}
-                    <div className="flex justify-end items-center gap-6 mt-6 pb-4">
-                        <div className="ledger-handwritten-circle text-[9px]">
-                            Room Sales Cash: {formatCurrency(cashBookingsTotal)}
+                    {/* Footer Totals */}
+                    <div className="flex justify-end gap-4 mt-4 pb-4">
+                        <div className="border-2 border-blue-300 rounded-md px-3 py-1 bg-white text-[11px] font-semibold shadow-sm">
+                            Room Sales Cash: <span className="font-bold">{formatCurrency(cashBookingsTotal)}</span>
                         </div>
-                        <div className="ledger-handwritten-circle text-[9px]">
-                            Room Sales GCash: {formatCurrency(gcashBookingsTotal)}
+                        <div className="border-2 border-blue-300 rounded-md px-3 py-1 bg-white text-[11px] font-semibold shadow-sm">
+                            Room Sales GCash: <span className="font-bold">{formatCurrency(gcashBookingsTotal)}</span>
                         </div>
-                        {otherBookingsTotal > 0 && (
-                            <div className="ledger-handwritten-circle text-[9px]">
-                                Room Sales Other: {formatCurrency(otherBookingsTotal)}
-                            </div>
-                        )}
-                        <div className="ledger-handwritten-circle text-[10px] border-black">
+                        <div className="border-2 border-slate-400 rounded-md px-3 py-1 bg-white text-[11px] font-bold shadow-sm">
                             Verified Room Sales: {formatCurrency(staysTotalCollection)}
                         </div>
-                        {staysRefunds > 0 && (
-                            <>
-                                <div className="ledger-handwritten-circle text-[9px]">
-                                    Refunds: {formatCurrency(staysRefunds)}
-                                </div>
-                                <div className="ledger-handwritten-circle text-[10px] border-black">
-                                    Net Collections: {formatCurrency(staysNetCollection)}
-                                </div>
-                            </>
-                        )}
                     </div>
 
                     <PrintFooter title="Stays Ledger (Log Book Format)" />
