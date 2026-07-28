@@ -222,6 +222,28 @@ class PaymentLedgerTest extends TestCase
         $this->assertEquals(500.0, $booking->fresh()->cash_amount);
     }
 
+    public function test_room_billed_pos_sale_is_not_counted_as_a_booking_payment(): void
+    {
+        $booking = $this->booking(42, 1000);
+
+        Transaction::create([
+            'booking_id' => $booking->id,
+            'transaction_type' => 'pos_sale',
+            'description' => 'Room-billed minibar item',
+            'amount' => 25,
+            'payment_method' => 'cash',
+            'cash_amount' => 25,
+            'processed_by' => $this->user->id,
+        ]);
+
+        app(PaymentService::class)->syncBooking($booking);
+
+        $booking->refresh();
+        $this->assertEquals(0.0, $booking->amount_paid);
+        $this->assertEquals(0.0, $booking->cash_amount);
+        $this->assertSame('unpaid', $booking->payment_status);
+    }
+
     public function test_maya_bank_card_and_other_ewallet_channels_are_first_class_components(): void
     {
         foreach (['maya', 'bank_transfer', 'card', 'other_ewallet', 'other'] as $index => $method) {

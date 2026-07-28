@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Models\Booking;
+use App\Models\CashMovement;
+use App\Models\Expense;
 use App\Models\Room;
 use App\Models\RoomType;
 use App\Models\ShiftSession;
@@ -27,7 +29,7 @@ class ShiftReportPaymentSummaryTest extends TestCase
             'opening_cash' => 1000,
             'opening_cash_minibar' => 500,
         ]);
-        [$ledgerBooking, $legacyBooking] = $this->createFutureBookings($user);
+        [$ledgerBooking, $legacyBooking] = $this->createBookings($user, true);
 
         app(PaymentService::class)->record([
             'payer_name' => $ledgerBooking->guest_name,
@@ -56,23 +58,34 @@ class ShiftReportPaymentSummaryTest extends TestCase
             'processed_by' => $user->id,
         ]);
 
+        Transaction::create([
+            'booking_id' => $legacyBooking->id,
+            'transaction_type' => 'pos_sale',
+            'description' => 'Room-billed minibar item',
+            'amount' => 25,
+            'payment_method' => 'cash',
+            'cash_amount' => 25,
+            'processed_by' => $user->id,
+        ]);
+
         $response = $this->actingAs($user)->get(route('shifts.report', $shift->id));
 
         $response->assertOk();
         $response->assertInertia(fn (Assert $page) => $page
             ->component('Shifts/Report')
             ->has('report.bookings', 2)
-            ->where('report.bookings.0.total_amount', 1000)
-            ->where('report.bookings.0.paid_amount', 400)
+            ->where('report.bookings.0.total_amount', 900)
+            ->where('report.bookings.0.paid_amount', 300)
             ->where('report.bookings.0.balance_amount', 600)
             ->where('report.bookings.0.report_payment_status', 'partial')
-            ->where('report.bookings.0.shift_collection_amount', 400)
-            ->where('report.bookings.0.shift_collection_methods.gcash', 400)
-            ->where('report.bookings.1.total_amount', 900)
-            ->where('report.bookings.1.paid_amount', 300)
+            ->where('report.bookings.0.shift_collection_amount', 300)
+            ->where('report.bookings.0.shift_collection_methods.cash', 300)
+            ->where('report.bookings.1.total_amount', 1000)
+            ->where('report.bookings.1.paid_amount', 400)
             ->where('report.bookings.1.balance_amount', 600)
-            ->where('report.bookings.1.shift_collection_amount', 300)
-            ->where('report.bookings.1.shift_collection_methods.cash', 300)
+            ->where('report.bookings.1.shift_collection_amount', 400)
+            ->where('report.bookings.1.shift_collection_methods.gcash', 400)
+            ->where('report.bookings.1.shift_collection_references.gcash.0', 'GCASH-SHIFT-REPORT-001')
             ->where('report.stay_collections.cash', 300)
             ->where('report.stay_collections.gcash', 400)
             ->where('report.stay_collections.total_received', 700)
@@ -91,7 +104,7 @@ class ShiftReportPaymentSummaryTest extends TestCase
             'opening_cash' => 0,
             'opening_cash_minibar' => 0,
         ]);
-        [$booking] = $this->createFutureBookings($user);
+        [$booking] = $this->createBookings($user, true);
 
         app(PaymentService::class)->record([
             'payer_name' => $booking->guest_name,
@@ -114,11 +127,119 @@ class ShiftReportPaymentSummaryTest extends TestCase
 
         $response->assertOk();
         $response->assertInertia(fn (Assert $page) => $page
-            ->where('report.bookings.0.paid_amount', 0)
-            ->where('report.bookings.0.balance_amount', 1000)
-            ->where('report.bookings.0.pending_payment_amount', 400)
-            ->where('report.bookings.0.report_payment_status', 'pending_verification')
+            ->where('report.bookings.1.paid_amount', 0)
+            ->where('report.bookings.1.balance_amount', 1000)
+            ->where('report.bookings.1.pending_payment_amount', 400)
+            ->where('report.bookings.1.report_payment_status', 'pending_verification')
             ->where('report.stay_collections.total_received', 0)
+        );
+    }
+
+    public function test_future_reservation_deposit_is_excluded_from_front_desk_room_sales(): void
+    {
+        $user = $this->createCashier();
+        $shift = ShiftSession::create([
+            'user_id' => $user->id,
+            'shift_code' => 'morning',
+            'started_at' => now()->subHour(),
+            'opening_cash' => 0,
+            'opening_cash_minibar' => 0,
+        ]);
+        [$booking] = $this->createBookings($user, false);
+
+        app(PaymentService::class)->record([
+            'payer_name' => $booking->guest_name,
+            'payment_method_code' => 'gcash',
+            'reference_number' => 'FUTURE-DEPOSIT-EXCLUDED',
+            'amount' => 400,
+            'payment_type' => 'deposit',
+            'status' => 'verified',
+            'recorded_by' => $user->id,
+            'received_at' => now()->subMinutes(20),
+        ], [$booking->id => 400], [[
+            'payment_method_code' => 'gcash',
+            'amount' => 400,
+            'reference_number' => 'FUTURE-DEPOSIT-EXCLUDED',
+        ]]);
+
+        $response = $this->actingAs($user)->get(route('shifts.report', $shift->id));
+
+        $response->assertInertia(fn (Assert $page) => $page
+            ->has('report.bookings', 0)
+            ->where('report.stay_collections.total_received', 0)
+        );
+    }
+
+    public function test_daily_cash_report_uses_room_cash_sales_and_excludes_minibar_pos(): void
+    {
+        $user = $this->createCashier();
+        $shift = ShiftSession::create([
+            'user_id' => $user->id,
+            'shift_code' => 'morning',
+            'started_at' => now()->subHour(),
+            'ended_at' => now()->addMinute(),
+            'opening_cash' => 500,
+            'closing_cash' => 600,
+            'closing_denominations' => ['500' => 1, '100' => 1],
+            'opening_cash_minibar' => 0,
+            'closing_cash_minibar' => 0,
+        ]);
+        [, $booking] = $this->createBookings($user, true);
+
+        Transaction::create([
+            'booking_id' => $booking->id,
+            'transaction_type' => 'check_in',
+            'description' => 'Cash room sale',
+            'amount' => 300,
+            'payment_method' => 'cash',
+            'cash_amount' => 300,
+            'processed_by' => $user->id,
+        ]);
+        Transaction::create([
+            'booking_id' => $booking->id,
+            'transaction_type' => 'pos_sale',
+            'description' => 'Room minibar charge',
+            'amount' => 25,
+            'payment_method' => 'cash',
+            'cash_amount' => 25,
+            'processed_by' => $user->id,
+        ]);
+        Expense::create([
+            'expense_date' => now()->toDateString(),
+            'amount' => 50,
+            'cash_drawer' => 'room',
+            'notes' => 'Room drawer supply expense',
+            'recorded_by' => $user->id,
+        ]);
+        CashMovement::create([
+            'shift_session_id' => $shift->id,
+            'movement_type' => 'cashier_transfer',
+            'cash_drawer' => 'room',
+            'amount' => 100,
+            'description' => 'Cash remitted to cashier',
+            'moved_at' => now(),
+            'recorded_by' => $user->id,
+        ]);
+        CashMovement::create([
+            'shift_session_id' => $shift->id,
+            'movement_type' => 'withdrawal',
+            'cash_drawer' => 'room',
+            'amount' => 25,
+            'description' => 'Approved withdrawal',
+            'moved_at' => now(),
+            'recorded_by' => $user->id,
+        ]);
+
+        $response = $this->actingAs($user)->get(route('shifts.report', $shift->id));
+
+        $response->assertInertia(fn (Assert $page) => $page
+            ->where('report.daily_cash_report.room_sales_cash', 300)
+            ->where('report.daily_cash_report.room_expenses', 50)
+            ->where('report.daily_cash_report.cashier_transfers', 100)
+            ->where('report.daily_cash_report.withdrawals', 25)
+            ->where('report.daily_cash_report.expected_cash', 625)
+            ->where('report.daily_cash_report.actual_cash', 600)
+            ->where('report.daily_cash_report.variance', 25)
         );
     }
 
@@ -133,7 +254,7 @@ class ShiftReportPaymentSummaryTest extends TestCase
         ]);
     }
 
-    private function createFutureBookings(User $user): array
+    private function createBookings(User $user, bool $checkedInThisShift): array
     {
         $roomType = RoomType::create([
             'type_name' => 'Shift Report Room',
@@ -158,9 +279,9 @@ class ShiftReportPaymentSummaryTest extends TestCase
                 'num_guests' => 2,
                 'booking_type' => 'overnight',
                 'num_nights' => 1,
-                'check_in' => now()->addDays($index + 2),
-                'expected_check_out' => now()->addDays($index + 3),
-                'status' => 'reserved',
+                'check_in' => $checkedInThisShift ? now()->subMinutes(10 + $index) : now()->addDays($index + 2),
+                'expected_check_out' => $checkedInThisShift ? now()->addDay() : now()->addDays($index + 3),
+                'status' => $checkedInThisShift ? 'active' : 'reserved',
                 'payment_status' => $index === 0 ? 'unpaid' : 'partial',
                 'base_amount' => $total,
                 'total_amount' => $total,
@@ -168,7 +289,7 @@ class ShiftReportPaymentSummaryTest extends TestCase
                 'payment_method' => $index === 0 ? 'gcash' : 'cash',
                 'cash_amount' => $index === 0 ? 0 : 300,
                 'gcash_amount' => 0,
-                'checked_in_by' => $user->id,
+                'checked_in_by' => $checkedInThisShift ? $user->id : null,
             ]);
         }
 

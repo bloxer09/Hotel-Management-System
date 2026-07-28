@@ -310,6 +310,8 @@ class PaymentService
         $legacyUnlinked = (float) $booking->transactions()
             ->whereNull('payment_id')
             ->where('amount', '>', 0)
+            // A POS sale billed to a room is a charge, not a guest payment.
+            ->where('transaction_type', '!=', 'pos_sale')
             ->whereNotIn('payment_method', ['na', ''])
             ->sum('amount');
 
@@ -335,10 +337,12 @@ class PaymentService
         $legacyCash = (float) $booking->transactions()
             ->whereNull('payment_id')
             ->where('amount', '>', 0)
+            ->where('transaction_type', '!=', 'pos_sale')
             ->sum('cash_amount');
         $legacyGcash = (float) $booking->transactions()
             ->whereNull('payment_id')
             ->where('amount', '>', 0)
+            ->where('transaction_type', '!=', 'pos_sale')
             ->sum('gcash_amount');
 
         $booking->cash_amount = round(max(0, $legacyCash + (float) ($channelTotals->cash_total ?? 0)), 2);

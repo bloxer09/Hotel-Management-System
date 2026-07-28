@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Head, Link, useForm, usePage, router } from '@inertiajs/react';
 import {
     Printer,
     ChevronLeft,
@@ -13,7 +13,9 @@ import {
     Wrench,
     AlertTriangle,
     CheckCircle,
-    ChevronDown
+    ChevronDown,
+    Banknote,
+    Trash2
 } from 'lucide-react';
 import CustomSelect from '@/Components/CustomSelect';
 
@@ -21,6 +23,13 @@ export default function Report({ shift, report }) {
     const { app_name } = usePage().props;
     const [activeTab, setActiveTab] = useState('overview');
     const [printMode, setPrintMode] = useState('all'); // 'all' (entire report) or 'active' (active tab only)
+    const [printOrientation, setPrintOrientation] = useState('landscape');
+    const cashMovementForm = useForm({
+        movement_type: 'cashier_transfer',
+        amount: '',
+        description: '',
+        moved_at: '',
+    });
 
     const formatCurrency = (val) => {
         const num = Number(val);
@@ -45,6 +54,7 @@ export default function Report({ shift, report }) {
     const tabItems = [
         { id: 'overview', label: 'Overview & Cash', icon: Info, count: null },
         { id: 'bookings', label: 'Bookings Ledger', icon: BookOpen, count: report.bookings?.length || 0 },
+        { id: 'daily-cash', label: 'Daily Cash Report', icon: Banknote, count: null },
         { id: 'minibar', label: 'Minibar & POS', icon: Coffee, count: (report.transactions?.filter(t => t.transaction_type === 'pos_sale').length || 0) + (report.inventory_usage_details?.filter(u => u.booking_id !== null).length || 0) },
         { id: 'inventory', label: 'Inventory Status', icon: Package, count: report.inventory_items?.length || 0 },
         { id: 'expenses', label: 'Expenses', icon: MinusCircle, count: report.expenses?.length || 0 },
@@ -55,6 +65,7 @@ export default function Report({ shift, report }) {
     // --- Print handlers ---
     const handlePrintAll = () => {
         setPrintMode('all');
+        setPrintOrientation('landscape');
         setTimeout(() => {
             window.print();
         }, 150);
@@ -62,6 +73,7 @@ export default function Report({ shift, report }) {
 
     const handlePrintActive = () => {
         setPrintMode('active');
+        setPrintOrientation(activeTab === 'daily-cash' ? 'portrait' : 'landscape');
         setTimeout(() => {
             window.print();
         }, 150);
@@ -77,6 +89,52 @@ export default function Report({ shift, report }) {
     const staysTotalCollection = Number(stayCollections.total_received || 0);
     const staysRefunds = Number(stayCollections.refunds || 0);
     const staysNetCollection = Number(stayCollections.net_collections || 0);
+    const dailyCash = report.daily_cash_report || {};
+    const dailyVariance = dailyCash.variance === null || dailyCash.variance === undefined
+        ? null
+        : Number(dailyCash.variance);
+    const dailyCashStatus = dailyVariance === null
+        ? 'PENDING TALLY'
+        : dailyVariance === 0 ? 'BALANCED' : dailyVariance > 0 ? 'SHORT' : 'OVER';
+    const dailyCashStatusClass = dailyCashStatus === 'BALANCED'
+        ? 'text-emerald-600 bg-emerald-50 border-emerald-300'
+        : dailyCashStatus === 'SHORT'
+            ? 'text-rose-600 bg-rose-50 border-rose-300'
+            : dailyCashStatus === 'OVER'
+                ? 'text-sky-700 bg-sky-50 border-sky-300'
+                : 'text-slate-600 bg-slate-50 border-slate-300';
+    const dailyCashDetails = [
+        ...(dailyCash.expense_details || []).map(expense => ({
+            id: `expense-${expense.id}`,
+            time: expense.created_at || expense.expense_date,
+            particulars: expense.notes || 'Expense / withdrawal',
+            amount: Number(expense.amount || 0),
+            kind: 'Expense',
+        })),
+        ...(dailyCash.cash_movements || []).map(movement => ({
+            id: `movement-${movement.id}`,
+            time: movement.moved_at,
+            particulars: movement.description,
+            amount: Number(movement.amount || 0),
+            kind: movement.movement_type === 'cashier_transfer' ? 'Transfer to Cashier' : 'Withdrawal',
+            movement,
+        })),
+    ].sort((a, b) => new Date(a.time) - new Date(b.time));
+    const cashDenominations = [1000, 500, 200, 100, 50, 20, 10, 5, 1, 0.25, 0.05, 0.01];
+    const closingDenominations = shift.closing_denominations || {};
+
+    const submitCashMovement = (event) => {
+        event.preventDefault();
+        cashMovementForm.post(route('shifts.cash_movements.store', shift.id), {
+            preserveScroll: true,
+            onSuccess: () => cashMovementForm.reset('amount', 'description', 'moved_at'),
+        });
+    };
+
+    const deleteCashMovement = (movement) => {
+        if (!window.confirm(`Remove this ${movement.movement_type === 'cashier_transfer' ? 'cashier transfer' : 'withdrawal'} record?`)) return;
+        router.delete(route('shifts.cash_movements.destroy', [shift.id, movement.id]), { preserveScroll: true });
+    };
 
     const formatPaymentMethods = (booking) => {
         const labels = {
@@ -88,11 +146,39 @@ export default function Report({ shift, report }) {
             other_ewallet: 'E-wallet',
             other: 'Other',
         };
+        const references = booking.shift_collection_references || {};
         const methods = Object.entries(booking.shift_collection_methods || {})
             .filter(([, amount]) => Number(amount) > 0)
-            .map(([method]) => labels[method] || method);
+            .map(([method]) => {
+                const methodLabel = labels[method] || method;
+                const methodReferences = Array.isArray(references[method])
+                    ? references[method].filter(Boolean)
+                    : [];
 
-        return methods.length > 0 ? methods.join(' + ') : (booking.payment_method || '-');
+                return methodReferences.length > 0
+                    ? `${methodLabel}\nRef: ${methodReferences.join(', ')}`
+                    : methodLabel;
+            });
+
+        if (methods.length > 0) {
+            return methods.join('\n+\n');
+        }
+
+        const fallbackMethod = labels[booking.payment_method] || booking.payment_method || '-';
+        return booking.payment_method === 'gcash' && booking.gcash_ref
+            ? `${fallbackMethod}\nRef: ${booking.gcash_ref}`
+            : fallbackMethod;
+    };
+
+    const getBookingRoomRate = (booking) => {
+        const baseAmount = Number(booking.base_amount || 0);
+        const units = booking.booking_type === 'overnight'
+            ? Math.max(1, Number(booking.num_nights || 1))
+            : 1;
+        const roomRate = booking.booking_type === 'overnight'
+            ? baseAmount / units
+            : baseAmount;
+        return roomRate;
     };
 
     const formatPaymentStatus = (booking) => {
@@ -101,8 +187,8 @@ export default function Report({ shift, report }) {
         }
 
         return {
-            paid: 'Paid',
-            partial: 'Partial',
+            paid: 'Fully Paid',
+            partial: 'Deposit / Partial',
             unpaid: 'Unpaid',
         }[booking.report_payment_status] || booking.report_payment_status || 'Unpaid';
     };
@@ -148,7 +234,7 @@ export default function Report({ shift, report }) {
                 __html: `
                 @media print {
                     @page {
-                        size: landscape A4;
+                        size: ${printOrientation === 'portrait' ? 'A4 portrait' : 'A4 landscape'};
                         margin: 10mm 10mm 10mm 10mm;
                     }
                     /* Reset application containers for multi-page print layout */
@@ -259,6 +345,32 @@ export default function Report({ shift, report }) {
                     border-bottom: 1px solid #cbd5e1;
                     height: 18px;
                     margin-top: 3px;
+                }
+
+                .daily-cash-table th, .daily-cash-table td {
+                    border: 1px solid #94a3b8;
+                    padding: 5px 7px;
+                    font-size: 10px;
+                }
+                .daily-cash-table th {
+                    background: #e2e8f0 !important;
+                    color: #0f172a !important;
+                    font-weight: 700;
+                }
+                @media print {
+                    .daily-cash-report-page {
+                        width: 100%;
+                        font-family: Arial, Helvetica, sans-serif !important;
+                        font-size: 9px !important;
+                    }
+                    .daily-cash-table th, .daily-cash-table td {
+                        padding: 4px 6px !important;
+                        font-size: 8px !important;
+                    }
+                    .daily-cash-report-page .daily-cash-details td {
+                        padding-top: 3px !important;
+                        padding-bottom: 3px !important;
+                    }
                 }
             `}} />
 
@@ -430,8 +542,8 @@ export default function Report({ shift, report }) {
                                                 <td className="p-2">{formatCurrency(shift.opening_cash)}</td>
                                                 <td className="p-2 text-emerald-400">{formatCurrency(report.sales.rooms_cash)}</td>
                                                 <td className="p-2">{formatCurrency(report.sales.rooms_gcash)}</td>
-                                                <td className="p-2 text-emerald-400">{formatCurrency(report.incomes.filter(i => i.cash_drawer === 'rooms').reduce((sum, i) => sum + Number(i.amount), 0))}</td>
-                                                <td className="p-2 text-red-400">-{formatCurrency(report.expenses.filter(e => e.cash_drawer === 'rooms').reduce((sum, e) => sum + Number(e.amount), 0))}</td>
+                                                <td className="p-2 text-emerald-400">{formatCurrency(report.incomes.filter(i => i.cash_drawer === 'room').reduce((sum, i) => sum + Number(i.amount), 0))}</td>
+                                                <td className="p-2 text-red-400">-{formatCurrency(report.expenses.filter(e => e.cash_drawer === 'room').reduce((sum, e) => sum + Number(e.amount), 0))}</td>
                                                 <td className="p-2 font-bold">{formatCurrency(report.expectedDrawerCash)}</td>
                                                 <td className="p-2 font-bold">{shift.ended_at ? formatCurrency(shift.closing_cash) : 'OPEN'}</td>
                                                 <td className={`p-2 text-right font-bold ${report.cashVariance !== 0 ? 'text-red-400' : 'text-emerald-400'}`}>
@@ -489,32 +601,28 @@ export default function Report({ shift, report }) {
                                 <table className="w-full text-left border-collapse logbook-table text-slate-100">
                                     <thead>
                                         <tr>
-                                            <th>NO.</th>
+                                            <th>ROOM NO.</th>
                                             <th>DATE IN</th>
                                             <th>TIME IN</th>
                                             <th>DATE OUT</th>
                                             <th>TIME OUT</th>
                                             <th>HRS</th>
                                             <th>ROOM RATE</th>
-                                            <th>EXP. / ADDL</th>
-                                            <th>TOTAL</th>
-                                            <th>PAID / ADV.</th>
-                                            <th>BALANCE</th>
-                                            <th>MOP</th>
+                                            <th>PAID THIS SHIFT</th>
+                                            <th>BALANCE DUE</th>
+                                            <th>THIS SHIFT MOP</th>
                                             <th>GUEST NAME</th>
                                             <th>CONTACT NUMBER</th>
-                                            <th>RM NO.</th>
                                             <th>STATUS</th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {report.bookings && report.bookings.length > 0 ? (
-                                            report.bookings.map((booking, idx) => {
-                                                const rate = Number(booking.base_amount || 0) + Number(booking.peak_surcharge || 0);
-                                                const addl = Number(booking.extra_pax_charges || 0) + Number(booking.extension_fee || 0) + Number(booking.late_checkout_fee || 0) - Number(booking.discount_amount || 0);
-                                                return (
+                                         {report.bookings && report.bookings.length > 0 ? (
+                                             report.bookings.map((booking) => {
+                                                  const roomRate = getBookingRoomRate(booking);
+                                                 return (
                                                     <tr key={booking.id} className="highlight-row text-xs font-mono">
-                                                        <td className="text-center font-bold text-slate-300">{idx + 1}</td>
+                                                        <td className="text-center font-bold text-indigo-400">{booking.room?.room_number || '-'}</td>
                                                         <td className="text-center">{formatDate(booking.check_in)}</td>
                                                         <td className="text-center">{formatTime(booking.check_in)}</td>
                                                         <td className="text-center">{formatDate(booking.check_out || booking.expected_check_out)}</td>
@@ -522,15 +630,17 @@ export default function Report({ shift, report }) {
                                                         <td className="text-center font-sans">
                                                             {booking.booking_type === 'overnight' ? `${booking.num_nights} nights` : `${booking.short_time_hours} hrs`}
                                                         </td>
-                                                        <td className="text-right">{formatCurrency(rate)}</td>
-                                                        <td className="text-right text-indigo-300">{addl !== 0 ? formatCurrency(addl) : '-'}</td>
-                                                        <td className="text-right font-bold">{formatCurrency(booking.total_amount)}</td>
-                                                        <td className="text-right font-bold text-emerald-400">{formatCurrency(booking.paid_amount)}</td>
+                                                         <td className="text-right">
+                                                              <div className="font-bold">{formatCurrency(roomRate)}</div>
+                                                             <div className="text-[9px] text-slate-400">
+                                                                 {booking.booking_type === 'overnight' ? 'per night' : `${booking.short_time_hours || 0}h rate`}
+                                                             </div>
+                                                         </td>
+                                                         <td className="text-right font-bold text-emerald-400">{formatCurrency(booking.shift_collection_amount)}</td>
                                                         <td className={`text-right font-bold ${Number(booking.balance_amount) > 0 ? 'text-amber-300' : 'text-slate-400'}`}>{formatCurrency(booking.balance_amount)}</td>
-                                                        <td className="text-center font-sans uppercase font-bold text-[10px] text-slate-300">{formatPaymentMethods(booking)}</td>
+                                                         <td className="text-center font-sans uppercase font-bold text-[10px] text-slate-300 whitespace-pre-line break-words">{formatPaymentMethods(booking)}</td>
                                                         <td className="font-bold text-slate-200">{booking.guest_name}</td>
                                                         <td>{booking.guest_contact || '-'}</td>
-                                                        <td className="text-center font-bold text-indigo-400">{booking.room?.room_number || '-'}</td>
                                                         <td className={`text-[10px] font-sans font-bold text-center uppercase ${booking.report_payment_status === 'paid' ? 'text-emerald-400' : 'text-amber-300'}`}>
                                                             {formatPaymentStatus(booking)}
                                                         </td>
@@ -539,7 +649,7 @@ export default function Report({ shift, report }) {
                                             })
                                         ) : (
                                             <tr>
-                                                <td colSpan="16" className="text-center py-6 text-slate-500 font-sans">
+                                                <td colSpan="13" className="text-center py-6 text-slate-500 font-sans">
                                                     No stay bookings checked in or checked out during this shift.
                                                 </td>
                                             </tr>
@@ -551,18 +661,18 @@ export default function Report({ shift, report }) {
                             {/* Circle summary indicators at the bottom */}
                             <div className="flex flex-wrap gap-6 justify-end items-center mt-4">
                                 <div className="ledger-handwritten-circle text-emerald-300 text-xs">
-                                    Stays Cash: {formatCurrency(cashBookingsTotal)}
+                                    Room Sales Cash: {formatCurrency(cashBookingsTotal)}
                                 </div>
                                 <div className="ledger-handwritten-circle text-indigo-300 text-xs">
-                                    Stays GCash: {formatCurrency(gcashBookingsTotal)}
+                                    Room Sales GCash: {formatCurrency(gcashBookingsTotal)}
                                 </div>
                                 {otherBookingsTotal > 0 && (
                                     <div className="ledger-handwritten-circle text-slate-300 text-xs">
-                                        Stays Other: {formatCurrency(otherBookingsTotal)}
+                                        Room Sales Other: {formatCurrency(otherBookingsTotal)}
                                     </div>
                                 )}
                                 <div className="ledger-handwritten-circle text-slate-100 text-sm border-emerald-400">
-                                    Verified Received: {formatCurrency(staysTotalCollection)}
+                                    Verified Room Sales: {formatCurrency(staysTotalCollection)}
                                 </div>
                                 {staysRefunds > 0 && (
                                     <>
@@ -574,6 +684,56 @@ export default function Report({ shift, report }) {
                                         </div>
                                     </>
                                 )}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Daily Cash Report */}
+                    {activeTab === 'daily-cash' && (
+                        <div className="flex flex-col gap-5">
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                                <div>
+                                    <h3 className="text-sm font-bold text-slate-100 uppercase font-mono">Pension House Daily Cash Report</h3>
+                                    <p className="mt-1 text-xs text-slate-400">Room drawer only. Room sales use verified cash payments; minibar/POS and e-wallet payments are excluded.</p>
+                                </div>
+                                <div className={`border rounded-lg px-3 py-2 text-xs font-bold ${dailyCashStatusClass}`}>
+                                    {dailyCashStatus}{dailyVariance !== null ? ` • ${formatCurrency(Math.abs(dailyVariance))}` : ''}
+                                </div>
+                            </div>
+
+                            <div className="overflow-x-auto rounded-lg border border-slate-700">
+                                <table className="w-full text-sm daily-cash-table text-slate-100">
+                                    <tbody>
+                                        <tr><th className="text-left w-2/3">Cash on Hand (Opening Balance)</th><td className="text-right font-mono font-bold">{formatCurrency(shift.opening_cash)}</td></tr>
+                                        <tr><th className="text-left">Add: Total Cash Check-In / Room Sales</th><td className="text-right font-mono font-bold text-emerald-400">{formatCurrency(dailyCash.room_sales_cash)}</td></tr>
+                                        <tr><th className="text-left">Total Cash Available</th><td className="text-right font-mono font-bold">{formatCurrency(Number(shift.opening_cash || 0) + Number(dailyCash.room_sales_cash || 0))}</td></tr>
+                                        <tr><th className="text-left">Less: Expenses / Withdrawals</th><td className="text-right font-mono font-bold text-rose-400">-{formatCurrency(Number(dailyCash.room_expenses || 0) + Number(dailyCash.withdrawals || 0))}</td></tr>
+                                        <tr><th className="text-left">Less: Transfer to Cashier</th><td className="text-right font-mono font-bold text-rose-400">-{formatCurrency(dailyCash.cashier_transfers)}</td></tr>
+                                        <tr><th className="text-left">Expected Cash in Drawer</th><td className="text-right font-mono font-bold text-amber-300">{formatCurrency(dailyCash.expected_cash)}</td></tr>
+                                        <tr><th className="text-left">Actual Cash Tally</th><td className="text-right font-mono font-bold">{dailyCash.actual_cash === null ? 'Shift still open' : formatCurrency(dailyCash.actual_cash)}</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            {report.can_manage_daily_cash && (
+                                <form onSubmit={submitCashMovement} className="rounded-lg border border-slate-700 bg-slate-800 p-4 grid grid-cols-1 md:grid-cols-4 gap-3">
+                                    <select value={cashMovementForm.data.movement_type} onChange={e => cashMovementForm.setData('movement_type', e.target.value)} className="rounded bg-slate-900 border border-slate-600 px-3 py-2 text-sm">
+                                        <option value="cashier_transfer">Transfer to Cashier</option>
+                                        <option value="withdrawal">Cash Withdrawal</option>
+                                    </select>
+                                    <input type="number" min="0.01" step="0.01" required value={cashMovementForm.data.amount} onChange={e => cashMovementForm.setData('amount', e.target.value)} placeholder="Amount" className="rounded bg-slate-900 border border-slate-600 px-3 py-2 text-sm" />
+                                    <input required value={cashMovementForm.data.description} onChange={e => cashMovementForm.setData('description', e.target.value)} placeholder="Particulars / description" className="rounded bg-slate-900 border border-slate-600 px-3 py-2 text-sm" />
+                                    <button disabled={cashMovementForm.processing} className="rounded bg-emerald-600 hover:bg-emerald-500 px-3 py-2 text-sm font-bold disabled:opacity-60">Record cash movement</button>
+                                    {cashMovementForm.errors.amount && <p className="md:col-span-4 text-xs text-rose-400">{cashMovementForm.errors.amount}</p>}
+                                    {cashMovementForm.errors.description && <p className="md:col-span-4 text-xs text-rose-400">{cashMovementForm.errors.description}</p>}
+                                </form>
+                            )}
+
+                            <div className="overflow-x-auto rounded-lg border border-slate-700">
+                                <table className="w-full text-left text-xs text-slate-100">
+                                    <thead className="bg-slate-750 text-slate-300"><tr><th className="p-3">Time</th><th className="p-3">Particulars / Description</th><th className="p-3 text-right">Amount</th>{report.can_manage_daily_cash && <th className="p-3" />}</tr></thead>
+                                    <tbody>{dailyCashDetails.length ? dailyCashDetails.map(detail => <tr key={detail.id} className="border-t border-slate-700"><td className="p-3">{formatTime(detail.time)}</td><td className="p-3"><span className="font-bold">{detail.kind}:</span> {detail.particulars}</td><td className="p-3 text-right font-mono text-rose-300">-{formatCurrency(detail.amount)}</td>{report.can_manage_daily_cash && <td className="p-2 text-right">{detail.movement && <button type="button" onClick={() => deleteCashMovement(detail.movement)} className="p-1 text-rose-400 hover:text-rose-300" title="Remove cash movement"><Trash2 size={14} /></button>}</td>}</tr>) : <tr><td colSpan={report.can_manage_daily_cash ? 4 : 3} className="p-5 text-center text-slate-500">No room drawer expenses, withdrawals, or cashier transfers recorded.</td></tr>}</tbody>
+                                </table>
                             </div>
                         </div>
                     )}
@@ -990,8 +1150,8 @@ export default function Report({ shift, report }) {
                                     <td>{formatCurrency(shift.opening_cash)}</td>
                                     <td>{formatCurrency(report.sales.rooms_cash)}</td>
                                     <td>{formatCurrency(report.sales.rooms_gcash)}</td>
-                                    <td>{formatCurrency(report.incomes.filter(i => i.cash_drawer === 'rooms').reduce((sum, i) => sum + Number(i.amount), 0))}</td>
-                                    <td className="text-red-700">-{formatCurrency(report.expenses.filter(e => e.cash_drawer === 'rooms').reduce((sum, e) => sum + Number(e.amount), 0))}</td>
+                                    <td>{formatCurrency(report.incomes.filter(i => i.cash_drawer === 'room').reduce((sum, i) => sum + Number(i.amount), 0))}</td>
+                                    <td className="text-red-700">-{formatCurrency(report.expenses.filter(e => e.cash_drawer === 'room').reduce((sum, e) => sum + Number(e.amount), 0))}</td>
                                     <td>{formatCurrency(report.expectedDrawerCash)}</td>
                                     <td>{shift.ended_at ? formatCurrency(shift.closing_cash) : 'OPEN'}</td>
                                     <td className={report.cashVariance !== 0 ? 'text-red-700' : ''}>
@@ -1081,56 +1241,57 @@ export default function Report({ shift, report }) {
                     <PrintHeader title="II. ROOM BOOKINGS LEDGER (LOG BOOK)" pageNum={2} />
 
                     <div className="mb-4">
+                        <p className="mb-2 text-[7px] italic">
+                            Room sales include only stays checked in or checked out during this shift. Future reservation deposits are excluded.
+                        </p>
                         <table className="w-full text-left border-collapse logbook-table">
                             <thead>
                                 <tr>
-                                    <th className="w-[3%]">NO.</th>
+                                    <th className="w-[5%]">ROOM NO.</th>
                                     <th className="w-[8%]">DATE IN</th>
                                     <th className="w-[7%]">TIME IN</th>
                                     <th className="w-[8%]">DATE OUT</th>
                                     <th className="w-[7%]">TIME OUT</th>
                                     <th className="w-[6%]">HRS</th>
                                     <th className="w-[9%]">ROOM RATE</th>
-                                    <th className="w-[9%]">EXP/ADDL</th>
-                                    <th className="w-[7%]">TOTAL</th>
-                                    <th className="w-[7%]">PAID/ADV.</th>
-                                    <th className="w-[7%]">BALANCE</th>
-                                    <th className="w-[6%]">FINANCE</th>
+                                    <th className="w-[7%]">PAID THIS<br />SHIFT</th>
+                                    <th className="w-[7%]">BALANCE<br />DUE</th>
+                                    <th className="w-[6%]">THIS SHIFT<br />MOP</th>
                                     <th className="w-[12%]">GUEST NAME</th>
                                     <th className="w-[9%]">CONTACT</th>
-                                    <th className="w-[4%]">RM</th>
                                     <th className="w-[6%]">STATUS</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {report.bookings && report.bookings.length > 0 ? (
-                                    report.bookings.map((booking, idx) => {
-                                        const rate = Number(booking.base_amount || 0) + Number(booking.peak_surcharge || 0);
-                                        const addl = Number(booking.extra_pax_charges || 0) + Number(booking.extension_fee || 0) + Number(booking.late_checkout_fee || 0) - Number(booking.discount_amount || 0);
-                                        return (
+                                 {report.bookings && report.bookings.length > 0 ? (
+                                     report.bookings.map((booking) => {
+                                         const roomRate = getBookingRoomRate(booking);
+                                         return (
                                             <tr key={booking.id} className="highlight-row text-[9px] leading-tight">
-                                                <td className="text-center font-bold">{idx + 1}</td>
+                                                <td className="text-center font-bold">{booking.room?.room_number || '-'}</td>
                                                 <td className="text-center">{formatDate(booking.check_in)}</td>
                                                 <td className="text-center">{formatTime(booking.check_in)}</td>
                                                 <td className="text-center">{formatDate(booking.check_out || booking.expected_check_out)}</td>
                                                 <td className="text-center">{formatTime(booking.check_out || booking.expected_check_out)}</td>
                                                 <td className="text-center">{booking.booking_type === 'overnight' ? `${booking.num_nights} NTS` : `${booking.short_time_hours} HRS`}</td>
-                                                <td className="text-right">{formatCurrency(rate)}</td>
-                                                <td className="text-right">{addl !== 0 ? formatCurrency(addl) : '-'}</td>
-                                                <td className="text-right font-bold">{formatCurrency(booking.total_amount)}</td>
-                                                <td className="text-right font-bold">{formatCurrency(booking.paid_amount)}</td>
+                                                 <td className="text-right">
+                                                     <div className="font-bold">{formatCurrency(roomRate)}</div>
+                                                     <div className="text-[6px] font-normal">
+                                                         {booking.booking_type === 'overnight' ? '/ night' : `${booking.short_time_hours || 0}h rate`}
+                                                     </div>
+                                                 </td>
+                                                <td className="text-right font-bold">{formatCurrency(booking.shift_collection_amount)}</td>
                                                 <td className="text-right font-bold">{formatCurrency(booking.balance_amount)}</td>
-                                                <td className="text-center uppercase font-bold text-[7px]">{formatPaymentMethods(booking)}</td>
+                                                 <td className="text-center uppercase font-bold text-[6px] leading-tight whitespace-pre-line break-words">{formatPaymentMethods(booking)}</td>
                                                 <td className="font-bold truncate max-w-[120px]">{booking.guest_name}</td>
                                                 <td className="text-center">{booking.guest_contact || '-'}</td>
-                                                <td className="text-center font-bold">{booking.room?.room_number || '-'}</td>
                                                 <td className="text-center uppercase font-bold text-[7px]">{formatPaymentStatus(booking)}</td>
                                             </tr>
                                         );
                                     })
                                 ) : (
                                     <tr>
-                                        <td colSpan="16" className="text-center py-6">
+                                        <td colSpan="13" className="text-center py-6">
                                             No stay bookings checked in or checked out during this shift.
                                         </td>
                                     </tr>
@@ -1142,18 +1303,18 @@ export default function Report({ shift, report }) {
                     {/* Circular subtotals mimicking handwritten marks */}
                     <div className="flex justify-end items-center gap-6 mt-6 pb-4">
                         <div className="ledger-handwritten-circle text-[9px]">
-                            Stays Cash: {formatCurrency(cashBookingsTotal)}
+                            Room Sales Cash: {formatCurrency(cashBookingsTotal)}
                         </div>
                         <div className="ledger-handwritten-circle text-[9px]">
-                            Stays GCash: {formatCurrency(gcashBookingsTotal)}
+                            Room Sales GCash: {formatCurrency(gcashBookingsTotal)}
                         </div>
                         {otherBookingsTotal > 0 && (
                             <div className="ledger-handwritten-circle text-[9px]">
-                                Other Stays: {formatCurrency(otherBookingsTotal)}
+                                Room Sales Other: {formatCurrency(otherBookingsTotal)}
                             </div>
                         )}
                         <div className="ledger-handwritten-circle text-[10px] border-black">
-                            Verified Received: {formatCurrency(staysTotalCollection)}
+                            Verified Room Sales: {formatCurrency(staysTotalCollection)}
                         </div>
                         {staysRefunds > 0 && (
                             <>
@@ -1168,6 +1329,61 @@ export default function Report({ shift, report }) {
                     </div>
 
                     <PrintFooter title="Stays Ledger (Log Book Format)" />
+                </div>
+
+                {/* DAILY CASH REPORT - printed separately in A4 portrait when selected */}
+                <div className={`daily-cash-report-page print-page-break ${printMode === 'active' && activeTab !== 'daily-cash' ? 'hidden' : ''}`}>
+                    <div className="border-b-2 border-black pb-2 mb-3">
+                        <div className="text-center">
+                            <h1 className="text-[15px] font-bold tracking-wide">PENSION HOUSE DAILY CASH REPORT</h1>
+                            <p className="text-[9px] font-bold tracking-wide">FRONT DESK CASH MONITORING AND DAILY RECONCILIATION</p>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2 mt-3 text-[8px]">
+                            <div><strong>Date:</strong> {new Date(report.end).toLocaleDateString()}</div>
+                            <div className="text-center"><strong>Shift:</strong> {(shift.shift_code || '-').toUpperCase()}</div>
+                            <div className="text-right"><strong>Prepared by:</strong> {shift.user?.name || '-'}</div>
+                        </div>
+                    </div>
+
+                    <h2 className="text-[9px] font-bold mb-1">1. CASH RECONCILIATION</h2>
+                    <table className="daily-cash-table mb-3">
+                        <tbody>
+                            <tr><th className="w-[72%] text-left">Cash on Hand (Opening Balance)</th><td className="text-right font-bold">{formatCurrency(shift.opening_cash)}</td></tr>
+                            <tr><th className="text-left">Add: Total Cash Check-In / Room Sales</th><td className="text-right font-bold">{formatCurrency(dailyCash.room_sales_cash)}</td></tr>
+                            <tr><th className="text-left">Total Cash Available</th><td className="text-right font-bold">{formatCurrency(Number(shift.opening_cash || 0) + Number(dailyCash.room_sales_cash || 0))}</td></tr>
+                            <tr><th className="text-left">Less: Expenses / Withdrawals</th><td className="text-right font-bold">-{formatCurrency(Number(dailyCash.room_expenses || 0) + Number(dailyCash.withdrawals || 0))}</td></tr>
+                            <tr><th className="text-left">Less: Transfer to Cashier</th><td className="text-right font-bold">-{formatCurrency(dailyCash.cashier_transfers)}</td></tr>
+                            <tr><th className="text-left">Expected Cash in Drawer</th><td className="text-right font-bold">{formatCurrency(dailyCash.expected_cash)}</td></tr>
+                            <tr><th className="text-left">Actual Cash Tally</th><td className="text-right font-bold">{dailyCash.actual_cash === null ? 'PENDING' : formatCurrency(dailyCash.actual_cash)}</td></tr>
+                            <tr><th className="text-left">Variance (Expected - Actual)</th><td className="text-right font-bold">{dailyVariance === null ? 'PENDING' : formatCurrency(dailyVariance)}</td></tr>
+                        </tbody>
+                    </table>
+                    <div className={`border px-3 py-1.5 text-center text-[9px] font-bold mb-3 ${dailyCashStatusClass}`}>CASH STATUS: {dailyCashStatus}{dailyVariance !== null ? ` (${formatCurrency(Math.abs(dailyVariance))})` : ''}</div>
+
+                    <h2 className="text-[9px] font-bold mb-1">2. LESS: EXPENSES / WITHDRAWALS DETAILS</h2>
+                    <table className="daily-cash-table mb-3 daily-cash-details">
+                        <thead><tr><th className="w-[16%] text-center">TIME</th><th className="text-left">PARTICULARS / DESCRIPTION</th><th className="w-[20%] text-right">AMOUNT</th></tr></thead>
+                        <tbody>
+                            {dailyCashDetails.length ? dailyCashDetails.map(detail => <tr key={detail.id}><td className="text-center">{formatTime(detail.time)}</td><td>{detail.kind}: {detail.particulars}</td><td className="text-right">{formatCurrency(detail.amount)}</td></tr>) : <tr><td colSpan="3" className="text-center italic">No room drawer expenses, withdrawals, or cashier transfers.</td></tr>}
+                            <tr><th colSpan="2" className="text-right">TOTAL EXPENSES / WITHDRAWALS</th><th className="text-right">{formatCurrency(Number(dailyCash.room_expenses || 0) + Number(dailyCash.withdrawals || 0) + Number(dailyCash.cashier_transfers || 0))}</th></tr>
+                        </tbody>
+                    </table>
+
+                    <h2 className="text-[9px] font-bold mb-1">3. CASH BREAKDOWN / CASH TALLY</h2>
+                    <table className="daily-cash-table">
+                        <thead><tr><th className="w-[25%]">DENOMINATION</th><th className="w-[20%]">QUANTITY</th><th className="w-[25%]">AMOUNT</th><th>VERIFIED BY</th></tr></thead>
+                        <tbody>
+                            {cashDenominations.map(denomination => {
+                                const quantity = Number(closingDenominations[denomination.toString()] || 0);
+                                return <tr key={denomination}><td className="text-center">{formatCurrency(denomination)}</td><td className="text-center">{quantity || '-'}</td><td className="text-right">{formatCurrency(denomination * quantity)}</td><td className="text-center">{shift.user?.name || ''}</td></tr>;
+                            })}
+                            <tr><th colSpan="2" className="text-right">TOTAL CASH TALLY</th><th className="text-right">{dailyCash.actual_cash === null ? 'PENDING' : formatCurrency(dailyCash.actual_cash)}</th><th /></tr>
+                        </tbody>
+                    </table>
+                    <div className="grid grid-cols-2 gap-12 mt-7 text-[8px] text-center">
+                        <div><div className="border-b border-black h-5" /><strong>Prepared by: Front Desk Staff</strong></div>
+                        <div><div className="border-b border-black h-5" /><strong>Checked by: Cashier / Supervisor</strong></div>
+                    </div>
                 </div>
 
                 {/* 3. MINIBAR & POS SALES */}

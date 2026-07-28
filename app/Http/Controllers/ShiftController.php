@@ -6,6 +6,7 @@ use App\Models\ShiftSession;
 use App\Models\Transaction;
 use App\Models\InventoryUsage;
 use App\Models\InventoryItem;
+use App\Models\CashMovement;
 use App\Services\BookingService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -316,19 +317,13 @@ class ShiftController extends Controller
             ->get();
 
         // 6b. Detailed room bookings stays list for Log Book
-        $bookingIds = Transaction::where('processed_by', $shiftUserId)
-            ->whereIn('transaction_type', ['check_in', 'check_out', 'extension', 'adjustment'])
-            ->whereBetween('created_at', [$start, $end])
-            ->pluck('booking_id')
-            ->filter()
-            ->unique();
-
         $bookings = \App\Models\Booking::with(['room', 'room.type', 'transactions'])
-            ->where(function($query) use ($bookingIds, $shiftUserId, $start, $end) {
-                $query->whereIn('id', $bookingIds)
-                      ->orWhere(fn($q) => $q->where('booked_by_user_id', $shiftUserId)->whereBetween('created_at', [$start, $end]))
-                      ->orWhere(fn($q) => $q->where('checked_in_by', $shiftUserId)->whereBetween('check_in', [$start, $end]))
-                      ->orWhere(fn($q) => $q->where('checked_out_by', $shiftUserId)->whereBetween('check_out', [$start, $end]));
+            // The front-desk room-sales ledger records actual arrivals and
+            // departures during this shift. Future reservation deposits stay
+            // out of room sales until the guest checks in.
+            ->where(function($query) use ($shiftUserId, $start, $end) {
+                $query->where(fn($q) => $q->where('checked_in_by', $shiftUserId)->whereBetween('check_in', [$start, $end]))
+                    ->orWhere(fn($q) => $q->where('checked_out_by', $shiftUserId)->whereBetween('check_out', [$start, $end]));
             })
             ->orderBy('check_in', 'asc')
             ->get();
@@ -338,6 +333,32 @@ class ShiftController extends Controller
             $start,
             $end
         );
+
+        // The daily cash report is intentionally room-drawer only.  Its room
+        // sales source is the verified payment ledger, so minibar/POS charges,
+        // GCash, and future reservation deposits cannot inflate drawer cash.
+        $roomExpenses = $expenses->where('cash_drawer', 'room')->values();
+        $cashMovements = CashMovement::with('recorder:id,full_name')
+            ->where('shift_session_id', $shift->id)
+            ->where('cash_drawer', 'room')
+            ->orderBy('moved_at')
+            ->get();
+        $cashierTransfers = (float) $cashMovements
+            ->where('movement_type', 'cashier_transfer')
+            ->sum('amount');
+        $withdrawals = (float) $cashMovements
+            ->where('movement_type', 'withdrawal')
+            ->sum('amount');
+        $dailyRoomSalesCash = (float) ($stayCollections['cash'] ?? 0);
+        $dailyRoomExpenses = (float) $roomExpenses->sum('amount');
+        $dailyExpectedCash = round(
+            (float) $shift->opening_cash + $dailyRoomSalesCash - $dailyRoomExpenses - $cashierTransfers - $withdrawals,
+            2
+        );
+        $dailyActualCash = $shift->ended_at ? (float) $shift->closing_cash : null;
+        $dailyVariance = $dailyActualCash === null
+            ? null
+            : round($dailyExpectedCash - $dailyActualCash, 2);
 
         // 6c. Detailed inventory usages list
         $inventoryUsageDetails = \App\Models\InventoryUsage::with(['item', 'booking.room', 'recorder'])
@@ -430,6 +451,19 @@ class ShiftController extends Controller
                 'maintenance_tickets' => $maintenanceTickets,
                 'bookings' => $bookings,
                 'stay_collections' => $stayCollections,
+                'daily_cash_report' => [
+                    'room_sales_cash' => $dailyRoomSalesCash,
+                    'room_expenses' => $dailyRoomExpenses,
+                    'cashier_transfers' => $cashierTransfers,
+                    'withdrawals' => $withdrawals,
+                    'expected_cash' => $dailyExpectedCash,
+                    'actual_cash' => $dailyActualCash,
+                    'variance' => $dailyVariance,
+                    'expense_details' => $roomExpenses,
+                    'cash_movements' => $cashMovements,
+                ],
+                'can_manage_daily_cash' => $shift->ended_at === null
+                    && ($user->role === 'admin' || $shift->user_id === $user->id),
                 'inventory_usage_details' => $inventoryUsageDetails,
 
                 // New fields for print report redesign
@@ -454,6 +488,72 @@ class ShiftController extends Controller
                 'grand_cash_collection' => $grandCashCollection,
             ]
         ]);
+    }
+
+    public function storeCashMovement($id, Request $request)
+    {
+        $shift = ShiftSession::findOrFail($id);
+        $this->authorizeCashMovement($shift, $request);
+
+        $validated = $request->validate([
+            'movement_type' => 'required|in:cashier_transfer,withdrawal',
+            'amount' => 'required|numeric|min:0.01|max:9999999.99',
+            'description' => 'required|string|max:500',
+            'moved_at' => 'nullable|date',
+        ]);
+
+        $movement = CashMovement::create([
+            'shift_session_id' => $shift->id,
+            'movement_type' => $validated['movement_type'],
+            'cash_drawer' => 'room',
+            'amount' => $validated['amount'],
+            'description' => trim($validated['description']),
+            'moved_at' => $validated['moved_at'] ?? now(),
+            'recorded_by' => $request->user()->id,
+        ]);
+
+        BookingService::auditLog(
+            $request->user()->id,
+            'CASH_MOVEMENT_RECORDED',
+            'cash_movements',
+            $movement->id,
+            null,
+            $movement->only(['movement_type', 'cash_drawer', 'amount', 'description', 'moved_at']),
+            'Daily cash report movement recorded.'
+        );
+
+        return back()->with('success', 'Cash movement recorded in the daily cash report.');
+    }
+
+    public function destroyCashMovement($id, CashMovement $cashMovement, Request $request)
+    {
+        $shift = ShiftSession::findOrFail($id);
+        $this->authorizeCashMovement($shift, $request);
+        abort_unless($cashMovement->shift_session_id === $shift->id, 404);
+
+        $oldValue = $cashMovement->only(['movement_type', 'cash_drawer', 'amount', 'description', 'moved_at']);
+        $cashMovement->delete();
+        BookingService::auditLog(
+            $request->user()->id,
+            'CASH_MOVEMENT_DELETED',
+            'cash_movements',
+            $cashMovement->id,
+            $oldValue,
+            null,
+            'Daily cash report movement removed.'
+        );
+
+        return back()->with('success', 'Cash movement removed.');
+    }
+
+    private function authorizeCashMovement(ShiftSession $shift, Request $request): void
+    {
+        abort_if($shift->ended_at !== null, 422, 'Cash movements can only be edited before the shift is closed.');
+        abort_unless(
+            $request->user()->role === 'admin' || $shift->user_id === $request->user()->id,
+            403,
+            'Only the assigned front-desk staff or an administrator may edit this daily cash report.'
+        );
     }
 
     public function getShiftSalesSummary($userId, $start, $end): array
@@ -588,6 +688,7 @@ class ShiftController extends Controller
         $bookingCollections = [];
         $bookingRefunds = [];
         $bookingMethods = [];
+        $bookingReferences = [];
 
         $ledgerRows = DB::table('payment_allocations as pa')
             ->join('payments as p', 'p.id', '=', 'pa.payment_id')
@@ -599,6 +700,7 @@ class ShiftController extends Controller
             ->selectRaw("
                 pa.booking_id,
                 pc.payment_method_code,
+                COALESCE(NULLIF(pc.reference_number, ''), NULLIF(p.reference_number, '')) AS reference_number,
                 SUM(CASE
                     WHEN p.payment_type NOT IN ('refund', 'reversal')
                     THEN pc.amount * (pa.allocated_amount / NULLIF(p.amount, 0))
@@ -610,7 +712,12 @@ class ShiftController extends Controller
                     ELSE 0
                 END) AS refund_amount
             ")
-            ->groupBy('pa.booking_id', 'pc.payment_method_code')
+            ->groupBy(
+                'pa.booking_id',
+                'pc.payment_method_code',
+                'pc.reference_number',
+                'p.reference_number'
+            )
             ->get();
 
         foreach ($ledgerRows as $row) {
@@ -622,6 +729,10 @@ class ShiftController extends Controller
             $bookingCollections[$bookingId] = ($bookingCollections[$bookingId] ?? 0) + $received;
             $bookingRefunds[$bookingId] = ($bookingRefunds[$bookingId] ?? 0) + $refund;
             $bookingMethods[$bookingId][$method] = ($bookingMethods[$bookingId][$method] ?? 0) + $received;
+            $reference = trim((string) ($row->reference_number ?? ''));
+            if ($received > 0 && $method !== 'cash' && $reference !== '') {
+                $bookingReferences[$bookingId][$method][] = $reference;
+            }
             $summary[$method] += $received;
             $summary['refunds'] += $refund;
         }
@@ -631,6 +742,9 @@ class ShiftController extends Controller
         $legacyTransactions = Transaction::whereIn('booking_id', $bookingIds)
             ->where('processed_by', $userId)
             ->whereNull('payment_id')
+            // Room-billed POS/minibar items are charges, not room payments.
+            // They belong only in the Minibar & POS report section.
+            ->where('transaction_type', '!=', 'pos_sale')
             ->whereNotIn('payment_method', ['na', ''])
             ->whereBetween('created_at', [$start, $end])
             ->get();
@@ -661,6 +775,14 @@ class ShiftController extends Controller
                 if ($amount > 0) {
                     $bookingCollections[$bookingId] = ($bookingCollections[$bookingId] ?? 0) + $amount;
                     $bookingMethods[$bookingId][$method] = ($bookingMethods[$bookingId][$method] ?? 0) + $amount;
+                    $reference = match ($method) {
+                        'gcash' => trim((string) $transaction->gcash_ref),
+                        'bank_transfer', 'card' => trim((string) $transaction->bank_ref),
+                        default => '',
+                    };
+                    if ($method !== 'cash' && $reference !== '') {
+                        $bookingReferences[$bookingId][$method][] = $reference;
+                    }
                     $summary[$method] += $amount;
                 } else {
                     $refund = abs($amount);
@@ -700,6 +822,16 @@ class ShiftController extends Controller
                 collect($bookingMethods[$bookingId] ?? [])
                     ->filter(fn ($amount) => $amount > 0)
                     ->map(fn ($amount) => round((float) $amount, 2))
+                    ->all()
+            );
+            $booking->setAttribute(
+                'shift_collection_references',
+                collect($bookingReferences[$bookingId] ?? [])
+                    ->map(fn ($references) => collect($references)
+                        ->filter()
+                        ->unique()
+                        ->values()
+                        ->all())
                     ->all()
             );
         }

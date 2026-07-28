@@ -11,6 +11,7 @@ import ConfirmModal from '@/Components/ConfirmModal';
 import GroupSettleModal from '@/Components/GroupSettleModal';
 import ImagePreviewModal from '@/Components/ImagePreviewModal';
 import ReceiptModal from '@/Components/ReceiptModal';
+import CustomSelect from '@/Components/CustomSelect';
 import axios from 'axios';
 
 export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode = 'checkin' }) {
@@ -114,10 +115,18 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
     const handleCheckoutSubmit = (e) => {
         e.preventDefault();
         checkoutForm.post(route('bookings.checkout', bookingId), {
-            onSuccess: () => {
+            preserveScroll: true,
+            onSuccess: (page) => {
+                // The server uses a flash message when checkout is rejected
+                // (for example, no active shift or an invalid payment).  A
+                // redirect still reaches Inertia's onSuccess callback, so do
+                // not close the modal in that case.
+                if (page.props.flash?.error || page.props.flash?.warning) {
+                    return;
+                }
+
                 setActiveSubModal(null);
                 onClose();
-                router.reload();
             }
         });
     };
@@ -180,7 +189,19 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
     return (
         <>
             <Transition show={isOpen} as={Fragment}>
-                <Dialog onClose={onClose} className="relative z-[1000]">
+                <Dialog
+                    // The action forms below are rendered above this dialog.
+                    // While one is open, Headless UI sees clicks inside it as
+                    // outside clicks for this parent dialog. Keep the parent
+                    // open so input focus/clicks do not dismiss the checkout
+                    // form.
+                    onClose={() => {
+                        if (!activeSubModal) {
+                            onClose();
+                        }
+                    }}
+                    className="relative z-[1000]"
+                >
                     {/* Backdrop transition */}
                     <TransitionChild
                         as={Fragment}
