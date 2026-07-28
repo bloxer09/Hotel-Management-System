@@ -407,15 +407,23 @@ export default function Report({ shift, report }) {
                             className="px-3.5 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-slate-50 text-xs font-bold flex items-center gap-1.5 transition-all shadow"
                         >
                             <Printer size={15} />
-                            Export PDF / Print Tab
+                            Print Tab
                         </button>
                         <button
                             onClick={handlePrintAll}
-                            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-slate-50 text-xs font-bold flex items-center gap-1.5 transition-all shadow"
+                            className="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-slate-50 text-xs font-bold flex items-center gap-1.5 transition-all shadow"
                         >
                             <Printer size={15} />
-                            Export PDF / Print Complete Report
+                            Print Full Report
                         </button>
+                        <a
+                            href={route('shifts.ledger-print', shift.id)}
+                            target="_blank"
+                            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-slate-50 text-xs font-bold flex items-center gap-1.5 transition-all shadow"
+                        >
+                            <BookOpen size={15} />
+                            Export Official PDF Logbook
+                        </a>
                     </div>
                 </div>
 

@@ -521,11 +521,89 @@ class ShiftController extends Controller
             $end
         );
 
+        // --- Page 2: Daily Cash Tally data ---
+
+        // Expenses from room drawer only (for deductions)
+        $roomExpenses = \App\Models\Expense::where('recorded_by', $shiftUserId)
+            ->whereBetween('created_at', [$start, $end])
+            ->where('cash_drawer', 'room')
+            ->get();
+
+        // Cash movements (withdrawals, cashier transfers) for the room drawer
+        $cashMovements = CashMovement::with('recorder:id,full_name')
+            ->where('shift_session_id', $shift->id)
+            ->where('cash_drawer', 'room')
+            ->orderBy('moved_at')
+            ->get();
+
+        $cashierTransfers = (float) $cashMovements->where('movement_type', 'cashier_transfer')->sum('amount');
+        $withdrawals      = (float) $cashMovements->where('movement_type', 'withdrawal')->sum('amount');
+
+        // Cash room sales collected this shift (from payment ledger)
+        $roomSalesCash    = (float) ($stayCollections['cash'] ?? 0);
+
+        // Other cash receipts (incomes from room drawer)
+        $otherCashReceipts = (float) \App\Models\Income::where('recorded_by', $shiftUserId)
+            ->whereBetween('created_at', [$start, $end])
+            ->where('cash_drawer', 'room')
+            ->sum('amount');
+
+        // Digital payments (non-cash)
+        $digitalTotal = (float) (
+            ($stayCollections['gcash'] ?? 0) +
+            ($stayCollections['bank_transfer'] ?? 0) +
+            ($stayCollections['card'] ?? 0) +
+            ($stayCollections['maya'] ?? 0) +
+            ($stayCollections['other_ewallet'] ?? 0) +
+            ($stayCollections['other'] ?? 0)
+        );
+
+        // Outstanding balance = sum of balance_amount across all bookings
+        $outstandingBalance = (float) $bookings->sum(fn($b) => max(0, $b->balance_amount ?? 0));
+
+        // Total room sales = sum of total_amount for all bookings in shift
+        $totalRoomSales = (float) $bookings->sum('total_amount');
+
+        $totalExpenses   = (float) $roomExpenses->sum('amount');
+        $totalMovements  = $cashierTransfers + $withdrawals;
+        $openingCash     = (float) $shift->opening_cash;
+
+        $expectedCash    = round($openingCash + $roomSalesCash + $otherCashReceipts - $totalExpenses - $totalMovements, 2);
+        $actualCash      = $shift->ended_at ? (float) $shift->closing_cash : null;
+        $variance        = $actualCash !== null ? round($actualCash - $expectedCash, 2) : null;
+
+        // Denomination tables (opening and closing)
+        $openingDenominations  = $shift->opening_denominations;
+        $closingDenominations  = $shift->closing_denominations;
+
         return Inertia::render('Reports/RoomBookingsLedgerPrint', [
-            'shift' => $shift,
-            'bookings' => $bookings,
-            'stay_collections' => $stayCollections,
-            'date_printed' => now()->format('n/j/Y, h:i:s A'),
+            'shift'               => $shift,
+            'bookings'            => $bookings,
+            'stay_collections'    => $stayCollections,
+            'date_printed'        => now()->format('n/j/Y, h:i:s A'),
+            // Page 2 data
+            'cash_tally' => [
+                'opening_cash'          => $openingCash,
+                'room_sales_cash'       => $roomSalesCash,
+                'other_cash_receipts'   => $otherCashReceipts,
+                'total_cash_available'  => round($openingCash + $roomSalesCash + $otherCashReceipts, 2),
+                'expenses'              => $roomExpenses,
+                'cash_movements'        => $cashMovements,
+                'total_expenses'        => $totalExpenses,
+                'total_movements'       => $totalMovements,
+                'expected_cash'         => $expectedCash,
+                'actual_cash'           => $actualCash,
+                'variance'              => $variance,
+                'opening_denominations' => $openingDenominations,
+                'closing_denominations' => $closingDenominations,
+            ],
+            // Page 1 footer totals
+            'totals' => [
+                'total_room_sales'    => $totalRoomSales,
+                'cash_collection'     => $roomSalesCash,
+                'digital_payment'     => $digitalTotal,
+                'outstanding_balance' => $outstandingBalance,
+            ],
         ]);
     }
 
