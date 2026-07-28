@@ -286,6 +286,8 @@ class BookingController extends Controller
             'notes' => 'nullable|string',
             'transaction_notes' => 'nullable|string',
             'waive_late_fee' => 'nullable|boolean',
+            'extra_charge_amount' => 'nullable|numeric|min:0',
+            'extra_charge_description' => 'nullable|string|max:255',
         ]);
 
         $user = $request->user();
@@ -317,8 +319,10 @@ class BookingController extends Controller
                 $inventoryUsages = InventoryUsage::where('booking_id', $booking->id)->get();
                 $inventorySum = (float) $inventoryUsages->sum('total_price');
 
+                $extraCharge = (float) ($request->extra_charge_amount ?? 0);
+
                 // Total addition due at checkout
-                $additionalDue = $lateFee + $inventorySum;
+                $additionalDue = $lateFee + $inventorySum + $extraCharge;
 
                 // Validate payments
                 $paymentMethod = $request->payment_method;
@@ -367,7 +371,19 @@ class BookingController extends Controller
 
                 // Create check out transaction (only if there was additional collection)
                 if ($additionalDue > 0) {
-                    $desc = 'Checkout settlements ('.($waiveLateFee ? "Late hours: {$lateHours}h = ₱0.00 [WAIVED]" : "Late hours: {$lateHours}h = ₱{$lateFee}").", Minibar items = ₱{$inventorySum}) for Ref: {$booking->booking_ref}";
+                    $descParts = [];
+                    if ($lateHours > 0) {
+                        $descParts[] = $waiveLateFee ? "Late hours: {$lateHours}h = ₱0.00 [WAIVED]" : "Late hours: {$lateHours}h = ₱{$lateFee}";
+                    }
+                    if ($inventorySum > 0) {
+                        $descParts[] = "Minibar items = ₱{$inventorySum}";
+                    }
+                    if ($extraCharge > 0) {
+                        $descParts[] = "Extra Charges ({$request->extra_charge_description}) = ₱{$extraCharge}";
+                    }
+                    $descStr = implode(', ', $descParts);
+                    $desc = "Checkout settlements ({$descStr}) for Ref: {$booking->booking_ref}";
+                    
                     // Checkout is completed only after the front-desk staff has
                     // accepted the settlement, so the receipt is verified here.
                     $payment = app(PaymentService::class)->record([

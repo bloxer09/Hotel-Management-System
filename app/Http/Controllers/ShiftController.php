@@ -543,10 +543,11 @@ class ShiftController extends Controller
         $roomSalesCash    = (float) ($stayCollections['cash'] ?? 0);
 
         // Other cash receipts (incomes from room drawer)
-        $otherCashReceipts = (float) \App\Models\Income::where('recorded_by', $shiftUserId)
+        $incomes = \App\Models\Income::where('recorded_by', $shiftUserId)
             ->whereBetween('created_at', [$start, $end])
             ->where('cash_drawer', 'room')
-            ->sum('amount');
+            ->get();
+        $otherCashReceipts = (float) $incomes->sum('amount');
 
         // Digital payments (non-cash)
         $digitalTotal = (float) (
@@ -576,6 +577,9 @@ class ShiftController extends Controller
         $openingDenominations  = $shift->opening_denominations;
         $closingDenominations  = $shift->closing_denominations;
 
+        $totalDpCash = (float) $bookings->sum(fn($b) => (float) collect($b->dp_methods ?? [])->get('cash', 0));
+        $totalDpDigital = (float) $bookings->sum(fn($b) => collect($b->dp_methods ?? [])->except('cash')->sum());
+
         return Inertia::render('Reports/RoomBookingsLedgerPrint', [
             'shift'               => $shift,
             'bookings'            => $bookings,
@@ -587,6 +591,7 @@ class ShiftController extends Controller
                 'room_sales_cash'       => $roomSalesCash,
                 'other_cash_receipts'   => $otherCashReceipts,
                 'total_cash_available'  => round($openingCash + $roomSalesCash + $otherCashReceipts, 2),
+                'incomes'               => $incomes,
                 'expenses'              => $roomExpenses,
                 'cash_movements'        => $cashMovements,
                 'total_expenses'        => $totalExpenses,
@@ -600,8 +605,8 @@ class ShiftController extends Controller
             // Page 1 footer totals
             'totals' => [
                 'total_room_sales'    => $totalRoomSales,
-                'cash_collection'     => $roomSalesCash,
-                'digital_payment'     => $digitalTotal,
+                'cash_collection'     => $roomSalesCash + $totalDpCash,
+                'digital_payment'     => $digitalTotal + $totalDpDigital,
                 'outstanding_balance' => $outstandingBalance,
             ],
         ]);
@@ -909,6 +914,77 @@ class ShiftController extends Controller
             }
         }
 
+        // --- Fetch Downpayments (Previous Payments) ---
+        $dpRows = DB::table('payment_allocations as pa')
+            ->join('payments as p', 'p.id', '=', 'pa.payment_id')
+            ->join('payment_components as pc', 'pc.payment_id', '=', 'p.id')
+            ->whereIn('pa.booking_id', $bookingIds)
+            ->where('p.status', 'verified')
+            ->where('p.received_at', '<', $start)
+            ->selectRaw("
+                pa.booking_id,
+                pc.payment_method_code,
+                COALESCE(NULLIF(pc.reference_number, ''), NULLIF(p.reference_number, '')) AS reference_number,
+                SUM(CASE WHEN p.payment_type NOT IN ('refund', 'reversal') THEN pc.amount * (pa.allocated_amount / NULLIF(p.amount, 0)) ELSE 0 END) AS received_amount
+            ")
+            ->groupBy('pa.booking_id', 'pc.payment_method_code', 'pc.reference_number', 'p.reference_number')
+            ->get();
+
+        $dpCollections = [];
+        $dpMethods = [];
+        $dpReferences = [];
+        foreach ($dpRows as $row) {
+            $bookingId = (int) $row->booking_id;
+            $method = $this->normalizeCollectionMethod((string) $row->payment_method_code);
+            $received = round((float) $row->received_amount, 2);
+            if ($received > 0) {
+                $dpCollections[$bookingId] = ($dpCollections[$bookingId] ?? 0) + $received;
+                $dpMethods[$bookingId][$method] = ($dpMethods[$bookingId][$method] ?? 0) + $received;
+                $reference = trim((string) ($row->reference_number ?? ''));
+                if ($method !== 'cash' && $reference !== '') {
+                    $dpReferences[$bookingId][$method][] = $reference;
+                }
+            }
+        }
+
+        $legacyDpTransactions = Transaction::whereIn('booking_id', $bookingIds)
+            ->whereNull('payment_id')
+            ->where('transaction_type', '!=', 'pos_sale')
+            ->whereNotIn('payment_method', ['na', ''])
+            ->where('created_at', '<', $start)
+            ->get();
+
+        foreach ($legacyDpTransactions as $transaction) {
+            $bookingId = (int) $transaction->booking_id;
+            $components = [
+                'cash' => (float) $transaction->cash_amount,
+                'gcash' => (float) $transaction->gcash_amount,
+            ];
+            $bankMethod = in_array($transaction->payment_method, ['card', 'bank_transfer'], true) ? $transaction->payment_method : 'other';
+            $components[$bankMethod] = ($components[$bankMethod] ?? 0) + (float) $transaction->bank_amount;
+
+            if (array_sum(array_map('abs', $components)) < 0.01 && abs((float) $transaction->amount) >= 0.01) {
+                $fallbackMethod = $this->normalizeCollectionMethod((string) $transaction->payment_method);
+                $components[$fallbackMethod] = ($components[$fallbackMethod] ?? 0) + (float) $transaction->amount;
+            }
+
+            foreach ($components as $method => $amount) {
+                if (abs($amount) < 0.01 || $amount <= 0) continue;
+                $method = $this->normalizeCollectionMethod($method);
+                $dpCollections[$bookingId] = ($dpCollections[$bookingId] ?? 0) + $amount;
+                $dpMethods[$bookingId][$method] = ($dpMethods[$bookingId][$method] ?? 0) + $amount;
+                $reference = match ($method) {
+                    'gcash' => trim((string) $transaction->gcash_ref),
+                    'bank_transfer', 'card' => trim((string) $transaction->bank_ref),
+                    default => '',
+                };
+                if ($method !== 'cash' && $reference !== '') {
+                    $dpReferences[$bookingId][$method][] = $reference;
+                }
+            }
+        }
+        // ----------------------------------------------
+
         $pendingByBooking = DB::table('payment_allocations as pa')
             ->join('payments as p', 'p.id', '=', 'pa.payment_id')
             ->whereIn('pa.booking_id', $bookingIds)
@@ -944,6 +1020,24 @@ class ShiftController extends Controller
             $booking->setAttribute(
                 'shift_collection_references',
                 collect($bookingReferences[$bookingId] ?? [])
+                    ->map(fn ($references) => collect($references)
+                        ->filter()
+                        ->unique()
+                        ->values()
+                        ->all())
+                    ->all()
+            );
+            $booking->setAttribute('dp_amount', round((float) ($dpCollections[$bookingId] ?? 0), 2));
+            $booking->setAttribute(
+                'dp_methods',
+                collect($dpMethods[$bookingId] ?? [])
+                    ->filter(fn ($amount) => $amount > 0)
+                    ->map(fn ($amount) => round((float) $amount, 2))
+                    ->all()
+            );
+            $booking->setAttribute(
+                'dp_references',
+                collect($dpReferences[$bookingId] ?? [])
                     ->map(fn ($references) => collect($references)
                         ->filter()
                         ->unique()

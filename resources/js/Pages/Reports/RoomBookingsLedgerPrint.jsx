@@ -3,14 +3,14 @@ import { Head } from '@inertiajs/react';
 
 const DENOMINATIONS = [
     { key: '1000', label: 'P 1,000' },
-    { key: '500',  label: 'P 500' },
-    { key: '200',  label: 'P 200' },
-    { key: '100',  label: 'P 100' },
-    { key: '50',   label: 'P 50' },
-    { key: '20',   label: 'P 20' },
-    { key: '10',   label: 'P 10 / Coins' },
-    { key: '5',    label: 'P 5' },
-    { key: '1',    label: 'P 1' },
+    { key: '500', label: 'P 500' },
+    { key: '200', label: 'P 200' },
+    { key: '100', label: 'P 100' },
+    { key: '50', label: 'P 50' },
+    { key: '20', label: 'P 20' },
+    { key: '10', label: 'P 10 / Coins' },
+    { key: '5', label: 'P 5' },
+    { key: '1', label: 'P 1' },
     { key: '0.25', label: 'P 0.25' },
     { key: '0.05', label: 'P 0.05' },
     { key: '0.01', label: 'P 0.01' },
@@ -46,35 +46,36 @@ export default function RoomBookingsLedgerPrint({
 }) {
     useEffect(() => { window.print(); }, []);
 
-    const shiftDate   = shift.started_at ? formatDate(shift.started_at) : '—';
-    const shiftCode   = shift.shift_code ? shift.shift_code.toUpperCase() : '—';
+    const shiftDate = shift.started_at ? formatDate(shift.started_at) : '—';
+    const shiftCode = shift.shift_code ? shift.shift_code.toUpperCase() : '—';
     const cashierName = shift.user?.full_name || '—';
 
     // Page 1 footer totals
-    const totalRoomSales    = totals?.total_room_sales    ?? 0;
-    const cashCollection    = totals?.cash_collection     ?? 0;
-    const digitalPayment    = totals?.digital_payment     ?? 0;
+    const totalRoomSales = totals?.total_room_sales ?? 0;
+    const cashCollection = totals?.cash_collection ?? 0;
+    const digitalPayment = totals?.digital_payment ?? 0;
     const outstandingBalance = totals?.outstanding_balance ?? 0;
 
     // Page 2 - cash tally
     const ct = cash_tally || {};
-    const openingCash        = ct.opening_cash        ?? 0;
-    const roomSalesCash      = ct.room_sales_cash      ?? 0;
-    const otherCashReceipts  = ct.other_cash_receipts  ?? 0;
+    const openingCash = ct.opening_cash ?? 0;
+    const roomSalesCash = ct.room_sales_cash ?? 0;
+    const otherCashReceipts = ct.other_cash_receipts ?? 0;
     const totalCashAvailable = ct.total_cash_available ?? 0;
-    const expenses           = ct.expenses             ?? [];
-    const cashMovements      = ct.cash_movements       ?? [];
-    const totalExpenses      = ct.total_expenses       ?? 0;
-    const totalMovements     = ct.total_movements      ?? 0;
-    const expectedCash       = ct.expected_cash        ?? 0;
-    const actualCash         = ct.actual_cash;
-    const variance           = ct.variance;
-    const closingDenoms      = ct.closing_denominations ?? {};
+    const expenses = ct.expenses ?? [];
+    const cashMovements = ct.cash_movements ?? [];
+    const incomes = ct.incomes ?? [];
+    const totalExpenses = ct.total_expenses ?? 0;
+    const totalMovements = ct.total_movements ?? 0;
+    const expectedCash = ct.expected_cash ?? 0;
+    const actualCash = ct.actual_cash;
+    const variance = ct.variance;
+    const closingDenoms = ct.closing_denominations ?? {};
 
     // Compute actual cash count from closing denominations
     const denomRows = DENOMINATIONS.map(d => ({
         ...d,
-        qty:    closingDenoms[d.key] ?? 0,
+        qty: closingDenoms[d.key] ?? 0,
         amount: denomValue(d.key, closingDenoms[d.key] ?? 0),
     })).filter(d => d.qty > 0);
 
@@ -193,13 +194,13 @@ export default function RoomBookingsLedgerPrint({
                     <thead>
                         <tr>
                             <th style={{ width: 60 }}>DATE</th>
-                            <th style={{ width: 62 }}>TIME<br/>IN</th>
-                            <th style={{ width: 72 }}>TIME<br/>OUT</th>
-                            <th style={{ width: 52 }}>ROOM<br/>NO.</th>
-                            <th style={{ width: 55 }}>NO. OF<br/>NIGHTS</th>
+                            <th style={{ width: 62 }}>TIME<br />IN</th>
+                            <th style={{ width: 72 }}>TIME<br />OUT</th>
+                            <th style={{ width: 52 }}>ROOM<br />NO.</th>
+                            <th style={{ width: 55 }}>NO. OF<br />NIGHTS</th>
                             <th style={{ width: 72 }}>RATE</th>
-                            <th style={{ width: 80 }}>TOTAL<br/>AMOUNT</th>
-                            <th style={{ width: 150 }}>PAYMENT /<br/>LAST PAYMENT</th>
+                            <th style={{ width: 80 }}>PAID THIS<br />SHIFT</th>
+                            <th style={{ width: 150 }}>PAYMENT /<br />LAST PAYMENT</th>
                             <th>GUEST NAME</th>
                             <th style={{ width: 100 }}>CONTACT NO.</th>
                         </tr>
@@ -212,32 +213,72 @@ export default function RoomBookingsLedgerPrint({
                                 ? `${b.num_nights} night${b.num_nights !== 1 ? 's' : ''}`
                                 : `${b.short_time_hours || b.num_nights} hrs`;
 
-                            const rate = b.base_amount;
-                            const rateLabel = isOvernight
-                                ? `P ${Number(rate).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`
-                                : `P ${Number(rate).toLocaleString('en-PH', { minimumFractionDigits: 2 })} / hr`;
+                            // Calculate actual rate per night for overnight, or block rate for short time
+                            const baseRate = Number(b.base_amount || 0);
+                            const actualRate = isOvernight
+                                ? baseRate / Math.max(1, b.num_nights || 1)
+                                : baseRate;
+
+                            const rateLabel = `P ${actualRate.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`;
 
                             const totalAmount = b.total_amount ?? 0;
                             const paidThisShift = b.shift_collection_amount ?? 0;
                             const balance = b.balance_amount ?? 0;
+                            const dpAmount = b.dp_amount ?? 0;
+
+                            // Build PAID THIS SHIFT column text
+                            let paidCell = `P ${Number(paidThisShift).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`;
+                            if (dpAmount > 0) {
+                                paidCell += `\nDP: P ${Number(dpAmount).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`;
+                            }
 
                             // Build payment label
-                            let paymentLabel = '—';
+                            let paymentLines = [];
                             const methods = b.shift_collection_methods || {};
                             const methodNames = Object.keys(methods).filter(k => methods[k] > 0);
+                            const references = b.shift_collection_references || {};
+
                             if (methodNames.length > 0) {
-                                const mopStr = methodNames.map(m => m === 'gcash' ? 'GCash' : m === 'bank_transfer' ? 'Bank Transfer' : m.charAt(0).toUpperCase() + m.slice(1)).join(' + ');
+                                const mopStr = methodNames.map(m => {
+                                    let label = m === 'gcash' ? 'GCash' : m === 'bank_transfer' ? 'Bank Transfer' : m.charAt(0).toUpperCase() + m.slice(1);
+                                    if (m === 'gcash' && references.gcash && references.gcash.length > 0) {
+                                        label += ` (Ref: ${references.gcash.join(', ')})`;
+                                    }
+                                    return label;
+                                }).join(' + ');
+
                                 if (balance <= 0) {
-                                    paymentLabel = `${mopStr} - PAID`;
+                                    paymentLines.push(`${mopStr} - PAID`);
                                 } else {
-                                    paymentLabel = `${mopStr} - P ${Number(paidThisShift).toLocaleString('en-PH', { minimumFractionDigits: 2 })}\nbalance P ${Number(balance).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`;
+                                    paymentLines.push(`${mopStr} - P ${Number(paidThisShift).toLocaleString('en-PH', { minimumFractionDigits: 2 })}\nbalance P ${Number(balance).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`);
                                 }
                             } else if (b.status === 'active' && totalAmount === 0) {
-                                paymentLabel = 'COMPLIMENTARY';
-                            } else if (balance <= 0 && totalAmount > 0) {
-                                paymentLabel = 'PAID';
-                            } else {
-                                paymentLabel = `Balance: P ${Number(balance).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`;
+                                paymentLines.push('COMPLIMENTARY');
+                            } else if (balance <= 0 && totalAmount > 0 && paidThisShift === 0 && dpAmount === 0) {
+                                paymentLines.push('PAID');
+                            } else if (paidThisShift === 0 && balance > 0) {
+                                paymentLines.push(`Balance: P ${Number(balance).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`);
+                            } else if (paidThisShift === 0 && balance <= 0 && dpAmount > 0) {
+                                paymentLines.push(`PAID`);
+                            }
+
+                            if (dpAmount > 0) {
+                                const dpMethods = b.dp_methods || {};
+                                const dpMethodNames = Object.keys(dpMethods).filter(k => dpMethods[k] > 0);
+                                if (dpMethodNames.length > 0) {
+                                    const dpMopStr = dpMethodNames.map(m => {
+                                        let label = m === 'gcash' ? 'GCash' : m === 'bank_transfer' ? 'Bank Transfer' : m.charAt(0).toUpperCase() + m.slice(1);
+                                        if (m === 'gcash' && b.dp_references?.gcash && b.dp_references.gcash.length > 0) {
+                                            label += ` (Ref: ${b.dp_references.gcash.join(', ')})`;
+                                        }
+                                        return label;
+                                    }).join(' + ');
+                                    paymentLines.push(`DP: ${dpMopStr}`);
+                                }
+                            }
+
+                            if (paymentLines.length === 0) {
+                                paymentLines.push('—');
                             }
 
                             return (
@@ -250,8 +291,8 @@ export default function RoomBookingsLedgerPrint({
                                     <td className="td-bold">{b.room?.room_number || '—'}</td>
                                     <td>{hrsLabel}</td>
                                     <td className="td-bold">{rateLabel}</td>
-                                    <td className="td-bold">P {Number(totalAmount).toLocaleString('en-PH', { minimumFractionDigits: 2 })}</td>
-                                    <td className="td-left" style={{ whiteSpace: 'pre-line', fontSize: 10 }}>{paymentLabel}</td>
+                                    <td className="td-bold" style={{ whiteSpace: 'pre-line' }}>{paidCell}</td>
+                                    <td className="td-left" style={{ whiteSpace: 'pre-line', fontSize: 10 }}>{paymentLines.join('\n')}</td>
                                     <td className="td-left td-bold" style={{ textTransform: 'uppercase' }}>{b.guest_name}</td>
                                     <td>{b.guest_contact || '—'}</td>
                                 </tr>
@@ -380,6 +421,36 @@ export default function RoomBookingsLedgerPrint({
                             </tbody>
                         </table>
 
+                        {/* Income Table */}
+                        <div className="section-title">ADD: OTHER CASH / INCOME</div>
+                        <table className="tally-table">
+                            <thead>
+                                <tr>
+                                    <th>INCOME / RECEIPT</th>
+                                    <th className="right" style={{ width: 130 }}>AMOUNT</th>
+                                    <th style={{ width: 150 }}>REFERENCE / REMARKS</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {incomes.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={3} style={{ color: '#888', fontStyle: 'italic', textAlign: 'center' }}>No other cash receipts recorded.</td>
+                                    </tr>
+                                ) : incomes.map((row, i) => (
+                                    <tr key={i}>
+                                        <td>{row.category || 'Income'}</td>
+                                        <td className="right">{php(row.amount)}</td>
+                                        <td>{row.notes || row.reference_number || '—'}</td>
+                                    </tr>
+                                ))}
+                                <tr className="total-row" style={{ backgroundColor: '#e8f4e8' }}>
+                                    <td>TOTAL OTHER RECEIPTS</td>
+                                    <td className="right">{php(incomes.reduce((s, i) => s + Number(i.amount), 0))}</td>
+                                    <td></td>
+                                </tr>
+                            </tbody>
+                        </table>
+
                         {/* Expected Cash on Hand */}
                         <div className="expected-box">
                             <span className="exp-label">EXPECTED CASH ON HAND</span>
@@ -453,13 +524,7 @@ export default function RoomBookingsLedgerPrint({
                                         </tr>
                                     );
                                 })}
-                                {denomRows.length === 0 && DENOMINATIONS.map(d => (
-                                    <tr key={d.key}>
-                                        <td>{d.label}</td>
-                                        <td className="right">—</td>
-                                        <td className="right">—</td>
-                                    </tr>
-                                ))}
+
                                 <tr className="total-row">
                                     <td colSpan={1}><strong>ACTUAL CASH COUNT</strong></td>
                                     <td></td>

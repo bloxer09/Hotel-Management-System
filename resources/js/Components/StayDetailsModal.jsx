@@ -56,7 +56,9 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
         gcash_amount: 0.00,
         gcash_ref: '',
         notes: '',
-        waive_late_fee: false
+        waive_late_fee: false,
+        extra_charge_amount: '',
+        extra_charge_description: ''
     });
 
     // Form: Cancel stay
@@ -87,7 +89,9 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
                 gcash_amount: 0.00,
                 gcash_ref: '',
                 notes: '',
-                waive_late_fee: false
+                waive_late_fee: false,
+                extra_charge_amount: '',
+                extra_charge_description: ''
             });
         } catch (err) {
             console.error("Failed to load stay details:", err);
@@ -726,6 +730,8 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
                     const actualAdditionalDue = checkoutForm.data.waive_late_fee
                         ? Math.max(0, (calculations.additional_due || 0) - (calculations.late_fee || 0))
                         : (calculations.additional_due || 0);
+                        
+                    const totalAmountDue = actualAdditionalDue + (Number(checkoutForm.data.extra_charge_amount) || 0);
 
                     return (
                         <div className="fixed inset-0 bg-[#070b13]/90 z-[99999] flex items-center justify-center p-4">
@@ -744,9 +750,44 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
 
                                 <form onSubmit={handleCheckoutSubmit} className="space-y-4 text-xs">
 
+                                    <div className="flex flex-col gap-3 p-4 rounded-xl bg-[#0f172a]/40 border border-[#334155] mb-4">
+                                        <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Extra Charges (Optional: Stains, Damage, etc.)</label>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                                            <div className="flex flex-col gap-1.5">
+                                                <input
+                                                    type="text"
+                                                    placeholder="Description (e.g. Stained bedsheet)"
+                                                    value={checkoutForm.data.extra_charge_description}
+                                                    onChange={e => checkoutForm.setData('extra_charge_description', e.target.value)}
+                                                    className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 px-3 py-2 focus:outline-none focus:border-brand-500 font-bold"
+                                                />
+                                            </div>
+                                            <div className="flex flex-col gap-1.5">
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    step="any"
+                                                    placeholder="Amount (₱)"
+                                                    value={checkoutForm.data.extra_charge_amount}
+                                                    onChange={e => {
+                                                        const newAmount = e.target.value;
+                                                        const newTotalDue = actualAdditionalDue + (Number(newAmount) || 0);
+                                                        checkoutForm.setData(prev => ({
+                                                            ...prev,
+                                                            extra_charge_amount: newAmount,
+                                                            cash_amount: prev.payment_method === 'cash' ? newTotalDue : (prev.payment_method === 'split' ? prev.cash_amount : 0),
+                                                            gcash_amount: prev.payment_method === 'gcash' ? newTotalDue : (prev.payment_method === 'split' ? prev.gcash_amount : 0),
+                                                        }));
+                                                    }}
+                                                    className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 px-3 py-2 focus:outline-none focus:border-brand-500 font-mono font-bold"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+
                                     <div className="p-4 rounded-xl bg-[#0f172a]/60 border border-[#334155] flex justify-between items-center text-xs shadow-inner">
-                                        <span className="font-bold text-slate-400">Additional Settlement Due:</span>
-                                        <span className="font-mono text-emerald-400 font-bold text-lg">₱{actualAdditionalDue.toLocaleString()}</span>
+                                        <span className="font-bold text-slate-400">Total Settlement Due:</span>
+                                        <span className="font-mono text-emerald-400 font-bold text-lg">₱{totalAmountDue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                     </div>
 
                                     {calculations.late_fee > 0 && (
@@ -759,13 +800,14 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
                                                     const checked = e.target.checked;
                                                     const lateFee = calculations.late_fee || 0;
                                                     const baseAdditional = calculations.additional_due || 0;
-                                                    const newDue = checked ? Math.max(0, baseAdditional - lateFee) : baseAdditional;
+                                                    const newActualDue = checked ? Math.max(0, baseAdditional - lateFee) : baseAdditional;
+                                                    const newTotalDue = newActualDue + (Number(checkoutForm.data.extra_charge_amount) || 0);
 
                                                     checkoutForm.setData(prev => ({
                                                         ...prev,
                                                         waive_late_fee: checked,
-                                                        cash_amount: checkoutForm.data.payment_method === 'split' ? Math.min(checkoutForm.data.cash_amount, newDue) : newDue,
-                                                        gcash_amount: checkoutForm.data.payment_method === 'split' ? Math.max(0, newDue - Math.min(checkoutForm.data.cash_amount, newDue)) : 0
+                                                        cash_amount: prev.payment_method === 'split' ? Math.min(prev.cash_amount, newTotalDue) : (prev.payment_method === 'cash' ? newTotalDue : 0),
+                                                        gcash_amount: prev.payment_method === 'split' ? Math.max(0, newTotalDue - Math.min(prev.cash_amount, newTotalDue)) : (prev.payment_method === 'gcash' ? newTotalDue : 0)
                                                     }));
                                                 }}
                                                 className="rounded bg-[#1e293b] border-[#334155] text-brand-500 focus:ring-brand-500 focus:ring-offset-0 focus:outline-none cursor-pointer"
@@ -776,7 +818,7 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
                                         </div>
                                     )}
 
-                                    {actualAdditionalDue > 0 && (
+                                    {totalAmountDue > 0 && (
                                         <div className="space-y-4 pt-2">
                                             <div className="grid grid-cols-2 gap-4">
                                                 <div className="flex flex-col gap-1.5">
@@ -788,8 +830,8 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
                                                             checkoutForm.setData(prev => ({
                                                                 ...prev,
                                                                 payment_method: channel,
-                                                                cash_amount: channel === 'split' ? (actualAdditionalDue / 2) : actualAdditionalDue,
-                                                                gcash_amount: channel === 'split' ? (actualAdditionalDue / 2) : 0
+                                                                cash_amount: channel === 'split' ? (totalAmountDue / 2) : (channel === 'cash' ? totalAmountDue : 0),
+                                                                gcash_amount: channel === 'split' ? (totalAmountDue / 2) : (channel === 'gcash' ? totalAmountDue : 0)
                                                             }));
                                                         }}
                                                         className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 px-3 py-2.5 focus:outline-none focus:border-brand-500 font-bold text-xs"
@@ -836,10 +878,10 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
                                                             <input
                                                                 type="number"
                                                                 min="0"
-                                                                max={actualAdditionalDue}
+                                                                max={totalAmountDue}
                                                                 step="any"
                                                                 value={checkoutForm.data.cash_amount}
-                                                                onChange={e => handleCheckoutCashInput(e, actualAdditionalDue)}
+                                                                onChange={e => handleCheckoutCashInput(e, totalAmountDue)}
                                                                 className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 px-3 py-2 focus:outline-none focus:border-brand-500 font-mono font-bold"
                                                             />
                                                         </div>
@@ -848,10 +890,10 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
                                                             <input
                                                                 type="number"
                                                                 min="0"
-                                                                max={actualAdditionalDue}
+                                                                max={totalAmountDue}
                                                                 step="any"
                                                                 value={checkoutForm.data.gcash_amount}
-                                                                onChange={e => handleCheckoutGCashInput(e, actualAdditionalDue)}
+                                                                onChange={e => handleCheckoutGCashInput(e, totalAmountDue)}
                                                                 className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 px-3 py-2 focus:outline-none focus:border-brand-500 font-mono font-bold"
                                                             />
                                                         </div>
@@ -861,11 +903,11 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
                                         </div>
                                     )}
 
-                                    {actualAdditionalDue > 0 && ['cash', 'split'].includes(checkoutForm.data.payment_method) && (
+                                    {totalAmountDue > 0 && ['cash', 'split'].includes(checkoutForm.data.payment_method) && (
                                         <div className="p-4 rounded-xl bg-[#0f172a]/60 border border-[#334155] flex justify-between items-center shadow-inner mt-2">
                                             <span className="font-bold text-slate-400">Change:</span>
                                             <span className="font-mono text-emerald-400 font-black text-base">
-                                                ₱{(checkoutCashReceived ? Math.max(0, Number(checkoutCashReceived) - (checkoutForm.data.payment_method === 'split' ? (checkoutForm.data.cash_amount || 0) : actualAdditionalDue)) : 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                ₱{(checkoutCashReceived ? Math.max(0, Number(checkoutCashReceived) - (checkoutForm.data.payment_method === 'split' ? (checkoutForm.data.cash_amount || 0) : totalAmountDue)) : 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                             </span>
                                         </div>
                                     )}
