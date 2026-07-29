@@ -187,14 +187,14 @@ export default function Index({ activeShift, suggestedShift, suggestedOpeningCas
                                                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-[#334155]/60 pb-1.5 mb-1">Coins</span>
                                                         {COINS.map(coin => (
                                                             <div key={coin} className="flex items-center gap-2">
-                                                                <span className="w-12 text-right font-mono text-xs text-slate-300">₱{coin.toFixed(2)}</span>
-                                                                <span className="text-slate-600 text-xs font-bold">x</span>
+                                                                <span className="w-16 shrink-0 text-right font-mono text-sm text-slate-300">₱{coin.toFixed(2)}</span>
+                                                                <span className="text-slate-600 shrink-0 text-xs font-bold">x</span>
                                                                 <input
                                                                     type="number"
                                                                     min="0"
                                                                     value={startForm.data.opening_denominations[coin.toString()] || ''}
                                                                     onChange={e => handleStartDenominationChange(coin.toString(), e.target.value)}
-                                                                    className="flex-1 bg-[#1e293b] border border-[#334155] rounded-lg text-slate-200 px-2 py-1 font-mono text-xs focus:border-brand-500"
+                                                                    className="flex-1 min-w-0 bg-[#1e293b] border border-[#334155] rounded-lg text-slate-200 px-2 py-1.5 font-mono text-sm focus:border-brand-500"
                                                                     placeholder="0"
                                                                 />
                                                             </div>
@@ -206,14 +206,14 @@ export default function Index({ activeShift, suggestedShift, suggestedOpeningCas
                                                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-[#334155]/60 pb-1.5 mb-1">Bills</span>
                                                         {BILLS.map(bill => (
                                                             <div key={bill} className="flex items-center gap-2">
-                                                                <span className="w-12 text-right font-mono text-xs text-slate-300">₱{bill.toFixed(0)}</span>
-                                                                <span className="text-slate-600 text-xs font-bold">x</span>
+                                                                <span className="w-16 shrink-0 text-right font-mono text-sm text-slate-300">₱{bill.toFixed(0)}</span>
+                                                                <span className="text-slate-600 shrink-0 text-xs font-bold">x</span>
                                                                 <input
                                                                     type="number"
                                                                     min="0"
                                                                     value={startForm.data.opening_denominations[bill.toString()] || ''}
                                                                     onChange={e => handleStartDenominationChange(bill.toString(), e.target.value)}
-                                                                    className="flex-1 bg-[#1e293b] border border-[#334155] rounded-lg text-slate-200 px-2 py-1 font-mono text-xs focus:border-brand-500"
+                                                                    className="flex-1 min-w-0 bg-[#1e293b] border border-[#334155] rounded-lg text-slate-200 px-2 py-1.5 font-mono text-sm focus:border-brand-500"
                                                                     placeholder="0"
                                                                 />
                                                             </div>
@@ -247,14 +247,14 @@ export default function Index({ activeShift, suggestedShift, suggestedOpeningCas
                                                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-[#334155]/60 pb-1.5 mb-1">Coins</span>
                                                         {COINS.map(coin => (
                                                             <div key={coin} className="flex items-center gap-2">
-                                                                <span className="w-12 text-right font-mono text-xs text-slate-300">₱{coin.toFixed(2)}</span>
-                                                                <span className="text-slate-600 text-xs font-bold">x</span>
+                                                                <span className="w-16 shrink-0 text-right font-mono text-sm text-slate-300">₱{coin.toFixed(2)}</span>
+                                                                <span className="text-slate-600 shrink-0 text-xs font-bold">x</span>
                                                                 <input
                                                                     type="number"
                                                                     min="0"
                                                                     value={startForm.data.opening_denominations_minibar[coin.toString()] || ''}
                                                                     onChange={e => handleStartDenominationMinibarChange(coin.toString(), e.target.value)}
-                                                                    className="flex-1 bg-[#1e293b] border border-[#334155] rounded-lg text-slate-200 px-2 py-1 font-mono text-xs focus:border-brand-500"
+                                                                    className="flex-1 min-w-0 bg-[#1e293b] border border-[#334155] rounded-lg text-slate-200 px-2 py-1.5 font-mono text-sm focus:border-brand-500"
                                                                     placeholder="0"
                                                                 />
                                                             </div>
@@ -266,14 +266,14 @@ export default function Index({ activeShift, suggestedShift, suggestedOpeningCas
                                                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-[#334155]/60 pb-1.5 mb-1">Bills</span>
                                                         {BILLS.map(bill => (
                                                             <div key={bill} className="flex items-center gap-2">
-                                                                <span className="w-12 text-right font-mono text-xs text-slate-300">₱{bill.toFixed(0)}</span>
-                                                                <span className="text-slate-600 text-xs font-bold">x</span>
+                                                                <span className="w-16 shrink-0 text-right font-mono text-sm text-slate-300">₱{bill.toFixed(0)}</span>
+                                                                <span className="text-slate-600 shrink-0 text-xs font-bold">x</span>
                                                                 <input
                                                                     type="number"
                                                                     min="0"
                                                                     value={startForm.data.opening_denominations_minibar[bill.toString()] || ''}
                                                                     onChange={e => handleStartDenominationMinibarChange(bill.toString(), e.target.value)}
-                                                                    className="flex-1 bg-[#1e293b] border border-[#334155] rounded-lg text-slate-200 px-2 py-1 font-mono text-xs focus:border-brand-500"
+                                                                    className="flex-1 min-w-0 bg-[#1e293b] border border-[#334155] rounded-lg text-slate-200 px-2 py-1.5 font-mono text-sm focus:border-brand-500"
                                                                     placeholder="0"
                                                                 />
                                                             </div>
@@ -479,14 +479,14 @@ export default function Index({ activeShift, suggestedShift, suggestedOpeningCas
                                                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-[#334155]/60 pb-1.5 mb-1">Coins</span>
                                                         {COINS.map(coin => (
                                                             <div key={coin} className="flex items-center gap-2">
-                                                                <span className="w-12 text-right font-mono text-xs text-slate-300">₱{coin.toFixed(2)}</span>
-                                                                <span className="text-slate-600 text-xs font-bold">x</span>
+                                                                <span className="w-16 shrink-0 text-right font-mono text-sm text-slate-300">₱{coin.toFixed(2)}</span>
+                                                                <span className="text-slate-600 shrink-0 text-xs font-bold">x</span>
                                                                 <input
                                                                     type="number"
                                                                     min="0"
                                                                     value={endForm.data.closing_denominations[coin.toString()] || ''}
                                                                     onChange={e => handleDenominationChange(coin.toString(), e.target.value)}
-                                                                    className="flex-1 bg-[#1e293b] border border-[#334155] rounded-lg text-slate-200 px-2 py-1.5 font-mono text-xs focus:border-brand-500"
+                                                                    className="flex-1 min-w-0 bg-[#1e293b] border border-[#334155] rounded-lg text-slate-200 px-2 py-1.5 font-mono text-sm focus:border-brand-500"
                                                                     placeholder="0"
                                                                 />
                                                             </div>
@@ -498,14 +498,14 @@ export default function Index({ activeShift, suggestedShift, suggestedOpeningCas
                                                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-[#334155]/60 pb-1.5 mb-1">Bills</span>
                                                         {BILLS.map(bill => (
                                                             <div key={bill} className="flex items-center gap-2">
-                                                                <span className="w-12 text-right font-mono text-xs text-slate-300">₱{bill.toFixed(0)}</span>
-                                                                <span className="text-slate-600 text-xs font-bold">x</span>
+                                                                <span className="w-16 shrink-0 text-right font-mono text-sm text-slate-300">₱{bill.toFixed(0)}</span>
+                                                                <span className="text-slate-600 shrink-0 text-xs font-bold">x</span>
                                                                 <input
                                                                     type="number"
                                                                     min="0"
                                                                     value={endForm.data.closing_denominations[bill.toString()] || ''}
                                                                     onChange={e => handleDenominationChange(bill.toString(), e.target.value)}
-                                                                    className="flex-1 bg-[#1e293b] border border-[#334155] rounded-lg text-slate-200 px-2 py-1.5 font-mono text-xs focus:border-brand-500"
+                                                                    className="flex-1 min-w-0 bg-[#1e293b] border border-[#334155] rounded-lg text-slate-200 px-2 py-1.5 font-mono text-sm focus:border-brand-500"
                                                                     placeholder="0"
                                                                 />
                                                             </div>
@@ -563,14 +563,14 @@ export default function Index({ activeShift, suggestedShift, suggestedOpeningCas
                                                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-[#334155]/60 pb-1.5 mb-1">Coins</span>
                                                         {COINS.map(coin => (
                                                             <div key={coin} className="flex items-center gap-2">
-                                                                <span className="w-12 text-right font-mono text-xs text-slate-300">₱{coin.toFixed(2)}</span>
-                                                                <span className="text-slate-600 text-xs font-bold">x</span>
+                                                                <span className="w-16 shrink-0 text-right font-mono text-sm text-slate-300">₱{coin.toFixed(2)}</span>
+                                                                <span className="text-slate-600 shrink-0 text-xs font-bold">x</span>
                                                                 <input
                                                                     type="number"
                                                                     min="0"
                                                                     value={endForm.data.closing_denominations_minibar[coin.toString()] || ''}
                                                                     onChange={e => handleDenominationMinibarChange(coin.toString(), e.target.value)}
-                                                                    className="flex-1 bg-[#1e293b] border border-[#334155] rounded-lg text-slate-200 px-2 py-1.5 font-mono text-xs focus:border-brand-500"
+                                                                    className="flex-1 min-w-0 bg-[#1e293b] border border-[#334155] rounded-lg text-slate-200 px-2 py-1.5 font-mono text-sm focus:border-brand-500"
                                                                     placeholder="0"
                                                                 />
                                                             </div>
@@ -582,14 +582,14 @@ export default function Index({ activeShift, suggestedShift, suggestedOpeningCas
                                                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-[#334155]/60 pb-1.5 mb-1">Bills</span>
                                                         {BILLS.map(bill => (
                                                             <div key={bill} className="flex items-center gap-2">
-                                                                <span className="w-12 text-right font-mono text-xs text-slate-300">₱{bill.toFixed(0)}</span>
-                                                                <span className="text-slate-600 text-xs font-bold">x</span>
+                                                                <span className="w-16 shrink-0 text-right font-mono text-sm text-slate-300">₱{bill.toFixed(0)}</span>
+                                                                <span className="text-slate-600 shrink-0 text-xs font-bold">x</span>
                                                                 <input
                                                                     type="number"
                                                                     min="0"
                                                                     value={endForm.data.closing_denominations_minibar[bill.toString()] || ''}
                                                                     onChange={e => handleDenominationMinibarChange(bill.toString(), e.target.value)}
-                                                                    className="flex-1 bg-[#1e293b] border border-[#334155] rounded-lg text-slate-200 px-2 py-1.5 font-mono text-xs focus:border-brand-500"
+                                                                    className="flex-1 min-w-0 bg-[#1e293b] border border-[#334155] rounded-lg text-slate-200 px-2 py-1.5 font-mono text-sm focus:border-brand-500"
                                                                     placeholder="0"
                                                                 />
                                                             </div>

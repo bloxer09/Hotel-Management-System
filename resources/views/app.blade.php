@@ -4,6 +4,14 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
 
+        <script>
+            try {
+                document.documentElement.dataset.theme = localStorage.getItem('pms-theme') === 'light' ? 'light' : 'dark';
+            } catch (error) {
+                document.documentElement.dataset.theme = 'dark';
+            }
+        </script>
+
         <title inertia>{{ config('app.name', 'Laravel') }}</title>
 
         <!-- Fonts -->

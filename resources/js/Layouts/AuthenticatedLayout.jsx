@@ -32,7 +32,9 @@ import {
     Ticket,
     Sliders,
     Receipt,
-    Coins
+    Coins,
+    Sun,
+    Moon
 } from 'lucide-react';
 import ProfileModal from '@/Components/ProfileModal';
 import ConfirmModal from '@/Components/ConfirmModal';
@@ -51,6 +53,7 @@ export default function AuthenticatedLayout({ children }) {
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+    const [theme, setTheme] = useState(() => document.documentElement.dataset.theme === 'light' ? 'light' : 'dark');
 
     // ─── Toast state ─────────────────────────────────────────────────────────
     const [toast, setToast] = useState(null);
@@ -186,6 +189,15 @@ export default function AuthenticatedLayout({ children }) {
         document.addEventListener('mousedown', handler);
         return () => document.removeEventListener('mousedown', handler);
     }, []);
+
+    useEffect(() => {
+        document.documentElement.dataset.theme = theme;
+        try {
+            localStorage.setItem('pms-theme', theme);
+        } catch (error) {
+            // Keep the selected theme for this session even if browser storage is unavailable.
+        }
+    }, [theme]);
 
     const handleLogout = (e) => {
         e.preventDefault();
@@ -799,6 +811,16 @@ export default function AuthenticatedLayout({ children }) {
                         ) : null}
 
                         {/* ─── Notification Bell ──────────────────────────────── */}
+                        <button
+                            type="button"
+                            onClick={() => setTheme(currentTheme => currentTheme === 'dark' ? 'light' : 'dark')}
+                            className="flex items-center justify-center w-10 h-10 rounded-xl bg-[#0f172a]/55 border border-[#334155] text-slate-300 hover:bg-[#334155] hover:text-slate-100 transition-all duration-200"
+                            aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+                            title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+                        >
+                            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+                        </button>
+
                         {canSeeNotifications && (
                             <div className="relative" ref={bellDropdownRef}>
                                 <button
