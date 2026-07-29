@@ -5,6 +5,8 @@ namespace Tests\Feature;
 use App\Models\Booking;
 use App\Models\CashMovement;
 use App\Models\Expense;
+use App\Models\InventoryItem;
+use App\Models\InventoryUsage;
 use App\Models\Room;
 use App\Models\RoomType;
 use App\Models\ShiftSession;
@@ -241,6 +243,194 @@ class ShiftReportPaymentSummaryTest extends TestCase
             ->where('report.daily_cash_report.actual_cash', 600)
             ->where('report.daily_cash_report.variance', 25)
         );
+    }
+
+    public function test_official_logbook_includes_checkout_extra_charge_description_and_amount(): void
+    {
+        $user = $this->createCashier();
+        $shift = ShiftSession::create([
+            'user_id' => $user->id,
+            'shift_code' => 'morning',
+            'started_at' => now()->subHour(),
+            'opening_cash' => 0,
+            'opening_cash_minibar' => 0,
+        ]);
+        [$booking] = $this->createBookings($user, true);
+
+        $booking->update([
+            'status' => 'checked_out',
+            'check_out' => now()->subMinutes(5),
+            'checked_out_by' => $user->id,
+            'total_amount' => 1500,
+            'amount_paid' => 1500,
+        ]);
+
+        Transaction::create([
+            'booking_id' => $booking->id,
+            'transaction_type' => 'adjustment',
+            'description' => "Separate checkout charge (Extra Charges (Damaged towel) = P 500) for Ref: {$booking->booking_ref}",
+            'amount' => 500,
+            'payment_method' => 'gcash',
+            'gcash_amount' => 500,
+            'gcash_ref' => 'GCASH-DAMAGE-500',
+            'processed_by' => $user->id,
+        ]);
+
+        $response = $this->actingAs($user)->get(route('shifts.ledger-print', $shift->id));
+
+        $response->assertOk();
+        $response->assertInertia(fn (Assert $page) => $page
+            ->component('Reports/RoomBookingsLedgerPrint')
+            ->where('bookings.1.shift_extra_charges.0.description', 'Damaged towel')
+            ->where('bookings.1.shift_extra_charges.0.amount', 500)
+            ->where('bookings.1.shift_extra_charges.0.payment_method', 'gcash')
+            ->where('bookings.1.shift_extra_charges.0.payment_reference', 'GCASH-DAMAGE-500')
+        );
+    }
+
+    public function test_separate_gcash_extra_charge_is_recorded_with_its_own_reference(): void
+    {
+        $user = $this->createCashier();
+        $shift = ShiftSession::create([
+            'user_id' => $user->id,
+            'shift_code' => 'morning',
+            'started_at' => now()->subHour(),
+            'opening_cash' => 0,
+            'opening_cash_minibar' => 0,
+        ]);
+        [$booking] = $this->createBookings($user, true);
+
+        $response = $this->actingAs($user)->post(route('bookings.checkout', $booking->id), [
+            'payment_method' => 'cash',
+            'extra_charge_amount' => 500,
+            'extra_charge_description' => 'Damaged towel',
+            'extra_charge_separate_payment' => true,
+            'extra_charge_payment_method' => 'gcash',
+            'extra_charge_payment_reference' => 'GCASH-SEPARATE-DAMAGE-500',
+        ]);
+
+        $response->assertRedirect(route('rooms.index'));
+        $this->assertDatabaseHas('transactions', [
+            'booking_id' => $booking->id,
+            'transaction_type' => 'adjustment',
+            'amount' => 500,
+            'payment_method' => 'gcash',
+            'gcash_ref' => 'GCASH-SEPARATE-DAMAGE-500',
+        ]);
+
+        $response = $this->actingAs($user)->get(route('shifts.ledger-print', $shift->id));
+
+        $response->assertInertia(fn (Assert $page) => $page
+            ->where('bookings.1.shift_extra_charges.0.description', 'Damaged towel')
+            ->where('bookings.1.shift_extra_charges.0.payment_reference', 'GCASH-SEPARATE-DAMAGE-500')
+        );
+    }
+
+    public function test_official_logbook_includes_minibar_tally_sales_and_low_stock_data(): void
+    {
+        $user = $this->createCashier();
+        $shift = ShiftSession::create([
+            'user_id' => $user->id,
+            'shift_code' => 'morning',
+            'started_at' => now()->subHour(),
+            'ended_at' => now()->addMinute(),
+            'opening_cash' => 0,
+            'opening_cash_minibar' => 100,
+            'closing_cash_minibar' => 120,
+            'closing_denominations_minibar' => ['100' => 1, '20' => 1],
+        ]);
+        [$booking] = $this->createBookings($user, true);
+        $item = InventoryItem::create([
+            'item_name' => 'Mini Bar Water',
+            'category' => 'minibar',
+            'unit' => 'bottle',
+            'current_stock' => 2,
+            'minimum_stock' => 5,
+            'unit_cost' => 10,
+            'selling_price' => 25,
+        ]);
+        $sale = Transaction::create([
+            'booking_id' => $booking->id,
+            'transaction_type' => 'pos_sale',
+            'description' => 'Mini bar water sale',
+            'amount' => 50,
+            'payment_method' => 'cash',
+            'cash_amount' => 50,
+            'processed_by' => $user->id,
+        ]);
+        InventoryUsage::create([
+            'booking_id' => $booking->id,
+            'transaction_id' => $sale->id,
+            'item_id' => $item->id,
+            'quantity' => 2,
+            'unit_price' => 25,
+            'total_price' => 50,
+            'recorded_by' => $user->id,
+        ]);
+        Expense::create([
+            'expense_date' => now()->toDateString(),
+            'amount' => 40,
+            'cash_drawer' => 'minibar',
+            'notes' => 'Mini bar supplies',
+            'recorded_by' => $user->id,
+        ]);
+        \App\Models\Income::create([
+            'income_date' => now()->toDateString(),
+            'amount' => 30,
+            'cash_drawer' => 'minibar',
+            'notes' => 'Cash added to mini bar drawer',
+            'recorded_by' => $user->id,
+        ]);
+        CashMovement::create([
+            'shift_session_id' => $shift->id,
+            'movement_type' => 'cashier_transfer',
+            'cash_drawer' => 'minibar',
+            'amount' => 20,
+            'description' => 'Mini bar cash remittance',
+            'moved_at' => now(),
+            'recorded_by' => $user->id,
+        ]);
+
+        $response = $this->actingAs($user)->get(route('shifts.ledger-print', $shift->id));
+
+        $response->assertInertia(fn (Assert $page) => $page
+            ->has('minibar.pos_sales', 1)
+            ->has('minibar.stay_charges', 1)
+            ->has('minibar.low_stock', 1)
+            ->where('minibar.cash_tally.sales_cash', 50)
+            ->where('minibar.cash_tally.other_cash_receipts', 30)
+            ->where('minibar.cash_tally.total_expenses', 40)
+            ->where('minibar.cash_tally.total_movements', 20)
+            ->where('minibar.cash_tally.expected_cash', 120)
+            ->where('minibar.cash_tally.actual_cash', 120)
+        );
+    }
+
+    public function test_cash_movement_can_be_recorded_against_the_minibar_drawer(): void
+    {
+        $user = $this->createCashier();
+        $shift = ShiftSession::create([
+            'user_id' => $user->id,
+            'shift_code' => 'morning',
+            'started_at' => now()->subHour(),
+            'opening_cash' => 0,
+            'opening_cash_minibar' => 100,
+        ]);
+
+        $response = $this->actingAs($user)->post(route('shifts.cash_movements.store', $shift->id), [
+            'movement_type' => 'cashier_transfer',
+            'cash_drawer' => 'minibar',
+            'amount' => 50,
+            'description' => 'Mini bar drawer remittance',
+        ]);
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('cash_movements', [
+            'shift_session_id' => $shift->id,
+            'cash_drawer' => 'minibar',
+            'movement_type' => 'cashier_transfer',
+            'amount' => 50,
+        ]);
     }
 
     private function createCashier(): User

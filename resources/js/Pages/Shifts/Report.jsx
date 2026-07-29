@@ -26,6 +26,7 @@ export default function Report({ shift, report }) {
     const [printOrientation, setPrintOrientation] = useState('landscape');
     const cashMovementForm = useForm({
         movement_type: 'cashier_transfer',
+        cash_drawer: 'room',
         amount: '',
         description: '',
         moved_at: '',
@@ -724,16 +725,20 @@ export default function Report({ shift, report }) {
                             </div>
 
                             {report.can_manage_daily_cash && (
-                                <form onSubmit={submitCashMovement} className="rounded-lg border border-slate-700 bg-slate-800 p-4 grid grid-cols-1 md:grid-cols-4 gap-3">
+                                <form onSubmit={submitCashMovement} className="rounded-lg border border-slate-700 bg-slate-800 p-4 grid grid-cols-1 md:grid-cols-5 gap-3">
                                     <select value={cashMovementForm.data.movement_type} onChange={e => cashMovementForm.setData('movement_type', e.target.value)} className="rounded bg-slate-900 border border-slate-600 px-3 py-2 text-sm">
                                         <option value="cashier_transfer">Transfer to Cashier</option>
                                         <option value="withdrawal">Cash Withdrawal</option>
                                     </select>
+                                    <select value={cashMovementForm.data.cash_drawer} onChange={e => cashMovementForm.setData('cash_drawer', e.target.value)} className="rounded bg-slate-900 border border-slate-600 px-3 py-2 text-sm">
+                                        <option value="room">Room Drawer</option>
+                                        <option value="minibar">Minibar Drawer</option>
+                                    </select>
                                     <input type="number" min="0.01" step="0.01" required value={cashMovementForm.data.amount} onChange={e => cashMovementForm.setData('amount', e.target.value)} placeholder="Amount" className="rounded bg-slate-900 border border-slate-600 px-3 py-2 text-sm" />
                                     <input required value={cashMovementForm.data.description} onChange={e => cashMovementForm.setData('description', e.target.value)} placeholder="Particulars / description" className="rounded bg-slate-900 border border-slate-600 px-3 py-2 text-sm" />
                                     <button disabled={cashMovementForm.processing} className="rounded bg-emerald-600 hover:bg-emerald-500 px-3 py-2 text-sm font-bold disabled:opacity-60">Record cash movement</button>
-                                    {cashMovementForm.errors.amount && <p className="md:col-span-4 text-xs text-rose-400">{cashMovementForm.errors.amount}</p>}
-                                    {cashMovementForm.errors.description && <p className="md:col-span-4 text-xs text-rose-400">{cashMovementForm.errors.description}</p>}
+                                    {cashMovementForm.errors.amount && <p className="md:col-span-5 text-xs text-rose-400">{cashMovementForm.errors.amount}</p>}
+                                    {cashMovementForm.errors.description && <p className="md:col-span-5 text-xs text-rose-400">{cashMovementForm.errors.description}</p>}
                                 </form>
                             )}
 

@@ -24,7 +24,7 @@ class MaintenanceController extends Controller
         if (!in_array($sortBy, $allowedSorts)) $sortBy = 'id';
         if (!in_array($sortDir, ['asc', 'desc'])) $sortDir = 'desc';
 
-        $query = MaintenanceTicket::with(['room.type', 'reportedBy', 'resolvedBy']);
+        $query = MaintenanceTicket::with(['room.type', 'reportedBy', 'resolvedBy', 'verifiedBy']);
 
         if ($status && $status !== 'all') {
             $query->where('status', $status);
@@ -106,7 +106,7 @@ class MaintenanceController extends Controller
         $user = $request->user();
         
         $validated = $request->validate([
-            'status' => 'nullable|in:open,in_progress,closed',
+            'status' => 'nullable|in:open,in_progress,for_verification,closed',
             'notes' => 'nullable|string',
             'priority' => 'nullable|in:low,medium,high,critical',
             'room_id' => 'nullable|exists:rooms,id',
@@ -114,15 +114,38 @@ class MaintenanceController extends Controller
             'description' => 'nullable|string',
             'attachment' => 'nullable|file|max:10240', // Max 10MB
             'remove_attachment' => 'nullable|boolean',
+            'resolution_notes' => 'nullable|string|max:5000',
+            'repaired_by' => 'nullable|string|max:150',
+            'repaired_at' => 'nullable|date',
+            'repair_cost' => 'nullable|numeric|min:0',
+            'receipt_reference' => 'nullable|string|max:100',
+            'receipt_attachment' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:10240',
+            'after_repair_attachment' => 'nullable|image|mimes:jpg,jpeg,png|max:10240',
         ]);
 
-        // Authorization checks for closing tickets
-        if (isset($validated['status']) && $validated['status'] === 'closed') {
-            if ($user->role !== 'admin' && $user->role !== 'front_desk') {
-                abort(403, 'Only Admin and Front Desk staff can close maintenance tickets.');
+        if (($validated['status'] ?? null) === 'for_verification') {
+            $request->validate([
+                'resolution_notes' => 'required|string|max:5000',
+                'repaired_by' => 'required|string|max:150',
+                'repaired_at' => 'required|date',
+                'repair_cost' => 'required|numeric|min:0',
+            ]);
+        }
+
+        // Only an Admin may verify and close a completed repair.
+        if (($validated['status'] ?? null) === 'closed') {
+            if ($user->role !== 'admin') {
+                abort(403, 'Only an Admin can verify and close maintenance tickets.');
             }
+
+            if ($ticket->status !== 'for_verification') {
+                abort(422, 'A maintenance ticket must be submitted for verification before it can be closed.');
+            }
+
             $validated['resolved_by'] = $user->id;
             $validated['resolved_at'] = now();
+            $validated['verified_by'] = $user->id;
+            $validated['verified_at'] = now();
 
             // Auto-transition room to cleaning if currently out of order
             $room = $ticket->room;
@@ -132,10 +155,6 @@ class MaintenanceController extends Controller
                 $room->cleaning_started_at = now();
                 $room->save();
             }
-        } elseif (isset($validated['status'])) {
-            // Reopening or moving to in progress
-            $validated['resolved_by'] = null;
-            $validated['resolved_at'] = null;
         }
 
         if ($request->hasFile('attachment')) {
@@ -152,6 +171,21 @@ class MaintenanceController extends Controller
                 \Storage::disk('public')->delete($oldFile);
             }
             $validated['attachment_path'] = null;
+        }
+
+        foreach ([
+            'receipt_attachment' => 'receipt_attachment_path',
+            'after_repair_attachment' => 'after_repair_attachment_path',
+        ] as $uploadField => $pathColumn) {
+            if ($request->hasFile($uploadField)) {
+                if ($ticket->{$pathColumn}) {
+                    $oldFile = str_replace('/storage/', '', $ticket->{$pathColumn});
+                    \Storage::disk('public')->delete($oldFile);
+                }
+
+                $path = $request->file($uploadField)->store('maintenance', 'public');
+                $validated[$pathColumn] = '/storage/' . $path;
+            }
         }
 
         $oldVal = $ticket->toArray();

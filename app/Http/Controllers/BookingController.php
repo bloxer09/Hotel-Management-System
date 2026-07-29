@@ -288,6 +288,9 @@ class BookingController extends Controller
             'waive_late_fee' => 'nullable|boolean',
             'extra_charge_amount' => 'nullable|numeric|min:0',
             'extra_charge_description' => 'nullable|string|max:255',
+            'extra_charge_separate_payment' => 'nullable|boolean',
+            'extra_charge_payment_method' => 'nullable|in:cash,gcash,card,bank_transfer,maya,other_ewallet,other',
+            'extra_charge_payment_reference' => 'nullable|string|max:50',
         ]);
 
         $user = $request->user();
@@ -320,31 +323,42 @@ class BookingController extends Controller
                 $inventorySum = (float) $inventoryUsages->sum('total_price');
 
                 $extraCharge = (float) ($request->extra_charge_amount ?? 0);
+                $separateExtraChargePayment = $extraCharge > 0
+                    && (bool) $request->boolean('extra_charge_separate_payment');
+                $extraChargePaymentMethod = $request->extra_charge_payment_method;
+                $extraChargePaymentReference = $request->extra_charge_payment_reference;
 
                 // Total addition due at checkout
                 $additionalDue = $lateFee + $inventorySum + $extraCharge;
+                $mainSettlementDue = $lateFee + $inventorySum + ($separateExtraChargePayment ? 0 : $extraCharge);
 
                 // Validate payments
                 $paymentMethod = $request->payment_method;
                 $cashAmount = 0.00;
                 $gcashAmount = 0.00;
                 $refNum = $request->gcash_ref ?: $request->reference_number ?: null;
-                if ($additionalDue > 0 && $paymentMethod !== 'cash' && blank($refNum)) {
+                if ($mainSettlementDue > 0 && $paymentMethod !== 'cash' && blank($refNum)) {
                     throw new \InvalidArgumentException('A payment reference is required for non-cash checkout payments.');
                 }
+                if ($separateExtraChargePayment && blank($extraChargePaymentMethod)) {
+                    throw new \InvalidArgumentException('Select a payment method for the separate extra charge.');
+                }
+                if ($separateExtraChargePayment && $extraChargePaymentMethod !== 'cash' && blank($extraChargePaymentReference)) {
+                    throw new \InvalidArgumentException('A payment reference is required for a non-cash extra charge.');
+                }
 
-                if ($additionalDue > 0) {
+                if ($mainSettlementDue > 0) {
                     if ($paymentMethod === 'cash') {
-                        $cashAmount = $additionalDue;
+                        $cashAmount = $mainSettlementDue;
                     } elseif ($paymentMethod === 'gcash') {
-                        $gcashAmount = $additionalDue;
+                        $gcashAmount = $mainSettlementDue;
                     } elseif (in_array($paymentMethod, ['card', 'bank_transfer', 'maya', 'other_ewallet', 'other'], true)) {
                         // Card/Bank Transfer
                     } else { // split
                         $cashAmount = (float) ($request->cash_amount ?: 0);
                         $gcashAmount = (float) ($request->gcash_amount ?: 0);
-                        if (abs(($cashAmount + $gcashAmount) - $additionalDue) > 0.01) {
-                            throw new \Exception("Split payments must match checkout total due ₱{$additionalDue}.");
+                        if (abs(($cashAmount + $gcashAmount) - $mainSettlementDue) > 0.01) {
+                            throw new \Exception("Split payments must match checkout settlement due ₱{$mainSettlementDue}.");
                         }
                     }
                 }
@@ -370,7 +384,7 @@ class BookingController extends Controller
                 $booking->save();
 
                 // Create check out transaction (only if there was additional collection)
-                if ($additionalDue > 0) {
+                if ($mainSettlementDue > 0) {
                     $descParts = [];
                     if ($lateHours > 0) {
                         $descParts[] = $waiveLateFee ? "Late hours: {$lateHours}h = ₱0.00 [WAIVED]" : "Late hours: {$lateHours}h = ₱{$lateFee}";
@@ -378,7 +392,7 @@ class BookingController extends Controller
                     if ($inventorySum > 0) {
                         $descParts[] = "Minibar items = ₱{$inventorySum}";
                     }
-                    if ($extraCharge > 0) {
+                    if ($extraCharge > 0 && ! $separateExtraChargePayment) {
                         $descParts[] = "Extra Charges ({$request->extra_charge_description}) = ₱{$extraCharge}";
                     }
                     $descStr = implode(', ', $descParts);
@@ -391,16 +405,16 @@ class BookingController extends Controller
                         'payer_contact' => $booking->booker_contact ?: $booking->guest_contact,
                         'payment_method_code' => $paymentMethod,
                         'reference_number' => $refNum,
-                        'amount' => $additionalDue,
+                        'amount' => $mainSettlementDue,
                         'payment_type' => 'final',
                         'status' => 'verified',
                         'recorded_by' => $user->id,
                         'verified_by' => $user->id,
                         'verified_at' => $now,
                         'remarks' => $request->transaction_notes ?: $request->notes,
-                    ], [$booking->id => $additionalDue], $this->paymentComponents(
+                    ], [$booking->id => $mainSettlementDue], $this->paymentComponents(
                         $paymentMethod,
-                        $additionalDue,
+                        $mainSettlementDue,
                         $cashAmount,
                         $gcashAmount,
                         $refNum
@@ -419,7 +433,7 @@ class BookingController extends Controller
 
                     // Update guest profile total spent
                     if ($booking->guestProfile) {
-                        $booking->guestProfile->total_spent += $additionalDue;
+                        $booking->guestProfile->total_spent += $mainSettlementDue;
                         $booking->guestProfile->save();
                     }
                 } else {
@@ -435,6 +449,40 @@ class BookingController extends Controller
                         'processed_by' => $user->id,
                         'notes' => $request->transaction_notes ?: $request->notes,
                     ]);
+                }
+
+                if ($separateExtraChargePayment) {
+                    $extraChargeDescription = trim((string) $request->extra_charge_description) ?: 'Unspecified extra charge';
+                    $extraCashAmount = $extraChargePaymentMethod === 'cash' ? $extraCharge : 0.00;
+                    $extraGcashAmount = $extraChargePaymentMethod === 'gcash' ? $extraCharge : 0.00;
+
+                    app(PaymentService::class)->record([
+                        'payer_name' => $booking->booker_name ?: $booking->guest_name,
+                        'payer_contact' => $booking->booker_contact ?: $booking->guest_contact,
+                        'payment_method_code' => $extraChargePaymentMethod,
+                        'reference_number' => $extraChargePaymentReference,
+                        'amount' => $extraCharge,
+                        'payment_type' => 'final',
+                        'status' => 'verified',
+                        'recorded_by' => $user->id,
+                        'verified_by' => $user->id,
+                        'verified_at' => $now,
+                        'remarks' => "Separate payment for {$extraChargeDescription}",
+                    ], [$booking->id => $extraCharge], $this->paymentComponents(
+                        $extraChargePaymentMethod,
+                        $extraCharge,
+                        $extraCashAmount,
+                        $extraGcashAmount,
+                        $extraChargePaymentReference
+                    ), [
+                        'transaction_type' => 'adjustment',
+                        'description' => "Separate checkout charge (Extra Charges ({$extraChargeDescription}) = P {$extraCharge}) for Ref: {$booking->booking_ref}",
+                    ]);
+
+                    if ($booking->guestProfile) {
+                        $booking->guestProfile->total_spent += $extraCharge;
+                        $booking->guestProfile->save();
+                    }
                 }
 
                 // Set room status to cleaning

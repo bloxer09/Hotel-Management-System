@@ -58,7 +58,10 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
         notes: '',
         waive_late_fee: false,
         extra_charge_amount: '',
-        extra_charge_description: ''
+        extra_charge_description: '',
+        extra_charge_separate_payment: false,
+        extra_charge_payment_method: 'gcash',
+        extra_charge_payment_reference: ''
     });
 
     // Form: Cancel stay
@@ -91,7 +94,10 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
                 notes: '',
                 waive_late_fee: false,
                 extra_charge_amount: '',
-                extra_charge_description: ''
+                extra_charge_description: '',
+                extra_charge_separate_payment: false,
+                extra_charge_payment_method: 'gcash',
+                extra_charge_payment_reference: ''
             });
         } catch (err) {
             console.error("Failed to load stay details:", err);
@@ -731,7 +737,10 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
                         ? Math.max(0, (calculations.additional_due || 0) - (calculations.late_fee || 0))
                         : (calculations.additional_due || 0);
                         
-                    const totalAmountDue = actualAdditionalDue + (Number(checkoutForm.data.extra_charge_amount) || 0);
+                    const extraChargeAmount = Number(checkoutForm.data.extra_charge_amount) || 0;
+                    const totalAmountDue = actualAdditionalDue + extraChargeAmount;
+                    const mainSettlementDue = actualAdditionalDue
+                        + (checkoutForm.data.extra_charge_separate_payment ? 0 : extraChargeAmount);
 
                     return (
                         <div className="fixed inset-0 bg-[#070b13]/90 z-[99999] flex items-center justify-center p-4">
@@ -771,7 +780,8 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
                                                     value={checkoutForm.data.extra_charge_amount}
                                                     onChange={e => {
                                                         const newAmount = e.target.value;
-                                                        const newTotalDue = actualAdditionalDue + (Number(newAmount) || 0);
+                                                        const newTotalDue = actualAdditionalDue
+                                                            + (checkoutForm.data.extra_charge_separate_payment ? 0 : (Number(newAmount) || 0));
                                                         checkoutForm.setData(prev => ({
                                                             ...prev,
                                                             extra_charge_amount: newAmount,
@@ -783,6 +793,57 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
                                                 />
                                             </div>
                                         </div>
+
+                                        {extraChargeAmount > 0 && (
+                                            <div className="space-y-3 border-t border-[#334155] pt-3">
+                                                <label className="flex items-center gap-2 text-slate-300 cursor-pointer">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={checkoutForm.data.extra_charge_separate_payment}
+                                                        onChange={e => {
+                                                            const separate = e.target.checked;
+                                                            const newMainSettlementDue = actualAdditionalDue + (separate ? 0 : extraChargeAmount);
+                                                            checkoutForm.setData(prev => ({
+                                                                ...prev,
+                                                                extra_charge_separate_payment: separate,
+                                                                cash_amount: prev.payment_method === 'cash' ? newMainSettlementDue : 0,
+                                                                gcash_amount: prev.payment_method === 'gcash' ? newMainSettlementDue : 0,
+                                                            }));
+                                                        }}
+                                                        className="rounded border-[#334155] bg-[#0f172a] text-brand-500 focus:ring-brand-500"
+                                                    />
+                                                    Paid separately (record payment reference for this charge)
+                                                </label>
+
+                                                {checkoutForm.data.extra_charge_separate_payment && (
+                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                        <div className="flex flex-col gap-1.5">
+                                                            <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Other Charge Payment</label>
+                                                            <CustomSelect
+                                                                value={checkoutForm.data.extra_charge_payment_method}
+                                                                onChange={e => checkoutForm.setData('extra_charge_payment_method', e.target.value)}
+                                                                className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 px-3 py-2 focus:outline-none focus:border-brand-500 font-bold"
+                                                            >
+                                                                <option value="cash">Cash</option>
+                                                                <option value="gcash">GCash</option>
+                                                            </CustomSelect>
+                                                        </div>
+                                                        {checkoutForm.data.extra_charge_payment_method === 'gcash' && (
+                                                            <div className="flex flex-col gap-1.5">
+                                                                <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">GCash Reference</label>
+                                                                <input
+                                                                    type="text"
+                                                                    value={checkoutForm.data.extra_charge_payment_reference}
+                                                                    onChange={e => checkoutForm.setData('extra_charge_payment_reference', e.target.value)}
+                                                                    required
+                                                                    className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 px-3 py-2 focus:outline-none focus:border-brand-500 font-mono font-bold"
+                                                                />
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
 
                                     <div className="p-4 rounded-xl bg-[#0f172a]/60 border border-[#334155] flex justify-between items-center text-xs shadow-inner">
@@ -801,7 +862,8 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
                                                     const lateFee = calculations.late_fee || 0;
                                                     const baseAdditional = calculations.additional_due || 0;
                                                     const newActualDue = checked ? Math.max(0, baseAdditional - lateFee) : baseAdditional;
-                                                    const newTotalDue = newActualDue + (Number(checkoutForm.data.extra_charge_amount) || 0);
+                                                    const newTotalDue = newActualDue
+                                                        + (checkoutForm.data.extra_charge_separate_payment ? 0 : extraChargeAmount);
 
                                                     checkoutForm.setData(prev => ({
                                                         ...prev,
@@ -818,7 +880,7 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
                                         </div>
                                     )}
 
-                                    {totalAmountDue > 0 && (
+                                    {mainSettlementDue > 0 && (
                                         <div className="space-y-4 pt-2">
                                             <div className="grid grid-cols-2 gap-4">
                                                 <div className="flex flex-col gap-1.5">
@@ -830,8 +892,8 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
                                                             checkoutForm.setData(prev => ({
                                                                 ...prev,
                                                                 payment_method: channel,
-                                                                cash_amount: channel === 'split' ? (totalAmountDue / 2) : (channel === 'cash' ? totalAmountDue : 0),
-                                                                gcash_amount: channel === 'split' ? (totalAmountDue / 2) : (channel === 'gcash' ? totalAmountDue : 0)
+                                                                cash_amount: channel === 'split' ? (mainSettlementDue / 2) : (channel === 'cash' ? mainSettlementDue : 0),
+                                                                gcash_amount: channel === 'split' ? (mainSettlementDue / 2) : (channel === 'gcash' ? mainSettlementDue : 0)
                                                             }));
                                                         }}
                                                         className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 px-3 py-2.5 focus:outline-none focus:border-brand-500 font-bold text-xs"
@@ -878,10 +940,10 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
                                                             <input
                                                                 type="number"
                                                                 min="0"
-                                                                max={totalAmountDue}
+                                                                max={mainSettlementDue}
                                                                 step="any"
                                                                 value={checkoutForm.data.cash_amount}
-                                                                onChange={e => handleCheckoutCashInput(e, totalAmountDue)}
+                                                                onChange={e => handleCheckoutCashInput(e, mainSettlementDue)}
                                                                 className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 px-3 py-2 focus:outline-none focus:border-brand-500 font-mono font-bold"
                                                             />
                                                         </div>
@@ -890,10 +952,10 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
                                                             <input
                                                                 type="number"
                                                                 min="0"
-                                                                max={totalAmountDue}
+                                                                max={mainSettlementDue}
                                                                 step="any"
                                                                 value={checkoutForm.data.gcash_amount}
-                                                                onChange={e => handleCheckoutGCashInput(e, totalAmountDue)}
+                                                                onChange={e => handleCheckoutGCashInput(e, mainSettlementDue)}
                                                                 className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 px-3 py-2 focus:outline-none focus:border-brand-500 font-mono font-bold"
                                                             />
                                                         </div>
@@ -903,11 +965,11 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
                                         </div>
                                     )}
 
-                                    {totalAmountDue > 0 && ['cash', 'split'].includes(checkoutForm.data.payment_method) && (
+                                    {mainSettlementDue > 0 && ['cash', 'split'].includes(checkoutForm.data.payment_method) && (
                                         <div className="p-4 rounded-xl bg-[#0f172a]/60 border border-[#334155] flex justify-between items-center shadow-inner mt-2">
                                             <span className="font-bold text-slate-400">Change:</span>
                                             <span className="font-mono text-emerald-400 font-black text-base">
-                                                ₱{(checkoutCashReceived ? Math.max(0, Number(checkoutCashReceived) - (checkoutForm.data.payment_method === 'split' ? (checkoutForm.data.cash_amount || 0) : totalAmountDue)) : 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                ₱{(checkoutCashReceived ? Math.max(0, Number(checkoutCashReceived) - (checkoutForm.data.payment_method === 'split' ? (checkoutForm.data.cash_amount || 0) : mainSettlementDue)) : 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                             </span>
                                         </div>
                                     )}

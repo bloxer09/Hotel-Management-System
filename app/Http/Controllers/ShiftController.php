@@ -521,6 +521,25 @@ class ShiftController extends Controller
             $end
         );
 
+        // Mini bar logbook data for the official export.
+        $minibarPosSales = Transaction::with('inventoryUsages.item')
+            ->where('processed_by', $shiftUserId)
+            ->where('transaction_type', 'pos_sale')
+            ->whereBetween('created_at', [$start, $end])
+            ->orderBy('created_at')
+            ->get();
+        $minibarStayCharges = InventoryUsage::with(['item', 'booking.room'])
+            ->whereNotNull('booking_id')
+            ->where('recorded_by', $shiftUserId)
+            ->whereBetween('created_at', [$start, $end])
+            ->orderBy('created_at')
+            ->get();
+        $lowStock = InventoryItem::where('is_active', true)
+            ->whereColumn('current_stock', '<=', 'minimum_stock')
+            ->orderBy('current_stock')
+            ->orderBy('item_name')
+            ->get();
+
         // --- Page 2: Daily Cash Tally data ---
 
         // Expenses from room drawer only (for deductions)
@@ -548,6 +567,41 @@ class ShiftController extends Controller
             ->where('cash_drawer', 'room')
             ->get();
         $otherCashReceipts = (float) $incomes->sum('amount');
+
+        $minibarExpenses = \App\Models\Expense::where('recorded_by', $shiftUserId)
+            ->whereBetween('created_at', [$start, $end])
+            ->where('cash_drawer', 'minibar')
+            ->get();
+        $minibarIncomes = \App\Models\Income::where('recorded_by', $shiftUserId)
+            ->whereBetween('created_at', [$start, $end])
+            ->where('cash_drawer', 'minibar')
+            ->get();
+        $minibarCashMovements = CashMovement::with('recorder:id,full_name')
+            ->where('shift_session_id', $shift->id)
+            ->where('cash_drawer', 'minibar')
+            ->orderBy('moved_at')
+            ->get();
+        $minibarCashierTransfers = (float) $minibarCashMovements->where('movement_type', 'cashier_transfer')->sum('amount');
+        $minibarWithdrawals = (float) $minibarCashMovements->where('movement_type', 'withdrawal')->sum('amount');
+        $minibarOtherCashReceipts = (float) $minibarIncomes->sum('amount');
+        $minibarTotalExpenses = (float) $minibarExpenses->sum('amount');
+        $minibarDrawerSummary = $this->getShiftSalesSummary($shiftUserId, $start, $end);
+        // The shared shift summary includes drawer income and expenses. Remove
+        // those adjustments here because this tally lists them separately.
+        $minibarSalesCash = round(
+            (float) ($minibarDrawerSummary['minibar_cash'] ?? 0)
+                - $minibarOtherCashReceipts
+                + $minibarTotalExpenses,
+            2
+        );
+        $minibarTotalMovements = $minibarCashierTransfers + $minibarWithdrawals;
+        $minibarOpeningCash = (float) $shift->opening_cash_minibar;
+        $minibarExpectedCash = round(
+            $minibarOpeningCash + $minibarSalesCash + $minibarOtherCashReceipts - $minibarTotalExpenses - $minibarTotalMovements,
+            2
+        );
+        $minibarActualCash = $shift->ended_at ? (float) $shift->closing_cash_minibar : null;
+        $minibarVariance = $minibarActualCash !== null ? round($minibarActualCash - $minibarExpectedCash, 2) : null;
 
         // Digital payments (non-cash)
         $digitalTotal = (float) (
@@ -602,6 +656,26 @@ class ShiftController extends Controller
                 'opening_denominations' => $openingDenominations,
                 'closing_denominations' => $closingDenominations,
             ],
+            'minibar' => [
+                'pos_sales' => $minibarPosSales,
+                'stay_charges' => $minibarStayCharges,
+                'low_stock' => $lowStock,
+                'cash_tally' => [
+                    'opening_cash' => $minibarOpeningCash,
+                    'sales_cash' => $minibarSalesCash,
+                    'other_cash_receipts' => $minibarOtherCashReceipts,
+                    'total_cash_available' => round($minibarOpeningCash + $minibarSalesCash + $minibarOtherCashReceipts, 2),
+                    'expenses' => $minibarExpenses,
+                    'cash_movements' => $minibarCashMovements,
+                    'incomes' => $minibarIncomes,
+                    'total_expenses' => $minibarTotalExpenses,
+                    'total_movements' => $minibarTotalMovements,
+                    'expected_cash' => $minibarExpectedCash,
+                    'actual_cash' => $minibarActualCash,
+                    'variance' => $minibarVariance,
+                    'closing_denominations' => $shift->closing_denominations_minibar,
+                ],
+            ],
             // Page 1 footer totals
             'totals' => [
                 'total_room_sales'    => $totalRoomSales,
@@ -619,6 +693,7 @@ class ShiftController extends Controller
 
         $validated = $request->validate([
             'movement_type' => 'required|in:cashier_transfer,withdrawal',
+            'cash_drawer' => 'required|in:room,minibar',
             'amount' => 'required|numeric|min:0.01|max:9999999.99',
             'description' => 'required|string|max:500',
             'moved_at' => 'nullable|date',
@@ -627,7 +702,7 @@ class ShiftController extends Controller
         $movement = CashMovement::create([
             'shift_session_id' => $shift->id,
             'movement_type' => $validated['movement_type'],
-            'cash_drawer' => 'room',
+            'cash_drawer' => $validated['cash_drawer'],
             'amount' => $validated['amount'],
             'description' => trim($validated['description']),
             'moved_at' => $validated['moved_at'] ?? now(),
@@ -1045,6 +1120,10 @@ class ShiftController extends Controller
                         ->all())
                     ->all()
             );
+            $booking->setAttribute(
+                'shift_extra_charges',
+                $this->extractShiftExtraCharges($booking, $userId, $start, $end)
+            );
         }
 
         foreach ($methodKeys as $method) {
@@ -1056,6 +1135,41 @@ class ShiftController extends Controller
         $summary['net_collections'] = round($summary['total_received'] - $summary['refunds'], 2);
 
         return $summary;
+    }
+
+    private function extractShiftExtraCharges($booking, int $userId, $start, $end): array
+    {
+        return $booking->transactions
+            ->filter(function ($transaction) use ($userId, $start, $end) {
+                return in_array($transaction->transaction_type, ['check_out', 'adjustment'], true)
+                    && (int) $transaction->processed_by === $userId
+                    && $transaction->created_at
+                    && $transaction->created_at->betweenIncluded($start, $end);
+            })
+            ->flatMap(function ($transaction) {
+                preg_match_all(
+                    '/Extra Charges \((.*?)\)\s*=\s*[^\d-]*([\d,]+(?:\.\d+)?)/iu',
+                    (string) $transaction->description,
+                    $matches,
+                    PREG_SET_ORDER
+                );
+
+                $isSeparatePayment = str_contains((string) $transaction->description, 'Separate checkout charge');
+
+                return collect($matches)->map(function ($match) use ($transaction, $isSeparatePayment) {
+                    $description = trim((string) ($match[1] ?? ''));
+
+                    return [
+                        'description' => $description !== '' ? $description : 'Unspecified extra charge',
+                        'amount' => round((float) str_replace(',', '', $match[2] ?? '0'), 2),
+                        'payment_method' => $isSeparatePayment ? $transaction->payment_method : null,
+                        'payment_reference' => $isSeparatePayment ? $transaction->gcash_ref : null,
+                    ];
+                });
+            })
+            ->filter(fn ($charge) => $charge['amount'] > 0)
+            ->values()
+            ->all();
     }
 
     private function normalizeCollectionMethod(string $method): string

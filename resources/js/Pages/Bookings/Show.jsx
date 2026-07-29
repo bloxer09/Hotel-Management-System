@@ -59,8 +59,14 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
         gcash_ref: '',
         notes: '',
         extra_charge_amount: '',
-        extra_charge_description: ''
+        extra_charge_description: '',
+        extra_charge_separate_payment: false,
+        extra_charge_payment_method: 'gcash',
+        extra_charge_payment_reference: ''
     });
+    const checkoutExtraCharge = Number(checkoutForm.data.extra_charge_amount) || 0;
+    const checkoutMainSettlementDue = (calculations.additional_due || 0)
+        + (checkoutForm.data.extra_charge_separate_payment ? 0 : checkoutExtraCharge);
 
     const paymentForm = useForm({
         booking_id: booking.id,
@@ -865,7 +871,8 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
                                             value={checkoutForm.data.extra_charge_amount}
                                             onChange={e => {
                                                 const newAmount = e.target.value;
-                                                const totalDue = (calculations.additional_due || 0) + (Number(newAmount) || 0);
+                                                const totalDue = (calculations.additional_due || 0)
+                                                    + (checkoutForm.data.extra_charge_separate_payment ? 0 : (Number(newAmount) || 0));
                                                 checkoutForm.setData(prev => ({
                                                     ...prev,
                                                     extra_charge_amount: newAmount,
@@ -877,6 +884,57 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
                                         />
                                     </div>
                                 </div>
+
+                                {checkoutExtraCharge > 0 && (
+                                    <div className="space-y-3 border-t border-[#334155] pt-3">
+                                        <label className="flex items-center gap-2 text-slate-300 cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                checked={checkoutForm.data.extra_charge_separate_payment}
+                                                onChange={e => {
+                                                    const separate = e.target.checked;
+                                                    const totalDue = (calculations.additional_due || 0) + (separate ? 0 : checkoutExtraCharge);
+                                                    checkoutForm.setData(prev => ({
+                                                        ...prev,
+                                                        extra_charge_separate_payment: separate,
+                                                        cash_amount: prev.payment_method === 'cash' ? totalDue : 0,
+                                                        gcash_amount: prev.payment_method === 'gcash' ? totalDue : 0,
+                                                    }));
+                                                }}
+                                                className="rounded border-[#334155] bg-[#0f172a] text-brand-500 focus:ring-brand-500"
+                                            />
+                                            Paid separately (record payment reference for this charge)
+                                        </label>
+
+                                        {checkoutForm.data.extra_charge_separate_payment && (
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                <div className="flex flex-col gap-1.5">
+                                                    <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Other Charge Payment</label>
+                                                    <CustomSelect
+                                                        value={checkoutForm.data.extra_charge_payment_method}
+                                                        onChange={e => checkoutForm.setData('extra_charge_payment_method', e.target.value)}
+                                                        className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 px-3 py-2 focus:outline-none focus:border-brand-500 font-bold"
+                                                    >
+                                                        <option value="cash">Cash</option>
+                                                        <option value="gcash">GCash</option>
+                                                    </CustomSelect>
+                                                </div>
+                                                {checkoutForm.data.extra_charge_payment_method === 'gcash' && (
+                                                    <div className="flex flex-col gap-1.5">
+                                                        <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">GCash Reference</label>
+                                                        <input
+                                                            type="text"
+                                                            value={checkoutForm.data.extra_charge_payment_reference}
+                                                            onChange={e => checkoutForm.setData('extra_charge_payment_reference', e.target.value)}
+                                                            required
+                                                            className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 px-3 py-2 focus:outline-none focus:border-brand-500 font-mono font-bold"
+                                                        />
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
 
                             <div className="p-4 rounded-xl bg-[#0f172a]/60 border border-[#334155] flex justify-between items-center text-xs">
@@ -884,7 +942,7 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
                                 <span className="font-mono text-emerald-400 font-bold text-lg">₱{((calculations.additional_due || 0) + (Number(checkoutForm.data.extra_charge_amount) || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                             </div>
 
-                            {((calculations.additional_due || 0) + (Number(checkoutForm.data.extra_charge_amount) || 0)) > 0 && (
+                            {checkoutMainSettlementDue > 0 && (
                                 <div className="space-y-4 pt-2">
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <div className="flex flex-col gap-1.5">
@@ -893,7 +951,7 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
                                                 value={checkoutForm.data.payment_method}
                                                 onChange={e => {
                                                     const method = e.target.value;
-                                                    const totalDue = (calculations.additional_due || 0) + (Number(checkoutForm.data.extra_charge_amount) || 0);
+                                                    const totalDue = checkoutMainSettlementDue;
                                                     checkoutForm.setData(prev => ({
                                                         ...prev,
                                                         payment_method: method,
@@ -936,10 +994,10 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
                                                     <input
                                                         type="number"
                                                         min="0"
-                                                        max={(calculations.additional_due || 0) + (Number(checkoutForm.data.extra_charge_amount) || 0)}
+                                                        max={checkoutMainSettlementDue}
                                                         step="any"
                                                         value={checkoutForm.data.cash_amount}
-                                                        onChange={e => handleCheckoutCashInput(e, (calculations.additional_due || 0) + (Number(checkoutForm.data.extra_charge_amount) || 0))}
+                                                        onChange={e => handleCheckoutCashInput(e, checkoutMainSettlementDue)}
                                                         className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 px-3 py-2 focus:outline-none focus:border-brand-500 font-mono font-bold"
                                                     />
                                                 </div>
@@ -948,10 +1006,10 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
                                                     <input
                                                         type="number"
                                                         min="0"
-                                                        max={(calculations.additional_due || 0) + (Number(checkoutForm.data.extra_charge_amount) || 0)}
+                                                        max={checkoutMainSettlementDue}
                                                         step="any"
                                                         value={checkoutForm.data.gcash_amount}
-                                                        onChange={e => handleCheckoutGCashInput(e, (calculations.additional_due || 0) + (Number(checkoutForm.data.extra_charge_amount) || 0))}
+                                                        onChange={e => handleCheckoutGCashInput(e, checkoutMainSettlementDue)}
                                                         className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 px-3 py-2 focus:outline-none focus:border-brand-500 font-mono font-bold"
                                                     />
                                                 </div>
