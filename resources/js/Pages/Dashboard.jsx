@@ -14,7 +14,14 @@ import {
     TrendingUp,
     Hourglass,
     CheckCircle2,
-    ChevronDown
+    ChevronDown,
+    CalendarPlus,
+    LogIn,
+    LogOut,
+    BedDouble,
+    CreditCard,
+    Wrench,
+    CircleAlert
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import {
@@ -33,7 +40,7 @@ import {
 } from 'recharts';
 import CustomSelect from '@/Components/CustomSelect';
 
-export default function Dashboard({ stats, charts, recentBookings, lowStockItems, activeShift, liveUpdates = [], upcomingCheckins = [], upcomingCheckouts = [], recentExpenses = [] }) {
+export default function Dashboard({ stats, charts, recentBookings, lowStockItems, activeShift, liveUpdates = [], upcomingCheckins = [], upcomingCheckouts = [], recentExpenses = [], todayArrivals = [] }) {
     const [revenuePeriod, setRevenuePeriod] = useState('today');
     const [upcomingTab, setUpcomingTab] = useState('checkins');
     const [chartTab, setChartTab] = useState('revenue'); // 'revenue' | 'payments' | 'occupancy'
@@ -42,7 +49,8 @@ export default function Dashboard({ stats, charts, recentBookings, lowStockItems
     const filteredRevenueData = useMemo(() => charts?.dailyRevenue?.slice(-chartPeriod) || [], [charts, chartPeriod]);
     const filteredOccupancyData = useMemo(() => charts?.dailyOccupancy?.slice(-chartPeriod) || [], [charts, chartPeriod]);
 
-    const roomStats = stats?.rooms || { total: 0, occupied: 0, vacant: 0, cleaning: 0, out_of_order: 0 };
+    const roomStats = stats?.rooms || { total: 0, occupied: 0, vacant: 0, cleaning: 0, out_of_order: 0, sellable: 0, occupancy_rate: 0 };
+    const operations = stats?.operations || { arrivals_today: 0, departures_today: 0, in_house: 0, rooms_to_clean: 0, available_tonight: 0 };
 
     // Math indicators
     const currentRev = stats?.revenue_periods?.[revenuePeriod] || stats?.revenue || { total: 0, room: 0, product: 0, label: "Income Breakdown" };
@@ -51,6 +59,51 @@ export default function Dashboard({ stats, charts, recentBookings, lowStockItems
     const lodgingUpdates = updates.filter(u => ['check_in', 'overdue_checkout', 'checkout'].includes(u.type));
     const housekeepingUpdates = updates.filter(u => u.type === 'cleaning');
     const maintenanceUpdates = updates.filter(u => u.type === 'maintenance');
+    const actionStatusStyles = {
+        critical: "border-red-500/25 bg-red-950/15 text-red-300 hover:border-red-500/45",
+        warning: "border-amber-500/25 bg-amber-950/15 text-amber-300 hover:border-amber-500/45",
+        pending: "border-indigo-500/25 bg-indigo-950/15 text-indigo-300 hover:border-indigo-500/45",
+        info: "border-[#334155] bg-[#0f172a]/35 text-slate-300 hover:border-brand-500/35",
+    };
+    const actionStatusLabels = { critical: "Critical", warning: "Attention", pending: "Pending", info: "Info" };
+
+    const operationalCards = [
+        {
+            title: "Arrivals Today",
+            value: operations.arrivals_today || 0,
+            desc: "Expected guest check-ins",
+            icon: LogIn,
+            accent: "text-indigo-300 bg-indigo-500/15 border-indigo-500/25",
+        },
+        {
+            title: "Departures Today",
+            value: operations.departures_today || 0,
+            desc: "Scheduled guest check-outs",
+            icon: LogOut,
+            accent: "text-amber-300 bg-amber-500/15 border-amber-500/25",
+        },
+        {
+            title: "In-House",
+            value: operations.in_house || 0,
+            desc: "Active guest stays now",
+            icon: Users2,
+            accent: "text-emerald-300 bg-emerald-500/15 border-emerald-500/25",
+        },
+        {
+            title: "Occupancy",
+            value: `${roomStats.occupancy_rate || 0}%`,
+            desc: `${roomStats.occupied || 0} of ${(roomStats.sellable ?? roomStats.total) || 0} sellable rooms`,
+            icon: BedDouble,
+            accent: "text-brand-300 bg-brand-500/15 border-brand-500/25",
+        },
+        {
+            title: "Rooms to Clean",
+            value: operations.rooms_to_clean || 0,
+            desc: "Housekeeping action needed",
+            icon: ClipboardList,
+            accent: "text-cyan-300 bg-cyan-500/15 border-cyan-500/25",
+        },
+    ];
 
     const cards = [
         {
@@ -78,12 +131,28 @@ export default function Dashboard({ stats, charts, recentBookings, lowStockItems
 
     const quickActions = [
         {
-            name: "New Guest Check-In",
+            name: "New Reservation",
+            desc: "Book a future stay",
+            icon: CalendarPlus,
+            href: route('reservations.index'),
+            requiresShift: false,
+            color: "bg-indigo-500/15 border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/25"
+        },
+        {
+            name: "Walk-in Check-In",
             desc: "Register a walk-in guest",
-            icon: Plus,
+            icon: LogIn,
             href: route('checkin.index'),
             requiresShift: true,
             color: "bg-brand-500/20 border-brand-500/30 text-brand-300 hover:bg-brand-500/30"
+        },
+        {
+            name: "Check-Out Guest",
+            desc: "Settle an active stay",
+            icon: LogOut,
+            href: route('reservations.index') + '?status=active',
+            requiresShift: true,
+            color: "bg-amber-500/15 border-amber-500/30 text-amber-300 hover:bg-amber-500/25"
         },
         {
             name: "Room Status Grid",
@@ -94,17 +163,17 @@ export default function Dashboard({ stats, charts, recentBookings, lowStockItems
             color: "bg-indigo-500/20 border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/30"
         },
         {
-            name: "Guest Directory",
-            desc: "View guest stay history",
-            icon: Users2,
-            href: route('guests.index'),
-            requiresShift: false,
-            color: "bg-emerald-500/20 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/30"
+            name: "POS / Room Charge",
+            desc: "Record a sale or room charge",
+            icon: CreditCard,
+            href: route('pos.index'),
+            requiresShift: true,
+            color: "bg-emerald-500/15 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/25"
         },
         {
-            name: "Shift Remittances",
-            desc: "Open/close register sessions",
-            icon: Users2,
+            name: activeShift ? "Manage Active Shift" : "Open Shift",
+            desc: activeShift ? "Review or close your register" : "Start a register session",
+            icon: activeShift ? ClipboardList : Plus,
             href: route('shifts.index'),
             requiresShift: false,
             color: "bg-teal-500/20 border-teal-500/30 text-teal-300 hover:bg-teal-500/30"
@@ -139,46 +208,163 @@ export default function Dashboard({ stats, charts, recentBookings, lowStockItems
                 <div className="flex flex-col gap-3 md:flex-row md:justify-between md:items-center">
                     <div>
                         <h1 className="page-title text-3xl font-outfit font-extrabold tracking-tight bg-gradient-to-r from-slate-50 via-slate-100 to-brand-300 bg-clip-text text-transparent">
-                            Statistics
+                            Front Desk Dashboard
                         </h1>
-                        <p className="text-sm text-slate-400 font-medium mt-1">Monitor real-time room occupancy indices, ongoing session revenue totals, and critical stock levels.</p>
+                        <p className="text-sm text-slate-400 font-medium mt-1">Start with today’s arrivals, departures, room readiness, and urgent hotel tasks.</p>
                     </div>
 
-                    {/* Global Period CustomSelect Dropdown */}
-                    <CustomSelect
-                        value={revenuePeriod}
-                        onChange={setRevenuePeriod}
-                        containerClassName="sm:w-48 shadow-lg"
-                        options={[
-                            { key: 'today', label: 'TODAY' },
-                            { key: 'last_7_days', label: '7 DAYS' },
-                            { key: 'this_month', label: 'THIS MONTH' },
-                            { key: 'this_year', label: 'THIS YEAR' },
-                        ]}
-                    />
+                    <div className="flex flex-col gap-1">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Financial period</span>
+                        <CustomSelect
+                            value={revenuePeriod}
+                            onChange={setRevenuePeriod}
+                            containerClassName="sm:w-48 shadow-lg"
+                            options={[
+                                { key: 'today', label: 'TODAY' },
+                                { key: 'last_7_days', label: '7 DAYS' },
+                                { key: 'this_month', label: 'THIS MONTH' },
+                                { key: 'this_year', label: 'THIS YEAR' },
+                            ]}
+                        />
+                    </div>
                 </div>
 
                 {/* KPI Cards Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                    {cards.map((card, idx) => (
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
+                    {operationalCards.map((card, idx) => (
                         <motion.div
                             key={card.title}
                             initial={{ opacity: 0, y: 15 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: idx * 0.1 }}
-                            className="dashboard-kpi p-5 rounded-2xl bg-[#1e293b] border border-[#334155] shadow-xl flex flex-col justify-between"
+                            className="dashboard-kpi p-5 rounded-2xl bg-[#1e293b] border border-[#334155] shadow-xl flex flex-col justify-between min-h-[126px]"
                         >
                             <div>
                                 <div className="flex items-center justify-between mb-3">
                                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{card.title}</span>
-                                    <card.icon size={15} className={`text-${card.baseColor}-400`} />
+                                    <span className={`p-2 rounded-lg border ${card.accent}`}>
+                                        <card.icon size={16} />
+                                    </span>
                                 </div>
 
-                                <div className={`font-mono font-black text-xl tracking-tight text-${card.baseColor}-300`}>{card.value}</div>
+                                <div className="font-mono font-black text-2xl tracking-tight text-slate-100">{card.value}</div>
                             </div>
                             <div className="text-[10px] text-slate-500 mt-2">{card.desc}</div>
                         </motion.div>
                     ))}
+                </div>
+
+                {/* Front-desk workspace: immediate actions and the single prioritized task queue. */}
+                <div className="flex flex-col gap-6">
+                    <section className="p-6 rounded-2xl bg-[#1e293b] border border-[#334155] shadow-xl">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
+                            <div>
+                                <h2 className="text-lg font-outfit font-bold tracking-tight text-slate-200">Quick Actions</h2>
+                                <p className="text-xs text-slate-400 mt-1">Common front-desk tasks in one place.</p>
+                            </div>
+                            <Link href={route('guests.index')} className="text-[10px] font-bold text-brand-400 hover:text-brand-300 uppercase tracking-widest flex items-center gap-1">
+                                Guest Directory <ChevronRight size={12} />
+                            </Link>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                            {quickActions.map(action => {
+                                const isLocked = action.requiresShift && !activeShift;
+                                const linkHref = isLocked ? route('shifts.index') : action.href;
+
+                                return (
+                                    <Link key={action.name} href={linkHref} className={`p-4 rounded-xl border flex items-center gap-3 transition-all group ${action.color}`}>
+                                        <div className="p-2.5 bg-[#0f172a]/50 rounded-lg group-hover:scale-105 transition-transform shrink-0">
+                                            <action.icon size={19} />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="font-outfit font-extrabold text-sm flex items-center gap-1.5">
+                                                {action.name}
+                                                {isLocked && <Lock size={12} className="text-amber-400" />}
+                                            </div>
+                                            <div className="text-[11px] text-slate-400 mt-0.5 truncate">{isLocked ? "Open a shift to continue" : action.desc}</div>
+                                        </div>
+                                        <ChevronRight size={15} className="text-slate-400 group-hover:translate-x-1 transition-transform shrink-0" />
+                                    </Link>
+                                );
+                            })}
+                        </div>
+                    </section>
+
+                    <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                        <section className="xl:col-span-2 p-6 rounded-2xl bg-[#1e293b] border border-[#334155] shadow-xl flex flex-col gap-4">
+                            <div className="flex items-center justify-between gap-4 border-b border-[#334155] pb-4">
+                                <div className="flex items-center gap-2">
+                                    <CircleAlert size={18} className="text-brand-400" />
+                                    <div>
+                                        <h3 className="font-outfit font-bold text-slate-200 text-sm uppercase tracking-wider">Action Center</h3>
+                                        <p className="text-[11px] text-slate-400 mt-0.5">Prioritized arrivals, departures, housekeeping, and repairs.</p>
+                                    </div>
+                                </div>
+                                <span className="px-2 py-1 rounded-md text-[10px] font-black bg-brand-500/15 text-brand-300 border border-brand-500/25">
+                                    {updates.length} OPEN
+                                </span>
+                            </div>
+
+                            <div className="flex flex-col gap-2 max-h-[320px] overflow-y-auto pr-1">
+                                {updates.length > 0 ? updates.slice(0, 8).map(update => (
+                                    <Link key={`${update.type}-${update.id}`} href={update.link} className={`p-3.5 rounded-xl border flex items-start gap-3 transition-all ${actionStatusStyles[update.status] || actionStatusStyles.info}`}>
+                                        <span className="mt-0.5 w-2 h-2 rounded-full bg-current shrink-0" />
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-start justify-between gap-3">
+                                                <span className="font-outfit font-extrabold text-slate-100 text-xs leading-snug">{update.title}</span>
+                                                <span className="text-[8px] font-black tracking-wider uppercase px-1.5 py-0.5 rounded bg-[#0f172a]/75 shrink-0">{actionStatusLabels[update.status] || "Info"}</span>
+                                            </div>
+                                            <p className="text-[10px] text-slate-400 leading-normal mt-0.5">{update.description}</p>
+                                        </div>
+                                    </Link>
+                                )) : (
+                                    <div className="p-8 rounded-xl border border-dashed border-[#334155] text-center flex flex-col gap-1 items-center justify-center">
+                                        <CheckCircle2 size={20} className="text-emerald-400" />
+                                        <span className="font-bold text-slate-300 text-xs font-outfit uppercase">All clear</span>
+                                        <span className="text-[10px] text-slate-500">No priority front-desk, housekeeping, or repair tasks.</span>
+                                    </div>
+                                )}
+                            </div>
+                        </section>
+
+                        <aside className="p-6 rounded-2xl bg-[#1e293b] border border-[#334155] shadow-xl flex flex-col gap-5">
+                            <div>
+                                <h3 className="font-outfit font-bold text-slate-200 text-sm uppercase tracking-wider">Room Status</h3>
+                                <p className="text-[11px] text-slate-400 mt-1">Live room readiness overview.</p>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                {[
+                                    { label: 'Vacant', value: roomStats.vacant || 0, color: 'text-emerald-300' },
+                                    { label: 'Occupied', value: roomStats.occupied || 0, color: 'text-indigo-300' },
+                                    { label: 'Cleaning', value: roomStats.cleaning || 0, color: 'text-cyan-300' },
+                                    { label: 'Out of Order', value: roomStats.out_of_order || 0, color: 'text-rose-300' },
+                                ].map(room => (
+                                    <Link key={room.label} href={route('rooms.index')} className="p-3 rounded-xl border border-[#334155] bg-[#0f172a]/35 hover:border-brand-500/35 transition-colors">
+                                        <span className="text-[10px] text-slate-400 uppercase tracking-wide">{room.label}</span>
+                                        <div className={`font-mono font-black text-xl mt-1 ${room.color}`}>{room.value}</div>
+                                    </Link>
+                                ))}
+                            </div>
+                            <div className="pt-4 border-t border-[#334155]">
+                                <div className="flex items-center justify-between gap-3">
+                                    <div>
+                                        <span className="text-[10px] text-slate-400 uppercase tracking-wide">Today at a Glance</span>
+                                        <div className="text-[11px] text-slate-300 font-semibold mt-1">{operations.available_tonight || 0} rooms available tonight</div>
+                                    </div>
+                                    <Link href={route('reservations.index') + '?view=calendar'} className="text-[10px] font-bold text-brand-400 hover:text-brand-300 uppercase tracking-widest flex items-center gap-1">
+                                        Calendar <ChevronRight size={12} />
+                                    </Link>
+                                </div>
+                                <div className="mt-3 flex flex-col gap-1.5">
+                                    {todayArrivals.length > 0 ? todayArrivals.slice(0, 3).map(booking => (
+                                        <Link key={booking.id} href={route('reservations.index') + '?view=calendar'} className="flex items-center justify-between gap-2 text-[10px] text-slate-400 hover:text-slate-200 transition-colors">
+                                            <span className="truncate"><span className="font-mono text-indigo-300">{new Date(String(booking.check_in).replace(' ', 'T')).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</span> · Room {booking.room?.room_number || '—'} · {booking.guest_name}</span>
+                                        </Link>
+                                    )) : <span className="text-[10px] text-slate-500">No booked arrivals today.</span>}
+                                </div>
+                            </div>
+                        </aside>
+                    </div>
                 </div>
 
                 {/* Visual Analytics Section */}
@@ -346,7 +532,8 @@ export default function Dashboard({ stats, charts, recentBookings, lowStockItems
                 {/* Main Content Sections */}
                 <div className="flex flex-col gap-10">
 
-                    {/* Quick Actions (2/3 width) */}
+                    {false && (
+                    /* Legacy quick-action panel kept out of the render tree. */
                     <div className="xl:col-span-2 flex flex-col gap-4 justify-between">
                         <h2 className="text-lg font-outfit font-bold tracking-tight text-slate-200">Quick Actions</h2>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-1">
@@ -376,8 +563,9 @@ export default function Dashboard({ stats, charts, recentBookings, lowStockItems
                             })}
                         </div>
                     </div>
+                    )}
 
-                    {/* Section 1: Live Operational Console */}
+                    {false && (
                     <div className="flex flex-col gap-4">
                         <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
 
@@ -602,6 +790,8 @@ export default function Dashboard({ stats, charts, recentBookings, lowStockItems
 
                         </div>
                     </div>
+
+                    )}
 
                     {/* Section: Upcoming Actions & Recent Expenses */}
                     <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 items-stretch">

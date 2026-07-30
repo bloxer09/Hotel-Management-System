@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import axios from 'axios';
@@ -26,7 +26,7 @@ const FILTER_TABS = [
     { key: 'no_show', label: 'No Show', color: 'text-amber-500', dot: 'bg-amber-500' },
 ];
 
-export default function Index({ reservations, groupBookings = {}, currentFilter, showGroupsOnly: propShowGroupsOnly = false, rooms = [], promoCodes = [], sortBy, sortDir }) {
+export default function Index({ reservations, groupBookings = {}, currentFilter, showGroupsOnly: propShowGroupsOnly = false, rooms = [], promoCodes = [], sortBy, sortDir, calendarBookings = [], calendarMonth, calendarView = false }) {
     const { auth } = usePage().props;
     const flash = usePage().props.flash || {};
     const isAdmin = auth?.user?.role === 'admin';
@@ -39,10 +39,15 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
         setShowGroupsOnly(propShowGroupsOnly);
     }, [propShowGroupsOnly]);
 
+    useEffect(() => {
+        setBookingView(calendarView ? 'calendar' : 'list');
+    }, [calendarView]);
+
     // ── List state ──
     const [searchTerm, setSearchTerm] = useState('');
     const [viewStayId, setViewStayId] = useState(null);
     const [actionModalBooking, setActionModalBooking] = useState(null);
+    const [bookingView, setBookingView] = useState(calendarView ? 'calendar' : 'list');
 
 
     // ── New Booking Modal ──
@@ -98,6 +103,101 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
         const dt = parseLocalDatetime(str);
         if (!dt) return '';
         return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
+    };
+    const todayKey = `${new Date().getFullYear()}-${pad(new Date().getMonth() + 1)}-${pad(new Date().getDate())}`;
+    const activeCalendarMonth = calendarMonth || todayKey.slice(0, 7);
+    const [selectedCalendarDate, setSelectedCalendarDate] = useState(todayKey);
+
+    useEffect(() => {
+        setSelectedCalendarDate(activeCalendarMonth === todayKey.slice(0, 7) ? todayKey : `${activeCalendarMonth}-01`);
+    }, [activeCalendarMonth]);
+
+    const calendarBookingsByDate = useMemo(() => {
+        const [year, month] = activeCalendarMonth.split('-').map(Number);
+        const monthStart = new Date(year, month - 1, 1);
+        const monthEnd = new Date(year, month, 0);
+
+        return calendarBookings.reduce((dates, booking) => {
+            const checkIn = parseLocalDatetime(booking.check_in);
+            const expectedCheckOut = parseLocalDatetime(booking.expected_check_out);
+            if (!checkIn || !expectedCheckOut) return dates;
+
+            const checkInDay = new Date(checkIn.getFullYear(), checkIn.getMonth(), checkIn.getDate());
+            const checkOutDay = new Date(expectedCheckOut.getFullYear(), expectedCheckOut.getMonth(), expectedCheckOut.getDate());
+            const checkoutStartsDay = expectedCheckOut.getHours() === 0 && expectedCheckOut.getMinutes() === 0;
+            const finalStayDay = checkoutStartsDay
+                ? new Date(checkOutDay.getFullYear(), checkOutDay.getMonth(), checkOutDay.getDate() - 1)
+                : checkOutDay;
+            const cursor = new Date(Math.max(checkInDay.getTime(), monthStart.getTime()));
+            const lastDay = new Date(Math.min(finalStayDay.getTime(), monthEnd.getTime()));
+
+            for (let day = cursor; day <= lastDay; day.setDate(day.getDate() + 1)) {
+                const key = `${day.getFullYear()}-${pad(day.getMonth() + 1)}-${pad(day.getDate())}`;
+                const isArrival = day.getTime() === checkInDay.getTime();
+                const isCheckout = day.getTime() === checkOutDay.getTime();
+                const phase = isArrival && isCheckout ? 'same_day' : (isArrival ? 'arrival' : (isCheckout ? 'checkout' : 'in_house'));
+                dates[key] = [...(dates[key] || []), { booking, phase }];
+            }
+            return dates;
+        }, {});
+    }, [calendarBookings, activeCalendarMonth]);
+
+    const calendarDays = useMemo(() => {
+        const [year, month] = activeCalendarMonth.split('-').map(Number);
+        const firstDay = new Date(year, month - 1, 1);
+        const totalDays = new Date(year, month, 0).getDate();
+        return [
+            ...Array.from({ length: firstDay.getDay() }, () => null),
+            ...Array.from({ length: totalDays }, (_, index) => new Date(year, month - 1, index + 1)),
+        ];
+    }, [activeCalendarMonth]);
+
+    const selectedDayBookings = calendarBookingsByDate[selectedCalendarDate] || [];
+    const selectedDayBookedRoomIds = [...new Set(selectedDayBookings.map(({ booking }) => booking.room_id))];
+    const selectedDayAvailableRooms = Math.max(0, rooms.length - selectedDayBookedRoomIds.length);
+    const calendarLabel = new Date(`${activeCalendarMonth}-01T00:00:00`).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    const selectedDayLabel = new Date(`${selectedCalendarDate}T00:00:00`).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+
+    const switchBookingView = (view) => {
+        if (view === bookingView) return;
+        if (view === 'calendar') {
+            router.get(route('reservations.index'), {
+                status: currentFilter,
+                show_groups_only: showGroupsOnly ? '1' : '0',
+                view: 'calendar',
+                calendar_month: activeCalendarMonth,
+            }, { preserveScroll: true, replace: true });
+            return;
+        }
+        router.get(route('reservations.index'), {
+            status: currentFilter,
+            show_groups_only: showGroupsOnly ? '1' : '0',
+        }, { preserveScroll: true, replace: true });
+    };
+
+    const navigateCalendarMonth = (offset) => {
+        const [year, month] = activeCalendarMonth.split('-').map(Number);
+        const date = new Date(year, month - 1 + offset, 1);
+        const nextMonth = `${date.getFullYear()}-${pad(date.getMonth() + 1)}`;
+        router.get(route('reservations.index'), {
+            status: currentFilter,
+            show_groups_only: showGroupsOnly ? '1' : '0',
+            view: 'calendar',
+            calendar_month: nextMonth,
+        }, { preserveScroll: true, replace: true });
+    };
+
+    const goToToday = () => {
+        if (activeCalendarMonth === todayKey.slice(0, 7)) {
+            setSelectedCalendarDate(todayKey);
+            return;
+        }
+        router.get(route('reservations.index'), {
+            status: currentFilter,
+            show_groups_only: showGroupsOnly ? '1' : '0',
+            view: 'calendar',
+            calendar_month: todayKey.slice(0, 7),
+        }, { preserveScroll: true, replace: true });
     };
     const defaultCheckIn = `${tomorrow.getFullYear()}-${pad(tomorrow.getMonth() + 1)}-${pad(tomorrow.getDate())}T${pad(tomorrow.getHours())}:${pad(tomorrow.getMinutes())}`;
 
@@ -624,12 +724,24 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
                         <h1 className="text-2xl sm:text-3xl font-outfit font-extrabold tracking-tight text-slate-100">Bookings</h1>
                         <p className="text-xs sm:text-sm text-slate-400 font-medium mt-1">Register future reservations and manage guest arrivals.</p>
                     </div>
-                    <button onClick={openBookingModal}
-                        className="flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-outfit font-bold text-sm transition-all shadow-lg shadow-brand-600/20 active:scale-95 shrink-0 w-full sm:w-auto justify-center">
-                        <Plus size={16} /> New Booking
-                    </button>
+                    <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                        <div className="flex bg-[#0f172a] p-1 rounded-xl border border-[#334155] text-[10px] font-black uppercase shadow-inner">
+                            <button type="button" onClick={() => switchBookingView('list')} className={`px-3 py-1.5 rounded-lg transition-all ${bookingView === 'list' ? 'bg-[#1e293b] text-slate-100 shadow border border-[#334155]/70' : 'text-slate-500 hover:text-slate-300'}`}>
+                                List
+                            </button>
+                            <button type="button" onClick={() => switchBookingView('calendar')} className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1 ${bookingView === 'calendar' ? 'bg-[#1e293b] text-slate-100 shadow border border-[#334155]/70' : 'text-slate-500 hover:text-slate-300'}`}>
+                                <Calendar size={13} /> Calendar
+                            </button>
+                        </div>
+                        <button onClick={openBookingModal}
+                            className="flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-outfit font-bold text-sm transition-all shadow-lg shadow-brand-600/20 active:scale-95 shrink-0 w-full sm:w-auto justify-center">
+                            <Plus size={16} /> New Booking
+                        </button>
+                    </div>
                 </div>
 
+                {bookingView === 'list' && (
+                <>
                 {/* Tabs + Search */}
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 justify-between">
                     {/* Status CustomSelect Dropdown */}
@@ -661,9 +773,11 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
                         </button>
                     </div>
                 </div>
+                </>
+                )}
 
                 {/* Table */}
-                <div className="rounded-2xl bg-[#1e293b] border border-[#334155] overflow-hidden shadow-xl">
+                {bookingView === 'list' && <div className="rounded-2xl bg-[#1e293b] border border-[#334155] overflow-hidden shadow-xl">
                     <div className="overflow-x-auto">
                         {currentFilter === 'groups' ? (
                             <table className="w-full text-xs table-fixed">
@@ -868,7 +982,118 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
                             <Pagination links={reservations.links} />
                         </div>
                     )}
-                </div>
+                </div>}
+
+                {bookingView === 'calendar' && (
+                    <section className="flex flex-col gap-5">
+                        <div className="rounded-2xl bg-[#1e293b] border border-[#334155] shadow-xl overflow-hidden">
+                            <div className="p-5 border-b border-[#334155] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                                <div>
+                                    <h2 className="font-outfit font-extrabold text-lg text-slate-100">Booking Calendar</h2>
+                                    <p className="text-xs text-slate-400 mt-1">Every active booking blocks its room for the full stay, so front desk can check availability safely.</p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <button type="button" onClick={() => navigateCalendarMonth(-1)} className="p-2 rounded-lg bg-[#0f172a] border border-[#334155] text-slate-300 hover:border-brand-500/40 hover:text-white transition-colors" aria-label="Previous month">
+                                        <ChevronLeft size={17} />
+                                    </button>
+                                    <button type="button" onClick={goToToday} className="px-3 py-2 rounded-lg bg-[#0f172a] border border-[#334155] text-[10px] font-black uppercase text-brand-300 hover:border-brand-500/40 transition-colors">
+                                        Today
+                                    </button>
+                                    <button type="button" onClick={() => navigateCalendarMonth(1)} className="p-2 rounded-lg bg-[#0f172a] border border-[#334155] text-slate-300 hover:border-brand-500/40 hover:text-white transition-colors" aria-label="Next month">
+                                        <ChevronRight size={17} />
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="px-5 pt-5 flex items-center justify-between gap-3">
+                                <h3 className="font-outfit font-bold text-base text-slate-200">{calendarLabel}</h3>
+                                <div className="flex items-center gap-3 text-[10px] font-semibold text-slate-400">
+                                    <span className="flex items-center gap-1"><i className="w-2 h-2 rounded-full bg-indigo-400" /> Reserved</span>
+                                    <span className="flex items-center gap-1"><i className="w-2 h-2 rounded-full bg-emerald-400" /> Checked in</span>
+                                    <span className="flex items-center gap-1"><i className="w-2 h-2 rounded-full bg-amber-400" /> Checkout</span>
+                                    <span className="flex items-center gap-1"><i className="w-2 h-2 rounded-full bg-rose-400" /> In-house</span>
+                                </div>
+                            </div>
+
+                            <div className="p-5 overflow-x-auto">
+                                <div className="min-w-[720px]">
+                                    <div className="grid grid-cols-7 mb-2">
+                                        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+                                            <div key={day} className="px-2 text-[10px] font-black text-slate-500 uppercase tracking-wider">{day}</div>
+                                        ))}
+                                    </div>
+                                    <div className="grid grid-cols-7 border-l border-t border-[#334155] rounded-xl overflow-hidden">
+                                        {calendarDays.map((day, index) => {
+                                            if (!day) return <div key={`blank-${index}`} className="min-h-[124px] bg-[#0f172a]/20 border-r border-b border-[#334155]" />;
+                                            const dateKey = `${day.getFullYear()}-${pad(day.getMonth() + 1)}-${pad(day.getDate())}`;
+                                            const dayBookings = calendarBookingsByDate[dateKey] || [];
+                                            const bookedRoomCount = new Set(dayBookings.map(({ booking }) => booking.room_id)).size;
+                                            const isSelected = selectedCalendarDate === dateKey;
+                                            const isToday = todayKey === dateKey;
+                                            return (
+                                                <button type="button" key={dateKey} onClick={() => setSelectedCalendarDate(dateKey)} className={`min-h-[124px] p-2 text-left border-r border-b border-[#334155] transition-colors ${isSelected ? 'bg-brand-500/10 ring-1 ring-inset ring-brand-500/45' : 'bg-[#1e293b] hover:bg-[#0f172a]/45'}`}>
+                                                    <div className="flex items-center justify-between mb-2">
+                                                        <span className={`w-6 h-6 flex items-center justify-center rounded-full text-[11px] font-black ${isToday ? 'bg-brand-500 text-white' : 'text-slate-300'}`}>{day.getDate()}</span>
+                                                        {dayBookings.length > 0 && <span className="text-[9px] font-black text-brand-300" title={`${bookedRoomCount} booked room${bookedRoomCount === 1 ? '' : 's'}`}>{bookedRoomCount}</span>}
+                                                    </div>
+                                                    <div className="flex flex-col gap-1">
+                                                        {dayBookings.slice(0, 2).map(({ booking, phase }) => {
+                                                            const time = phase === 'checkout'
+                                                                ? parseLocalDatetime(booking.expected_check_out)
+                                                                : parseLocalDatetime(booking.check_in);
+                                                            const label = phase === 'arrival' ? 'IN' : (phase === 'checkout' ? 'OUT' : (phase === 'same_day' ? 'STAY' : 'IN-HOUSE'));
+                                                            const tone = phase === 'arrival'
+                                                                ? (booking.status === 'active' ? 'bg-emerald-500/15 text-emerald-300' : 'bg-indigo-500/15 text-indigo-300')
+                                                                : (phase === 'checkout' ? 'bg-amber-500/15 text-amber-300' : 'bg-rose-500/15 text-rose-300');
+                                                            return <span key={`${booking.id}-${phase}`} className={`block truncate px-1.5 py-1 rounded text-[9px] font-bold ${tone}`}>
+                                                                {label === 'IN-HOUSE' ? label : `${label} ${time?.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`} · Rm {booking.room?.room_number || '—'}
+                                                            </span>;
+                                                        })}
+                                                        {dayBookings.length > 2 && <span className="text-[9px] font-bold text-slate-500">+{dayBookings.length - 2} more · {bookedRoomCount} rooms blocked</span>}
+                                                    </div>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="rounded-2xl bg-[#1e293b] border border-[#334155] shadow-xl">
+                            <div className="p-5 border-b border-[#334155] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                                <div>
+                                    <h3 className="font-outfit font-bold text-slate-100 text-base">{selectedDayLabel}</h3>
+                                    <p className="text-xs text-slate-400 mt-1">{selectedDayBookedRoomIds.length} room{selectedDayBookedRoomIds.length === 1 ? '' : 's'} unavailable on this date · {selectedDayAvailableRooms} not booked.</p>
+                                </div>
+                                <span className="px-2 py-1 rounded-md text-[10px] font-black bg-rose-500/15 text-rose-300 border border-rose-500/25">{selectedDayBookedRoomIds.length} ROOMS BLOCKED</span>
+                            </div>
+                            <div className="p-5 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                                {selectedDayBookings.length > 0 ? selectedDayBookings.map(({ booking, phase }) => {
+                                    const arrival = parseLocalDatetime(booking.check_in);
+                                    const departure = parseLocalDatetime(booking.expected_check_out);
+                                    const phaseLabel = phase === 'arrival' ? 'Arrival' : (phase === 'checkout' ? 'Checkout today' : (phase === 'same_day' ? 'Same-day stay' : 'In-house'));
+                                    const phaseTone = phase === 'arrival'
+                                        ? (booking.status === 'active' ? 'bg-emerald-500/15 text-emerald-300' : 'bg-indigo-500/15 text-indigo-300')
+                                        : (phase === 'checkout' ? 'bg-amber-500/15 text-amber-300' : 'bg-rose-500/15 text-rose-300');
+                                    return (
+                                        <button type="button" key={`${booking.id}-${phase}`} onClick={() => setViewStayId(booking.id)} className="p-4 rounded-xl bg-[#0f172a]/50 hover:bg-[#0f172a] border border-[#334155] hover:border-brand-500/40 text-left transition-colors">
+                                            <div className="flex items-center justify-between gap-2">
+                                                <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded ${phaseTone}`}>{phaseLabel}</span>
+                                                <span className="text-[10px] font-mono text-slate-400">Room {booking.room?.room_number || '—'}</span>
+                                            </div>
+                                            <div className="font-outfit font-bold text-sm text-slate-100 mt-3 truncate">{booking.guest_name}</div>
+                                            <div className="text-[11px] text-slate-400 mt-1">Arrival: <span className="font-mono text-slate-300">{arrival?.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) || '—'}</span></div>
+                                            <div className="text-[11px] text-slate-400 mt-0.5">Checkout: <span className="font-mono text-slate-300">{departure?.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) || '—'}</span></div>
+                                            <div className="text-[10px] text-brand-400 font-bold mt-3">View booking details →</div>
+                                        </button>
+                                    );
+                                }) : (
+                                    <div className="md:col-span-2 xl:col-span-3 py-8 text-center text-sm text-slate-500">No rooms are blocked by a booking on this date.</div>
+                                )}
+                            </div>
+                        </div>
+                    </section>
+                )}
             </div>
 
             {/* ── New Booking Modal ── */}

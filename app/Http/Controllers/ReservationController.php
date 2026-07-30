@@ -85,6 +85,25 @@ class ReservationController extends Controller
             ->orderBy('code', 'asc')
             ->get(['code', 'discount_type', 'discount_value']);
 
+        $calendarMonth = $request->input('calendar_month', now()->format('Y-m'));
+        try {
+            $calendarStart = Carbon::createFromFormat('!Y-m', $calendarMonth)->startOfMonth();
+        } catch (\Throwable $e) {
+            $calendarStart = now()->startOfMonth();
+            $calendarMonth = $calendarStart->format('Y-m');
+        }
+        $calendarEnd = $calendarStart->copy()->endOfMonth();
+
+        // Include every stay that overlaps the month, not only arrivals in the month.
+        // This prevents a multi-night stay from looking available after its check-in date.
+        $calendarBookings = Booking::with(['room', 'room.type'])
+            ->whereIn('status', ['reserved', 'active'])
+            ->where('check_in', '<=', $calendarEnd)
+            ->where('expected_check_out', '>', $calendarStart)
+            ->orderBy('check_in')
+            ->orderBy('room_id')
+            ->get();
+
         return Inertia::render('Reservations/Index', [
             'reservations' => $reservations,
             'groupBookings' => (object) $groupBookings,
@@ -94,6 +113,9 @@ class ReservationController extends Controller
             'promoCodes' => $promoCodes,
             'sortBy' => $sortBy,
             'sortDir' => $sortDir,
+            'calendarBookings' => $calendarBookings,
+            'calendarMonth' => $calendarMonth,
+            'calendarView' => $request->input('view') === 'calendar',
         ]);
     }
 

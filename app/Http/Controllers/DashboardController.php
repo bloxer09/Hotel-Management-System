@@ -23,6 +23,10 @@ class DashboardController extends Controller
         $occupiedCount = Room::where('status', 'occupied')->count();
         $cleaningCount = Room::where('status', 'cleaning')->count();
         $oooCount = Room::where('status', 'out_of_order')->count();
+        $sellableRoomsCount = max(0, $roomsCount - $oooCount);
+        $occupancyRate = $sellableRoomsCount > 0
+            ? round(($occupiedCount / $sellableRoomsCount) * 100, 1)
+            : 0;
 
         // 2. Revenue Periods Calculations
         // Optimized to use SQL aggregation instead of loading all models
@@ -218,6 +222,14 @@ class DashboardController extends Controller
         $endOfToday = Carbon::today()->endOfDay();
         $endOfTomorrow = Carbon::tomorrow()->endOfDay();
 
+        // Today's front-desk workload for the operational dashboard.
+        $arrivalsTodayCount = Booking::where('status', 'reserved')
+            ->whereBetween('check_in', [$startOfToday, $endOfToday])
+            ->count();
+        $departuresTodayCount = Booking::where('status', 'active')
+            ->whereBetween('expected_check_out', [$startOfToday, $endOfToday])
+            ->count();
+
         // 6.1 Upcoming check-ins (reserved bookings starting today or tomorrow)
         $upcomingCheckIns = Booking::with(['room'])
             ->where('status', 'reserved')
@@ -351,6 +363,15 @@ class DashboardController extends Controller
                     'occupied' => $occupiedCount,
                     'cleaning' => $cleaningCount,
                     'out_of_order' => $oooCount,
+                    'sellable' => $sellableRoomsCount,
+                    'occupancy_rate' => $occupancyRate,
+                ],
+                'operations' => [
+                    'arrivals_today' => $arrivalsTodayCount,
+                    'departures_today' => $departuresTodayCount,
+                    'in_house' => $activeStays->count(),
+                    'rooms_to_clean' => $cleaningCount,
+                    'available_tonight' => $vacantCount,
                 ],
                 'revenue' => [
                     'cash' => $cashToday,
@@ -408,7 +429,12 @@ class DashboardController extends Controller
             'upcomingCheckins' => $upcomingCheckInsList,
             'upcomingCheckouts' => $upcomingCheckOutsList,
             'recentExpenses' => $recentExpenses,
+            'todayArrivals' => Booking::with(['room', 'room.type'])
+                ->where('status', 'reserved')
+                ->whereBetween('check_in', [$startOfToday, $endOfToday])
+                ->orderBy('check_in')
+                ->limit(4)
+                ->get(),
         ]);
     }
 }
-
