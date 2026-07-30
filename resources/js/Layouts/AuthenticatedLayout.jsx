@@ -447,11 +447,11 @@ export default function AuthenticatedLayout({ children }) {
     };
 
     return (
-        <div className="flex h-screen overflow-hidden bg-[#0f172a] text-slate-100 font-sans antialiased print:h-auto print:overflow-visible">
+        <div className="app-shell flex h-screen overflow-hidden bg-[#0f172a] text-slate-100 font-sans antialiased print:h-auto print:overflow-visible">
 
             {/* Desktop Sidebar */}
             <aside
-                className="hidden md:flex flex-col bg-[#1e293b] border-r border-[#334155] shadow-2xl transition-all duration-300 print:hidden w-72"
+                className="app-sidebar hidden md:flex flex-col bg-[#1e293b] border-r border-[#334155] shadow-2xl transition-all duration-300 print:hidden w-72"
             >
                 {/* Header Logo */}
                 <div className="h-20 flex items-center px-6 border-b border-[#334155]">
@@ -516,7 +516,7 @@ export default function AuthenticatedLayout({ children }) {
                 )} */}
 
                 {/* Sidebar Navigation */}
-                <nav className="flex-1 overflow-y-auto px-4 py-2 space-y-1 scrollbar-thin">
+                <nav className="app-navigation flex-1 overflow-y-auto px-4 py-3 space-y-1 scrollbar-thin">
                     {navItems
                         .filter(item => hasRole(item.roles))
                         .map(item => {
@@ -528,8 +528,8 @@ export default function AuthenticatedLayout({ children }) {
                                 <Link
                                     key={item.name}
                                     href={linkHref}
-                                    className={`flex items-center gap-3.5 px-4 py-3 rounded-xl font-medium transition-all duration-200 group relative ${item.current
-                                        ? 'bg-brand-600/70 text-slate-50 border border-brand-500/40 shadow-lg shadow-brand-600/20'
+                                    className={`app-nav-link flex items-center gap-3.5 px-4 py-3 rounded-xl font-medium transition-all duration-200 group relative ${item.current
+                                        ? 'is-active bg-brand-600/70 text-slate-50 border border-brand-500/40 shadow-lg shadow-brand-600/20'
                                         : 'text-slate-400 hover:bg-[#334155]/50 hover:text-slate-100'
                                         }`}
                                 >
@@ -568,7 +568,7 @@ export default function AuthenticatedLayout({ children }) {
                         <div className="space-y-1 pt-2">
                             <button
                                 onClick={() => setIsSettingsOpen(!isSettingsOpen)}
-                                className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl font-medium text-slate-400 hover:bg-[#334155]/50 hover:text-slate-100 transition-all duration-200 ${isSettingsOpen ? 'text-slate-100' : ''
+                                className={`app-nav-link w-full flex items-center gap-3.5 px-4 py-3 rounded-xl font-medium text-slate-400 hover:bg-[#334155]/50 hover:text-slate-100 transition-all duration-200 ${isSettingsOpen ? 'is-active text-slate-100' : ''
                                     }`}
                             >
                                 <Settings size={20} className="text-slate-400" />
@@ -633,7 +633,7 @@ export default function AuthenticatedLayout({ children }) {
                             animate={{ x: 0 }}
                             exit={{ x: '-100%' }}
                             transition={{ type: 'spring', damping: 25 }}
-                            className="fixed top-0 bottom-0 left-0 w-80 bg-[#1e293b] border-r border-[#334155] shadow-2xl z-50 md:hidden flex flex-col print:hidden"
+                            className="app-sidebar fixed top-0 bottom-0 left-0 w-80 bg-[#1e293b] border-r border-[#334155] shadow-2xl z-50 md:hidden flex flex-col print:hidden"
                         >
                             <div className="h-20 flex items-center justify-between px-6 border-b border-[#334155]">
                                 <div className="flex items-center gap-3">
@@ -707,7 +707,7 @@ export default function AuthenticatedLayout({ children }) {
                                 )}
                             </div>
 
-                            <nav className="flex-1 overflow-y-auto px-4 py-2 space-y-1">
+                            <nav className="app-navigation flex-1 overflow-y-auto px-4 py-3 space-y-1">
                                 {navItems
                                     .filter(item => hasRole(item.roles))
                                     .map(item => {
@@ -720,8 +720,8 @@ export default function AuthenticatedLayout({ children }) {
                                                 key={item.name}
                                                 href={linkHref}
                                                 onClick={() => setIsMobileOpen(false)}
-                                                className={`flex items-center gap-3.5 px-4 py-3 rounded-xl font-medium transition-colors ${item.current
-                                                    ? 'bg-brand-600 text-slate-50 shadow-md border border-brand-500/30'
+                                                className={`app-nav-link flex items-center gap-3.5 px-4 py-3 rounded-xl font-medium transition-colors ${item.current
+                                                    ? 'is-active bg-brand-600 text-slate-50 shadow-md border border-brand-500/30'
                                                     : 'text-slate-400 hover:bg-[#334155]/50 hover:text-slate-100'
                                                     }`}
                                             >
@@ -782,7 +782,7 @@ export default function AuthenticatedLayout({ children }) {
             <div className="flex-1 flex flex-col min-w-0 bg-[#0f172a] print:h-auto print:overflow-visible">
 
                 {/* Global Mobile Header / Topbar */}
-                <header className="h-16 sm:h-20 bg-[#1e293b] border-b border-[#334155] flex items-center justify-between px-3 sm:px-6 md:px-8 shrink-0 print:hidden">
+                <header className="app-topbar h-16 sm:h-20 bg-[#1e293b] border-b border-[#334155] flex items-center justify-between px-3 sm:px-6 md:px-8 shrink-0 print:hidden">
                     <button
                         onClick={() => setIsMobileOpen(true)}
                         className="p-2 rounded-lg bg-[#0f172a]/60 border border-[#334155]/60 md:hidden text-slate-300"
@@ -1013,7 +1013,7 @@ export default function AuthenticatedLayout({ children }) {
                 </header>
 
                 {/* Main Content */}
-                <main className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 lg:p-8 scrollbar-thin relative print:p-0 print:overflow-visible print:bg-white print:h-auto">
+                <main className="app-main flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 lg:p-8 scrollbar-thin relative print:p-0 print:overflow-visible print:bg-white print:h-auto">
                     {children}
                 </main>
             </div>

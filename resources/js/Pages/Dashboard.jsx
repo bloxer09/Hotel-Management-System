@@ -133,12 +133,12 @@ export default function Dashboard({ stats, charts, recentBookings, lowStockItems
         <AuthenticatedLayout>
             <Head title="Admin Dashboard" />
 
-            <div className="flex flex-col gap-10">
+            <div className="dashboard-page flex flex-col gap-8 lg:gap-10">
 
                 {/* Header Welcome Title */}
                 <div className="flex flex-col gap-3 md:flex-row md:justify-between md:items-center">
                     <div>
-                        <h1 className="text-3xl font-outfit font-extrabold tracking-tight bg-gradient-to-r from-slate-50 via-slate-100 to-brand-300 bg-clip-text text-transparent">
+                        <h1 className="page-title text-3xl font-outfit font-extrabold tracking-tight bg-gradient-to-r from-slate-50 via-slate-100 to-brand-300 bg-clip-text text-transparent">
                             Statistics
                         </h1>
                         <p className="text-sm text-slate-400 font-medium mt-1">Monitor real-time room occupancy indices, ongoing session revenue totals, and critical stock levels.</p>
@@ -166,7 +166,7 @@ export default function Dashboard({ stats, charts, recentBookings, lowStockItems
                             initial={{ opacity: 0, y: 15 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: idx * 0.1 }}
-                            className="p-5 rounded-2xl bg-[#1e293b] border border-[#334155] shadow-xl flex flex-col justify-between"
+                            className="dashboard-kpi p-5 rounded-2xl bg-[#1e293b] border border-[#334155] shadow-xl flex flex-col justify-between"
                         >
                             <div>
                                 <div className="flex items-center justify-between mb-3">
