@@ -886,6 +886,7 @@ class ShiftController extends Controller
         $bookingRefunds = [];
         $bookingMethods = [];
         $bookingReferences = [];
+        $bookingCashTenders = [];
 
         $ledgerRows = DB::table('payment_allocations as pa')
             ->join('payments as p', 'p.id', '=', 'pa.payment_id')
@@ -916,6 +917,30 @@ class ShiftController extends Controller
                 'p.reference_number'
             )
             ->get();
+
+        $cashTenderRows = DB::table('payment_allocations as pa')
+            ->join('payments as p', 'p.id', '=', 'pa.payment_id')
+            ->whereIn('pa.booking_id', $bookingIds)
+            ->where('p.status', 'verified')
+            ->where('p.recorded_by', $userId)
+            ->where('p.payment_method_code', 'cash')
+            ->whereBetween('p.received_at', [$start, $end])
+            ->whereNotNull('p.cash_tendered')
+            ->orderBy('p.received_at')
+            ->get([
+                'pa.booking_id',
+                'p.cash_tendered',
+                'p.change_given',
+                'p.received_at',
+            ]);
+
+        foreach ($cashTenderRows as $row) {
+            $bookingCashTenders[(int) $row->booking_id][] = [
+                'cash_received' => round((float) $row->cash_tendered, 2),
+                'change' => round((float) ($row->change_given ?? 0), 2),
+                'received_at' => $row->received_at,
+            ];
+        }
 
         foreach ($ledgerRows as $row) {
             $bookingId = (int) $row->booking_id;
@@ -1101,6 +1126,10 @@ class ShiftController extends Controller
                         ->values()
                         ->all())
                     ->all()
+            );
+            $booking->setAttribute(
+                'shift_cash_tenders',
+                $bookingCashTenders[$bookingId] ?? []
             );
             $booking->setAttribute('dp_amount', round((float) ($dpCollections[$bookingId] ?? 0), 2));
             $booking->setAttribute(

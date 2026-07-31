@@ -67,7 +67,7 @@ export default function AuthenticatedLayout({ children }) {
     const notifInitializedRef = useRef(false);
     const audioCtxRef = useRef(null);
     const bellDropdownRef = useRef(null);
-    const canSeeNotifications = ['admin', 'front_desk', 'cashier'].includes(user.role);
+    const canSeeNotifications = ['admin', 'front_desk', 'cashier', 'housekeeping'].includes(user.role);
 
     useEffect(() => {
         if (flash.success) {
@@ -968,16 +968,18 @@ export default function AuthenticatedLayout({ children }) {
                                                                 onClick={() => setIsBellOpen(false)}
                                                                 className="flex items-start gap-3 px-4 py-3 hover:bg-[#334155]/40 transition-colors border-b border-[#334155]/30 last:border-b-0"
                                                             >
-                                                                <div className={`shrink-0 mt-0.5 h-2.5 w-2.5 rounded-full ${item.priority === 'critical' ? 'bg-red-500 animate-pulse' : 'bg-orange-500'}`} />
+                                                                <div className={`shrink-0 mt-0.5 h-2.5 w-2.5 rounded-full ${item.status === 'for_verification' ? 'bg-amber-400' : item.priority === 'critical' ? 'bg-red-500 animate-pulse' : 'bg-orange-500'}`} />
                                                                 <div className="flex-1 min-w-0">
                                                                     <div className="text-xs font-bold text-slate-200">Room {item.room_number} Issue</div>
                                                                     <div className="text-[11px] text-slate-400 leading-relaxed mt-0.5">{item.message}</div>
                                                                 </div>
-                                                                <span className={`shrink-0 text-[9px] font-black px-1.5 py-0.5 rounded border uppercase ${item.priority === 'critical'
+                                                                <span className={`shrink-0 text-[9px] font-black px-1.5 py-0.5 rounded border uppercase ${item.status === 'for_verification'
+                                                                    ? 'bg-amber-950/60 border-amber-500/40 text-amber-300'
+                                                                    : item.priority === 'critical'
                                                                     ? 'bg-red-950/60 border-red-500/40 text-red-300'
                                                                     : 'bg-orange-950/60 border-orange-500/40 text-orange-300'
                                                                     }`}>
-                                                                    {item.priority}
+                                                                    {item.status === 'for_verification' ? 'Verify' : item.status === 'in_progress' ? 'Repair' : item.priority}
                                                                 </span>
                                                             </Link>
                                                         ))}

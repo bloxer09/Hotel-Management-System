@@ -13,12 +13,12 @@ class NotificationController extends Controller
     /**
      * Return real-time checkout and inventory alerts as JSON.
      * Replicates the legacy includes/notifications.php behavior.
-     * Accessible to admin, front_desk, and cashier roles.
+     * Accessible to operational roles, including housekeeping.
      */
     public function getNotifications(Request $request)
     {
         $user = auth()->user();
-        if (!$user || !in_array($user->role, ['admin', 'front_desk', 'cashier'], true)) {
+        if (!$user || !in_array($user->role, ['admin', 'front_desk', 'cashier', 'housekeeping'], true)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Unauthenticated.'
@@ -156,11 +156,18 @@ class NotificationController extends Controller
             ];
         }
 
-        // ─── 4. Open Maintenance Ticket Alerts ─────────────────────────────────
-        // Open tickets with priority 'high' or 'critical'
+        // ─── 4. Maintenance Ticket Alerts ──────────────────────────────────────
+        // Always show active repair and verification work. Keep the existing
+        // high-priority open-ticket alerts so urgent newly reported issues are
+        // not missed before a repair is started.
         $maintenanceTickets = \App\Models\MaintenanceTicket::with('room')
-            ->where('status', 'open')
-            ->whereIn('priority', ['high', 'critical'])
+            ->where(function ($query) {
+                $query->whereIn('status', ['in_progress', 'for_verification'])
+                    ->orWhere(function ($openTickets) {
+                        $openTickets->where('status', 'open')
+                            ->whereIn('priority', ['high', 'critical']);
+                    });
+            })
             ->orderBy('created_at', 'desc')
             ->get();
 
@@ -170,13 +177,19 @@ class NotificationController extends Controller
             if ($ticket->priority === 'critical') {
                 $criticalMaintenanceCount++;
             }
+            $statusLabel = match ($ticket->status) {
+                'in_progress' => 'Repairing',
+                'for_verification' => 'For Verification',
+                default => 'Open',
+            };
             $maintenanceItems[] = [
                 'type'        => 'maintenance',
-                'alert_key'   => 'maintenance-' . $ticket->id . '-' . $ticket->priority,
+                'alert_key'   => 'maintenance-' . $ticket->id . '-' . $ticket->status,
                 'ticket_id'   => (int) $ticket->id,
                 'room_number' => $ticket->room->room_number ?? '?',
                 'priority'    => $ticket->priority,
-                'message'     => "Room " . ($ticket->room->room_number ?? '?') . " has an open " . $ticket->priority . " maintenance issue: " . $ticket->title,
+                'status'      => $ticket->status,
+                'message'     => "Room " . ($ticket->room->room_number ?? '?') . " — {$statusLabel}: " . $ticket->title,
                 'created_at'  => $ticket->created_at->toIso8601String(),
             ];
         }

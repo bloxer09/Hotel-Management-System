@@ -208,7 +208,6 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
     const [selectedGuestStays, setSelectedGuestStays] = useState(0);
     const [promoInput, setPromoInput] = useState('');
     const [promoError, setPromoError] = useState('');
-    const [cashReceived, setCashReceived] = useState('');
     const [calc, setCalc] = useState({
         base_amount: 0, peak_surcharge: 0, discount_amount: 0,
         total_amount: 0, expected_check_out: '', is_peak: false, peak_label: null, conflict: null
@@ -220,8 +219,9 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
         guest_id_number: '', id_image: null, guest_email: '', guest_address: '', extra_pax: {},
         booking_type: 'overnight', num_nights: 1, short_time_hours: 3,
         discount_type: 'none', discount_amount: 0, promo_code: '',
+        booking_source: '',
         payment_ratio: 'full',
-        payment_method: 'cash', cash_amount: 0.00, gcash_amount: 0.00,
+        payment_method: '', cash_received: '', cash_amount: 0.00, gcash_amount: 0.00,
         gcash_ref: '', reference_number: '', notes: ''
     });
 
@@ -480,7 +480,7 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
 
     useEffect(() => {
         if (!showBookingModal) {
-            setCashReceived('');
+            setData('cash_received', '');
         }
     }, [showBookingModal]);
 
@@ -512,9 +512,52 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
         setData(prev => ({ ...prev, gcash_amount: gcash, cash_amount: Math.max(0, due - gcash) }));
     };
 
+    const bookingTotal = Number(calc.totals?.total_amount || calc.total_amount || 0);
+    const bookingAmountDue = data.payment_ratio === 'half'
+        ? Math.round(bookingTotal / 2)
+        : bookingTotal;
+    const bookingChange = data.payment_method === 'cash'
+        ? Math.max(0, Number(data.cash_received || 0) - bookingAmountDue)
+        : 0;
+
+    const handleBookingSourceChange = (source) => {
+        setData(prev => ({
+            ...prev,
+            booking_source: source,
+            payment_method: source === 'online' ? 'gcash' : 'cash',
+            cash_received: '',
+            cash_amount: source === 'walk_in' ? bookingAmountDue : 0,
+            gcash_amount: source === 'online' ? bookingAmountDue : 0,
+            gcash_ref: '',
+            reference_number: '',
+        }));
+    };
+
+    const handleBookingPaymentMethodChange = (method) => {
+        setData(prev => ({
+            ...prev,
+            payment_method: method,
+            cash_received: '',
+            cash_amount: method === 'cash' ? bookingAmountDue : 0,
+            gcash_amount: method === 'gcash' ? bookingAmountDue : 0,
+            gcash_ref: '',
+            reference_number: '',
+        }));
+    };
+
     const handleFormSubmit = (e) => {
         e.preventDefault();
         if ((calc.totals || calc).conflict) { setAlertMessage('Double-booking conflict. Choose another room or date.'); return; }
+        if (!data.booking_source) { setAlertMessage('Choose Walk-in or Online Booking first.'); return; }
+        if (!data.payment_method) { setAlertMessage('Choose a payment method.'); return; }
+        if (data.payment_method === 'cash' && Number(data.cash_received || 0) + 0.01 < bookingAmountDue) {
+            setAlertMessage('Cash received must be at least the amount due today.');
+            return;
+        }
+        if (data.payment_method !== 'cash' && !(data.gcash_ref || data.reference_number || '').trim()) {
+            setAlertMessage('Enter the GCash or bank transaction reference.');
+            return;
+        }
         setShowConfirmBookingModal(true);
     };
 
@@ -531,7 +574,6 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
         reset(); setCalc({ base_amount: 0, peak_surcharge: 0, discount_amount: 0, total_amount: 0, expected_check_out: '', is_peak: false, peak_label: null, conflict: null });
         setIsVip(false); setVipNotes(''); setSelectedGuestStays(0);
         setGuestSearch(''); setSuggestions([]); setPromoInput(''); setPromoError('');
-        setCashReceived('');
         setShowBookingModal(true);
     };
 
@@ -1358,19 +1400,36 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
                                             </div>
                                         </div>
 
-                                        <div className="rounded-2xl border border-brand-500/30 bg-brand-950/10 p-4 text-xs text-brand-200">
-                                            Editing stay details does not change payment history. Use <strong>Record Payment</strong> from the booking details page for any new collection.
-                                        </div>
-
-                                        {/* Legacy edit-payment controls intentionally hidden; payment actions are separate ledger entries. */}
-                                        <div className="hidden p-5 rounded-2xl bg-[#1e293b] border border-[#334155] flex-col gap-4">
+                                        {/* Select the source before payment to prevent misclassified transactions. */}
+                                        <div className="p-5 rounded-2xl bg-[#1e293b] border border-[#334155] flex flex-col gap-4">
                                             <div className="flex items-center gap-3 mb-1">
                                                 <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-xl"><Coins size={16} /></div>
-                                                <h3 className="text-sm font-outfit font-bold text-slate-200">Deposit Payment</h3>
+                                                <div>
+                                                    <h3 className="text-sm font-outfit font-bold text-slate-200">Booking & Payment</h3>
+                                                    <p className="text-[10px] text-slate-500 mt-0.5">Select how the booking was received before recording payment.</p>
+                                                </div>
                                             </div>
+                                            <div className="flex flex-col gap-1.5">
+                                                <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">1. Booking Source *</label>
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <button type="button" onClick={() => handleBookingSourceChange('walk_in')}
+                                                        className={`rounded-xl border px-3 py-3 text-left transition-all ${data.booking_source === 'walk_in' ? 'border-emerald-500 bg-emerald-500/10 text-emerald-300' : 'border-[#334155] bg-[#0f172a] text-slate-400 hover:border-slate-500'}`}>
+                                                        <span className="block text-xs font-extrabold">Walk-in</span>
+                                                        <span className="mt-0.5 block text-[9px] opacity-80">Guest booked at the front desk</span>
+                                                    </button>
+                                                    <button type="button" onClick={() => handleBookingSourceChange('online')}
+                                                        className={`rounded-xl border px-3 py-3 text-left transition-all ${data.booking_source === 'online' ? 'border-brand-500 bg-brand-500/10 text-brand-300' : 'border-[#334155] bg-[#0f172a] text-slate-400 hover:border-slate-500'}`}>
+                                                        <span className="block text-xs font-extrabold">Online Booking</span>
+                                                        <span className="mt-0.5 block text-[9px] opacity-80">GCash or bank transfer only</span>
+                                                    </button>
+                                                </div>
+                                                {errors.booking_source && <p className="text-[10px] text-rose-400">{errors.booking_source}</p>}
+                                            </div>
+                                            {data.booking_source && (
+                                            <>
                                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                                 <div className="flex flex-col gap-1">
-                                                    <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Payment Option</label>
+                                                    <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">2. Amount to Collect</label>
                                                     <div className="grid grid-cols-2 gap-1 bg-[#0f172a] p-1 rounded-xl border border-[#334155]">
                                                         <button type="button" onClick={() => setData('payment_ratio', 'full')}
                                                             className={`py-1 px-2 rounded-lg text-[10px] font-bold transition-all ${data.payment_ratio === 'full' ? 'bg-brand-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'}`}>
@@ -1383,40 +1442,50 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
                                                     </div>
                                                 </div>
                                                 <div className="flex flex-col gap-1">
-                                                    <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Payment Method</label>
-                                                    <CustomSelect value={data.payment_method} onChange={e => setData('payment_method', e.target.value)} className={`${inputCls} font-bold`}>
-                                                        <option value="cash">Cash</option>
+                                                    <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">3. Payment Method *</label>
+                                                    <CustomSelect value={data.payment_method} onChange={e => handleBookingPaymentMethodChange(e.target.value)} className={`${inputCls} font-bold`}>
+                                                        {data.booking_source === 'walk_in' && <option value="cash">Cash</option>}
                                                         <option value="gcash">GCash</option>
-                                                        <option value="card">Card</option>
                                                         <option value="bank_transfer">Bank Transfer</option>
-                                                        <option value="maya">Maya</option>
-                                                        <option value="other_ewallet">Other E-wallet</option>
-                                                        <option value="other">Other</option>
-                                                        <option value="split">Split (Cash + GCash)</option>
                                                     </CustomSelect>
+                                                    {errors.payment_method && <p className="text-[10px] text-rose-400">{errors.payment_method}</p>}
                                                 </div>
-                                                {['cash', 'split'].includes(data.payment_method) && (
+                                                {data.payment_method === 'cash' && (
                                                     <div className="flex flex-col gap-1">
                                                         <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-emerald-400">Cash Received (₱)</label>
-                                                        <input type="number" step="any" min="0" value={cashReceived} onChange={e => setCashReceived(e.target.value)} placeholder="0.00" className={`${inputCls} font-mono text-emerald-400 font-bold`} />
+                                                        <input type="number" step="0.01" min="0" value={data.cash_received} onChange={e => setData('cash_received', e.target.value)} required placeholder="0.00" className={`${inputCls} font-mono text-emerald-400 font-bold`} />
+                                                        {errors.cash_received && <p className="text-[10px] text-rose-400">{errors.cash_received}</p>}
                                                     </div>
                                                 )}
-                                                {['gcash', 'split'].includes(data.payment_method) && (
+                                                {data.payment_method === 'cash' && (
                                                     <div className="flex flex-col gap-1">
-                                                        <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">GCash 13-Digit Ref #</label>
-                                                        <input type="text" value={data.gcash_ref} onChange={e => setData('gcash_ref', e.target.value)} required placeholder="2083920..." className={`${inputCls} font-mono font-bold`} />
+                                                        <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Change</label>
+                                                        <div className={`${inputCls} flex items-center font-mono font-black text-emerald-400`}>
+                                                            ₱{bookingChange.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                        </div>
                                                     </div>
                                                 )}
-                                                {['card', 'bank_transfer', 'maya', 'other_ewallet', 'other'].includes(data.payment_method) && (
+                                                {data.payment_method === 'gcash' && (
                                                     <div className="flex flex-col gap-1">
-                                                        <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Payment Reference</label>
-                                                        <input type="text" value={data.reference_number} onChange={e => setData('reference_number', e.target.value)} required placeholder="Reference / approval code" className={`${inputCls} font-mono font-bold`} />
+                                                        <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">GCash Reference *</label>
+                                                        <input type="text" value={data.gcash_ref} onChange={e => setData('gcash_ref', e.target.value)} required placeholder="Enter transaction reference" className={`${inputCls} font-mono font-bold`} />
+                                                    </div>
+                                                )}
+                                                {data.payment_method === 'bank_transfer' && (
+                                                    <div className="flex flex-col gap-1">
+                                                        <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Bank Transaction Reference *</label>
+                                                        <input type="text" value={data.reference_number} onChange={e => setData('reference_number', e.target.value)} required placeholder="Enter bank reference" className={`${inputCls} font-mono font-bold`} />
+                                                    </div>
+                                                )}
+                                                {data.payment_method !== 'cash' && (
+                                                    <div className="sm:col-span-2 rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-2.5 text-[10px] text-amber-300">
+                                                        Digital payments remain pending until verified in Front Desk Payments.
                                                     </div>
                                                 )}
                                             </div>
                                             <div className="flex flex-col gap-1">
                                                 <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Transaction Notes</label>
-                                                <textarea value={data.transaction_notes || ''} onChange={e => setData('transaction_notes', e.target.value)} rows="2" placeholder="E.g., paid in 100s, guest requested receipt..." className={inputCls} />
+                                                <textarea value={data.transaction_notes || ''} onChange={e => setData('transaction_notes', e.target.value)} rows="2" placeholder="Optional payment or booking note" className={inputCls} />
                                             </div>
                                             {data.payment_method === 'split' && (
                                                 <div className="p-4 rounded-xl bg-[#0f172a]/60 border border-[#334155] grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1429,6 +1498,8 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
                                                         <input type="number" min="0" max={data.payment_ratio === 'half' ? Math.round((calc.totals || calc).total_amount / 2) : (calc.totals || calc).total_amount} step="any" value={data.gcash_amount} onChange={handleGCashInput} className={`${inputCls} font-mono font-bold`} />
                                                     </div>
                                                 </div>
+                                            )}
+                                            </>
                                             )}
                                         </div>
                                     </div>
@@ -1539,11 +1610,11 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
                                                                 <span className="font-mono text-base font-black text-emerald-400">₱{(calc.totals?.total_amount || calc.total_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                                             </div>
                                                         )}
-                                                        {['cash', 'split'].includes(data.payment_method) && (
+                                                        {data.payment_method === 'cash' && (
                                                             <div className="flex justify-between items-baseline mt-2 pt-2 border-t border-[#334155]/60">
                                                                 <span className="font-outfit font-black text-slate-100 uppercase tracking-widest text-xs">Change:</span>
                                                                 <span className="font-mono text-base font-black text-emerald-400">
-                                                                    ₱{(cashReceived ? Math.max(0, Number(cashReceived) - (data.payment_method === 'split' ? (data.cash_amount || 0) : (data.payment_ratio === 'half' ? Math.round((calc.totals?.total_amount || calc.total_amount || 0) / 2) : (calc.totals?.total_amount || calc.total_amount || 0)))) : 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                                    ₱{bookingChange.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                                                 </span>
                                                             </div>
                                                         )}
@@ -1559,7 +1630,7 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
                                             ) : (
                                                 <div className="py-8 text-center text-xs text-slate-500">Select rooms to load bill summary.</div>
                                             )}
-                                            <button type="submit" disabled={processing || !data.room_ids || data.room_ids.length === 0 || !!(calc.totals || calc).conflict}
+                                            <button type="submit" disabled={processing || !data.room_ids || data.room_ids.length === 0 || !data.booking_source || !data.payment_method || !!(calc.totals || calc).conflict}
                                                 className="w-full flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl bg-brand-600 hover:bg-brand-500 disabled:bg-[#334155] disabled:text-slate-500 text-white font-outfit font-extrabold text-sm tracking-wide shadow-lg active:scale-95 transition-all">
                                                 <CheckCircle size={16} />
                                                 {processing ? 'Processing...' : calc.conflict ? 'Conflict — Cannot Book' : 'Complete Booking'}

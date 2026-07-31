@@ -14,6 +14,8 @@ class Payment extends Model
         'payment_method_code',
         'reference_number',
         'amount',
+        'cash_tendered',
+        'change_given',
         'payment_type',
         'status',
         'recorded_by',
@@ -29,6 +31,8 @@ class Payment extends Model
         'received_at' => 'datetime',
         'verified_at' => 'datetime',
         'amount' => 'float',
+        'cash_tendered' => 'float',
+        'change_given' => 'float',
     ];
 
     public function allocations()

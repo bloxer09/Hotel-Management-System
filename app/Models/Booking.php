@@ -22,6 +22,7 @@ class Booking extends Model
         'guest_id_image_path',
         'num_guests',
         'booking_type',
+        'booking_source',
         'short_time_hours',
         'num_nights',
         'check_in',

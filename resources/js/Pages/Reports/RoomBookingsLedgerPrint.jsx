@@ -345,15 +345,18 @@ export default function RoomBookingsLedgerPrint({
 
                             // Build payment label
                             let paymentLines = [];
+                            const sourceLabel = b.booking_source === 'online' ? 'Online Booking' : 'Walk-in';
+                            paymentLines.push(`Source: ${sourceLabel}`);
                             const methods = b.shift_collection_methods || {};
                             const methodNames = Object.keys(methods).filter(k => methods[k] > 0);
                             const references = b.shift_collection_references || {};
+                            const cashTenders = Array.isArray(b.shift_cash_tenders) ? b.shift_cash_tenders : [];
 
                             if (methodNames.length > 0) {
                                 const mopStr = methodNames.map(m => {
                                     let label = m === 'gcash' ? 'GCash' : m === 'bank_transfer' ? 'Bank Transfer' : m.charAt(0).toUpperCase() + m.slice(1);
-                                    if (m === 'gcash' && references.gcash && references.gcash.length > 0) {
-                                        label += ` (Ref: ${references.gcash.join(', ')})`;
+                                    if (m !== 'cash' && references[m] && references[m].length > 0) {
+                                        label += ` (Ref: ${references[m].join(', ')})`;
                                     }
                                     return label;
                                 }).join(' + ');
@@ -363,6 +366,12 @@ export default function RoomBookingsLedgerPrint({
                                 } else {
                                     paymentLines.push(`${mopStr} - P ${Number(paidThisShift).toLocaleString('en-PH', { minimumFractionDigits: 2 })}\nbalance P ${Number(balance).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`);
                                 }
+                                cashTenders.forEach(tender => {
+                                    paymentLines.push(
+                                        `Cash received: P ${Number(tender.cash_received || 0).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`
+                                        + ` | Change: P ${Number(tender.change || 0).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`
+                                    );
+                                });
                             } else if (b.status === 'active' && totalAmount === 0) {
                                 paymentLines.push('COMPLIMENTARY');
                             } else if (balance <= 0 && totalAmount > 0 && paidThisShift === 0 && dpAmount === 0) {
@@ -379,8 +388,8 @@ export default function RoomBookingsLedgerPrint({
                                 if (dpMethodNames.length > 0) {
                                     const dpMopStr = dpMethodNames.map(m => {
                                         let label = m === 'gcash' ? 'GCash' : m === 'bank_transfer' ? 'Bank Transfer' : m.charAt(0).toUpperCase() + m.slice(1);
-                                        if (m === 'gcash' && b.dp_references?.gcash && b.dp_references.gcash.length > 0) {
-                                            label += ` (Ref: ${b.dp_references.gcash.join(', ')})`;
+                                        if (m !== 'cash' && b.dp_references?.[m] && b.dp_references[m].length > 0) {
+                                            label += ` (Ref: ${b.dp_references[m].join(', ')})`;
                                         }
                                         return label;
                                     }).join(' + ');

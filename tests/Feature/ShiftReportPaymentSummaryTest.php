@@ -288,6 +288,45 @@ class ShiftReportPaymentSummaryTest extends TestCase
         );
     }
 
+    public function test_official_logbook_includes_booking_source_and_cash_change_details(): void
+    {
+        $user = $this->createCashier();
+        $shift = ShiftSession::create([
+            'user_id' => $user->id,
+            'shift_code' => 'morning',
+            'started_at' => now()->subHour(),
+            'opening_cash' => 0,
+            'opening_cash_minibar' => 0,
+        ]);
+        [$booking] = $this->createBookings($user, true);
+        $booking->update(['booking_source' => 'walk_in']);
+
+        app(PaymentService::class)->record([
+            'payer_name' => $booking->guest_name,
+            'payment_method_code' => 'cash',
+            'amount' => 400,
+            'cash_tendered' => 500,
+            'change_given' => 100,
+            'payment_type' => 'deposit',
+            'status' => 'verified',
+            'recorded_by' => $user->id,
+            'received_at' => now()->subMinutes(5),
+        ], [$booking->id => 400], [[
+            'payment_method_code' => 'cash',
+            'amount' => 400,
+        ]]);
+
+        $response = $this->actingAs($user)->get(route('shifts.ledger-print', $shift->id));
+
+        $response->assertOk();
+        $response->assertInertia(fn (Assert $page) => $page
+            ->component('Reports/RoomBookingsLedgerPrint')
+            ->where('bookings.1.booking_source', 'walk_in')
+            ->where('bookings.1.shift_cash_tenders.0.cash_received', 500)
+            ->where('bookings.1.shift_cash_tenders.0.change', 100)
+        );
+    }
+
     public function test_separate_gcash_extra_charge_is_recorded_with_its_own_reference(): void
     {
         $user = $this->createCashier();

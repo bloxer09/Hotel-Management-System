@@ -342,6 +342,7 @@ class ReservationController extends Controller
             'extra_pax.*' => 'integer|min:0',
 
             'booking_type' => 'required|in:overnight,short_time',
+            'booking_source' => 'required|in:walk_in,online',
             'num_nights' => 'nullable|integer|min:1',
             'short_time_hours' => 'nullable|integer|in:3,6,12,24',
 
@@ -351,6 +352,7 @@ class ReservationController extends Controller
 
             'payment_ratio' => 'nullable|in:full,half',
             'payment_method' => 'required|in:cash,gcash,card,bank_transfer,maya,other_ewallet,other,split',
+            'cash_received' => 'required_if:payment_method,cash|nullable|numeric|min:0',
             'cash_amount' => 'nullable|numeric|min:0',
             'gcash_amount' => 'nullable|numeric|min:0',
             'gcash_ref' => 'nullable|string|max:50',
@@ -360,6 +362,13 @@ class ReservationController extends Controller
         ]);
 
         $user = $request->user();
+
+        if ($request->booking_source === 'online'
+            && ! in_array($request->payment_method, ['gcash', 'bank_transfer'], true)) {
+            return back()->withErrors([
+                'payment_method' => 'Online bookings must be paid through GCash or bank transfer.',
+            ]);
+        }
 
         $discountType = $request->discount_type;
         if (in_array($discountType, ['promo', 'staff', 'complimentary']) && $user->role !== 'admin' && ! $request->filled('promo_code')) {
@@ -454,6 +463,8 @@ class ReservationController extends Controller
                 $paymentMethod = $request->payment_method;
                 $cashAmountTotal = 0.00;
                 $gcashAmountTotal = 0.00;
+                $cashTendered = null;
+                $changeGiven = null;
                 $refNum = $request->gcash_ref ?: $request->reference_number ?: null;
                 $paymentComponents = [];
                 if ($paymentMethod !== 'cash' && blank($refNum)) {
@@ -461,6 +472,13 @@ class ReservationController extends Controller
                 }
 
                 if ($paymentMethod === 'cash') {
+                    $cashTendered = round((float) $request->cash_received, 2);
+                    if ($cashTendered + 0.01 < $collectedAmountTotal) {
+                        throw new \InvalidArgumentException(
+                            'Cash received must be at least the amount due today.'
+                        );
+                    }
+                    $changeGiven = round($cashTendered - $collectedAmountTotal, 2);
                     $cashAmountTotal = $collectedAmountTotal;
                     $paymentComponents[] = [
                         'payment_method_code' => 'cash',
@@ -565,6 +583,7 @@ class ReservationController extends Controller
                         'guest_id_image_path' => $idImagePath ?: $guestProfile->id_image_path,
                         'num_guests' => $roomGuests[$room->id],
                         'booking_type' => $request->booking_type,
+                        'booking_source' => $request->booking_source,
                         'short_time_hours' => $request->booking_type !== 'overnight' ? $request->short_time_hours : null,
                         'num_nights' => $request->booking_type === 'overnight' ? $request->num_nights : null,
                         'check_in' => $checkInTime->format('Y-m-d H:i:s'),
@@ -598,6 +617,8 @@ class ReservationController extends Controller
                     'payment_method_code' => $paymentMethod,
                     'reference_number' => $refNum,
                     'amount' => $collectedAmountTotal,
+                    'cash_tendered' => $cashTendered,
+                    'change_given' => $changeGiven,
                     'payment_type' => $paymentRatio === 'full' ? 'full' : 'deposit',
                     'status' => $paymentStatus,
                     'recorded_by' => $user->id,
