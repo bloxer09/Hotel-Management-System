@@ -281,9 +281,9 @@ export default function PromoCodes({ promoCodes, filters = {}, sortBy, sortDir }
                                 initial={{ opacity: 0, scale: 0.95 }}
                                 animate={{ opacity: 1, scale: 1 }}
                                 exit={{ opacity: 0, scale: 0.95 }}
-                                className="bg-[#1e293b] border border-[#334155] rounded-2xl w-full max-w-md shadow-2xl relative z-10 overflow-hidden"
+                                className="bg-[#1e293b] border border-[#334155] rounded-2xl w-full max-w-md max-h-[calc(100dvh-2rem)] shadow-2xl relative z-10 overflow-hidden flex flex-col"
                             >
-                                <div className="p-6 border-b border-[#334155] flex items-center justify-between">
+                                <div className="p-4 sm:p-6 border-b border-[#334155] flex items-center justify-between shrink-0">
                                     <h2 className="font-outfit font-black text-slate-100 text-lg flex items-center gap-2">
                                         <Ticket size={20} className="text-brand-400" />
                                         {editingPromo ? 'Edit Promo Code' : 'Create Promo Code'}
@@ -293,7 +293,7 @@ export default function PromoCodes({ promoCodes, filters = {}, sortBy, sortDir }
                                     </button>
                                 </div>
 
-                                <form onSubmit={handleFormSubmit} className="p-6 space-y-4">
+                                <form onSubmit={handleFormSubmit} className="p-4 sm:p-6 space-y-4 overflow-y-auto min-h-0">
                                     {/* Code string */}
                                     <div className="flex flex-col gap-1">
                                         <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
@@ -327,7 +327,7 @@ export default function PromoCodes({ promoCodes, filters = {}, sortBy, sortDir }
                                         {form.errors.label && <span className="text-[10px] text-red-400 font-semibold">{form.errors.label}</span>}
                                     </div>
 
-                                    <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         {/* Surcharge Type Selection */}
                                         <div className="flex flex-col gap-1">
                                             <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
@@ -360,7 +360,7 @@ export default function PromoCodes({ promoCodes, filters = {}, sortBy, sortDir }
                                         </div>
                                     </div>
 
-                                    <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         {/* Max Uses */}
                                         <div className="flex flex-col gap-1">
                                             <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
@@ -412,18 +412,18 @@ export default function PromoCodes({ promoCodes, filters = {}, sortBy, sortDir }
                                         </div>
                                     </div>
 
-                                    <div className="pt-4 border-t border-[#334155]/60 flex justify-end gap-3">
+                                    <div className="pt-4 border-t border-[#334155]/60 flex flex-col-reverse sm:flex-row justify-end gap-3">
                                         <button
                                             type="button"
                                             onClick={() => setIsOpen(false)}
-                                            className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold font-outfit"
+                                            className="w-full sm:w-auto px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold font-outfit"
                                         >
                                             Cancel
                                         </button>
                                         <button
                                             type="submit"
                                             disabled={form.processing}
-                                            className="px-5 py-2.5 bg-brand-600 hover:bg-brand-500 text-slate-50 rounded-xl text-xs font-bold font-outfit shadow-md disabled:opacity-50"
+                                            className="w-full sm:w-auto px-5 py-2.5 bg-brand-600 hover:bg-brand-500 text-slate-50 rounded-xl text-xs font-bold font-outfit shadow-md disabled:opacity-50"
                                         >
                                             {editingPromo ? 'Save Changes' : 'Create Promo'}
                                         </button>

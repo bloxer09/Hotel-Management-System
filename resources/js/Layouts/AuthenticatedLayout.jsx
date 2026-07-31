@@ -447,11 +447,11 @@ export default function AuthenticatedLayout({ children }) {
     };
 
     return (
-        <div className="app-shell flex h-screen overflow-hidden bg-[#0f172a] text-slate-100 font-sans antialiased print:h-auto print:overflow-visible">
+        <div className="app-shell flex h-screen h-dvh overflow-hidden bg-[#0f172a] text-slate-100 font-sans antialiased print:h-auto print:overflow-visible">
 
             {/* Desktop Sidebar */}
             <aside
-                className={`app-sidebar hidden md:flex flex-col bg-[#1e293b] border-r border-[#334155] shadow-2xl transition-all duration-300 print:hidden ${isCollapsed ? 'w-20' : 'w-72'}`}
+                className={`app-sidebar hidden lg:flex flex-col bg-[#1e293b] border-r border-[#334155] shadow-2xl transition-all duration-300 print:hidden ${isCollapsed ? 'w-20' : 'w-72'}`}
             >
                 {/* Header Logo */}
                 <div className={`h-20 flex items-center border-b border-[#334155] ${isCollapsed ? 'justify-center px-2' : 'px-6'}`}>
@@ -582,14 +582,14 @@ export default function AuthenticatedLayout({ children }) {
                             animate={{ opacity: 0.5 }}
                             exit={{ opacity: 0 }}
                             onClick={() => setIsMobileOpen(false)}
-                            className="fixed inset-0 bg-black z-40 md:hidden"
+                            className="fixed inset-0 bg-black z-40 lg:hidden"
                         />
                         <motion.aside
                             initial={{ x: '-100%' }}
                             animate={{ x: 0 }}
                             exit={{ x: '-100%' }}
                             transition={{ type: 'spring', damping: 25 }}
-                            className="app-sidebar fixed top-0 bottom-0 left-0 w-80 bg-[#1e293b] border-r border-[#334155] shadow-2xl z-50 md:hidden flex flex-col print:hidden"
+                            className="app-sidebar fixed top-0 bottom-0 left-0 w-80 max-w-[calc(100vw-1rem)] bg-[#1e293b] border-r border-[#334155] shadow-2xl z-50 lg:hidden flex flex-col print:hidden"
                         >
                             <div className="h-20 flex items-center justify-between px-6 border-b border-[#334155]">
                                 <div className="flex items-center gap-3">
@@ -734,26 +734,26 @@ export default function AuthenticatedLayout({ children }) {
                     <div className="flex items-center gap-3">
                         <button
                             onClick={() => setIsMobileOpen(true)}
-                            className="p-2 rounded-lg bg-[#0f172a]/60 border border-[#334155]/60 md:hidden text-slate-300"
+                            className="p-2 rounded-lg bg-[#0f172a]/60 border border-[#334155]/60 lg:hidden text-slate-300"
                         >
                             <Menu size={20} />
                         </button>
                         <button
                             type="button"
                             onClick={() => setIsCollapsed(prev => !prev)}
-                            className="hidden md:flex items-center justify-center p-2 rounded-lg bg-[#0f172a]/55 border border-[#334155] text-slate-300 hover:bg-[#334155] hover:text-slate-100 transition-all duration-200"
+                            className="hidden lg:flex items-center justify-center p-2 rounded-lg bg-[#0f172a]/55 border border-[#334155] text-slate-300 hover:bg-[#334155] hover:text-slate-100 transition-all duration-200"
                             aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
                             title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
                         >
                             {isCollapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
                         </button>
 
-                        <div className="hidden md:flex items-center gap-2 text-sm text-slate-400">
+                        <div className="hidden lg:flex items-center gap-2 text-sm text-slate-400">
                             <span className="font-outfit font-semibold text-slate-300 capitalize">{user.role} Dashboard</span>
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1.5 sm:gap-3">
                         {/* Shift Status Pill */}
                         {activeShift ? (
                             <div className="hidden lg:flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-950/30 border border-emerald-900/40 text-emerald-400 text-xs font-semibold">

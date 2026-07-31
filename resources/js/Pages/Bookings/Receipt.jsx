@@ -390,8 +390,8 @@ export default function Receipt({ booking, transactions, settings }) {
                             <h3 className="text-xs uppercase tracking-widest text-slate-500 font-bold mb-3">
                                 Payment History
                             </h3>
-                            <div className="border border-slate-800 print:border-slate-300 rounded-2xl overflow-hidden print:rounded-none">
-                                <table className="w-full text-left text-xs border-collapse table-fixed">
+                            <div className="border border-slate-800 print:border-slate-300 rounded-2xl overflow-x-auto print:overflow-visible print:rounded-none">
+                                <table className="w-full min-w-[700px] print:min-w-0 text-left text-xs border-collapse table-fixed">
                                     <thead>
                                         <tr className="bg-slate-950 border-b border-slate-800 text-slate-400 uppercase tracking-wider font-bold print:bg-slate-100 print:border-slate-300 print:text-black">
                                             <th className="px-4 py-3">Date</th>

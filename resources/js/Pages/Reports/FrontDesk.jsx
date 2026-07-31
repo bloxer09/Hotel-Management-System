@@ -85,7 +85,7 @@ export default function FrontDesk({
                     </div>
                 )}
 
-                <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:grid-cols-5">
                     {[
                         ['Gross Collections', summary.gross, Banknote],
                         ['Refunds', summary.refunds, RotateCcw],
@@ -103,7 +103,7 @@ export default function FrontDesk({
                 </div>
 
                 <div className="rounded-2xl border border-[#334155] bg-[#1e293b] p-4">
-                    <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-6">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6">
                         <input type="date" value={form.from || ''} onChange={e => setForm({ ...form, from: e.target.value })} className={inputClass} />
                         <input type="date" value={form.to || ''} onChange={e => setForm({ ...form, to: e.target.value })} className={inputClass} />
                         <select value={form.method || ''} onChange={e => setForm({ ...form, method: e.target.value })} className={inputClass}>

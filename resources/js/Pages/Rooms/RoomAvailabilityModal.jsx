@@ -261,7 +261,7 @@ export default function RoomAvailabilityModal({ isOpen, onClose, initialRoomId =
                         leaveFrom="opacity-100 scale-100"
                         leaveTo="opacity-0 scale-95"
                     >
-                        <DialogPanel className="bg-[#0f172a] border border-[#334155] rounded-3xl shadow-2xl w-full max-w-7xl flex flex-col max-h-[95vh] overflow-hidden relative z-10">
+                        <DialogPanel className="bg-[#0f172a] border border-[#334155] rounded-3xl shadow-2xl w-full max-w-7xl flex flex-col max-h-[calc(100dvh-2rem)] overflow-hidden relative z-10">
                             <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 text-slate-100 relative">
                                 {isLoading && (
                                     <div className="absolute inset-0 bg-[#0f172a]/50 z-50 flex items-center justify-center">
@@ -404,19 +404,21 @@ export default function RoomAvailabilityModal({ isOpen, onClose, initialRoomId =
                                             </div>
                                         </div>
 
-                                        <div className="flex flex-col">
-                                            {/* Weekdays table headers */}
-                                            <div className="grid grid-cols-7 gap-1 text-center mb-1 shrink-0">
-                                                {weekdays.map(d => (
-                                                    <div key={d} className="text-[10px] uppercase font-bold text-slate-500 py-2">
-                                                        {d}
-                                                    </div>
-                                                ))}
-                                            </div>
+                                        <div className="overflow-x-auto">
+                                            <div className="min-w-[640px]">
+                                                {/* Weekdays table headers */}
+                                                <div className="grid grid-cols-7 gap-1 text-center mb-1 shrink-0">
+                                                    {weekdays.map(d => (
+                                                        <div key={d} className="text-[10px] uppercase font-bold text-slate-500 py-2">
+                                                            {d}
+                                                        </div>
+                                                    ))}
+                                                </div>
 
-                                            {/* Calendar Month Grid Cells */}
-                                            <div className="grid grid-cols-7 gap-2 bg-[#0f172a]/20 p-2 rounded-2xl">
-                                                {gridItems}
+                                                {/* Calendar Month Grid Cells */}
+                                                <div className="grid grid-cols-7 gap-2 bg-[#0f172a]/20 p-2 rounded-2xl">
+                                                    {gridItems}
+                                                </div>
                                             </div>
                                         </div>
                                     </div>

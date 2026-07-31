@@ -336,19 +336,21 @@ export default function Analytics({ month, dailyStats, roomsCount, rooms = [], s
                         </div>
                     </div>
 
-                    <div className="flex flex-col">
-                        {/* Weekdays table headers */}
-                        <div className="grid grid-cols-7 gap-1 text-center mb-1 shrink-0">
-                            {weekdays.map(d => (
-                                <div key={d} className="text-[10px] uppercase font-bold text-slate-500 py-2">
-                                    {d}
-                                </div>
-                            ))}
-                        </div>
+                    <div className="overflow-x-auto">
+                        <div className="min-w-[640px]">
+                            {/* Weekdays table headers */}
+                            <div className="grid grid-cols-7 gap-1 text-center mb-1 shrink-0">
+                                {weekdays.map(d => (
+                                    <div key={d} className="text-[10px] uppercase font-bold text-slate-500 py-2">
+                                        {d}
+                                    </div>
+                                ))}
+                            </div>
 
-                        {/* Calendar Month Grid Cells */}
-                        <div className="grid grid-cols-7 gap-2 bg-[#0f172a]/20 p-2 rounded-2xl">
-                            {gridItems}
+                            {/* Calendar Month Grid Cells */}
+                            <div className="grid grid-cols-7 gap-2 bg-[#0f172a]/20 p-2 rounded-2xl">
+                                {gridItems}
+                            </div>
                         </div>
                     </div>
                 </div>

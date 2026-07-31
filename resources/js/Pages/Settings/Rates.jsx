@@ -267,20 +267,20 @@ export default function Rates({ roomTypes, filters = {}, sortBy, sortDir }) {
                     {isAddOpen && (
                         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
                             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-[#070b13]/90" onClick={() => setIsAddOpen(false)} />
-                            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-[#1e293b] border border-[#334155] rounded-2xl w-full max-w-xl shadow-2xl relative z-10 flex flex-col max-h-[90vh]">
-                                <div className="p-6 border-b border-[#334155] flex items-center justify-between shrink-0">
+                            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-[#1e293b] border border-[#334155] rounded-2xl w-full max-w-xl shadow-2xl relative z-10 flex flex-col max-h-[calc(100dvh-2rem)] overflow-hidden">
+                                <div className="p-4 sm:p-6 border-b border-[#334155] flex items-center justify-between shrink-0">
                                     <h2 className="font-outfit font-black text-slate-100 text-lg flex items-center gap-2"><Plus size={18} className="text-emerald-400" /> Add New Room Type</h2>
                                     <button onClick={() => setIsAddOpen(false)} className="text-slate-400 hover:text-slate-100"><X size={18} /></button>
                                 </div>
                                 <form onSubmit={handleAddSubmit} className="flex flex-col flex-1 min-h-0 overflow-hidden">
-                                    <div className="p-6 space-y-4 overflow-y-auto custom-scrollbar pr-2">
+                                    <div className="p-4 sm:p-6 space-y-4 overflow-y-auto custom-scrollbar">
                                     <div className="flex flex-col gap-1">
                                         <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Room Type Name *</label>
                                         <input type="text" value={addForm.data.type_name} onChange={e => addForm.setData('type_name', e.target.value)} required
                                             className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-xs text-slate-100 px-4 py-2.5 focus:outline-none focus:border-brand-500" />
                                         {addForm.errors.type_name && <p className="text-red-400 text-xs">{addForm.errors.type_name}</p>}
                                     </div>
-                                    <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         {[
                                             { key: 'base_rate', label: 'Overnight Base Rate (₱)' },
                                             { key: 'hourly_rate', label: 'Hourly Overtime (₱)' },
@@ -309,7 +309,7 @@ export default function Rates({ roomTypes, filters = {}, sortBy, sortDir }) {
                                                 placeholder="AC, TV, WiFi, Hot Shower"
                                                 className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-xs text-slate-100 px-4 py-2.5 focus:outline-none focus:border-brand-500" />
                                         </div>
-                                        <div className="flex flex-col gap-1 col-span-2">
+                                        <div className="flex flex-col gap-1 sm:col-span-2">
                                             <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Description</label>
                                             <textarea value={addForm.data.description}
                                                 onChange={e => addForm.setData('description', e.target.value)}
@@ -317,7 +317,7 @@ export default function Rates({ roomTypes, filters = {}, sortBy, sortDir }) {
                                         </div>
 
                                         {/* Photo upload */}
-                                        <div className="flex flex-col gap-1 col-span-2">
+                                        <div className="flex flex-col gap-1 sm:col-span-2">
                                             <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Room Type Image</label>
                                             {addForm.data.photo && (
                                                 <div className="flex items-center gap-3 mb-2 bg-[#0f172a] p-2 rounded-xl border border-[#334155]">
@@ -335,9 +335,9 @@ export default function Rates({ roomTypes, filters = {}, sortBy, sortDir }) {
                                         </div>
                                     </div>
                                     </div>
-                                    <div className="p-6 border-t border-[#334155]/60 flex justify-end gap-3 shrink-0">
-                                        <button type="button" onClick={() => setIsAddOpen(false)} className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold font-outfit">Cancel</button>
-                                        <button type="submit" disabled={addForm.processing} className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold font-outfit shadow-md">Add Room Type</button>
+                                    <div className="p-4 sm:p-6 border-t border-[#334155]/60 flex flex-col-reverse sm:flex-row justify-end gap-3 shrink-0">
+                                        <button type="button" onClick={() => setIsAddOpen(false)} className="w-full sm:w-auto px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold font-outfit">Cancel</button>
+                                        <button type="submit" disabled={addForm.processing} className="w-full sm:w-auto px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold font-outfit shadow-md">Add Room Type</button>
                                     </div>
                                 </form>
                             </motion.div>
@@ -350,15 +350,15 @@ export default function Rates({ roomTypes, filters = {}, sortBy, sortDir }) {
                     {isEditOpen && selectedType && (
                         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
                             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-[#070b13]/90" onClick={() => setIsEditOpen(false)} />
-                            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-[#1e293b] border border-[#334155] rounded-2xl w-full max-w-xl shadow-2xl relative z-10 flex flex-col max-h-[90vh]">
-                                <div className="p-6 border-b border-[#334155] flex items-center justify-between shrink-0 bg-[#1e293b]/60">
+                            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-[#1e293b] border border-[#334155] rounded-2xl w-full max-w-xl shadow-2xl relative z-10 flex flex-col max-h-[calc(100dvh-2rem)] overflow-hidden">
+                                <div className="p-4 sm:p-6 border-b border-[#334155] flex items-center justify-between shrink-0 bg-[#1e293b]/60">
                                     <h2 className="font-outfit font-black text-slate-100 text-lg">Configure Pricing: {selectedType.type_name}</h2>
                                     <button onClick={() => setIsEditOpen(false)} className="text-slate-400 hover:text-slate-100"><X size={18} /></button>
                                 </div>
 
                                 <form onSubmit={handleFormSubmit} className="flex flex-col flex-1 min-h-0 overflow-hidden">
-                                    <div className="p-6 space-y-4 overflow-y-auto custom-scrollbar pr-2">
-                                    <div className="grid grid-cols-2 gap-4">
+                                    <div className="p-4 sm:p-6 space-y-4 overflow-y-auto custom-scrollbar">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
                                         {/* Overnight rate */}
                                         <div className="flex flex-col gap-1">
@@ -387,7 +387,7 @@ export default function Rates({ roomTypes, filters = {}, sortBy, sortDir }) {
                                         </div>
 
                                         {/* Max Pax */}
-                                        <div className="flex flex-col gap-1 col-span-2">
+                                        <div className="flex flex-col gap-1 sm:col-span-2">
                                             <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Maximum occupancy Pax</label>
                                             <input
                                                 type="number"
@@ -448,7 +448,7 @@ export default function Rates({ roomTypes, filters = {}, sortBy, sortDir }) {
                                         </div>
 
                                         {/* Description */}
-                                        <div className="flex flex-col gap-1 col-span-2">
+                                        <div className="flex flex-col gap-1 sm:col-span-2">
                                             <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Description</label>
                                             <textarea
                                                 value={form.data.description}
@@ -458,7 +458,7 @@ export default function Rates({ roomTypes, filters = {}, sortBy, sortDir }) {
                                         </div>
 
                                         {/* Amenities */}
-                                        <div className="flex flex-col gap-1 col-span-2">
+                                        <div className="flex flex-col gap-1 sm:col-span-2">
                                             <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Room Amenities (comma or newline separated)</label>
                                             <textarea
                                                 value={form.data.amenities}
@@ -469,7 +469,7 @@ export default function Rates({ roomTypes, filters = {}, sortBy, sortDir }) {
                                         </div>
 
                                         {/* Photo upload */}
-                                        <div className="flex flex-col gap-1 col-span-2">
+                                        <div className="flex flex-col gap-1 sm:col-span-2">
                                             <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Room Type Image</label>
                                             {selectedType?.photo_url && !form.data.photo && (
                                                 <div className="flex items-center gap-3 mb-2 bg-[#0f172a] p-2 rounded-xl border border-[#334155]">
@@ -495,9 +495,9 @@ export default function Rates({ roomTypes, filters = {}, sortBy, sortDir }) {
                                     </div>
                                     </div>
 
-                                    <div className="p-6 border-t border-[#334155]/60 flex justify-end gap-3 shrink-0">
-                                        <button type="button" onClick={() => setIsEditOpen(false)} className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold font-outfit">Cancel</button>
-                                        <button type="submit" disabled={form.processing} className="px-5 py-2.5 bg-brand-600 hover:bg-brand-500 text-slate-50 rounded-xl text-xs font-bold font-outfit shadow-md">Update Pricing</button>
+                                    <div className="p-4 sm:p-6 border-t border-[#334155]/60 flex flex-col-reverse sm:flex-row justify-end gap-3 shrink-0">
+                                        <button type="button" onClick={() => setIsEditOpen(false)} className="w-full sm:w-auto px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold font-outfit">Cancel</button>
+                                        <button type="submit" disabled={form.processing} className="w-full sm:w-auto px-5 py-2.5 bg-brand-600 hover:bg-brand-500 text-slate-50 rounded-xl text-xs font-bold font-outfit shadow-md">Update Pricing</button>
                                     </div>
                                 </form>
                             </motion.div>

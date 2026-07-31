@@ -564,7 +564,7 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
                     <motion.div
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        className="bg-[#1e293b] border border-[#334155] rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl p-6 flex flex-col gap-5 text-slate-100"
+                        className="bg-[#1e293b] border border-[#334155] rounded-2xl w-full max-w-lg max-h-[calc(100dvh-2rem)] overflow-x-hidden overflow-y-auto shadow-2xl p-4 sm:p-6 flex flex-col gap-5 text-slate-100"
                     >
                         <div className="flex justify-between items-center border-b border-[#334155] pb-3">
                             <h3 className="font-outfit font-extrabold text-base text-slate-200">Extend Stay</h3>
@@ -692,7 +692,7 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
                     <motion.div
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        className="bg-[#1e293b] border border-[#334155] rounded-2xl w-full max-w-md overflow-hidden shadow-2xl p-6 flex flex-col gap-5 text-slate-100"
+                        className="bg-[#1e293b] border border-[#334155] rounded-2xl w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-x-hidden overflow-y-auto shadow-2xl p-4 sm:p-6 flex flex-col gap-5 text-slate-100"
                     >
                         <div className="flex justify-between items-center border-b border-[#334155] pb-3">
                             <h3 className="font-outfit font-extrabold text-base text-slate-200">Add Minibar / Room Orders</h3>
@@ -762,7 +762,7 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
             {activeModal === 'payment' && (
                 <div className="fixed inset-0 bg-[#070b13]/90 z-[9999] flex items-center justify-center p-4">
                     <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-                        className="w-full max-w-lg rounded-2xl border border-[#334155] bg-[#1e293b] p-6 text-slate-100 shadow-2xl">
+                        className="w-full max-w-lg max-h-[calc(100dvh-2rem)] overflow-x-hidden overflow-y-auto rounded-2xl border border-[#334155] bg-[#1e293b] p-4 sm:p-6 text-slate-100 shadow-2xl">
                         <div className="mb-5 flex items-center justify-between border-b border-[#334155] pb-3">
                             <div>
                                 <h3 className="font-outfit font-extrabold">Record Additional Payment</h3>
@@ -839,7 +839,7 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
                     <motion.div
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        className="bg-[#1e293b] border border-[#334155] rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl p-6 flex flex-col gap-5 text-slate-100"
+                        className="bg-[#1e293b] border border-[#334155] rounded-2xl w-full max-w-lg max-h-[calc(100dvh-2rem)] overflow-x-hidden overflow-y-auto shadow-2xl p-4 sm:p-6 flex flex-col gap-5 text-slate-100"
                     >
                         <div className="flex justify-between items-center border-b border-[#334155] pb-3">
                             <h3 className="font-outfit font-extrabold text-base text-slate-200">Guest Checkout</h3>
@@ -1049,7 +1049,7 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
                     <motion.div
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        className="bg-[#1e293b] border border-[#334155] rounded-2xl w-full max-w-md overflow-hidden shadow-2xl p-6 flex flex-col gap-5 text-slate-100"
+                        className="bg-[#1e293b] border border-[#334155] rounded-2xl w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-x-hidden overflow-y-auto shadow-2xl p-4 sm:p-6 flex flex-col gap-5 text-slate-100"
                     >
                         <div className="flex justify-between items-center border-b border-[#334155] pb-3">
                             <h3 className="font-outfit font-extrabold text-base text-slate-200 flex items-center gap-2">
@@ -1116,7 +1116,7 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
                     <motion.div
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        className="bg-[#1e293b] border border-[#334155] rounded-2xl w-full max-w-md overflow-hidden shadow-2xl p-6 flex flex-col gap-5 text-slate-100"
+                        className="bg-[#1e293b] border border-[#334155] rounded-2xl w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-x-hidden overflow-y-auto shadow-2xl p-4 sm:p-6 flex flex-col gap-5 text-slate-100"
                     >
                         <div className="flex justify-between items-center border-b border-[#334155] pb-3">
                             <h3 className="font-outfit font-extrabold text-base text-red-400 flex items-center gap-1">

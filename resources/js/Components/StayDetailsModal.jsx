@@ -583,7 +583,7 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.95 }}
-                            className="bg-[#1e293b] border border-[#334155] rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl p-6 flex flex-col gap-5 text-slate-100"
+                            className="bg-[#1e293b] border border-[#334155] rounded-2xl w-full max-w-lg max-h-[calc(100dvh-2rem)] overflow-x-hidden overflow-y-auto shadow-2xl p-4 sm:p-6 flex flex-col gap-5 text-slate-100"
                         >
                             <div className="flex justify-between items-center border-b border-[#334155] pb-3">
                                 <h3 className="font-outfit font-extrabold text-base text-slate-200">Extend Stay Duration</h3>
@@ -748,7 +748,7 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
                                 initial={{ opacity: 0, scale: 0.95 }}
                                 animate={{ opacity: 1, scale: 1 }}
                                 exit={{ opacity: 0, scale: 0.95 }}
-                                className="bg-[#1e293b] border border-[#334155] rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl p-6 flex flex-col gap-5 text-slate-100"
+                                className="bg-[#1e293b] border border-[#334155] rounded-2xl w-full max-w-lg max-h-[calc(100dvh-2rem)] overflow-x-hidden overflow-y-auto shadow-2xl p-4 sm:p-6 flex flex-col gap-5 text-slate-100"
                             >
                                 <div className="flex justify-between items-center border-b border-[#334155] pb-3">
                                     <h3 className="font-outfit font-extrabold text-base text-slate-200">Process Checkout</h3>
@@ -1004,7 +1004,7 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.95 }}
-                            className="bg-[#1e293b] border border-[#334155] rounded-2xl w-full max-w-md overflow-hidden shadow-2xl p-6 flex flex-col gap-5 text-slate-100"
+                            className="bg-[#1e293b] border border-[#334155] rounded-2xl w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-x-hidden overflow-y-auto shadow-2xl p-4 sm:p-6 flex flex-col gap-5 text-slate-100"
                         >
                             <div className="flex justify-between items-center border-b border-[#334155] pb-3">
                                 <h3 className="font-outfit font-extrabold text-base text-slate-200">Reassign Guest Room</h3>
@@ -1062,7 +1062,7 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.95 }}
-                            className="bg-[#1e293b] border border-[#334155] rounded-2xl w-full max-w-md overflow-hidden shadow-2xl p-6 flex flex-col gap-5 text-slate-100"
+                            className="bg-[#1e293b] border border-[#334155] rounded-2xl w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-x-hidden overflow-y-auto shadow-2xl p-4 sm:p-6 flex flex-col gap-5 text-slate-100"
                         >
                             <div className="flex justify-between items-center border-b border-red-500/30 pb-3">
                                 <h3 className="font-outfit font-extrabold text-base text-red-400">Cancel Booking Stay</h3>

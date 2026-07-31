@@ -131,8 +131,8 @@ export default function Index({ dateFrom, dateTo, summary, byCashier, byRoomType
                     />
 
                     {/* Right: Custom Date Range Picker */}
-                    <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
-                        <div className="flex items-center gap-2">
+                    <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-3 w-full xl:w-auto">
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
                             <Calendar size={14} className="text-slate-500" />
                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">Custom Range</span>
                         </div>
@@ -141,31 +141,31 @@ export default function Index({ dateFrom, dateTo, summary, byCashier, byRoomType
                                 type="date"
                                 value={from}
                                 onChange={e => setFrom(e.target.value)}
-                                className="bg-[#0f172a] border border-[#334155] rounded-xl text-slate-200 px-3 py-2 text-xs focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500/20 font-medium transition-all"
+                                className="w-full sm:w-auto bg-[#0f172a] border border-[#334155] rounded-xl text-slate-200 px-3 py-2 text-xs focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500/20 font-medium transition-all"
                             />
-                            <span className="text-slate-500 text-xs font-medium">to</span>
+                            <span className="hidden sm:inline text-slate-500 text-xs font-medium">to</span>
                             <input
                                 type="date"
                                 value={to}
                                 onChange={e => setTo(e.target.value)}
-                                className="bg-[#0f172a] border border-[#334155] rounded-xl text-slate-200 px-3 py-2 text-xs focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500/20 font-medium transition-all"
+                                className="w-full sm:w-auto bg-[#0f172a] border border-[#334155] rounded-xl text-slate-200 px-3 py-2 text-xs focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500/20 font-medium transition-all"
                             />
                         </div>
                         <button
                             type="button"
                             onClick={applyDateFilter}
-                            className="px-5 py-2 bg-brand-600 hover:bg-brand-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-brand-600/10 hover:shadow-brand-600/20 transition-all font-outfit"
+                            className="w-full sm:w-auto px-5 py-2 bg-brand-600 hover:bg-brand-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-brand-600/10 hover:shadow-brand-600/20 transition-all font-outfit"
                         >
                             Apply Filter
                         </button>
-                        <span className="text-xs text-slate-400 font-mono font-bold bg-[#0f172a] px-3.5 py-2 rounded-xl border border-[#334155]/60 min-w-[180px] text-center xl:ml-2">
+                        <span className="w-full sm:w-auto text-xs text-slate-400 font-mono font-bold bg-[#0f172a] px-3.5 py-2 rounded-xl border border-[#334155]/60 min-w-[180px] text-center xl:ml-2">
                             {dateFrom === dateTo ? dateFrom : `${dateFrom} → ${dateTo}`}
                         </span>
                     </div>
                 </div>
 
                 {/* Summary KPI Cards */}
-                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     {[
                         { label: 'Total Revenue', value: totalRevenue, icon: TrendingUp, color: 'emerald', sub: `${summary.total_bookings || 0} bookings` },
                         { label: 'Cash Collections', value: totalCash, icon: DollarSign, color: 'brand', sub: 'Cash drawer total' },
@@ -193,7 +193,7 @@ export default function Index({ dateFrom, dateTo, summary, byCashier, byRoomType
                             Open Front Desk Payment Report
                         </button>
                     </div>
-                    <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:grid-cols-5">
                         {[
                             ['Collections Received', ledgerSummary.collections_received],
                             ['Refunds Issued', ledgerSummary.refunds_issued],
@@ -244,7 +244,7 @@ export default function Index({ dateFrom, dateTo, summary, byCashier, byRoomType
                 </div>
 
                 {/* Secondary breakdown */}
-                <div className="grid grid-cols-3 sm:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div className="p-4 rounded-2xl bg-[#1e293b] border border-[#334155]">
                         <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Extension Fees</div>
                         <div className="font-mono font-bold text-amber-300">{fmt(totalExtension)}</div>
@@ -329,7 +329,7 @@ export default function Index({ dateFrom, dateTo, summary, byCashier, byRoomType
                         {/* Occupancy mini */}
                         <div className="mt-2 pt-4 border-t border-[#334155]">
                             <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-2">Live Occupancy</div>
-                            <div className="grid grid-cols-4 gap-2 text-center text-xs">
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs">
                                 {[
                                     { label: 'Vacant', count: occupancy.vacant, color: 'emerald' },
                                     { label: 'Occupied', count: occupancy.occupied, color: 'rose' },
@@ -355,7 +355,7 @@ export default function Index({ dateFrom, dateTo, summary, byCashier, byRoomType
                         </h2>
                     </div>
                     <div className="overflow-x-auto">
-                        <table className="w-full text-xs table-fixed">
+                        <table className="w-full min-w-[1200px] text-xs table-fixed">
                             <thead>
                                 <tr className="border-b border-[#334155] bg-[#0f172a]/60">
                                     <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Ref / Guest</th>
@@ -429,7 +429,7 @@ export default function Index({ dateFrom, dateTo, summary, byCashier, byRoomType
                             onClick={() => setShowEOD(false)} className="fixed inset-0 bg-[#070b13]/90 z-[999]" />
                         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
                             className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
-                            <div className="bg-[#1e293b] border border-[#334155] rounded-2xl shadow-2xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
+                            <div className="bg-[#1e293b] border border-[#334155] rounded-2xl shadow-2xl w-full max-w-lg p-4 sm:p-6 max-h-[calc(100dvh-2rem)] overflow-y-auto">
                                 <div className="flex items-center justify-between mb-5">
                                     <h2 className="font-outfit font-black text-lg text-slate-100 flex items-center gap-2">
                                         <Printer size={18} className="text-indigo-400" /> End-of-Day Report
@@ -443,7 +443,7 @@ export default function Index({ dateFrom, dateTo, summary, byCashier, byRoomType
                                         <div className="font-mono text-slate-200 font-bold">{from === to ? from : `${from} to ${to}`}</div>
                                     </div>
 
-                                    <div className="grid grid-cols-2 gap-3">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                         {[
                                             { label: 'Total Bookings', value: summary.total_bookings || 0, mono: true },
                                             { label: 'Checked Out', value: summary.checked_out || 0, mono: true },
@@ -486,15 +486,15 @@ export default function Index({ dateFrom, dateTo, summary, byCashier, byRoomType
                                     )}
                                 </div>
 
-                                <div className="flex justify-end gap-3 mt-5">
+                                <div className="flex flex-col sm:flex-row justify-end gap-3 mt-5">
                                     <button onClick={() => setShowEOD(false)}
-                                        className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-sm font-semibold">Close</button>
+                                        className="w-full sm:w-auto justify-center px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-sm font-semibold">Close</button>
                                     <button onClick={printEOD}
-                                        className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm flex items-center gap-2">
+                                        className="w-full sm:w-auto justify-center px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm flex items-center gap-2">
                                         <Printer size={14} /> Print / PDF
                                     </button>
                                     <button onClick={exportExcel}
-                                        className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm flex items-center gap-2">
+                                        className="w-full sm:w-auto justify-center px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm flex items-center gap-2">
                                         <Download size={14} /> Export Excel
                                     </button>
                                 </div>

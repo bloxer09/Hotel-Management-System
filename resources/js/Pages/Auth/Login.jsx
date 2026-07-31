@@ -19,7 +19,7 @@ export default function Login({ status, canResetPassword }) {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-[#0a0f1a] relative px-4 overflow-hidden">
+        <div className="min-h-screen min-h-dvh flex items-center justify-center bg-[#0a0f1a] relative px-4 py-6 sm:py-8 overflow-x-hidden overflow-y-auto">
             <Head title="Sign In — Uptown Pension House" />
 
             {/* Background Ambient Glows */}

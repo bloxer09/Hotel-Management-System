@@ -248,13 +248,13 @@ export default function Users({ users, filters = {}, sortBy, sortDir }) {
                     {isAddOpen && (
                         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
                             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-[#070b13]/90" onClick={() => setIsAddOpen(false)} />
-                            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-[#1e293b] border border-[#334155] rounded-2xl w-full max-w-md shadow-2xl relative z-10 overflow-hidden">
-                                <div className="p-6 border-b border-[#334155] flex items-center justify-between">
+                            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-[#1e293b] border border-[#334155] rounded-2xl w-full max-w-md max-h-[calc(100dvh-2rem)] shadow-2xl relative z-10 overflow-hidden flex flex-col">
+                                <div className="p-4 sm:p-6 border-b border-[#334155] flex items-center justify-between shrink-0">
                                     <h2 className="font-outfit font-black text-slate-100 text-lg">Add Staff Account</h2>
                                     <button onClick={() => setIsAddOpen(false)} className="text-slate-400 hover:text-slate-100"><X size={18} /></button>
                                 </div>
 
-                                <form onSubmit={handleAddSubmit} className="p-6 space-y-4">
+                                <form onSubmit={handleAddSubmit} className="p-4 sm:p-6 space-y-4 overflow-y-auto min-h-0">
                                     {/* Name */}
                                     <div className="flex flex-col gap-1">
                                         <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Employee Name</label>
@@ -314,7 +314,7 @@ export default function Users({ users, filters = {}, sortBy, sortDir }) {
                                     {/* Profile Photo */}
                                     <div className="flex flex-col gap-1.5 pt-1">
                                         <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Profile Photo (Optional)</label>
-                                        <div className="flex items-center gap-4">
+                                        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
                                             {addForm.data.photo ? (
                                                 <img src={URL.createObjectURL(addForm.data.photo)} alt="Preview" className="w-12 h-12 rounded-full object-cover border border-brand-500/40" />
                                             ) : (
@@ -324,7 +324,7 @@ export default function Users({ users, filters = {}, sortBy, sortDir }) {
                                                 type="file"
                                                 accept="image/*"
                                                 onChange={e => addForm.setData('photo', e.target.files[0])}
-                                                className="text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-[#0f172a] file:text-brand-400 hover:file:bg-[#334155] cursor-pointer"
+                                                className="w-full min-w-0 text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-[#0f172a] file:text-brand-400 hover:file:bg-[#334155] cursor-pointer"
                                             />
                                         </div>
                                         {addForm.errors.photo && <span className="text-[10px] text-red-405 font-semibold">{addForm.errors.photo}</span>}
@@ -341,9 +341,9 @@ export default function Users({ users, filters = {}, sortBy, sortDir }) {
                                         <span className="text-xs font-semibold text-slate-300">Set Account State as Active</span>
                                     </label>
 
-                                    <div className="pt-4 border-t border-[#334155]/60 flex justify-end gap-3">
-                                        <button type="button" onClick={() => setIsAddOpen(false)} className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold font-outfit">Cancel</button>
-                                        <button type="submit" disabled={addForm.processing} className="px-5 py-2.5 bg-brand-600 hover:bg-brand-500 text-slate-50 rounded-xl text-xs font-bold font-outfit shadow-md">Add Staff</button>
+                                    <div className="pt-4 border-t border-[#334155]/60 flex flex-col-reverse sm:flex-row justify-end gap-3">
+                                        <button type="button" onClick={() => setIsAddOpen(false)} className="w-full sm:w-auto px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold font-outfit">Cancel</button>
+                                        <button type="submit" disabled={addForm.processing} className="w-full sm:w-auto px-5 py-2.5 bg-brand-600 hover:bg-brand-500 text-slate-50 rounded-xl text-xs font-bold font-outfit shadow-md">Add Staff</button>
                                     </div>
                                 </form>
                             </motion.div>
@@ -356,8 +356,8 @@ export default function Users({ users, filters = {}, sortBy, sortDir }) {
                     {isEditOpen && selectedUser && (
                         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
                             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-[#070b13]/90" onClick={() => setIsEditOpen(false)} />
-                            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-[#1e293b] border border-[#334155] rounded-2xl w-full max-w-md shadow-2xl relative z-10 overflow-hidden">
-                                <div className="p-6 border-b border-[#334155] flex items-center justify-between">
+                            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-[#1e293b] border border-[#334155] rounded-2xl w-full max-w-md max-h-[calc(100dvh-2rem)] shadow-2xl relative z-10 overflow-hidden flex flex-col">
+                                <div className="p-4 sm:p-6 border-b border-[#334155] flex items-center justify-between shrink-0">
                                     <div className="flex flex-col">
                                         <h2 className="font-outfit font-black text-slate-100 text-lg">Modify credentials</h2>
                                         <span className="text-[10px] text-slate-500">Username profile: @{selectedUser.username}</span>
@@ -365,7 +365,7 @@ export default function Users({ users, filters = {}, sortBy, sortDir }) {
                                     <button onClick={() => setIsEditOpen(false)} className="text-slate-400 hover:text-slate-100"><X size={18} /></button>
                                 </div>
 
-                                <form onSubmit={handleEditSubmit} className="p-6 space-y-4">
+                                <form onSubmit={handleEditSubmit} className="p-4 sm:p-6 space-y-4 overflow-y-auto min-h-0">
                                     {/* Name */}
                                     <div className="flex flex-col gap-1">
                                         <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Employee Name</label>
@@ -408,7 +408,7 @@ export default function Users({ users, filters = {}, sortBy, sortDir }) {
                                     {/* Profile Photo */}
                                     <div className="flex flex-col gap-1.5 pt-1">
                                         <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Profile Photo</label>
-                                        <div className="flex items-center gap-4">
+                                        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
                                             {editForm.data.photo ? (
                                                 <img src={URL.createObjectURL(editForm.data.photo)} alt="Preview" className="w-12 h-12 rounded-full object-cover border border-brand-500/40" />
                                             ) : selectedUser.avatar_url && !editForm.data.remove_photo ? (
@@ -421,7 +421,7 @@ export default function Users({ users, filters = {}, sortBy, sortDir }) {
                                                     type="file"
                                                     accept="image/*"
                                                     onChange={e => editForm.setData(prev => ({ ...prev, photo: e.target.files[0], remove_photo: false }))}
-                                                    className="text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-[#0f172a] file:text-brand-400 hover:file:bg-[#334155] cursor-pointer"
+                                                    className="w-full min-w-0 text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-[#0f172a] file:text-brand-400 hover:file:bg-[#334155] cursor-pointer"
                                                 />
                                                 {(selectedUser.avatar_url || editForm.data.photo) && !editForm.data.remove_photo && (
                                                     <button
@@ -448,9 +448,9 @@ export default function Users({ users, filters = {}, sortBy, sortDir }) {
                                         <span className="text-xs font-semibold text-slate-300">Set Account State as Active</span>
                                     </label>
 
-                                    <div className="pt-4 border-t border-[#334155]/60 flex justify-end gap-3">
-                                        <button type="button" onClick={() => setIsEditOpen(false)} className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold font-outfit">Cancel</button>
-                                        <button type="submit" disabled={editForm.processing} className="px-5 py-2.5 bg-brand-600 hover:bg-brand-500 text-slate-50 rounded-xl text-xs font-bold font-outfit shadow-md">Save Changes</button>
+                                    <div className="pt-4 border-t border-[#334155]/60 flex flex-col-reverse sm:flex-row justify-end gap-3">
+                                        <button type="button" onClick={() => setIsEditOpen(false)} className="w-full sm:w-auto px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold font-outfit">Cancel</button>
+                                        <button type="submit" disabled={editForm.processing} className="w-full sm:w-auto px-5 py-2.5 bg-brand-600 hover:bg-brand-500 text-slate-50 rounded-xl text-xs font-bold font-outfit shadow-md">Save Changes</button>
                                     </div>
                                 </form>
                             </motion.div>

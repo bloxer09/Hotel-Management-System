@@ -512,7 +512,7 @@ export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCod
                 <div className="rounded-2xl bg-[#1e293b] border border-[#334155] overflow-hidden shadow-xl">
                     <div className="overflow-x-auto">
                         {currentFilter === 'groups' ? (
-                            <table className="w-full text-xs table-fixed">
+                            <table className="w-full min-w-[1100px] text-xs table-fixed">
                                 <thead>
                                     <tr className="border-b border-[#334155] bg-[#0f172a]/60">
                                         <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left w-[150px]">Group Ref</th>
@@ -629,7 +629,7 @@ export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCod
                                 </tbody>
                             </table>
                         ) : (
-                            <table className="w-full text-xs table-fixed">
+                            <table className="w-full min-w-[900px] text-xs table-fixed">
                                 <thead>
                                     <tr className="border-b border-[#334155] bg-[#0f172a]/60">
                                         <SortableHeader sortKey="id" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Ref</SortableHeader>

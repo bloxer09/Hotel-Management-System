@@ -364,15 +364,15 @@ export default function Index({ items, activeBookings = [], currentSearch, curre
                     {isAddOpen && (
                         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
                             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-[#070b13]/90" onClick={() => setIsAddOpen(false)} />
-                            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-[#1e293b] border border-[#334155] rounded-2xl w-full max-w-lg shadow-2xl relative z-10 overflow-hidden">
-                                <div className="p-6 border-b border-[#334155] flex items-center justify-between">
+                            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-[#1e293b] border border-[#334155] rounded-2xl w-full max-w-lg max-h-[calc(100dvh-2rem)] shadow-2xl relative z-10 overflow-hidden flex flex-col">
+                                <div className="p-4 sm:p-6 border-b border-[#334155] flex items-center justify-between shrink-0">
                                     <h2 className="font-outfit font-black text-slate-100 text-lg">Add New Item</h2>
                                     <button onClick={() => setIsAddOpen(false)} className="text-slate-400 hover:text-slate-100"><X size={18} /></button>
                                 </div>
 
-                                <form onSubmit={handleCreateSubmit} className="p-6 space-y-4">
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="col-span-2 flex flex-col gap-1">
+                                <form onSubmit={handleCreateSubmit} className="p-4 sm:p-6 space-y-4 overflow-y-auto min-h-0">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div className="sm:col-span-2 flex flex-col gap-1">
                                             <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Item Name</label>
                                             <input
                                                 type="text"
@@ -457,9 +457,9 @@ export default function Index({ items, activeBookings = [], currentSearch, curre
                                             />
                                         </div>
 
-                                        <div className="col-span-2 flex flex-col gap-1">
+                                        <div className="sm:col-span-2 flex flex-col gap-1">
                                             <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Product Image</label>
-                                            <div className="flex items-center gap-4 bg-[#0f172a] p-4 rounded-xl border border-[#334155] mt-1">
+                                            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 bg-[#0f172a] p-4 rounded-xl border border-[#334155] mt-1">
                                                 {createForm.data.image ? (
                                                     <div className="relative w-16 h-16 rounded-lg overflow-hidden border border-[#334155]">
                                                         <img src={URL.createObjectURL(createForm.data.image)} alt="Preview" className="w-full h-full object-cover" />
@@ -496,9 +496,9 @@ export default function Index({ items, activeBookings = [], currentSearch, curre
                                         </div>
                                     </div>
 
-                                    <div className="pt-4 border-t border-[#334155]/60 flex justify-end gap-3">
-                                        <button type="button" onClick={() => setIsAddOpen(false)} className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold font-outfit">Cancel</button>
-                                        <button type="submit" disabled={createForm.processing} className="px-5 py-2.5 bg-brand-600 hover:bg-brand-500 text-slate-50 rounded-xl text-xs font-bold font-outfit shadow-md">Add Item</button>
+                                    <div className="pt-4 border-t border-[#334155]/60 flex flex-col-reverse sm:flex-row justify-end gap-3">
+                                        <button type="button" onClick={() => setIsAddOpen(false)} className="w-full sm:w-auto px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold font-outfit">Cancel</button>
+                                        <button type="submit" disabled={createForm.processing} className="w-full sm:w-auto px-5 py-2.5 bg-brand-600 hover:bg-brand-500 text-slate-50 rounded-xl text-xs font-bold font-outfit shadow-md">Add Item</button>
                                     </div>
                                 </form>
                             </motion.div>
@@ -511,15 +511,15 @@ export default function Index({ items, activeBookings = [], currentSearch, curre
                     {isEditOpen && selectedItem && (
                         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
                             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-[#070b13]/90" onClick={() => setIsEditOpen(false)} />
-                            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-[#1e293b] border border-[#334155] rounded-2xl w-full max-w-lg shadow-2xl relative z-10 overflow-hidden">
-                                <div className="p-6 border-b border-[#334155] flex items-center justify-between">
+                            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-[#1e293b] border border-[#334155] rounded-2xl w-full max-w-lg max-h-[calc(100dvh-2rem)] shadow-2xl relative z-10 overflow-hidden flex flex-col">
+                                <div className="p-4 sm:p-6 border-b border-[#334155] flex items-center justify-between shrink-0">
                                     <h2 className="font-outfit font-black text-slate-100 text-lg">Edit Item: {selectedItem.item_name}</h2>
                                     <button onClick={() => setIsEditOpen(false)} className="text-slate-400 hover:text-slate-100"><X size={18} /></button>
                                 </div>
 
-                                <form onSubmit={handleEditSubmit} className="p-6 space-y-4">
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="col-span-2 flex flex-col gap-1">
+                                <form onSubmit={handleEditSubmit} className="p-4 sm:p-6 space-y-4 overflow-y-auto min-h-0">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div className="sm:col-span-2 flex flex-col gap-1">
                                             <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Item Name</label>
                                             <input
                                                 type="text"
@@ -603,9 +603,9 @@ export default function Index({ items, activeBookings = [], currentSearch, curre
                                             </label>
                                         </div>
 
-                                        <div className="col-span-2 flex flex-col gap-1">
+                                        <div className="sm:col-span-2 flex flex-col gap-1">
                                             <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Product Image</label>
-                                            <div className="flex items-center gap-4 bg-[#0f172a] p-4 rounded-xl border border-[#334155] mt-1">
+                                            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 bg-[#0f172a] p-4 rounded-xl border border-[#334155] mt-1">
                                                 {editForm.data.image ? (
                                                     <div className="relative w-16 h-16 rounded-lg overflow-hidden border border-[#334155]">
                                                         <img src={URL.createObjectURL(editForm.data.image)} alt="Preview" className="w-full h-full object-cover" />
@@ -646,9 +646,9 @@ export default function Index({ items, activeBookings = [], currentSearch, curre
                                         </div>
                                     </div>
 
-                                    <div className="pt-4 border-t border-[#334155]/60 flex justify-end gap-3">
-                                        <button type="button" onClick={() => setIsEditOpen(false)} className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold font-outfit">Cancel</button>
-                                        <button type="submit" disabled={editForm.processing} className="px-5 py-2.5 bg-brand-600 hover:bg-brand-500 text-slate-50 rounded-xl text-xs font-bold font-outfit shadow-md">Save Changes</button>
+                                    <div className="pt-4 border-t border-[#334155]/60 flex flex-col-reverse sm:flex-row justify-end gap-3">
+                                        <button type="button" onClick={() => setIsEditOpen(false)} className="w-full sm:w-auto px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold font-outfit">Cancel</button>
+                                        <button type="submit" disabled={editForm.processing} className="w-full sm:w-auto px-5 py-2.5 bg-brand-600 hover:bg-brand-500 text-slate-50 rounded-xl text-xs font-bold font-outfit shadow-md">Save Changes</button>
                                     </div>
                                 </form>
                             </motion.div>

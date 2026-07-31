@@ -311,13 +311,18 @@ th {
 /* ─── Mobile Responsiveness System ──────────────────────────────────────── */
 
 /* Fix mobile table crushing: Allow horizontal scroll on small devices */
-@media (max-width: 768px) {
+@media screen and (max-width: 768px) {
 
     /* All table-fixed tables inside scroll containers get a minimum width
        so they scroll horizontally instead of crushing columns */
     .overflow-x-auto table.table-fixed,
     .overflow-x-auto table {
         min-width: 700px;
+    }
+
+    /* Compact summary tables can fit the viewport after hiding secondary columns. */
+    .overflow-x-auto table.mobile-table-fit {
+        min-width: 100%;
     }
 
     /* Reduce table cell padding on mobile for density */
@@ -328,7 +333,7 @@ th {
 }
 
 /* Very small screens (320px) need even more space optimization */
-@media (max-width: 374px) {
+@media screen and (max-width: 374px) {
 
     .overflow-x-auto table.table-fixed,
     .overflow-x-auto table {

@@ -348,8 +348,8 @@ export default function Audit({ logs, users = [], modules = [], filters = {}, so
                     {selectedLog && (
                         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
                             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-[#070b13]/90" onClick={() => setSelectedLog(null)} />
-                            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-[#1e293b] border border-[#334155] rounded-2xl w-full max-w-4xl shadow-2xl relative z-10 overflow-hidden">
-                                <div className="p-6 border-b border-[#334155] flex items-center justify-between">
+                            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-[#1e293b] border border-[#334155] rounded-2xl w-full max-w-4xl max-h-[calc(100dvh-2rem)] shadow-2xl relative z-10 overflow-hidden flex flex-col">
+                                <div className="p-4 sm:p-6 border-b border-[#334155] flex items-center justify-between shrink-0">
                                     <div className="flex flex-col">
                                         <h2 className="font-outfit font-black text-slate-100 text-lg">Log Details</h2>
                                         <span className="text-[10px] text-slate-500">Log ID: #{selectedLog.id} • Action: {selectedLog.action}</span>
@@ -357,7 +357,7 @@ export default function Audit({ logs, users = [], modules = [], filters = {}, so
                                     <button onClick={() => setSelectedLog(null)} className="text-slate-400 hover:text-slate-100"><X size={18} /></button>
                                 </div>
 
-                                <div className="p-6 space-y-4">
+                                <div className="p-4 sm:p-6 space-y-4 overflow-y-auto min-h-0">
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
                                         {/* Old Values */}

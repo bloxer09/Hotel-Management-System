@@ -207,7 +207,7 @@ export default function PosModal({ isOpen, onClose, items = [], activeBookings =
                         leaveFrom="opacity-100 scale-100"
                         leaveTo="opacity-0 scale-95"
                     >
-                        <DialogPanel className="bg-[#0f172a] border border-[#334155] rounded-3xl shadow-2xl w-full max-w-7xl max-h-[90vh] h-[850px] relative z-10 flex flex-col overflow-hidden">
+                        <DialogPanel className="bg-[#0f172a] border border-[#334155] rounded-3xl shadow-2xl w-full max-w-7xl max-h-[calc(100dvh-2rem)] h-[850px] relative z-10 flex flex-col overflow-hidden">
                             {/* Header */}
                             <div className="h-16 flex items-center justify-between px-6 border-b border-[#334155] bg-[#1e293b] shrink-0">
                                 <h2 className="font-outfit font-extrabold text-lg text-slate-100 flex items-center gap-2">
@@ -218,10 +218,10 @@ export default function PosModal({ isOpen, onClose, items = [], activeBookings =
                                 </button>
                             </div>
 
-                            <div className="flex-1 flex flex-col lg:flex-row min-h-0 overflow-hidden">
+                            <div className="flex-1 flex flex-col lg:flex-row min-h-0 overflow-y-auto lg:overflow-hidden">
 
                                 {/* Catalog Area */}
-                                <div className="flex-1 flex flex-col p-4 md:p-6 min-h-0 relative border-r border-[#334155]">
+                                <div className="flex-1 flex flex-col p-4 md:p-6 min-h-[420px] lg:min-h-0 relative border-r border-[#334155]">
                                     <div className="flex gap-4 mb-4 shrink-0">
                                         <div className="relative flex-1">
                                             <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
@@ -288,7 +288,7 @@ export default function PosModal({ isOpen, onClose, items = [], activeBookings =
                                 </div>
 
                                 {/* Cart Area */}
-                                <div className="w-full lg:w-[380px] bg-[#1e293b]/50 p-4 md:p-6 flex flex-col min-h-0 shrink-0">
+                                <div className="w-full lg:w-[380px] bg-[#1e293b]/50 p-4 md:p-6 flex flex-col min-h-[480px] lg:min-h-0 shrink-0">
                                     <div className="flex items-center justify-between mb-4 shrink-0">
                                         <div className="flex items-center gap-2">
                                             <ShoppingCart className="text-emerald-400 shrink-0" size={16} />

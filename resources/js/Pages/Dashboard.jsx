@@ -827,7 +827,7 @@ export default function Dashboard({ stats, charts, recentBookings, lowStockItems
 
                             <div className="overflow-x-auto min-h-[220px]">
                                 {upcomingTab === 'checkins' ? (
-                                    <table className="w-full text-xs table-fixed">
+                                    <table className="mobile-table-fit w-full text-xs table-fixed">
                                         <thead>
                                             <tr className="border-b border-[#334155] bg-[#0f172a]/60">
                                                 <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left w-1/4">Room</th>
@@ -871,7 +871,7 @@ export default function Dashboard({ stats, charts, recentBookings, lowStockItems
                                         </tbody>
                                     </table>
                                 ) : (
-                                    <table className="w-full text-xs table-fixed">
+                                    <table className="mobile-table-fit w-full text-xs table-fixed">
                                         <thead>
                                             <tr className="border-b border-[#334155] bg-[#0f172a]/60">
                                                 <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left w-1/4">Room</th>
@@ -931,7 +931,7 @@ export default function Dashboard({ stats, charts, recentBookings, lowStockItems
                             </div>
 
                             <div className="overflow-x-auto min-h-[220px]">
-                                <table className="w-full text-xs table-fixed">
+                                <table className="mobile-table-fit w-full text-xs table-fixed">
                                     <thead>
                                         <tr className="border-b border-[#334155] bg-[#0f172a]/60">
                                             <th className="px-3 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left w-1/4">Date</th>
