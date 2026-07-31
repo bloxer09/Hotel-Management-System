@@ -48,7 +48,7 @@ export default function AuthenticatedLayout({ children }) {
     const user = auth.user;
     const activeShift = auth.active_shift;
 
-    const isCollapsed = false;
+    const [isCollapsed, setIsCollapsed] = useState(false);
     const [isMobileOpen, setIsMobileOpen] = useState(false);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -451,10 +451,10 @@ export default function AuthenticatedLayout({ children }) {
 
             {/* Desktop Sidebar */}
             <aside
-                className="app-sidebar hidden md:flex flex-col bg-[#1e293b] border-r border-[#334155] shadow-2xl transition-all duration-300 print:hidden w-72"
+                className={`app-sidebar hidden md:flex flex-col bg-[#1e293b] border-r border-[#334155] shadow-2xl transition-all duration-300 print:hidden ${isCollapsed ? 'w-20' : 'w-72'}`}
             >
                 {/* Header Logo */}
-                <div className="h-20 flex items-center px-6 border-b border-[#334155]">
+                <div className={`h-20 flex items-center border-b border-[#334155] ${isCollapsed ? 'justify-center px-2' : 'px-6'}`}>
                     <div className="flex items-center gap-3 overflow-hidden min-w-0">
                         {/* Expanded: logo and app name side-by-side */}
                         <img
@@ -465,58 +465,23 @@ export default function AuthenticatedLayout({ children }) {
                                 e.currentTarget.style.display = 'none';
                             }}
                         />
-                        <div className="flex flex-col justify-center min-w-0 leading-tight">
-                            <span className="font-outfit font-extrabold text-sm tracking-wider uppercase text-slate-100 truncate">
-                                {firstWord}
-                            </span>
-                            {remainingWords && (
-                                <span className="font-outfit font-bold text-[10px] tracking-widest uppercase text-brand-400 mt-0.5 truncate">
-                                    {remainingWords}
+                        {!isCollapsed && (
+                            <div className="flex flex-col justify-center min-w-0 leading-tight">
+                                <span className="font-outfit font-extrabold text-sm tracking-wider uppercase text-slate-100 truncate">
+                                    {firstWord}
                                 </span>
-                            )}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Staff Shift Card */}
-                {/* {!isCollapsed && (
-                    <div className="m-4 p-4 rounded-xl bg-[#0f172a]/60 border border-[#334155] flex flex-col gap-2">
-                        <div className="flex items-center justify-between">
-                            <span className="text-xs text-slate-400 uppercase tracking-wider font-semibold">Current Staff</span>
-                            <span className="text-[10px] bg-[#334155] text-slate-300 px-2 py-0.5 rounded font-mono uppercase font-bold">{user.role}</span>
-                        </div>
-                        <div className="font-outfit font-bold text-sm truncate">{user.name}</div>
-
-                        {user.role !== 'housekeeping' && (
-                            <div className="mt-2 pt-2 border-t border-[#334155]/60 flex items-center gap-2">
-                                {activeShift ? (
-                                    <>
-                                        <span className="relative flex h-2 w-2">
-                                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                                            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                                        </span>
-                                        <span className="text-xs text-emerald-400 font-semibold font-outfit uppercase">
-                                            {activeShift.shift_code} Shift Active
-                                        </span>
-                                    </>
-                                ) : (
-                                    <>
-                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
-                                        <Link
-                                            href={route('shifts.index')}
-                                            className="text-xs text-amber-400 hover:text-amber-300 font-bold underline transition-colors"
-                                        >
-                                            Shift Closed (Start)
-                                        </Link>
-                                    </>
+                                {remainingWords && (
+                                    <span className="font-outfit font-bold text-[10px] tracking-widest uppercase text-brand-400 mt-0.5 truncate">
+                                        {remainingWords}
+                                    </span>
                                 )}
                             </div>
                         )}
                     </div>
-                )} */}
+                </div>
 
                 {/* Sidebar Navigation */}
-                <nav className="app-navigation flex-1 overflow-y-auto px-4 py-3 space-y-1 scrollbar-thin">
+                <nav className={`app-navigation flex-1 overflow-y-auto py-3 space-y-1 scrollbar-thin ${isCollapsed ? 'px-2' : 'px-4'}`}>
                     {navItems
                         .filter(item => hasRole(item.roles))
                         .map(item => {
@@ -528,7 +493,7 @@ export default function AuthenticatedLayout({ children }) {
                                 <Link
                                     key={item.name}
                                     href={linkHref}
-                                    className={`app-nav-link flex items-center gap-3.5 px-4 py-3 rounded-xl font-medium transition-all duration-200 group relative ${item.current
+                                    className={`app-nav-link flex items-center ${isCollapsed ? 'justify-center px-2.5 py-3' : 'gap-3.5 px-4 py-3'} rounded-xl font-medium transition-all duration-200 group relative ${item.current
                                         ? 'is-active bg-brand-600/70 text-slate-50 border border-brand-500/40 shadow-lg shadow-brand-600/20'
                                         : 'text-slate-400 hover:bg-[#334155]/50 hover:text-slate-100'
                                         }`}
@@ -568,7 +533,7 @@ export default function AuthenticatedLayout({ children }) {
                         <div className="space-y-1 pt-2">
                             <button
                                 onClick={() => setIsSettingsOpen(!isSettingsOpen)}
-                                className={`app-nav-link w-full flex items-center gap-3.5 px-4 py-3 rounded-xl font-medium text-slate-400 hover:bg-[#334155]/50 hover:text-slate-100 transition-all duration-200 ${isSettingsOpen ? 'is-active text-slate-100' : ''
+                                className={`app-nav-link w-full flex items-center ${isCollapsed ? 'justify-center px-2.5 py-3' : 'gap-3.5 px-4 py-3'} rounded-xl font-medium text-slate-400 hover:bg-[#334155]/50 hover:text-slate-100 transition-all duration-200 ${isSettingsOpen ? 'is-active text-slate-100' : ''
                                     }`}
                             >
                                 <Settings size={20} className="text-slate-400" />
@@ -605,16 +570,7 @@ export default function AuthenticatedLayout({ children }) {
                     )}
                 </nav>
 
-                {/* Footer Account */}
-                <div className="p-4 border-t border-[#334155]">
-                    <button
-                        onClick={handleLogout}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-red-950/20 border border-red-900/30 hover:bg-red-900/30 text-red-400 hover:text-red-300 text-sm font-bold tracking-wide transition-all"
-                    >
-                        <LogOut size={16} />
-                        {!isCollapsed && <span className="font-outfit">Logout</span>}
-                    </button>
-                </div>
+
             </aside>
 
             {/* Mobile Sidebar overlay */}
@@ -732,7 +688,7 @@ export default function AuthenticatedLayout({ children }) {
                                                 {badgeCount > 0 && (
                                                     <span className="ml-auto flex h-5 min-w-[20px] px-1.5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
                                                         {badgeCount}
-                                                     </span>
+                                                    </span>
                                                 )}
                                                 {isShiftRestricted && !item.current && (
                                                     <span className="ml-auto text-[9px] bg-amber-950 border border-amber-600/40 text-amber-400 px-1.5 py-0.5 rounded font-bold">
@@ -764,15 +720,7 @@ export default function AuthenticatedLayout({ children }) {
                                 )}
                             </nav>
 
-                            <div className="p-4 border-t border-[#334155]">
-                                <button
-                                    onClick={handleLogout}
-                                    className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-red-950/20 border border-red-900/30 text-red-400 text-sm font-bold"
-                                >
-                                    <LogOut size={16} />
-                                    <span>Logout</span>
-                                </button>
-                            </div>
+
                         </motion.aside>
                     </>
                 )}
@@ -781,19 +729,28 @@ export default function AuthenticatedLayout({ children }) {
             {/* Main Application Area */}
             <div className="flex-1 flex flex-col min-w-0 bg-[#0f172a] print:h-auto print:overflow-visible">
 
-                {/* Global Mobile Header / Topbar */}
+                {/* Global Header / Topbar */}
                 <header className="app-topbar h-16 sm:h-20 bg-[#1e293b] border-b border-[#334155] flex items-center justify-between px-3 sm:px-6 md:px-8 shrink-0 print:hidden">
-                    <button
-                        onClick={() => setIsMobileOpen(true)}
-                        className="p-2 rounded-lg bg-[#0f172a]/60 border border-[#334155]/60 md:hidden text-slate-300"
-                    >
-                        <Menu size={20} />
-                    </button>
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={() => setIsMobileOpen(true)}
+                            className="p-2 rounded-lg bg-[#0f172a]/60 border border-[#334155]/60 md:hidden text-slate-300"
+                        >
+                            <Menu size={20} />
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setIsCollapsed(prev => !prev)}
+                            className="hidden md:flex items-center justify-center p-2 rounded-lg bg-[#0f172a]/55 border border-[#334155] text-slate-300 hover:bg-[#334155] hover:text-slate-100 transition-all duration-200"
+                            aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+                            title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+                        >
+                            {isCollapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
+                        </button>
 
-                    <div className="hidden md:flex items-center gap-2 text-sm text-slate-400">
-                        <span className="font-outfit font-semibold text-slate-300 capitalize">{user.role} Dashboard</span>
-                        {/* <span>/</span>
-                        <span className="font-outfit text-brand-300 font-medium">Hotel Property Management System</span> */}
+                        <div className="hidden md:flex items-center gap-2 text-sm text-slate-400">
+                            <span className="font-outfit font-semibold text-slate-300 capitalize">{user.role} Dashboard</span>
+                        </div>
                     </div>
 
                     <div className="flex items-center gap-3">
@@ -1010,6 +967,17 @@ export default function AuthenticatedLayout({ children }) {
                                 </div>
                             )}
                             <span className="font-outfit font-bold text-sm text-slate-200 group-hover:text-slate-50 hidden sm:inline">{user.name}</span>
+                        </button>
+
+                        {/* Logout Button — moved from sidebar footer */}
+                        <button
+                            type="button"
+                            onClick={handleLogout}
+                            className="flex items-center justify-center w-10 h-10 rounded-xl bg-red-950/20 border border-red-900/30 text-red-400 hover:bg-red-900/30 hover:text-red-300 transition-all duration-200"
+                            aria-label="Logout"
+                            title="Logout"
+                        >
+                            <LogOut size={18} />
                         </button>
                     </div>
                 </header>
