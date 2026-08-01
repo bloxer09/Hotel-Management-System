@@ -297,7 +297,10 @@ class ReservationController extends Controller
         $checkInTime = $checkInRaw;
 
         $dummyExpectedCheckOut = $request->booking_type === 'overnight'
-            ? $checkInTime->copy()->addDays($request->num_nights ?: 1)->setTime(BookingService::OVERNIGHT_CHECKOUT_HOUR, 0, 0)
+            ? BookingService::buildOvernightExpectedCheckOut(
+                $checkInTime->format('Y-m-d H:i:s'),
+                $request->num_nights ?: 1
+            )
             : $checkInTime->copy()->addHours($request->short_time_hours ?: 3);
 
         $checkInStr = $checkInTime->format('Y-m-d H:i:s');
