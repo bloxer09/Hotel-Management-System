@@ -2,8 +2,9 @@
 
 namespace Tests\Feature;
 
-use App\Models\User;
 use App\Models\Income;
+use App\Models\ShiftSession;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -66,7 +67,7 @@ class IncomesTest extends TestCase
             'amount' => 1200.00,
             'cash_drawer' => 'room',
             'notes' => 'Initial Income Notes',
-            'recorded_by' => $admin->id
+            'recorded_by' => $admin->id,
         ]);
 
         $response = $this->actingAs($admin)->post("/incomes/{$income->id}", [
@@ -92,7 +93,7 @@ class IncomesTest extends TestCase
             'income_date' => '2026-06-29',
             'amount' => 1200.00,
             'notes' => 'To be deleted',
-            'recorded_by' => $admin->id
+            'recorded_by' => $admin->id,
         ]);
 
         $response = $this->actingAs($admin)->delete("/incomes/{$income->id}");
@@ -103,19 +104,19 @@ class IncomesTest extends TestCase
         ]);
     }
 
-    public function test_cashier_without_active_shift_is_redirected_from_incomes()
+    public function test_cashier_without_active_shift_can_view_incomes_in_read_only_mode()
     {
         $cashier = User::factory()->create(['role' => 'cashier']);
 
         $response = $this->actingAs($cashier)->get('/incomes');
-        $response->assertRedirect(route('shifts.index'));
+        $response->assertStatus(200);
     }
 
     public function test_cashier_with_active_shift_can_view_incomes()
     {
         $cashier = User::factory()->create(['role' => 'cashier']);
-        
-        \App\Models\ShiftSession::create([
+
+        ShiftSession::create([
             'user_id' => $cashier->id,
             'shift_code' => 'morning',
             'started_at' => now(),

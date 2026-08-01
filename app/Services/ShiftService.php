@@ -7,12 +7,17 @@ use App\Models\User;
 
 class ShiftService
 {
+    public static function activeRegister(): ?ShiftSession
+    {
+        return ShiftSession::with('user')
+            ->active()
+            ->orderBy('started_at')
+            ->first();
+    }
+
     /**
      * Ensure the user has an active shift unless they are an admin.
      * Returns true if valid or admin, false if invalid shift.
-     * 
-     * @param User $user
-     * @return bool
      */
     public static function requireActiveShift(User $user): bool
     {
@@ -20,10 +25,8 @@ class ShiftService
             return true;
         }
 
-        $activeShift = ShiftSession::where('user_id', $user->id)
-            ->whereNull('ended_at')
-            ->first();
+        $activeShift = self::activeRegister();
 
-        return $activeShift !== null;
+        return $activeShift !== null && $activeShift->user_id === $user->id;
     }
 }

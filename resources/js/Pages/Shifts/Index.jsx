@@ -18,7 +18,7 @@ import { motion } from 'framer-motion';
 import ConfirmModal from '@/Components/ConfirmModal';
 import CustomSelect from '@/Components/CustomSelect';
 
-export default function Index({ activeShift, suggestedShift, suggestedOpeningCash, suggestedOpeningDenominations, suggestedOpeningCashMinibar, suggestedOpeningDenominationsMinibar, liveSummary, recentShifts }) {
+export default function Index({ activeShift, registerShift, isRegisterOperator, viewerMode, suggestedShift, suggestedOpeningCash, suggestedOpeningDenominations, suggestedOpeningCashMinibar, suggestedOpeningDenominationsMinibar, liveSummary, recentShifts }) {
     const [showShutdownConfirm, setShowShutdownConfirm] = useState(false);
 
     const COINS = [0.01, 0.05, 0.25, 1, 5, 10];
@@ -125,7 +125,49 @@ export default function Index({ activeShift, suggestedShift, suggestedOpeningCas
 
                     {/* Start / Active Shift control */}
                     <div>
-                        {!activeShift ? (
+                        {registerShift && !isRegisterOperator ? (
+
+                            /* Existing register: staff are viewers; admins retain audited override access. */
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.98 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                className={`p-6 md:p-8 rounded-2xl border shadow-xl ${viewerMode
+                                    ? 'bg-sky-950/25 border-sky-500/30'
+                                    : 'bg-emerald-950/20 border-emerald-500/20'
+                                }`}
+                            >
+                                <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
+                                    <div className="flex items-start gap-3.5">
+                                        <div className={`p-3 rounded-xl ${viewerMode ? 'bg-sky-500/10 text-sky-400' : 'bg-emerald-500/10 text-emerald-400'}`}>
+                                            {viewerMode ? <AlertTriangle size={24} /> : <Clock size={24} />}
+                                        </div>
+                                        <div>
+                                            <h2 className="text-xl font-outfit font-bold text-slate-200">
+                                                {viewerMode ? 'Viewer Mode — Register Is Read Only' : 'Register Currently Assigned'}
+                                            </h2>
+                                            <p className="mt-1 text-sm text-slate-300">
+                                                Current operator: <strong>{registerShift.user?.name || 'Assigned staff'}</strong>
+                                            </p>
+                                            <p className="mt-1 text-xs text-slate-400">
+                                                {registerShift.shift_code?.toUpperCase()} shift started {new Date(registerShift.started_at).toLocaleString()}.
+                                                {viewerMode
+                                                    ? ' You can view hotel records, but operational and payment changes are blocked.'
+                                                    : ' Administrative changes remain available and are recorded as register overrides.'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    {!viewerMode && (
+                                        <Link
+                                            href={route('shifts.report', registerShift.id)}
+                                            className="inline-flex items-center gap-2 rounded-xl border border-[#334155] bg-[#1e293b] px-4 py-2 text-xs font-bold text-slate-300 hover:border-brand-500 hover:text-white"
+                                        >
+                                            <Printer size={14} /> View Live Report
+                                        </Link>
+                                    )}
+                                </div>
+                            </motion.div>
+
+                        ) : !activeShift ? (
 
                             /* Start Shift Section */
                             <motion.div

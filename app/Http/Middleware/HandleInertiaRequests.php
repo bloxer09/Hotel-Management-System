@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\ShiftService;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -29,18 +30,23 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
+        $user = $request->user();
+        $registerShift = $user ? ShiftService::activeRegister() : null;
+        $ownsRegister = $user && $registerShift && $registerShift->user_id === $user->id;
+        $viewerMode = $user
+            && in_array($user->role, ['front_desk', 'cashier'], true)
+            && $registerShift
+            && ! $ownsRegister;
+
         return [
             ...parent::share($request),
             'app_name' => config('app.name'),
             'auth' => [
-                'user' => $request->user(),
-                'active_shift' => $request->user() 
-                    ? \Illuminate\Support\Facades\Cache::remember(
-                        "active_shift_{$request->user()->id}", 
-                        now()->addMinutes(5), 
-                        fn() => \App\Models\ShiftSession::where('user_id', $request->user()->id)->whereNull('ended_at')->first()
-                    )
-                    : null,
+                'user' => $user,
+                'active_shift' => $ownsRegister ? $registerShift : null,
+                'register_shift' => $registerShift,
+                'viewer_mode' => (bool) $viewerMode,
+                'can_operate_register' => $user?->role === 'admin' || (bool) $ownsRegister,
             ],
             'flash' => [
                 'success' => $request->session()->get('success'),

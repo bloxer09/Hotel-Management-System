@@ -6,8 +6,11 @@ use Illuminate\Database\Eloquent\Model;
 
 class ShiftSession extends Model
 {
+    public const MAIN_REGISTER_KEY = 'main-front-desk';
+
     protected $fillable = [
         'user_id',
+        'active_register_key',
         'shift_code',
         'scheduled_start',
         'scheduled_end',
@@ -45,5 +48,10 @@ class ShiftSession extends Model
     public function cashMovements()
     {
         return $this->hasMany(CashMovement::class);
+    }
+
+    public function scopeActive($query)
+    {
+        return $query->whereNull('ended_at');
     }
 }

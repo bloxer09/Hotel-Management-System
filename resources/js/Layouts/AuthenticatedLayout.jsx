@@ -47,6 +47,8 @@ export default function AuthenticatedLayout({ children }) {
     const remainingWords = nameParts.slice(1).join(' ');
     const user = auth.user;
     const activeShift = auth.active_shift;
+    const registerShift = auth.register_shift;
+    const viewerMode = Boolean(auth.viewer_mode);
 
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -485,7 +487,7 @@ export default function AuthenticatedLayout({ children }) {
                     {navItems
                         .filter(item => hasRole(item.roles))
                         .map(item => {
-                            const isShiftRestricted = item.requiresShift && !activeShift && user.role !== 'admin';
+                            const isShiftRestricted = item.requiresShift && !activeShift && !viewerMode && user.role !== 'admin';
                             const linkHref = isShiftRestricted ? route('shifts.index') : item.href;
                             const badgeCount = getSidebarBadgeCount(item.name);
 
@@ -649,6 +651,20 @@ export default function AuthenticatedLayout({ children }) {
                                                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
                                                 <span>{activeShift.shift_code} Shift Active</span>
                                             </div>
+                                        ) : viewerMode ? (
+                                            <Link
+                                                href={route('shifts.index')}
+                                                onClick={() => setIsMobileOpen(false)}
+                                                className="flex items-center gap-1.5 text-xs text-sky-400 font-extrabold uppercase font-outfit tracking-wider hover:text-sky-300 transition-colors"
+                                            >
+                                                <span className="h-1.5 w-1.5 rounded-full bg-sky-400 shrink-0"></span>
+                                                <span>Viewer Mode</span>
+                                            </Link>
+                                        ) : registerShift ? (
+                                            <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-extrabold uppercase font-outfit tracking-wider">
+                                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
+                                                <span>Register: {registerShift.user?.name || 'Assigned'}</span>
+                                            </div>
                                         ) : (
                                             <Link
                                                 href={route('shifts.index')}
@@ -667,7 +683,7 @@ export default function AuthenticatedLayout({ children }) {
                                 {navItems
                                     .filter(item => hasRole(item.roles))
                                     .map(item => {
-                                        const isShiftRestricted = item.requiresShift && !activeShift && user.role !== 'admin';
+                                        const isShiftRestricted = item.requiresShift && !activeShift && !viewerMode && user.role !== 'admin';
                                         const linkHref = isShiftRestricted ? route('shifts.index') : item.href;
                                         const badgeCount = getSidebarBadgeCount(item.name);
 
@@ -759,6 +775,16 @@ export default function AuthenticatedLayout({ children }) {
                             <div className="hidden lg:flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-950/30 border border-emerald-900/40 text-emerald-400 text-xs font-semibold">
                                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
                                 <span className="uppercase font-mono tracking-wide">{activeShift.shift_code} REGISTER RUNNING</span>
+                            </div>
+                        ) : viewerMode ? (
+                            <div className="hidden lg:flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-sky-950/30 border border-sky-700/40 text-sky-300 text-xs font-semibold">
+                                <span className="h-1.5 w-1.5 rounded-full bg-sky-400"></span>
+                                <span className="uppercase tracking-wide">VIEWER MODE</span>
+                            </div>
+                        ) : registerShift ? (
+                            <div className="hidden lg:flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-950/30 border border-emerald-900/40 text-emerald-400 text-xs font-semibold">
+                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                                <span className="uppercase tracking-wide">REGISTER: {registerShift.user?.name || 'ASSIGNED'}</span>
                             </div>
                         ) : user.role !== 'housekeeping' ? (
                             <div className="hidden lg:flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-950/30 border border-amber-900/40 text-amber-400 text-xs font-semibold">
@@ -984,6 +1010,24 @@ export default function AuthenticatedLayout({ children }) {
 
                 {/* Main Content */}
                 <main className="app-main flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 lg:p-8 scrollbar-thin relative print:p-0 print:overflow-visible print:bg-white print:h-auto">
+                    {viewerMode && (
+                        <div
+                            className="mb-4 rounded-2xl border border-sky-500/40 bg-sky-950/35 px-4 py-3.5 text-sky-100 shadow-lg print:hidden"
+                            role="status"
+                            data-testid="viewer-mode-banner"
+                        >
+                            <div className="flex items-start gap-3">
+                                <AlertTriangle size={20} className="mt-0.5 shrink-0 text-sky-400" />
+                                <div>
+                                    <div className="font-outfit text-sm font-extrabold uppercase tracking-wide">Viewer Mode — Read Only</div>
+                                    <p className="mt-1 text-xs leading-relaxed text-sky-200/90">
+                                        The front-desk register is assigned to <strong>{registerShift?.user?.name || 'another staff member'}</strong>.
+                                        You may view hotel data, but all operational changes and payment actions are blocked until the register is handed over to you.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                     {children}
                 </main>
             </div>
