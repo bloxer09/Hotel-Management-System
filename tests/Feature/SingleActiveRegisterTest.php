@@ -155,6 +155,40 @@ class SingleActiveRegisterTest extends TestCase
         );
     }
 
+    public function test_shift_owner_can_download_an_editable_excel_working_copy(): void
+    {
+        $operator = User::factory()->create(['role' => 'front_desk']);
+        $shift = $this->activeShiftFor($operator);
+
+        $response = $this->actingAs($operator)
+            ->get(route('shifts.working-copy', $shift));
+
+        $response->assertOk();
+        $response->assertHeader(
+            'content-type',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        );
+        $response->assertHeader('content-disposition');
+        $this->assertStringStartsWith('PK', $response->streamedContent());
+        $this->assertDatabaseHas('audit_logs', [
+            'user_id' => $operator->id,
+            'action' => 'SHIFT_WORKING_COPY_EXPORTED',
+            'module' => 'shift_sessions',
+            'record_id' => $shift->id,
+        ]);
+    }
+
+    public function test_other_staff_cannot_download_another_operators_working_copy(): void
+    {
+        $operator = User::factory()->create(['role' => 'front_desk']);
+        $viewer = User::factory()->create(['role' => 'cashier']);
+        $shift = $this->activeShiftFor($operator);
+
+        $this->actingAs($viewer)
+            ->get(route('shifts.working-copy', $shift))
+            ->assertForbidden();
+    }
+
     private function activeShiftFor(User $user): ShiftSession
     {
         return ShiftSession::create([

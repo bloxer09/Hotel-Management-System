@@ -18,6 +18,7 @@ use DB;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use Shuchkin\SimpleXLSXGen;
 
 class ShiftController extends Controller
 {
@@ -726,6 +727,163 @@ class ShiftController extends Controller
                 'digital_payment' => $digitalTotal + $totalDpDigital,
                 'outstanding_balance' => $outstandingBalance,
             ],
+        ]);
+    }
+
+    /**
+     * Download an editable copy of a shift's operational data.
+     * This workbook is deliberately separate from the official PDF logbook.
+     */
+    public function downloadWorkingCopy(ShiftSession $shift, Request $request)
+    {
+        $user = $request->user();
+
+        abort_unless(
+            $user->role === 'admin' || $shift->user_id === $user->id,
+            403,
+            'Only the assigned front-desk staff or an administrator may export this working copy.'
+        );
+
+        $start = $shift->started_at;
+        $end = $shift->ended_at ?: now();
+        $shiftUserId = $shift->user_id;
+
+        $bookings = Booking::with('room')
+            ->where(function ($query) use ($shiftUserId, $start, $end) {
+                $query->where(fn ($q) => $q->where('checked_in_by', $shiftUserId)->whereBetween('check_in', [$start, $end]))
+                    ->orWhere(fn ($q) => $q->where('checked_out_by', $shiftUserId)->whereBetween('check_out', [$start, $end]));
+            })
+            ->orderBy('check_in')
+            ->get();
+
+        $transactions = Transaction::with('booking.room')
+            ->where('processed_by', $shiftUserId)
+            ->whereBetween('created_at', [$start, $end])
+            ->orderBy('created_at')
+            ->get();
+
+        $cashMovements = CashMovement::with('recorder:id,full_name')
+            ->where('shift_session_id', $shift->id)
+            ->orderBy('moved_at')
+            ->get();
+
+        $expenses = Expense::where('recorded_by', $shiftUserId)
+            ->whereBetween('created_at', [$start, $end])
+            ->orderBy('created_at')
+            ->get();
+
+        $incomes = Income::where('recorded_by', $shiftUserId)
+            ->whereBetween('created_at', [$start, $end])
+            ->orderBy('created_at')
+            ->get();
+
+        $minibarUsage = InventoryUsage::with(['item', 'booking.room'])
+            ->where('recorded_by', $shiftUserId)
+            ->whereBetween('created_at', [$start, $end])
+            ->orderBy('created_at')
+            ->get();
+
+        $workbook = SimpleXLSXGen::fromArray([
+            ['UNOFFICIAL EDITABLE WORKING COPY'],
+            ['This workbook is for formatting and internal analysis only. Editing it does not change PMS records or replace the official PDF logbook.'],
+            [],
+            ['Shift ID', $shift->id],
+            ['Operator', $shift->user?->full_name],
+            ['Shift Code', ucfirst($shift->shift_code)],
+            ['Started At', $start?->format('Y-m-d H:i:s')],
+            ['Ended At', $shift->ended_at?->format('Y-m-d H:i:s') ?? 'Active'],
+            ['Rooms Opening Cash', (float) $shift->opening_cash],
+            ['Rooms Closing Cash', $shift->ended_at ? (float) $shift->closing_cash : null],
+            ['Minibar Opening Cash', (float) $shift->opening_cash_minibar],
+            ['Minibar Closing Cash', $shift->ended_at ? (float) $shift->closing_cash_minibar : null],
+            ['Exported At', now()->format('Y-m-d H:i:s')],
+        ], 'Shift Summary');
+
+        $workbook->addSheet(array_merge([
+            ['Booking Ref', 'Room', 'Guest', 'Check In', 'Check Out', 'Status', 'Total Amount', 'Amount Paid', 'Balance'],
+        ], $bookings->map(fn ($booking) => [
+            $booking->booking_ref,
+            $booking->room?->room_number,
+            $booking->guest_name,
+            $booking->check_in?->format('Y-m-d H:i:s'),
+            $booking->check_out?->format('Y-m-d H:i:s'),
+            $booking->status,
+            (float) $booking->total_amount,
+            (float) $booking->amount_paid,
+            (float) $booking->balance_amount,
+        ])->all()), 'Bookings');
+
+        $workbook->addSheet(array_merge([
+            ['Date/Time', 'Type', 'Booking Ref', 'Room', 'Description', 'Payment Method', 'Amount', 'Cash', 'GCash', 'Reference'],
+        ], $transactions->map(fn ($transaction) => [
+            $transaction->created_at?->format('Y-m-d H:i:s'),
+            $transaction->transaction_type,
+            $transaction->booking?->booking_ref,
+            $transaction->booking?->room?->room_number,
+            $transaction->description,
+            $transaction->payment_method,
+            (float) $transaction->amount,
+            (float) $transaction->cash_amount,
+            (float) $transaction->gcash_amount,
+            $transaction->gcash_ref,
+        ])->all()), 'Transactions');
+
+        $workbook->addSheet(array_merge([
+            ['Date/Time', 'Type', 'Drawer', 'Amount', 'Description', 'Recorded By'],
+        ], $cashMovements->map(fn ($movement) => [
+            $movement->moved_at?->format('Y-m-d H:i:s'),
+            $movement->movement_type,
+            $movement->cash_drawer,
+            (float) $movement->amount,
+            $movement->description,
+            $movement->recorder?->full_name,
+        ])->all()), 'Cash Movements');
+
+        $workbook->addSheet(array_merge([
+            ['Date', 'Drawer', 'Amount', 'Notes'],
+        ], $expenses->map(fn ($expense) => [
+            $expense->expense_date,
+            $expense->cash_drawer,
+            (float) $expense->amount,
+            $expense->notes,
+        ])->all()), 'Expenses');
+
+        $workbook->addSheet(array_merge([
+            ['Date', 'Drawer', 'Amount', 'Notes'],
+        ], $incomes->map(fn ($income) => [
+            $income->income_date,
+            $income->cash_drawer,
+            (float) $income->amount,
+            $income->notes,
+        ])->all()), 'Income');
+
+        $workbook->addSheet(array_merge([
+            ['Date/Time', 'Room', 'Item', 'Quantity', 'Unit Price', 'Total Price'],
+        ], $minibarUsage->map(fn ($usage) => [
+            $usage->created_at?->format('Y-m-d H:i:s'),
+            $usage->booking?->room?->room_number,
+            $usage->item?->item_name,
+            (float) $usage->quantity,
+            (float) $usage->unit_price,
+            (float) $usage->total_price,
+        ])->all()), 'Minibar Usage');
+
+        BookingService::auditLog(
+            $user->id,
+            'SHIFT_WORKING_COPY_EXPORTED',
+            'shift_sessions',
+            $shift->id,
+            null,
+            null,
+            'Editable Excel working copy exported. The official PDF logbook remains the audit record.'
+        );
+
+        $filename = sprintf('shift-%d-working-copy-%s.xlsx', $shift->id, now()->format('Ymd-His'));
+
+        return response()->streamDownload(function () use ($workbook) {
+            echo (string) $workbook;
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         ]);
     }
 

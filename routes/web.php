@@ -58,6 +58,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/shifts/end', [ShiftController::class, 'end'])->name('shifts.end');
         Route::get('/shifts/{id}/report', [ShiftController::class, 'report'])->name('shifts.report');
         Route::get('/shifts/{shift}/ledger-print', [ShiftController::class, 'printLedger'])->name('shifts.ledger-print');
+        Route::get('/shifts/{shift}/working-copy', [ShiftController::class, 'downloadWorkingCopy'])->name('shifts.working-copy');
         Route::post('/shifts/{id}/cash-movements', [ShiftController::class, 'storeCashMovement'])->name('shifts.cash_movements.store');
         Route::delete('/shifts/{id}/cash-movements/{cashMovement}', [ShiftController::class, 'destroyCashMovement'])->name('shifts.cash_movements.destroy');
     });

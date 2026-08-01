@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, useForm, usePage, router } from '@inertiajs/react';
 import {
-    Printer,
     ChevronLeft,
     Info,
     BookOpen,
@@ -15,6 +14,7 @@ import {
     CheckCircle,
     ChevronDown,
     Banknote,
+    FileSpreadsheet,
     Trash2
 } from 'lucide-react';
 import CustomSelect from '@/Components/CustomSelect';
@@ -22,8 +22,10 @@ import CustomSelect from '@/Components/CustomSelect';
 export default function Report({ shift, report }) {
     const { app_name } = usePage().props;
     const [activeTab, setActiveTab] = useState('overview');
-    const [printMode, setPrintMode] = useState('all'); // 'all' (entire report) or 'active' (active tab only)
-    const [printOrientation, setPrintOrientation] = useState('landscape');
+    // The official PDF logbook is the supported print/export output.
+    // These defaults keep the browser's native print fallback intact.
+    const printMode = 'all';
+    const printOrientation = 'landscape';
     const cashMovementForm = useForm({
         movement_type: 'cashier_transfer',
         cash_drawer: 'room',
@@ -62,23 +64,6 @@ export default function Report({ shift, report }) {
         { id: 'income', label: 'Additional Income', icon: PlusCircle, count: report.incomes?.length || 0 },
         { id: 'maintenance', label: 'Maintenance', icon: Wrench, count: report.maintenance_tickets?.length || 0 },
     ];
-
-    // --- Print handlers ---
-    const handlePrintAll = () => {
-        setPrintMode('all');
-        setPrintOrientation('landscape');
-        setTimeout(() => {
-            window.print();
-        }, 150);
-    };
-
-    const handlePrintActive = () => {
-        setPrintMode('active');
-        setPrintOrientation(activeTab === 'daily-cash' ? 'portrait' : 'landscape');
-        setTimeout(() => {
-            window.print();
-        }, 150);
-    };
 
     // Stay collections are verified receipts received during this shift.
     // Booking totals, cumulative paid amounts, and balances remain separate.
@@ -403,20 +388,13 @@ export default function Report({ shift, report }) {
                     </div>
 
                     <div className="flex flex-wrap gap-2">
-                        <button
-                            onClick={handlePrintActive}
-                            className="px-3.5 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-slate-50 text-xs font-bold flex items-center gap-1.5 transition-all shadow"
+                        <a
+                            href={route('shifts.working-copy', shift.id)}
+                            className="px-4 py-2 bg-sky-700 hover:bg-sky-600 rounded-lg text-slate-50 text-xs font-bold flex items-center gap-1.5 transition-all shadow"
                         >
-                            <Printer size={15} />
-                            Print Tab
-                        </button>
-                        <button
-                            onClick={handlePrintAll}
-                            className="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-slate-50 text-xs font-bold flex items-center gap-1.5 transition-all shadow"
-                        >
-                            <Printer size={15} />
-                            Print Full Report
-                        </button>
+                            <FileSpreadsheet size={15} />
+                            Download Excel Working Copy
+                        </a>
                         <a
                             href={route('shifts.ledger-print', shift.id)}
                             target="_blank"
