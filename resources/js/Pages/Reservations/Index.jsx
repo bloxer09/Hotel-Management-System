@@ -17,6 +17,14 @@ import CustomSelect from '@/Components/CustomSelect';
 import ActionModal from '@/Components/ActionModal';
 import SortableHeader from '@/Components/SortableHeader';
 import Pagination from '@/Components/Pagination';
+
+const roundCurrency = (value) => Math.round((Number(value) + Number.EPSILON) * 100) / 100;
+
+const calculateBookingAmountDue = (total, paymentRatio) => {
+    const amount = Number(total) || 0;
+    return roundCurrency(paymentRatio === 'half' ? amount / 2 : amount);
+};
+
 const FILTER_TABS = [
     { key: 'all', label: 'All Bookings', color: 'text-brand-400', dot: 'bg-brand-400' },
     { key: 'reserved', label: 'Pending', color: 'text-indigo-400', dot: 'bg-indigo-400' },
@@ -468,10 +476,13 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
                 setCalc(res.data);
                 setData(prev => {
                     const total = res.data.totals.total_amount;
-                    const due = prev.payment_ratio === 'half' ? Math.round(total / 2) : total;
+                    const due = calculateBookingAmountDue(total, prev.payment_ratio);
                     if (prev.payment_method === 'cash') return { ...prev, cash_amount: due, gcash_amount: 0 };
                     if (prev.payment_method === 'gcash') return { ...prev, gcash_amount: due, cash_amount: 0 };
-                    if (prev.payment_method === 'split') return { ...prev, cash_amount: Math.round(due / 2), gcash_amount: due - Math.round(due / 2) };
+                    if (prev.payment_method === 'split') {
+                        const cashAmount = roundCurrency(due / 2);
+                        return { ...prev, cash_amount: cashAmount, gcash_amount: roundCurrency(due - cashAmount) };
+                    }
                     return { ...prev, cash_amount: 0, gcash_amount: 0 };
                 });
             }).catch(() => { });
@@ -501,24 +512,23 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
 
     const handleCashInput = (e) => {
         const total = calc.totals ? calc.totals.total_amount : calc.total_amount;
-        const due = data.payment_ratio === 'half' ? Math.round(total / 2) : total;
+        const due = calculateBookingAmountDue(total, data.payment_ratio);
         const cash = Math.min(due, Math.max(0, Number(e.target.value) || 0));
         setData(prev => ({ ...prev, cash_amount: cash, gcash_amount: Math.max(0, due - cash) }));
     };
     const handleGCashInput = (e) => {
         const total = calc.totals ? calc.totals.total_amount : calc.total_amount;
-        const due = data.payment_ratio === 'half' ? Math.round(total / 2) : total;
+        const due = calculateBookingAmountDue(total, data.payment_ratio);
         const gcash = Math.min(due, Math.max(0, Number(e.target.value) || 0));
         setData(prev => ({ ...prev, gcash_amount: gcash, cash_amount: Math.max(0, due - gcash) }));
     };
 
     const bookingTotal = Number(calc.totals?.total_amount || calc.total_amount || 0);
-    const bookingAmountDue = data.payment_ratio === 'half'
-        ? Math.round(bookingTotal / 2)
-        : bookingTotal;
+    const bookingAmountDue = calculateBookingAmountDue(bookingTotal, data.payment_ratio);
     const bookingChange = data.payment_method === 'cash'
-        ? Math.max(0, Number(data.cash_received || 0) - bookingAmountDue)
+        ? roundCurrency(Math.max(0, Number(data.cash_received || 0) - bookingAmountDue))
         : 0;
+    const bookingBalanceAfterCollection = roundCurrency(Math.max(0, bookingTotal - bookingAmountDue));
 
     const handleBookingSourceChange = (source) => {
         setData(prev => ({
@@ -1459,7 +1469,7 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
                                                 )}
                                                 {data.payment_method === 'cash' && (
                                                     <div className="flex flex-col gap-1">
-                                                        <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Change</label>
+                                                        <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Change to Give</label>
                                                         <div className={`${inputCls} flex items-center font-mono font-black text-emerald-400`}>
                                                             ₱{bookingChange.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                                         </div>
@@ -1491,11 +1501,11 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
                                                 <div className="p-4 rounded-xl bg-[#0f172a]/60 border border-[#334155] grid grid-cols-1 sm:grid-cols-2 gap-3">
                                                     <div className="flex flex-col gap-1">
                                                         <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Cash (₱)</label>
-                                                        <input type="number" min="0" max={data.payment_ratio === 'half' ? Math.round((calc.totals || calc).total_amount / 2) : (calc.totals || calc).total_amount} step="any" value={data.cash_amount} onChange={handleCashInput} className={`${inputCls} font-mono font-bold`} />
+                                                        <input type="number" min="0" max={calculateBookingAmountDue((calc.totals || calc).total_amount, data.payment_ratio)} step="any" value={data.cash_amount} onChange={handleCashInput} className={`${inputCls} font-mono font-bold`} />
                                                     </div>
                                                     <div className="flex flex-col gap-1">
                                                         <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">GCash (₱)</label>
-                                                        <input type="number" min="0" max={data.payment_ratio === 'half' ? Math.round((calc.totals || calc).total_amount / 2) : (calc.totals || calc).total_amount} step="any" value={data.gcash_amount} onChange={handleGCashInput} className={`${inputCls} font-mono font-bold`} />
+                                                        <input type="number" min="0" max={calculateBookingAmountDue((calc.totals || calc).total_amount, data.payment_ratio)} step="any" value={data.gcash_amount} onChange={handleGCashInput} className={`${inputCls} font-mono font-bold`} />
                                                     </div>
                                                 </div>
                                             )}
@@ -1602,7 +1612,7 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
                                                         {data.payment_ratio === 'half' ? (
                                                             <div className="flex justify-between items-baseline bg-brand-500/10 border border-brand-500/20 p-2.5 rounded-xl mt-1">
                                                                 <span className="font-outfit font-extrabold text-brand-400 uppercase text-[10px]">Due Today (50%):</span>
-                                                                <span className="font-mono text-base font-black text-brand-400">₱{Math.round((calc.totals?.total_amount || calc.total_amount || 0) / 2).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                                                <span className="font-mono text-base font-black text-brand-400">₱{calculateBookingAmountDue((calc.totals?.total_amount || calc.total_amount || 0), data.payment_ratio).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                                             </div>
                                                         ) : (
                                                             <div className="flex justify-between items-baseline bg-emerald-500/10 border border-emerald-500/20 p-2.5 rounded-xl mt-1">
@@ -1611,11 +1621,21 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
                                                             </div>
                                                         )}
                                                         {data.payment_method === 'cash' && (
+                                                            <div className="flex flex-col gap-1.5 mt-2 pt-2 border-t border-[#334155]/60 text-[11px]">
+                                                                <div className="flex justify-between text-slate-400">
+                                                                    <span>Cash received</span>
+                                                                    <span className="font-mono font-bold text-slate-200">₱{Number(data.cash_received || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                                                </div>
+                                                                <div className="flex justify-between items-baseline">
+                                                                    <span className="font-outfit font-black text-slate-100 uppercase tracking-widest text-xs">Change to give:</span>
+                                                                    <span className="font-mono text-base font-black text-emerald-400">₱{bookingChange.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                        {data.payment_ratio === 'half' && (
                                                             <div className="flex justify-between items-baseline mt-2 pt-2 border-t border-[#334155]/60">
-                                                                <span className="font-outfit font-black text-slate-100 uppercase tracking-widest text-xs">Change:</span>
-                                                                <span className="font-mono text-base font-black text-emerald-400">
-                                                                    ₱{bookingChange.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                                                </span>
+                                                                <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Balance at check-in:</span>
+                                                                <span className="font-mono text-xs font-black text-amber-400">₱{bookingBalanceAfterCollection.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                                             </div>
                                                         )}
                                                     </div>

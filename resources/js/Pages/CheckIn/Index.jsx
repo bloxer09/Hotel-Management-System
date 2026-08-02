@@ -63,7 +63,6 @@ export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCod
 
     // ── Search state ──
     const [searchQuery, setSearchQuery] = useState('');
-    const [cashReceived, setCashReceived] = useState('');
 
     // ── Guest autocomplete ──
     const [guestSearch, setGuestSearch] = useState('');
@@ -91,16 +90,32 @@ export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCod
     const queryParams = new URLSearchParams(window.location.search);
     const initialRoomId = queryParams.get('room_id') || '';
 
-    const { data, setData, post, processing, errors, reset } = useForm({
+    const { data, setData, post, processing, errors, reset, setError, clearErrors } = useForm({
         room_ids: initialRoomId ? [parseInt(initialRoomId)] : [],
         guest_name: '', guest_contact: '', guest_id_type: 'Driver License',
         guest_id_number: '', id_image: null, guest_email: '', guest_address: '', extra_pax: {},
         booking_type: 'overnight', num_nights: 1, short_time_hours: 3,
         discount_type: 'none', discount_amount: 0, promo_code: '',
-        payment_method: 'cash', cash_amount: 0.00, gcash_amount: 0.00,
+        payment_method: 'cash', cash_amount: 0.00, gcash_amount: 0.00, cash_received: '',
         gcash_ref: '', reference_number: '', notes: '',
         check_in: getLocalDatetimeString()
     });
+    const checkInTotal = Number(calc.totals?.total_amount ?? calc.total_amount ?? 0);
+    const checkInCashReceived = Number(data.cash_received || 0);
+    const checkInChange = data.payment_method === 'cash'
+        ? Math.round(Math.max(0, checkInCashReceived - checkInTotal) * 100) / 100
+        : 0;
+    const hasCashReceived = String(data.cash_received ?? '').trim() !== '';
+    const paymentValidationMessage = data.payment_method === 'cash' && !hasCashReceived
+        ? 'Enter the cash received from the guest before checking in.'
+        : data.payment_method === 'cash' && checkInCashReceived + 0.01 < checkInTotal
+            ? 'Cash received must cover the full amount to collect.'
+            : ['gcash', 'split'].includes(data.payment_method) && !String(data.gcash_ref ?? '').trim()
+                ? 'Enter the GCash transaction reference before checking in.'
+                : ['bank_transfer', 'card', 'maya', 'other_ewallet', 'other'].includes(data.payment_method) && !String(data.reference_number ?? '').trim()
+                    ? 'Enter the payment reference before checking in.'
+                    : '';
+    const isPaymentReady = !paymentValidationMessage;
 
     const [summaryView, setSummaryView] = useState('all');
 
@@ -360,16 +375,41 @@ export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCod
     }, [data.booking_type, data.num_nights, data.short_time_hours, showModal, data.check_in]);
 
     const handleCashInput = (e) => {
-        const cash = Math.min(calc.total_amount, Math.max(0, Number(e.target.value) || 0));
-        setData(prev => ({ ...prev, cash_amount: cash, gcash_amount: Math.max(0, calc.total_amount - cash) }));
+        const cash = Math.min(checkInTotal, Math.max(0, Number(e.target.value) || 0));
+        setData(prev => ({ ...prev, cash_amount: cash, gcash_amount: Math.round(Math.max(0, checkInTotal - cash) * 100) / 100 }));
     };
     const handleGCashInput = (e) => {
-        const gcash = Math.min(calc.total_amount, Math.max(0, Number(e.target.value) || 0));
-        setData(prev => ({ ...prev, gcash_amount: gcash, cash_amount: Math.max(0, calc.total_amount - gcash) }));
+        const gcash = Math.min(checkInTotal, Math.max(0, Number(e.target.value) || 0));
+        setData(prev => ({ ...prev, gcash_amount: gcash, cash_amount: Math.round(Math.max(0, checkInTotal - gcash) * 100) / 100 }));
+    };
+
+    const handleCheckInPaymentMethodChange = (method) => {
+        const total = checkInTotal;
+        const cashAmount = Math.round((total / 2) * 100) / 100;
+        setData(prev => ({
+            ...prev,
+            payment_method: method,
+            cash_received: '',
+            cash_amount: method === 'cash' ? total : method === 'split' ? cashAmount : 0,
+            gcash_amount: method === 'gcash' ? total : method === 'split' ? Math.round((total - cashAmount) * 100) / 100 : 0,
+            gcash_ref: '',
+            reference_number: '',
+        }));
     };
 
     const handleFormSubmit = (e) => {
         e.preventDefault();
+        if (!e.currentTarget.reportValidity()) return;
+        if (!isPaymentReady) {
+            const paymentField = data.payment_method === 'cash'
+                ? 'cash_received'
+                : ['gcash', 'split'].includes(data.payment_method)
+                    ? 'gcash_ref'
+                    : 'reference_number';
+            setError(paymentField, paymentValidationMessage);
+            return;
+        }
+        clearErrors('cash_received', 'gcash_ref', 'reference_number');
         setShowConfirmCheckInModal(true);
     };
 
@@ -387,11 +427,9 @@ export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCod
         setCalc({ base_amount: 0, peak_surcharge: 0, discount_amount: 0, total_amount: 0, expected_check_out: '', is_peak: false, peak_label: null });
         setIsVip(false); setVipNotes(''); setSelectedGuestStays(0);
         setGuestSearch(''); setSuggestions([]); setPromoInput(''); setPromoError('');
-        setCashReceived('');
         setShowModal(true);
     };
     const closeModal = () => {
-        setCashReceived('');
         setShowModal(false);
     };
 
@@ -991,7 +1029,7 @@ export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCod
                                                 {['cash', 'split'].includes(data.payment_method) && (
                                                     <div className="flex flex-col gap-1">
                                                         <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-emerald-400">Cash Received (₱)</label>
-                                                        <input type="number" step="any" min="0" value={cashReceived} onChange={e => setCashReceived(e.target.value)} placeholder="0.00" className={`${inputCls} font-mono text-emerald-400 font-bold`} />
+                                                        <input type="number" step="0.01" min="0" value={data.cash_received} onChange={e => setData('cash_received', e.target.value)} placeholder="0.00" className={`${inputCls} font-mono text-emerald-400 font-bold`} />
                                                     </div>
                                                 )}
                                                 {['gcash', 'split'].includes(data.payment_method) && (
@@ -1122,12 +1160,88 @@ export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCod
                                                             <span className="font-outfit font-black text-slate-100 uppercase tracking-widest text-xs">Grand Total:</span>
                                                             <span className="font-mono text-xl font-black text-emerald-400 drop-shadow-md">₱{(calc.totals?.total_amount || calc.total_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                                         </div>
-                                                        {['cash', 'split'].includes(data.payment_method) && (
-                                                            <div className="flex justify-between items-baseline mt-2 pt-2 border-t border-[#334155]/60">
-                                                                <span className="font-outfit font-black text-slate-100 uppercase tracking-widest text-xs">Change:</span>
-                                                                <span className="font-mono text-base font-black text-emerald-400">
-                                                                    ₱{(cashReceived ? Math.max(0, Number(cashReceived) - (data.payment_method === 'split' ? (data.cash_amount || 0) : (calc.totals?.total_amount || calc.total_amount || 0))) : 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                                                </span>
+                                                        <div className="flex flex-col gap-2 mt-2 pt-3 border-t border-[#334155]/60">
+                                                            <label className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Payment Method</label>
+                                                            <CustomSelect
+                                                                value={data.payment_method}
+                                                                onChange={e => handleCheckInPaymentMethodChange(e.target.value)}
+                                                                className="w-full rounded-lg border border-[#334155] bg-[#0f172a] px-3 py-2 text-xs font-bold text-slate-100 focus:border-brand-500 focus:outline-none"
+                                                            >
+                                                                <option value="cash">Cash</option>
+                                                                <option value="gcash">GCash</option>
+                                                                <option value="bank_transfer">Bank Transfer</option>
+                                                                <option value="card">Card</option>
+                                                                <option value="maya">Maya</option>
+                                                                <option value="other_ewallet">Other E-wallet</option>
+                                                                <option value="other">Other</option>
+                                                                <option value="split">Split (Cash + GCash)</option>
+                                                            </CustomSelect>
+                                                        </div>
+                                                        {data.payment_method === 'cash' && (
+                                                            <div className="flex flex-col gap-2.5 mt-2 pt-3 border-t border-[#334155]/60">
+                                                                <label className="flex flex-col gap-1">
+                                                                    <span className="text-[10px] font-bold uppercase tracking-wide text-emerald-400">Cash Received (₱)</span>
+                                                                    <input
+                                                                        type="number"
+                                                                        step="0.01"
+                                                                        min={checkInTotal}
+                                                                        required
+                                                                        value={data.cash_received}
+                                                                        onChange={e => setData('cash_received', e.target.value)}
+                                                                        placeholder="0.00"
+                                                                        className="w-full rounded-lg border border-[#334155] bg-[#0f172a] px-3 py-2 font-mono text-sm font-bold text-emerald-400 focus:border-emerald-500 focus:outline-none"
+                                                                    />
+                                                                </label>
+                                                                <div className="flex justify-between text-[11px] text-slate-400">
+                                                                    <span>Amount to collect</span>
+                                                                    <span className="font-mono font-bold text-slate-200">₱{checkInTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                                                </div>
+                                                                <div className="flex justify-between items-baseline">
+                                                                    <span className="font-outfit font-black text-slate-100 uppercase tracking-widest text-xs">Change to give:</span>
+                                                                    <span className="font-mono text-base font-black text-emerald-400">₱{checkInChange.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                        {data.payment_method === 'gcash' && (
+                                                            <label className="flex flex-col gap-1.5 mt-2 pt-3 border-t border-[#334155]/60">
+                                                                <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">GCash Reference Number</span>
+                                                                <input
+                                                                    type="text"
+                                                                    required
+                                                                    value={data.gcash_ref}
+                                                                    onChange={e => setData('gcash_ref', e.target.value)}
+                                                                    placeholder="Enter GCash transaction reference"
+                                                                    className="w-full rounded-lg border border-[#334155] bg-[#0f172a] px-3 py-2 font-mono text-xs font-bold text-slate-100 focus:border-brand-500 focus:outline-none"
+                                                                />
+                                                            </label>
+                                                        )}
+                                                        {['bank_transfer', 'card', 'maya', 'other_ewallet', 'other'].includes(data.payment_method) && (
+                                                            <label className="flex flex-col gap-1.5 mt-2 pt-3 border-t border-[#334155]/60">
+                                                                <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Payment Reference</span>
+                                                                <input
+                                                                    type="text"
+                                                                    required
+                                                                    value={data.reference_number}
+                                                                    onChange={e => setData('reference_number', e.target.value)}
+                                                                    placeholder="Enter transaction or approval reference"
+                                                                    className="w-full rounded-lg border border-[#334155] bg-[#0f172a] px-3 py-2 font-mono text-xs font-bold text-slate-100 focus:border-brand-500 focus:outline-none"
+                                                                />
+                                                            </label>
+                                                        )}
+                                                        {data.payment_method === 'split' && (
+                                                            <div className="grid grid-cols-1 gap-2 mt-2 pt-3 border-t border-[#334155]/60">
+                                                                <label className="flex flex-col gap-1.5">
+                                                                    <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Cash Portion (₱)</span>
+                                                                    <input type="number" min="0" max={checkInTotal} step="0.01" value={data.cash_amount} onChange={handleCashInput} className="w-full rounded-lg border border-[#334155] bg-[#0f172a] px-3 py-2 font-mono text-xs font-bold text-slate-100 focus:border-brand-500 focus:outline-none" />
+                                                                </label>
+                                                                <label className="flex flex-col gap-1.5">
+                                                                    <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">GCash Portion (₱)</span>
+                                                                    <input type="number" min="0" max={checkInTotal} step="0.01" value={data.gcash_amount} onChange={handleGCashInput} className="w-full rounded-lg border border-[#334155] bg-[#0f172a] px-3 py-2 font-mono text-xs font-bold text-slate-100 focus:border-brand-500 focus:outline-none" />
+                                                                </label>
+                                                                <label className="flex flex-col gap-1.5">
+                                                                    <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">GCash Reference Number</span>
+                                                                    <input type="text" required value={data.gcash_ref} onChange={e => setData('gcash_ref', e.target.value)} placeholder="Enter GCash transaction reference" className="w-full rounded-lg border border-[#334155] bg-[#0f172a] px-3 py-2 font-mono text-xs font-bold text-slate-100 focus:border-brand-500 focus:outline-none" />
+                                                                </label>
                                                             </div>
                                                         )}
                                                     </div>
@@ -1143,9 +1257,14 @@ export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCod
                                                 <div className="py-8 text-center text-xs text-slate-500">Select rooms to load bill summary.</div>
                                             )}
 
+                                            {data.room_ids.length > 0 && !isPaymentReady && (
+                                                <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-center text-[11px] font-semibold text-amber-300">
+                                                    {paymentValidationMessage}
+                                                </p>
+                                            )}
                                             <button
                                                 type="submit"
-                                                disabled={processing || data.room_ids.length === 0}
+                                                disabled={processing || data.room_ids.length === 0 || !isPaymentReady}
                                                 className="w-full flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:bg-[#334155] disabled:text-slate-500 text-white font-outfit font-extrabold text-sm tracking-wide shadow-lg active:scale-95 transition-all"
                                             >
                                                 <CheckCircle size={16} />

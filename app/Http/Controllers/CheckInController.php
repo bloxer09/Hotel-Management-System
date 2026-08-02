@@ -14,6 +14,7 @@ use Carbon\Carbon;
 use DB;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
 class CheckInController extends Controller
@@ -234,10 +235,11 @@ class CheckInController extends Controller
             'promo_code' => 'nullable|string',
 
             'payment_method' => 'required|in:cash,gcash,card,bank_transfer,maya,other_ewallet,other,split',
+            'cash_received' => 'nullable|numeric|min:0|required_if:payment_method,cash',
             'cash_amount' => 'nullable|numeric|min:0',
             'gcash_amount' => 'nullable|numeric|min:0',
-            'gcash_ref' => 'nullable|string|max:50',
-            'reference_number' => 'nullable|string|max:50',
+            'gcash_ref' => 'nullable|string|max:50|required_if:payment_method,gcash,split',
+            'reference_number' => 'nullable|string|max:50|required_if:payment_method,card,bank_transfer,maya,other_ewallet,other',
             'notes' => 'nullable|string',
             'transaction_notes' => 'nullable|string',
         ]);
@@ -334,6 +336,11 @@ class CheckInController extends Controller
                 }
 
                 if ($paymentMethod === 'cash') {
+                    if ((float) $request->cash_received + 0.01 < $totalCombinedAmount) {
+                        throw ValidationException::withMessages([
+                            'cash_received' => 'Cash received must be at least the full check-in amount.',
+                        ]);
+                    }
                     $cashAmountTotal = $totalCombinedAmount;
                     $paymentComponents[] = ['payment_method_code' => 'cash', 'amount' => $totalCombinedAmount];
                 } elseif ($paymentMethod === 'gcash') {
