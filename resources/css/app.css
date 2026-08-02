@@ -409,3 +409,1589 @@ textarea:focus-visible {
     outline: 2px solid #5479a4 !important; /* brand-500 */
     outline-offset: 2px;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ── UI POLISH: CONTRAST, READABILITY & VISUAL DEPTH ─────────────────────
+   Scope  : CSS/presentation layer only. No JS, PHP, routes, or logic
+            modified. All rules use attribute-substring selectors keyed to
+            the exact Tailwind class strings present in the JSX, plus the
+            existing html[data-theme] token system.
+   Safety : No JS hooks, IDs, data-attributes, form names, routes, or
+            event-handler behavior is affected by any rule below.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── 1. prefers-reduced-motion: suppress CSS animations and transitions ─── */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+/* ── 2. Enhanced focus-visible indicators ────────────────────────────────── */
+/* Extend existing rule to cover ARIA roles and add border-radius for
+   rounded interactive elements (buttons, cards, dropdowns).                 */
+[role="button"]:focus-visible,
+[role="option"]:focus-visible,
+[role="listbox"]:focus-visible,
+[role="tab"]:focus-visible {
+    outline: 2px solid #5479a4 !important;
+    outline-offset: 2px;
+    border-radius: 6px;
+}
+
+html[data-theme='light'] [role="button"]:focus-visible,
+html[data-theme='light'] [role="option"]:focus-visible,
+html[data-theme='light'] [role="listbox"]:focus-visible,
+html[data-theme='light'] [role="tab"]:focus-visible {
+    outline-color: #315f8c !important;
+}
+
+/* Apply consistent border-radius to existing base focus rules */
+html button:focus-visible,
+html a:focus-visible {
+    border-radius: 6px;
+}
+
+html[data-theme='light'] button:focus-visible,
+html[data-theme='light'] a:focus-visible {
+    outline-color: #315f8c !important;
+    border-radius: 6px;
+}
+
+/* ── 3. Global interactive element micro-transitions ─────────────────────── */
+/* Only applied when the user has not requested reduced motion.              */
+@media (prefers-reduced-motion: no-preference) {
+    button,
+    a.inline-flex,
+    [role="button"] {
+        transition-property: background-color, border-color, color,
+                             box-shadow, opacity;
+        transition-duration: 160ms;
+        transition-timing-function: ease;
+    }
+
+    /* Subtle 1px lift on solid primary and success action buttons only.
+       Excluded from room cards (which use Framer Motion whileHover).       */
+    button[class*="bg-brand-6"]:not(:disabled):hover,
+    button[class*="bg-emerald-6"]:not(:disabled):hover,
+    a[class*="bg-brand-6"]:hover,
+    a[class*="bg-emerald-6"]:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.20);
+    }
+}
+
+/* ── 4. Room card grid: allow cards to self-size to content height ────────
+   Prevents vacant cards (shorter) from stretching to fill the row height
+   set by an occupied card (taller). All content remains visible.           */
+[class*="bg-emerald-950/45"][class*="rounded-2xl"],
+[class*="bg-rose-950/45"][class*="rounded-2xl"],
+[class*="bg-amber-950/45"][class*="rounded-2xl"] {
+    align-self: start;
+}
+
+/* Out-of-order cards in dark mode */
+[class*="bg-slate-900"][class*="border-slate-700"][class*="cursor-pointer"][class*="rounded-2xl"] {
+    align-self: start;
+}
+
+/* Tighten internal gap on vacant cards (only 2 main elements; no info panel).
+   Occupied cards keep gap-3 via Tailwind since their rule below is absent. */
+[class*="bg-emerald-950/45"][class*="rounded-2xl"] {
+    gap: 0.625rem !important; /* 10px vs default gap-3 = 12px */
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   DARK MODE — ROOM CARD STATUS COLOR IMPROVEMENTS
+   Selectors match the exact class strings in Board.jsx STATUS_COLORS.
+   These differ from toast/notification classes (which use /90 opacity).
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* ── 5. Vacant room cards (emerald) ─────────────────────────────────────── */
+[class*="bg-emerald-950/45"] {
+    background-color: rgba(2, 26, 17, 0.62) !important;
+    border-color: rgba(16, 185, 129, 0.42) !important;
+}
+[class*="bg-emerald-950/45"]:hover {
+    border-color: rgba(16, 185, 129, 0.68) !important;
+    box-shadow: 0 6px 20px rgba(2, 26, 17, 0.50),
+                0 2px 6px rgba(0, 0, 0, 0.20) !important;
+}
+
+/* ── 6. Occupied room cards (rose) ───────────────────────────────────────── */
+[class*="bg-rose-950/45"] {
+    background-color: rgba(59, 7, 13, 0.65) !important;
+    border-color: rgba(244, 63, 94, 0.40) !important;
+}
+[class*="bg-rose-950/45"]:hover {
+    border-color: rgba(244, 63, 94, 0.65) !important;
+    box-shadow: 0 6px 20px rgba(59, 7, 13, 0.55),
+                0 2px 6px rgba(0, 0, 0, 0.20) !important;
+}
+
+/* ── 7. Cleaning room cards (amber) ──────────────────────────────────────── */
+[class*="bg-amber-950/45"] {
+    background-color: rgba(54, 28, 2, 0.62) !important;
+    border-color: rgba(245, 158, 11, 0.40) !important;
+}
+[class*="bg-amber-950/45"]:hover {
+    border-color: rgba(245, 158, 11, 0.65) !important;
+    box-shadow: 0 6px 20px rgba(54, 28, 2, 0.55),
+                0 2px 6px rgba(0, 0, 0, 0.20) !important;
+}
+
+/* ── 8. Out-of-order cards (slate) ───────────────────────────────────────── */
+/* Lifted slightly above page bg (#0f172a) for visual separation.           */
+[class*="bg-slate-900"][class*="border-slate-700"][class*="cursor-pointer"][class*="rounded-2xl"] {
+    background-color: rgb(20, 27, 42) !important;
+    border-color: rgba(100, 116, 139, 0.50) !important;
+}
+[class*="bg-slate-900"][class*="border-slate-700"][class*="cursor-pointer"][class*="rounded-2xl"]:hover {
+    border-color: rgba(100, 116, 139, 0.75) !important;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.32) !important;
+}
+
+/* ── 9. Room-type label opacity softening inside status cards ─────────────
+   The span with opacity-70 class (type name) and opacity-75 (status label)
+   are made slightly more opaque so they don't vanish on the dark tint.     */
+[class*="bg-emerald-950/45"] .opacity-70,
+[class*="bg-rose-950/45"] .opacity-70,
+[class*="bg-amber-950/45"] .opacity-70,
+[class*="bg-slate-900"][class*="border-slate-700"][class*="cursor-pointer"] .opacity-70 {
+    opacity: 0.88 !important;
+}
+[class*="bg-emerald-950/45"] .opacity-75,
+[class*="bg-rose-950/45"] .opacity-75,
+[class*="bg-amber-950/45"] .opacity-75,
+[class*="bg-slate-900"][class*="border-slate-700"][class*="cursor-pointer"] .opacity-75 {
+    opacity: 0.92 !important;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   DARK MODE — ALERT BADGES, RING OUTLINES, MINI-BUTTONS, INFO PANEL
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* ── 10. Overdue checkout badge (on occupied cards) ──────────────────────── */
+/* bg-red-900/60 text-red-300 border border-red-700/30                      */
+[class*="bg-red-900/60"][class*="text-red-3"] {
+    background-color: rgba(127, 29, 29, 0.82) !important;
+    border-color: rgba(239, 68, 68, 0.58) !important;
+    color: #fca5a5 !important; /* red-300 — brightened for readability */
+}
+
+/* ── 11. Upcoming checkout badge (on occupied cards) ─────────────────────── */
+/* bg-amber-900/60 text-amber-300 border border-amber-700/30                */
+[class*="bg-amber-900/60"][class*="text-amber-3"] {
+    background-color: rgba(120, 53, 15, 0.82) !important;
+    border-color: rgba(245, 158, 11, 0.58) !important;
+    color: #fcd34d !important; /* amber-300 — brightened */
+}
+
+/* ── 12. Ring outline strength on overdue/upcoming cards ─────────────────── */
+/* ring-2 ring-red-500/60 and ring-2 ring-amber-400/50 in Board.jsx         */
+[class*="ring-red-500"] {
+    --tw-ring-color: rgba(239, 68, 68, 0.72) !important;
+}
+[class*="ring-amber-400"] {
+    --tw-ring-color: rgba(251, 191, 36, 0.68) !important;
+}
+
+/* ── 13. Calendar mini-button inside room cards (dark mode) ──────────────── */
+/* bg-brand-500/10 border border-brand-500/20 text-brand-400               */
+[class*="bg-brand-500/10"][class*="border-brand-500/20"] {
+    background-color: rgba(84, 121, 164, 0.20) !important;
+    border-color: rgba(84, 121, 164, 0.44) !important;
+    color: #93c5fd !important; /* blue-300 — clearly readable */
+}
+[class*="bg-brand-500/10"][class*="border-brand-500/20"]:hover {
+    background-color: rgba(84, 121, 164, 0.34) !important;
+    border-color: rgba(84, 121, 164, 0.68) !important;
+}
+
+/* ── 14. Occupied card guest info panel (dark mode) ──────────────────────── */
+/* bg-[#0f172a]/20 rounded-lg text-slate-350                                 */
+/* text-slate-350 is non-standard; text is inherited from parent (rose-300). */
+/* We fix label and value contrast explicitly.                               */
+[class*="bg-[#0f172a]/20"][class*="rounded-lg"] {
+    background-color: rgba(2, 6, 23, 0.35) !important;
+}
+/* Label spans: "Guest:", "Type:", "Checkout:" — currently opacity-50       */
+[class*="bg-[#0f172a]/20"][class*="rounded-lg"] .opacity-50 {
+    opacity: 1 !important;
+    color: #64748b !important; /* slate-500 — readable secondary on dark */
+}
+/* Value text: guest name (font-bold) */
+[class*="bg-[#0f172a]/20"][class*="rounded-lg"] .font-bold {
+    color: #e2e8f0 !important; /* slate-200 — high contrast */
+}
+/* font-semibold for booking type */
+[class*="bg-[#0f172a]/20"][class*="rounded-lg"] .font-semibold {
+    color: #e2e8f0 !important;
+}
+/* Checkout time: font-mono font-bold text-rose-350 (non-standard = inherit) */
+[class*="bg-[#0f172a]/20"][class*="rounded-lg"] [class*="font-mono"] {
+    color: #fda4af !important; /* rose-300 — clear warning color */
+}
+/* Booking type: text-brand-400 uppercase */
+[class*="bg-[#0f172a]/20"][class*="rounded-lg"] [class*="text-brand-4"] {
+    color: #93c5fd !important; /* blue-300 — clear accent */
+}
+
+/* ── 15. Card info panel border separator (dark mode) ────────────────────── */
+/* border-t border-[#334155]/60 */
+[class*="border-[#334155]/60"] {
+    border-color: rgba(51, 65, 85, 0.75) !important;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   DARK MODE — ACTION BUTTONS (AVAILABILITY, CHECK-IN, BULK CLEAN)
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* ── 16. "Availability" button (dark mode) ───────────────────────────────── */
+/* bg-indigo-700/30 border border-indigo-600/40 text-indigo-300             */
+button[class*="bg-indigo-700"][class*="text-indigo"],
+a[class*="bg-indigo-700"][class*="text-indigo"] {
+    background-color: rgba(67, 56, 202, 0.42) !important;
+    border-color: rgba(99, 102, 241, 0.64) !important;
+    color: #a5b4fc !important; /* indigo-300 — brightened */
+}
+button[class*="bg-indigo-700"][class*="text-indigo"]:hover,
+a[class*="bg-indigo-700"][class*="text-indigo"]:hover {
+    background-color: rgba(67, 56, 202, 0.58) !important;
+    border-color: rgba(99, 102, 241, 0.84) !important;
+    box-shadow: 0 4px 14px rgba(67, 56, 202, 0.28) !important;
+}
+
+/* ── 17. "Check-In" link / button (dark mode) ────────────────────────────── */
+/* bg-emerald-700/30 border border-emerald-600/40 text-emerald-300          */
+a[class*="bg-emerald-700"][class*="text-emerald"],
+button[class*="bg-emerald-700"][class*="text-emerald"] {
+    background-color: rgba(4, 120, 87, 0.44) !important;
+    border-color: rgba(16, 185, 129, 0.64) !important;
+    color: #6ee7b7 !important; /* emerald-300 — brightened */
+}
+a[class*="bg-emerald-700"][class*="text-emerald"]:hover,
+button[class*="bg-emerald-700"][class*="text-emerald"]:hover {
+    background-color: rgba(4, 120, 87, 0.60) !important;
+    border-color: rgba(16, 185, 129, 0.84) !important;
+    box-shadow: 0 4px 14px rgba(4, 120, 87, 0.30) !important;
+}
+
+/* ── 18. "Bulk Clean" button (dark mode) ─────────────────────────────────── */
+/* bg-amber-600/20 border border-amber-500/40 text-amber-300                */
+button[class*="bg-amber-600/20"][class*="text-amber"] {
+    background-color: rgba(217, 119, 6, 0.32) !important;
+    border-color: rgba(245, 158, 11, 0.60) !important;
+    color: #fcd34d !important; /* amber-300 — brightened */
+}
+button[class*="bg-amber-600/20"][class*="text-amber"]:hover {
+    background-color: rgba(217, 119, 6, 0.46) !important;
+    border-color: rgba(245, 158, 11, 0.80) !important;
+    box-shadow: 0 4px 14px rgba(217, 119, 6, 0.24) !important;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   DARK MODE — SEARCH FIELD, FLOOR HEADERS, MISC
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* ── 19. Search field: visual depth to distinguish from page background ─── */
+/* bg-[#0f172a] border border-[#334155] rounded-xl (same as page bg)        */
+input[class*="bg-[#0f172a]"][class*="border"][class*="rounded-xl"],
+input[class*="border-[#334155]"][class*="rounded-xl"] {
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.40),
+                0 0 0 1px rgba(51, 65, 85, 0.28) !important;
+}
+input[class*="bg-[#0f172a]"][class*="border"][class*="rounded-xl"]:focus,
+input[class*="border-[#334155]"][class*="rounded-xl"]:focus {
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.40),
+                0 0 0 2px rgba(84, 121, 164, 0.45) !important;
+    border-color: #5479a4 !important;
+}
+
+/* ── 20. Floor group header: text-slate-550 is non-standard in Tailwind ─── */
+/* Board.jsx line 446: className="... text-slate-550 ..."                   */
+[class*="text-slate-550"] {
+    color: #94a3b8 !important; /* slate-400 — readable secondary heading */
+}
+
+/* Room count "(N rooms)" — text-slate-600 on dark bg has ~2.5:1 contrast   */
+/* Scope to .app-main to avoid affecting sidebar/topbar slate-600 usage.    */
+.app-main [class*="text-slate-600"] {
+    color: #64748b !important; /* slate-500 — improved dark-mode contrast */
+}
+
+/* ── 21. Floor header divider line (dark mode) ───────────────────────────── */
+/* flex-1 h-px bg-[#334155] — keep as is in dark; improved in light below   */
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LIGHT MODE — ROOM CARD STATUS OVERRIDES
+   The existing broad rules (lines 55–82) flip dark Tailwind classes to
+   light backgrounds. The rules below restore correct status semantics for
+   the specific room card class combinations used in Board.jsx.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── 22. Vacant cards in light mode ──────────────────────────────────────── */
+html[data-theme='light'] [class*="bg-emerald-950/45"] {
+    background-color: #f0fdf4 !important;          /* emerald-50 */
+    border-color: #86efac !important;              /* emerald-300 */
+    color: #14532d !important;                     /* emerald-900 */
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.12),
+                0 1px 3px rgba(0, 0, 0, 0.06) !important;
+    gap: 0.625rem !important;                      /* preserve gap tightening */
+    align-self: start;
+}
+
+/* ── 23. Occupied cards in light mode ────────────────────────────────────── */
+html[data-theme='light'] [class*="bg-rose-950/45"] {
+    background-color: #fff1f2 !important;          /* rose-50 */
+    border-color: #fda4af !important;              /* rose-300 */
+    color: #881337 !important;                     /* rose-900 */
+    box-shadow: 0 2px 8px rgba(244, 63, 94, 0.12),
+                0 1px 3px rgba(0, 0, 0, 0.06) !important;
+    align-self: start;
+}
+
+/* ── 24. Cleaning cards in light mode ────────────────────────────────────── */
+html[data-theme='light'] [class*="bg-amber-950/45"] {
+    background-color: #fffbeb !important;          /* amber-50 */
+    border-color: #fcd34d !important;              /* amber-300 */
+    color: #78350f !important;                     /* amber-900 */
+    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.14),
+                0 1px 3px rgba(0, 0, 0, 0.06) !important;
+    align-self: start;
+}
+
+/* ── 25. Out-of-order cards in light mode ────────────────────────────────── */
+html[data-theme='light'] [class*="bg-slate-900"][class*="border-slate-700"][class*="cursor-pointer"][class*="rounded-2xl"] {
+    background-color: #f1f5f9 !important;          /* slate-100 */
+    border-color: #94a3b8 !important;              /* slate-400 */
+    color: #334155 !important;                     /* slate-700 */
+    box-shadow: 0 2px 8px rgba(100, 116, 139, 0.10),
+                0 1px 3px rgba(0, 0, 0, 0.05) !important;
+    align-self: start;
+}
+
+/* ── 26. Status-colored child text in light mode ─────────────────────────── */
+/* Override dark-mode color tokens that are inherited or set on child spans. */
+
+/* Vacant: emerald-300 text → emerald-800 for readability on emerald-50     */
+html[data-theme='light'] [class*="bg-emerald-950/45"] [class*="text-emerald-3"],
+html[data-theme='light'] [class*="bg-emerald-950/45"] [class*="text-emerald-4"] {
+    color: #166534 !important; /* emerald-800 */
+}
+html[data-theme='light'] [class*="bg-emerald-950/45"] .opacity-70,
+html[data-theme='light'] [class*="bg-emerald-950/45"] .opacity-75 {
+    color: #166534 !important;
+    opacity: 1 !important;
+}
+
+/* Occupied: rose-300 text → rose-800 on rose-50                            */
+html[data-theme='light'] [class*="bg-rose-950/45"] [class*="text-rose-3"],
+html[data-theme='light'] [class*="bg-rose-950/45"] [class*="text-rose-4"] {
+    color: #9f1239 !important; /* rose-800 */
+}
+html[data-theme='light'] [class*="bg-rose-950/45"] .opacity-70,
+html[data-theme='light'] [class*="bg-rose-950/45"] .opacity-75 {
+    color: #9f1239 !important;
+    opacity: 1 !important;
+}
+
+/* Cleaning: amber-300/amber-400 text → amber-800 on amber-50               */
+html[data-theme='light'] [class*="bg-amber-950/45"] [class*="text-amber-3"],
+html[data-theme='light'] [class*="bg-amber-950/45"] [class*="text-amber-4"] {
+    color: #92400e !important; /* amber-800 */
+}
+html[data-theme='light'] [class*="bg-amber-950/45"] .opacity-70,
+html[data-theme='light'] [class*="bg-amber-950/45"] .opacity-75 {
+    color: #92400e !important;
+    opacity: 1 !important;
+}
+/* animate-pulse "Cleaning" text on light amber bg needs dark color          */
+html[data-theme='light'] [class*="bg-amber-950/45"] .animate-pulse {
+    color: #92400e !important;
+}
+/* Cleaning elapsed time: text-amber-300 font-mono → amber-800              */
+html[data-theme='light'] [class*="bg-amber-950/45"] [class*="font-mono"] {
+    color: #78350f !important; /* amber-900 */
+}
+/* Housekeeper name: text-slate-4 inside cleaning card → amber-900          */
+html[data-theme='light'] [class*="bg-amber-950/45"] [class*="text-slate-4"] {
+    color: #78350f !important;
+}
+
+/* Out-of-order: slate-400 text → slate-700 on slate-100                    */
+html[data-theme='light'] [class*="bg-slate-900"][class*="border-slate-700"][class*="cursor-pointer"] [class*="text-slate-4"] {
+    color: #475569 !important; /* slate-600 */
+}
+html[data-theme='light'] [class*="bg-slate-900"][class*="border-slate-700"][class*="cursor-pointer"] .opacity-70,
+html[data-theme='light'] [class*="bg-slate-900"][class*="border-slate-700"][class*="cursor-pointer"] .opacity-75 {
+    color: #334155 !important;
+    opacity: 1 !important;
+}
+
+/* ── 27. Overdue and upcoming badges in light mode ───────────────────────── */
+html[data-theme='light'] [class*="bg-red-900/60"][class*="text-red-3"] {
+    background-color: #fee2e2 !important;  /* red-100 */
+    border-color: #f87171 !important;      /* red-400 */
+    color: #991b1b !important;             /* red-800 — 5.9:1 on red-100 */
+}
+html[data-theme='light'] [class*="bg-amber-900/60"][class*="text-amber-3"] {
+    background-color: #fef3c7 !important;  /* amber-100 */
+    border-color: #f59e0b !important;      /* amber-500 */
+    color: #78350f !important;             /* amber-900 — 7.1:1 on amber-100 */
+}
+
+/* ── 28. Ring outlines on overdue/upcoming cards in light mode ───────────── */
+html[data-theme='light'] [class*="ring-red-500"] {
+    --tw-ring-color: rgba(220, 38, 38, 0.68) !important;
+}
+html[data-theme='light'] [class*="ring-amber-400"] {
+    --tw-ring-color: rgba(217, 119, 6, 0.62) !important;
+}
+
+/* ── 29. Calendar mini-button in light mode ──────────────────────────────── */
+html[data-theme='light'] [class*="bg-brand-500/10"][class*="border-brand-500/20"] {
+    background-color: #dbeafe !important;  /* blue-100 */
+    border-color: #93c5fd !important;      /* blue-300 */
+    color: #1e40af !important;             /* blue-800 — 6.0:1 on blue-100 */
+}
+html[data-theme='light'] [class*="bg-brand-500/10"][class*="border-brand-500/20"]:hover {
+    background-color: #bfdbfe !important;  /* blue-200 */
+    border-color: #60a5fa !important;      /* blue-400 */
+}
+
+/* ── 30. Occupied card guest info panel in light mode ────────────────────── */
+html[data-theme='light'] [class*="bg-[#0f172a]/20"][class*="rounded-lg"] {
+    background-color: rgba(255, 255, 255, 0.80) !important;
+}
+html[data-theme='light'] [class*="bg-[#0f172a]/20"][class*="rounded-lg"] .opacity-50 {
+    opacity: 1 !important;
+    color: #475569 !important; /* slate-600 — 4.6:1 on white */
+}
+html[data-theme='light'] [class*="bg-[#0f172a]/20"][class*="rounded-lg"] .font-bold {
+    color: #1e293b !important; /* slate-800 */
+}
+html[data-theme='light'] [class*="bg-[#0f172a]/20"][class*="rounded-lg"] .font-semibold {
+    color: #1e293b !important;
+}
+html[data-theme='light'] [class*="bg-[#0f172a]/20"][class*="rounded-lg"] [class*="font-mono"] {
+    color: #be123c !important; /* rose-700 — 5.4:1 on white */
+}
+html[data-theme='light'] [class*="bg-[#0f172a]/20"][class*="rounded-lg"] [class*="text-brand-4"] {
+    color: #1d4ed8 !important; /* blue-700 */
+}
+
+/* Info panel border separator in light mode */
+html[data-theme='light'] [class*="border-[#334155]/60"] {
+    border-color: #cbd5e1 !important; /* slate-300 */
+}
+
+/* ── 31. "Availability" button in light mode ─────────────────────────────── */
+html[data-theme='light'] button[class*="bg-indigo-700"][class*="text-indigo"],
+html[data-theme='light'] a[class*="bg-indigo-700"][class*="text-indigo"] {
+    background-color: #e0e7ff !important;  /* indigo-100 */
+    border-color: #818cf8 !important;      /* indigo-400 */
+    color: #3730a3 !important;             /* indigo-800 — 7.2:1 on indigo-100 */
+    box-shadow: 0 1px 3px rgba(99, 102, 241, 0.10) !important;
+}
+html[data-theme='light'] button[class*="bg-indigo-700"][class*="text-indigo"]:hover,
+html[data-theme='light'] a[class*="bg-indigo-700"][class*="text-indigo"]:hover {
+    background-color: #c7d2fe !important;  /* indigo-200 */
+    border-color: #6366f1 !important;      /* indigo-500 */
+    box-shadow: 0 3px 10px rgba(99, 102, 241, 0.22) !important;
+    transform: translateY(-1px);
+}
+
+/* ── 32. "Check-In" link in light mode ───────────────────────────────────── */
+html[data-theme='light'] a[class*="bg-emerald-700"][class*="text-emerald"],
+html[data-theme='light'] button[class*="bg-emerald-700"][class*="text-emerald"] {
+    background-color: #d1fae5 !important;  /* emerald-100 */
+    border-color: #6ee7b7 !important;      /* emerald-300 */
+    color: #064e3b !important;             /* emerald-900 — 8.0:1 on emerald-100 */
+    box-shadow: 0 1px 3px rgba(16, 185, 129, 0.10) !important;
+}
+html[data-theme='light'] a[class*="bg-emerald-700"][class*="text-emerald"]:hover,
+html[data-theme='light'] button[class*="bg-emerald-700"][class*="text-emerald"]:hover {
+    background-color: #a7f3d0 !important;  /* emerald-200 */
+    border-color: #34d399 !important;      /* emerald-400 */
+    box-shadow: 0 3px 10px rgba(16, 185, 129, 0.24) !important;
+    transform: translateY(-1px);
+}
+
+/* ── 33. "Bulk Clean" button in light mode ───────────────────────────────── */
+html[data-theme='light'] button[class*="bg-amber-600/20"][class*="text-amber"] {
+    background-color: #fef3c7 !important;  /* amber-100 */
+    border-color: #fbbf24 !important;      /* amber-400 */
+    color: #78350f !important;             /* amber-900 — 7.1:1 on amber-100 */
+    box-shadow: 0 1px 3px rgba(245, 158, 11, 0.10) !important;
+}
+html[data-theme='light'] button[class*="bg-amber-600/20"][class*="text-amber"]:hover {
+    background-color: #fde68a !important;  /* amber-200 */
+    border-color: #f59e0b !important;      /* amber-500 */
+    box-shadow: 0 3px 10px rgba(245, 158, 11, 0.22) !important;
+    transform: translateY(-1px);
+}
+
+/* ── 34. Floor group header in light mode ────────────────────────────────── */
+/* text-slate-550 (non-standard) → slate-600 for light mode readability     */
+html[data-theme='light'] [class*="text-slate-550"] {
+    color: #475569 !important; /* slate-600 — clear section header */
+}
+/* Room count: light mode override (existing rule sets to #596981; keep it) */
+html[data-theme='light'] .app-main [class*="text-slate-600"] {
+    color: #596981 !important; /* restore to existing light value */
+}
+/* Floor divider line */
+html[data-theme='light'] [class*="flex-1"][class*="h-px"][class*="bg-[#334155]"] {
+    background-color: #d1dde9 !important; /* slate-300 equivalent */
+}
+
+/* ── 35. Search field in light mode ──────────────────────────────────────── */
+/* The existing input rule handles most cases; this targets the Board search
+   field's dark-mode bg-[#0f172a] class that the broad rule may miss.       */
+html[data-theme='light'] input[class*="bg-[#0f172a]"][class*="border"][class*="rounded-xl"],
+html[data-theme='light'] input[class*="border-[#334155]"][class*="rounded-xl"] {
+    background-color: #ffffff !important;
+    border-color: #b0c4d8 !important;
+    color: #172033 !important;
+    box-shadow: 0 1px 3px rgba(26, 45, 70, 0.06),
+                inset 0 1px 2px rgba(26, 45, 70, 0.03) !important;
+}
+html[data-theme='light'] input[class*="bg-[#0f172a]"][class*="border"][class*="rounded-xl"]::placeholder,
+html[data-theme='light'] input[class*="border-[#334155]"][class*="rounded-xl"]::placeholder {
+    color: #8096a7 !important;
+}
+html[data-theme='light'] input[class*="bg-[#0f172a]"][class*="border"][class*="rounded-xl"]:focus,
+html[data-theme='light'] input[class*="border-[#334155]"][class*="rounded-xl"]:focus {
+    border-color: #5479a4 !important;
+    box-shadow: 0 0 0 3px rgba(84, 121, 164, 0.16),
+                0 1px 3px rgba(26, 45, 70, 0.06) !important;
+}
+
+/* ── 36. CustomSelect trigger in light mode ──────────────────────────────── */
+/* The existing broad bg-[#1e293b] rule turns these white; restore text and
+   add a proper box-shadow for depth. Only targets rounded-xl elements to
+   avoid catching sidebar/modal surfaces.                                    */
+html[data-theme='light'] button[class*="bg-[#1e293b]"][class*="border-[#334155]"][class*="rounded-xl"] {
+    background-color: #ffffff !important;
+    border-color: #cfdbe7 !important;
+    color: #172033 !important;
+    box-shadow: 0 1px 3px rgba(26, 45, 70, 0.07) !important;
+}
+html[data-theme='light'] button[class*="bg-[#1e293b]"][class*="border-[#334155]"][class*="rounded-xl"]:hover {
+    background-color: #f5f8fb !important;
+    border-color: #9fb5ca !important;
+}
+/* Text and chevron inside the trigger */
+html[data-theme='light'] button[class*="bg-[#1e293b]"][class*="border-[#334155]"][class*="rounded-xl"] span {
+    color: #172033 !important;
+}
+html[data-theme='light'] button[class*="bg-[#1e293b]"][class*="border-[#334155]"][class*="rounded-xl"] svg {
+    color: #64748b !important;
+}
+
+/* ── 37. CustomSelect dropdown panel in light mode ───────────────────────── */
+/* Dropdown content: bg-[#0f172a] border border-[#334155] rounded-xl        */
+/* Exclude <input> and <textarea> to avoid double-targeting search fields.   */
+html[data-theme='light'] div[class*="bg-[#0f172a]"][class*="border-[#334155]"][class*="rounded-xl"] {
+    background-color: #ffffff !important;
+    border-color: #d1dde9 !important;
+    box-shadow: 0 10px 30px rgba(26, 45, 70, 0.14),
+                0 2px 8px rgba(26, 45, 70, 0.06) !important;
+}
+/* Option button items within the dropdown */
+html[data-theme='light'] div[class*="bg-[#0f172a]"][class*="border-[#334155]"][class*="rounded-xl"] button:not([class*="bg-brand-6"]) {
+    color: #334155 !important;
+}
+html[data-theme='light'] div[class*="bg-[#0f172a]"][class*="border-[#334155]"][class*="rounded-xl"] button:not([class*="bg-brand-6"]):hover {
+    background-color: #f0f5fa !important;
+    color: #172033 !important;
+}
+/* Selected option item */
+html[data-theme='light'] div[class*="bg-[#0f172a]"][class*="border-[#334155]"][class*="rounded-xl"] [class*="bg-brand-6"] {
+    background-color: #315f8c !important;
+    color: #ffffff !important;
+}
+
+/* ── 38. Notification bell dropdown in light mode ───────────────────────── */
+/* The panel is a sibling of #notification-bell-btn and uses the same dark
+   surface utility as the topbar.  Keep this rule narrowly scoped so a light
+   theme conversion cannot make the notification content blend into the page. */
+html[data-theme='light'] #notification-bell-btn[class*="bg-[#0f172a]"] {
+    background-color: #ffffff !important;
+    border-color: #b8c8d8 !important;
+    color: #475569 !important;
+    box-shadow: 0 1px 3px rgba(26, 45, 70, 0.08) !important;
+}
+
+html[data-theme='light'] #notification-bell-btn[class*="bg-[#0f172a]"]:hover {
+    background-color: #f1f5f9 !important;
+    border-color: #7897b4 !important;
+    color: #172033 !important;
+}
+
+html[data-theme='light'] #notification-bell-btn ~ div[class*="z-[200]"][class*="bg-[#1e293b]"] {
+    z-index: 200 !important;
+    isolation: isolate;
+    background-color: #ffffff !important;
+    border-color: #c6d3e0 !important;
+    box-shadow: 0 16px 36px rgba(26, 45, 70, 0.18),
+                0 3px 10px rgba(26, 45, 70, 0.08) !important;
+}
+
+html[data-theme='light'] #notification-bell-btn ~ div[class*="z-[200]"][class*="bg-[#1e293b]"] [class*="border-[#334155]"] {
+    border-color: #d7e1eb !important;
+}
+
+html[data-theme='light'] #notification-bell-btn ~ div[class*="z-[200]"][class*="bg-[#1e293b]"] [class*="text-slate-200"],
+html[data-theme='light'] #notification-bell-btn ~ div[class*="z-[200]"][class*="bg-[#1e293b]"] [class*="text-slate-300"] {
+    color: #172033 !important;
+}
+
+html[data-theme='light'] #notification-bell-btn ~ div[class*="z-[200]"][class*="bg-[#1e293b]"] [class*="text-slate-400"] {
+    color: #475569 !important;
+}
+
+html[data-theme='light'] #notification-bell-btn ~ div[class*="z-[200]"][class*="bg-[#1e293b]"] [class*="text-slate-500"] {
+    color: #64748b !important;
+}
+
+html[data-theme='light'] #notification-bell-btn ~ div[class*="z-[200]"][class*="bg-[#1e293b]"] [class*="hover:bg-[#334155]"]:hover {
+    background-color: #eef4f9 !important;
+}
+
+/* The desktop utility `sm:absolute` placed the panel inside the topbar's
+   stacking context, allowing the following main element to cover it. Keep
+   the entire light-theme topbar above the main surface and anchor the panel
+   below it instead. */
+html[data-theme='light'] .app-topbar {
+    position: relative;
+    z-index: 50;
+    overflow: visible;
+}
+
+html[data-theme='light'] #notification-bell-btn ~ div[class*="z-[200]"][class*="bg-[#1e293b]"] {
+    position: fixed !important;
+    top: 4.5rem !important;
+}
+
+@media (min-width: 640px) {
+    html[data-theme='light'] #notification-bell-btn ~ div[class*="z-[200]"][class*="bg-[#1e293b]"] {
+        top: 5.5rem !important;
+        right: 1.5rem !important;
+        left: auto !important;
+    }
+}
+
+/* ── 39. Shift Register Running status pill ──────────────────────────────── */
+/* Target the register running status pill inside topbar specifically using
+   narrowly scoped class substring matchers to avoid affecting any other
+   green cards, badges or buttons. Informational only (no interactive hover). */
+.app-topbar [class*="bg-emerald-950/30"][class*="border-emerald-900/40"] {
+    background-color: rgba(6, 78, 59, 0.45) !important;
+    border-color: rgba(16, 185, 129, 0.45) !important;
+    color: #6ee7b7 !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+}
+
+.app-topbar [class*="bg-emerald-950/30"][class*="border-emerald-900/40"] span.bg-emerald-400 {
+    background-color: #34d399 !important;
+    box-shadow: 0 0 6px rgba(52, 211, 153, 0.6) !important;
+}
+
+html[data-theme='light'] .app-topbar [class*="bg-emerald-950/30"][class*="border-emerald-900/40"] {
+    background-color: #ecfdf5 !important;
+    border-color: #6ee7b7 !important;
+    color: #065f46 !important;
+    box-shadow: 0 1px 2px rgba(16, 185, 129, 0.12) !important;
+}
+
+html[data-theme='light'] .app-topbar [class*="bg-emerald-950/30"][class*="border-emerald-900/40"] span.bg-emerald-400 {
+    background-color: #059669 !important;
+    box-shadow: 0 0 5px rgba(5, 150, 105, 0.4) !important;
+}
+
+/* ── 40. Export Sold Items button (POS Page) ─────────────────────────────── */
+/* Target the Export Sold Items button narrowly via its specific class combination
+   to fix light-mode white-on-white low contrast while preserving dark-mode quality. */
+button[class*="bg-[#334155]"][class*="shadow-slate-700/20"] {
+    background-color: #334155 !important;
+    border: 1px solid #475569 !important;
+    color: #f8fafc !important;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.25) !important;
+}
+
+button[class*="bg-[#334155]"][class*="shadow-slate-700/20"] svg {
+    color: #f8fafc !important;
+}
+
+button[class*="bg-[#334155]"][class*="shadow-slate-700/20"]:hover {
+    background-color: #475569 !important;
+    border-color: #64748b !important;
+    color: #ffffff !important;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.35) !important;
+}
+
+button[class*="bg-[#334155]"][class*="shadow-slate-700/20"]:hover svg {
+    color: #ffffff !important;
+}
+
+button[class*="bg-[#334155]"][class*="shadow-slate-700/20"]:focus-visible {
+    outline: 2px solid #5479a4 !important;
+    outline-offset: 2px !important;
+}
+
+button[class*="bg-[#334155]"][class*="shadow-slate-700/20"]:active {
+    transform: scale(0.97) !important;
+}
+
+button[class*="bg-[#334155]"][class*="shadow-slate-700/20"]:disabled {
+    opacity: 0.55 !important;
+    cursor: not-allowed !important;
+}
+
+html[data-theme='light'] button[class*="bg-[#334155]"][class*="shadow-slate-700/20"] {
+    background-color: #ffffff !important;
+    border: 1px solid #cbd5e1 !important;
+    color: #0f172a !important;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 1px 2px rgba(15, 23, 42, 0.04) !important;
+}
+
+html[data-theme='light'] button[class*="bg-[#334155]"][class*="shadow-slate-700/20"] svg {
+    color: #334155 !important;
+}
+
+html[data-theme='light'] button[class*="bg-[#334155]"][class*="shadow-slate-700/20"]:hover {
+    background-color: #f8fafc !important;
+    border-color: #94a3b8 !important;
+    color: #0f172a !important;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.10) !important;
+}
+
+html[data-theme='light'] button[class*="bg-[#334155]"][class*="shadow-slate-700/20"]:hover svg {
+    color: #0f172a !important;
+}
+
+html[data-theme='light'] button[class*="bg-[#334155]"][class*="shadow-slate-700/20"]:focus-visible {
+    outline-color: #315f8c !important;
+}
+
+html[data-theme='light'] button[class*="bg-[#334155]"][class*="shadow-slate-700/20"]:disabled {
+    background-color: #f1f5f9 !important;
+    border-color: #e2e8f0 !important;
+    color: #94a3b8 !important;
+    opacity: 0.7 !important;
+    cursor: not-allowed !important;
+}
+
+/* ── 41. EOD Summary button (Reports Page) ───────────────────────────────── */
+/* Target the EOD Summary header button specifically using class matchers
+   to fix light-mode low contrast while improving dark-mode depth. */
+button[class*="bg-indigo-600/20"][class*="text-indigo-300"] {
+    background-color: rgba(49, 46, 129, 0.45) !important;
+    border: 1px solid rgba(99, 102, 241, 0.55) !important;
+    color: #c7d2fe !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25) !important;
+}
+
+button[class*="bg-indigo-600/20"][class*="text-indigo-300"] svg {
+    color: #c7d2fe !important;
+}
+
+button[class*="bg-indigo-600/20"][class*="text-indigo-300"]:hover {
+    background-color: rgba(49, 46, 129, 0.65) !important;
+    border-color: rgba(99, 102, 241, 0.80) !important;
+    color: #e0e7ff !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 4px 12px rgba(67, 56, 202, 0.35) !important;
+}
+
+button[class*="bg-indigo-600/20"][class*="text-indigo-300"]:hover svg {
+    color: #e0e7ff !important;
+}
+
+button[class*="bg-indigo-600/20"][class*="text-indigo-300"]:focus-visible {
+    outline: 2px solid #5479a4 !important;
+    outline-offset: 2px !important;
+}
+
+button[class*="bg-indigo-600/20"][class*="text-indigo-300"]:active {
+    transform: translateY(0) scale(0.97) !important;
+}
+
+button[class*="bg-indigo-600/20"][class*="text-indigo-300"]:disabled {
+    opacity: 0.55 !important;
+    cursor: not-allowed !important;
+    transform: none !important;
+}
+
+html[data-theme='light'] button[class*="bg-indigo-600/20"][class*="text-indigo-300"] {
+    background-color: #e0e7ff !important;
+    border: 1px solid #818cf8 !important;
+    color: #3730a3 !important;
+    box-shadow: 0 1px 3px rgba(79, 70, 229, 0.12) !important;
+}
+
+html[data-theme='light'] button[class*="bg-indigo-600/20"][class*="text-indigo-300"] svg {
+    color: #3730a3 !important;
+}
+
+html[data-theme='light'] button[class*="bg-indigo-600/20"][class*="text-indigo-300"]:hover {
+    background-color: #c7d2fe !important;
+    border-color: #4f46e5 !important;
+    color: #1e1b4b !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.20) !important;
+}
+
+html[data-theme='light'] button[class*="bg-indigo-600/20"][class*="text-indigo-300"]:hover svg {
+    color: #1e1b4b !important;
+}
+
+html[data-theme='light'] button[class*="bg-indigo-600/20"][class*="text-indigo-300"]:focus-visible {
+    outline-color: #315f8c !important;
+}
+
+html[data-theme='light'] button[class*="bg-indigo-600/20"][class*="text-indigo-300"]:disabled {
+    background-color: #f1f5f9 !important;
+    border-color: #cbd5e1 !important;
+    color: #94a3b8 !important;
+    opacity: 0.7 !important;
+    cursor: not-allowed !important;
+    transform: none !important;
+}
+
+/* ── 42. Export Excel button (Reports Page Header) ───────────────────────── */
+/* Target the Export Excel header button specifically using class matchers
+   to fix light-mode low contrast while improving dark-mode depth. */
+button[class*="bg-emerald-600/20"][class*="text-emerald-300"] {
+    background-color: rgba(6, 78, 59, 0.45) !important;
+    border: 1px solid rgba(16, 185, 129, 0.55) !important;
+    color: #a7f3d0 !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25) !important;
+}
+
+button[class*="bg-emerald-600/20"][class*="text-emerald-300"] svg {
+    color: #a7f3d0 !important;
+}
+
+button[class*="bg-emerald-600/20"][class*="text-emerald-300"]:hover {
+    background-color: rgba(6, 78, 59, 0.65) !important;
+    border-color: rgba(16, 185, 129, 0.80) !important;
+    color: #d1fae5 !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 4px 12px rgba(4, 120, 87, 0.35) !important;
+}
+
+button[class*="bg-emerald-600/20"][class*="text-emerald-300"]:hover svg {
+    color: #d1fae5 !important;
+}
+
+button[class*="bg-emerald-600/20"][class*="text-emerald-300"]:focus-visible {
+    outline: 2px solid #5479a4 !important;
+    outline-offset: 2px !important;
+}
+
+button[class*="bg-emerald-600/20"][class*="text-emerald-300"]:active {
+    transform: translateY(0) scale(0.97) !important;
+}
+
+button[class*="bg-emerald-600/20"][class*="text-emerald-300"]:disabled {
+    opacity: 0.55 !important;
+    cursor: not-allowed !important;
+    transform: none !important;
+}
+
+html[data-theme='light'] button[class*="bg-emerald-600/20"][class*="text-emerald-300"] {
+    background-color: #d1fae5 !important;
+    border: 1px solid #34d399 !important;
+    color: #064e3b !important;
+    box-shadow: 0 1px 3px rgba(16, 185, 129, 0.12) !important;
+}
+
+html[data-theme='light'] button[class*="bg-emerald-600/20"][class*="text-emerald-300"] svg {
+    color: #064e3b !important;
+}
+
+html[data-theme='light'] button[class*="bg-emerald-600/20"][class*="text-emerald-300"]:hover {
+    background-color: #a7f3d0 !important;
+    border-color: #059669 !important;
+    color: #022c22 !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.22) !important;
+}
+
+html[data-theme='light'] button[class*="bg-emerald-600/20"][class*="text-emerald-300"]:hover svg {
+    color: #022c22 !important;
+}
+
+html[data-theme='light'] button[class*="bg-emerald-600/20"][class*="text-emerald-300"]:focus-visible {
+    outline-color: #315f8c !important;
+}
+
+html[data-theme='light'] button[class*="bg-emerald-600/20"][class*="text-emerald-300"]:disabled {
+    background-color: #f1f5f9 !important;
+    border-color: #cbd5e1 !important;
+    color: #94a3b8 !important;
+    opacity: 0.7 !important;
+    cursor: not-allowed !important;
+    transform: none !important;
+}
+
+/* ── 43. Export XLSX button (Expenses & Incomes Pages) ───────────────────── */
+/* Target the Export XLSX button specifically using class matchers to fix
+   light-mode white-on-light pale text with accessible emerald styling. */
+button[class*="bg-slate-700"][class*="shadow-slate-700/20"] {
+    background-color: rgba(6, 78, 59, 0.45) !important;
+    border: 1px solid rgba(16, 185, 129, 0.55) !important;
+    color: #a7f3d0 !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25) !important;
+    white-space: nowrap;
+}
+
+button[class*="bg-slate-700"][class*="shadow-slate-700/20"] svg {
+    color: #a7f3d0 !important;
+}
+
+button[class*="bg-slate-700"][class*="shadow-slate-700/20"]:hover {
+    background-color: rgba(6, 78, 59, 0.65) !important;
+    border-color: rgba(16, 185, 129, 0.80) !important;
+    color: #d1fae5 !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 4px 12px rgba(4, 120, 87, 0.35) !important;
+}
+
+button[class*="bg-slate-700"][class*="shadow-slate-700/20"]:hover svg {
+    color: #d1fae5 !important;
+}
+
+button[class*="bg-slate-700"][class*="shadow-slate-700/20"]:focus-visible {
+    outline: 2px solid #5479a4 !important;
+    outline-offset: 2px !important;
+}
+
+button[class*="bg-slate-700"][class*="shadow-slate-700/20"]:active {
+    transform: translateY(0) scale(0.97) !important;
+}
+
+button[class*="bg-slate-700"][class*="shadow-slate-700/20"]:disabled {
+    opacity: 0.55 !important;
+    cursor: not-allowed !important;
+    transform: none !important;
+}
+
+html[data-theme='light'] button[class*="bg-slate-700"][class*="shadow-slate-700/20"] {
+    background-color: #d1fae5 !important;
+    border: 1px solid #34d399 !important;
+    color: #064e3b !important;
+    box-shadow: 0 1px 3px rgba(16, 185, 129, 0.12) !important;
+}
+
+html[data-theme='light'] button[class*="bg-slate-700"][class*="shadow-slate-700/20"] svg {
+    color: #064e3b !important;
+}
+
+html[data-theme='light'] button[class*="bg-slate-700"][class*="shadow-slate-700/20"]:hover {
+    background-color: #a7f3d0 !important;
+    border-color: #059669 !important;
+    color: #022c22 !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.22) !important;
+}
+
+html[data-theme='light'] button[class*="bg-slate-700"][class*="shadow-slate-700/20"]:hover svg {
+    color: #022c22 !important;
+}
+
+html[data-theme='light'] button[class*="bg-slate-700"][class*="shadow-slate-700/20"]:focus-visible {
+    outline-color: #315f8c !important;
+}
+
+html[data-theme='light'] button[class*="bg-slate-700"][class*="shadow-slate-700/20"]:disabled {
+    background-color: #f1f5f9 !important;
+    border-color: #cbd5e1 !important;
+    color: #94a3b8 !important;
+    opacity: 0.7 !important;
+    cursor: not-allowed !important;
+    transform: none !important;
+}
+
+/* ── 44. Record Expense / Primary Brand Action buttons ───────────────────── */
+/* Target primary brand action buttons specifically to ensure rich solid blue
+   background with high contrast white text in both light and dark themes. */
+button[class*="bg-brand-600"][class*="shadow-brand-600/20"],
+a[class*="bg-brand-600"][class*="shadow-brand-600/20"] {
+    background-color: #315f8c !important;
+    border: 1px solid rgba(147, 197, 253, 0.35) !important;
+    color: #ffffff !important;
+    box-shadow: 0 2px 8px rgba(49, 95, 140, 0.30) !important;
+    white-space: nowrap;
+}
+
+button[class*="bg-brand-600"][class*="shadow-brand-600/20"] svg,
+a[class*="bg-brand-600"][class*="shadow-brand-600/20"] svg {
+    color: #ffffff !important;
+}
+
+button[class*="bg-brand-600"][class*="shadow-brand-600/20"]:hover,
+a[class*="bg-brand-600"][class*="shadow-brand-600/20"]:hover {
+    background-color: #244d73 !important;
+    border-color: rgba(147, 197, 253, 0.55) !important;
+    color: #ffffff !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 4px 14px rgba(49, 95, 140, 0.40) !important;
+}
+
+button[class*="bg-brand-600"][class*="shadow-brand-600/20"]:hover svg,
+a[class*="bg-brand-600"][class*="shadow-brand-600/20"]:hover svg {
+    color: #ffffff !important;
+}
+
+button[class*="bg-brand-600"][class*="shadow-brand-600/20"]:focus-visible,
+a[class*="bg-brand-600"][class*="shadow-brand-600/20"]:focus-visible {
+    outline: 2px solid #5479a4 !important;
+    outline-offset: 2px !important;
+}
+
+button[class*="bg-brand-600"][class*="shadow-brand-600/20"]:active,
+a[class*="bg-brand-600"][class*="shadow-brand-600/20"]:active {
+    transform: translateY(0) scale(0.97) !important;
+}
+
+button[class*="bg-brand-600"][class*="shadow-brand-600/20"]:disabled {
+    opacity: 0.55 !important;
+    cursor: not-allowed !important;
+    transform: none !important;
+}
+
+html[data-theme='light'] button[class*="bg-brand-600"][class*="shadow-brand-600/20"],
+html[data-theme='light'] a[class*="bg-brand-600"][class*="shadow-brand-600/20"] {
+    background-color: #315f8c !important;
+    border: 1px solid #244d73 !important;
+    color: #ffffff !important;
+    box-shadow: 0 2px 8px rgba(49, 95, 140, 0.25) !important;
+}
+
+html[data-theme='light'] button[class*="bg-brand-600"][class*="shadow-brand-600/20"] svg,
+html[data-theme='light'] a[class*="bg-brand-600"][class*="shadow-brand-600/20"] svg {
+    color: #ffffff !important;
+}
+
+html[data-theme='light'] button[class*="bg-brand-600"][class*="shadow-brand-600/20"]:hover,
+html[data-theme='light'] a[class*="bg-brand-600"][class*="shadow-brand-600/20"]:hover {
+    background-color: #244d73 !important;
+    border-color: #1a3956 !important;
+    color: #ffffff !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 4px 14px rgba(49, 95, 140, 0.35) !important;
+}
+
+html[data-theme='light'] button[class*="bg-brand-600"][class*="shadow-brand-600/20"]:hover svg,
+html[data-theme='light'] a[class*="bg-brand-600"][class*="shadow-brand-600/20"]:hover svg {
+    color: #ffffff !important;
+}
+
+html[data-theme='light'] button[class*="bg-brand-600"][class*="shadow-brand-600/20"]:focus-visible,
+html[data-theme='light'] a[class*="bg-brand-600"][class*="shadow-brand-600/20"]:focus-visible {
+    outline-color: #315f8c !important;
+}
+
+html[data-theme='light'] button[class*="bg-brand-600"][class*="shadow-brand-600/20"]:disabled {
+    background-color: #94a3b8 !important;
+    border-color: #64748b !important;
+    color: #ffffff !important;
+    opacity: 0.65 !important;
+    cursor: not-allowed !important;
+    transform: none !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ── 45. MAINTENANCE TICKETS PAGE STYLING ENHANCEMENTS ─────────────────────
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── 45a. View Details Button ────────────────────────────────────────────── */
+button[class*="bg-brand-600/15"][class*="text-brand-300"] {
+    background-color: rgba(49, 46, 129, 0.35) !important;
+    border: 1px solid rgba(99, 102, 241, 0.45) !important;
+    color: #a5b4fc !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.20) !important;
+}
+
+button[class*="bg-brand-600/15"][class*="text-brand-300"]:hover {
+    background-color: rgba(49, 46, 129, 0.55) !important;
+    border-color: rgba(99, 102, 241, 0.70) !important;
+    color: #c7d2fe !important;
+    box-shadow: 0 3px 10px rgba(67, 56, 202, 0.28) !important;
+}
+
+button[class*="bg-brand-600/15"][class*="text-brand-300"]:focus-visible {
+    outline: 2px solid #5479a4 !important;
+    outline-offset: 2px !important;
+}
+
+button[class*="bg-brand-600/15"][class*="text-brand-300"]:active {
+    transform: scale(0.97) !important;
+}
+
+html[data-theme='light'] button[class*="bg-brand-600/15"][class*="text-brand-300"] {
+    background-color: #dbeafe !important;
+    border: 1px solid #93c5fd !important;
+    color: #1e40af !important;
+    box-shadow: 0 1px 3px rgba(30, 64, 175, 0.10) !important;
+}
+
+html[data-theme='light'] button[class*="bg-brand-600/15"][class*="text-brand-300"]:hover {
+    background-color: #bfdbfe !important;
+    border-color: #60a5fa !important;
+    color: #1e3a8a !important;
+    box-shadow: 0 3px 10px rgba(30, 64, 175, 0.20) !important;
+}
+
+html[data-theme='light'] button[class*="bg-brand-600/15"][class*="text-brand-300"]:focus-visible {
+    outline-color: #315f8c !important;
+}
+
+/* ── 45b. Priority Badges ────────────────────────────────────────────────── */
+
+/* Medium Priority */
+[class*="bg-amber-950/40"][class*="text-amber-400"] {
+    background-color: rgba(120, 53, 15, 0.45) !important;
+    border-color: rgba(245, 158, 11, 0.50) !important;
+    color: #fcd34d !important;
+}
+
+html[data-theme='light'] [class*="bg-amber-950/40"][class*="text-amber-400"] {
+    background-color: #fef3c7 !important;
+    border-color: #f59e0b !important;
+    color: #78350f !important;
+}
+
+/* High Priority */
+[class*="bg-orange-950/40"][class*="text-orange-400"] {
+    background-color: rgba(124, 45, 18, 0.45) !important;
+    border-color: rgba(249, 115, 22, 0.50) !important;
+    color: #fdba74 !important;
+}
+
+html[data-theme='light'] [class*="bg-orange-950/40"][class*="text-orange-400"] {
+    background-color: #ffedd5 !important;
+    border-color: #f97316 !important;
+    color: #7c2d12 !important;
+}
+
+/* Critical Priority */
+[class*="bg-red-950/40"][class*="text-red-400"] {
+    background-color: rgba(127, 29, 29, 0.45) !important;
+    border-color: rgba(239, 68, 68, 0.50) !important;
+    color: #fca5a5 !important;
+}
+
+html[data-theme='light'] [class*="bg-red-950/40"][class*="text-red-400"] {
+    background-color: #fee2e2 !important;
+    border-color: #ef4444 !important;
+    color: #7f1d1d !important;
+}
+
+/* ── 45c. Status Badges ──────────────────────────────────────────────────── */
+
+/* Open Status (Rose) */
+[class*="bg-rose-950/40"][class*="text-rose-400"] {
+    background-color: rgba(136, 19, 55, 0.45) !important;
+    border-color: rgba(244, 63, 94, 0.55) !important;
+    color: #fda4af !important;
+}
+[class*="bg-rose-950/40"][class*="text-rose-400"] span.bg-rose-500 {
+    background-color: #f43f5e !important;
+    box-shadow: 0 0 5px rgba(244, 63, 94, 0.6) !important;
+}
+
+html[data-theme='light'] [class*="bg-rose-950/40"][class*="text-rose-400"] {
+    background-color: #ffe4e6 !important;
+    border-color: #f43f5e !important;
+    color: #881337 !important;
+}
+html[data-theme='light'] [class*="bg-rose-950/40"][class*="text-rose-400"] span.bg-rose-500 {
+    background-color: #e11d48 !important;
+    box-shadow: none !important;
+}
+
+/* Repairing / In Progress Status (Indigo) */
+[class*="bg-indigo-950/40"][class*="text-indigo-400"] {
+    background-color: rgba(49, 46, 129, 0.45) !important;
+    border-color: rgba(99, 102, 241, 0.55) !important;
+    color: #a5b4fc !important;
+}
+[class*="bg-indigo-950/40"][class*="text-indigo-400"] span.bg-indigo-500 {
+    background-color: #6366f1 !important;
+    box-shadow: 0 0 5px rgba(99, 102, 241, 0.6) !important;
+}
+
+html[data-theme='light'] [class*="bg-indigo-950/40"][class*="text-indigo-400"] {
+    background-color: #e0e7ff !important;
+    border-color: #6366f1 !important;
+    color: #312e81 !important;
+}
+html[data-theme='light'] [class*="bg-indigo-950/40"][class*="text-indigo-400"] span.bg-indigo-500 {
+    background-color: #4f46e5 !important;
+    box-shadow: none !important;
+}
+
+/* For Verification Status (Amber) */
+[class*="bg-amber-950/40"][class*="text-amber-400"] {
+    background-color: rgba(120, 53, 15, 0.45) !important;
+    border-color: rgba(245, 158, 11, 0.55) !important;
+    color: #fcd34d !important;
+}
+[class*="bg-amber-950/40"][class*="text-amber-400"] span.bg-amber-500 {
+    background-color: #f59e0b !important;
+}
+
+html[data-theme='light'] [class*="bg-amber-950/40"][class*="text-amber-400"] {
+    background-color: #fef3c7 !important;
+    border-color: #f59e0b !important;
+    color: #78350f !important;
+}
+html[data-theme='light'] [class*="bg-amber-950/40"][class*="text-amber-400"] span.bg-amber-500 {
+    background-color: #d97706 !important;
+}
+
+/* Resolved / Closed Status (Emerald) */
+[class*="bg-emerald-950/45"][class*="text-emerald-400"] {
+    background-color: rgba(6, 78, 59, 0.45) !important;
+    border-color: rgba(16, 185, 129, 0.55) !important;
+    color: #6ee7b7 !important;
+}
+[class*="bg-emerald-950/45"][class*="text-emerald-400"] span.bg-emerald-500 {
+    background-color: #10b981 !important;
+    box-shadow: 0 0 5px rgba(16, 185, 129, 0.6) !important;
+}
+
+html[data-theme='light'] [class*="bg-emerald-950/45"][class*="text-emerald-400"] {
+    background-color: #d1fae5 !important;
+    border-color: #10b981 !important;
+    color: #064e3b !important;
+}
+html[data-theme='light'] [class*="bg-emerald-950/45"][class*="text-emerald-400"] span.bg-emerald-500 {
+    background-color: #059669 !important;
+    box-shadow: none !important;
+}
+
+/* ── 45d. Resolution & Notes Panel ───────────────────────────────────────── */
+[class*="bg-[#0f172a]/65"][class*="border-[#334155]/50"] {
+    background-color: rgba(15, 23, 42, 0.70) !important;
+    border-color: rgba(51, 65, 85, 0.65) !important;
+}
+
+[class*="bg-[#0f172a]/65"][class*="border-[#334155]/50"] div {
+    color: #cbd5e1 !important;
+}
+
+[class*="bg-[#0f172a]/65"][class*="border-[#334155]/50"] strong {
+    color: #f8fafc !important;
+}
+
+html[data-theme='light'] [class*="bg-[#0f172a]/65"][class*="border-[#334155]/50"] {
+    background-color: #f8fafc !important;
+    border-color: #cbd5e1 !important;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05) !important;
+}
+
+html[data-theme='light'] [class*="bg-[#0f172a]/65"][class*="border-[#334155]/50"] div {
+    color: #334155 !important;
+}
+
+html[data-theme='light'] [class*="bg-[#0f172a]/65"][class*="border-[#334155]/50"] strong {
+    color: #0f172a !important;
+}
+
+html[data-theme='light'] [class*="bg-[#0f172a]/65"][class*="border-[#334155]/50"] svg {
+    color: #2563eb !important;
+}
+
+/* ── 45e. Refresh Button on Maintenance Bar ─────────────────────────────── */
+button[title="Refresh Table"] {
+    background-color: #1e293b !important;
+    border-color: #475569 !important;
+    color: #94a3b8 !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.20) !important;
+}
+
+button[title="Refresh Table"]:hover {
+    background-color: #334155 !important;
+    border-color: #64748b !important;
+    color: #f8fafc !important;
+}
+
+html[data-theme='light'] button[title="Refresh Table"] {
+    background-color: #ffffff !important;
+    border-color: #cbd5e1 !important;
+    color: #475569 !important;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08) !important;
+}
+
+html[data-theme='light'] button[title="Refresh Table"]:hover {
+    background-color: #f1f5f9 !important;
+    border-color: #94a3b8 !important;
+    color: #0f172a !important;
+}
+
+/* ── 45f. Maintenance Table Headers & Rows in Light Mode ─────────────────── */
+html[data-theme='light'] .app-main table thead tr[class*="bg-[#0f172a]/60"] {
+    background-color: #f1f5f9 !important;
+    border-bottom-color: #cbd5e1 !important;
+}
+
+html[data-theme='light'] .app-main table thead th {
+    color: #475569 !important;
+}
+
+html[data-theme='light'] .app-main table tbody tr[class*="border-[#334155]/50"] {
+    border-bottom-color: #e2e8f0 !important;
+}
+
+html[data-theme='light'] .app-main table tbody tr[class*="border-[#334155]/50"]:hover {
+    background-color: #f8fafc !important;
+}
+
+html[data-theme='light'] .app-main table td span[class*="text-slate-300"] {
+    color: #475569 !important;
+}
+
+html[data-theme='light'] .app-main table td span[class*="text-slate-100"] {
+    color: #0f172a !important;
+}
+
+html[data-theme='light'] .app-main table td div[class*="text-slate-200"] {
+    color: #1e293b !important;
+}
+
+html[data-theme='light'] .app-main table td div[class*="text-slate-500"] {
+    color: #64748b !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ── 46. DASHBOARD UI STYLING ENHANCEMENTS ─────────────────────────────────
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── 46a. Quick Action Cards (Dark Mode) ─────────────────────────────────── */
+.dashboard-page [class*="bg-indigo-500/15"],
+.dashboard-page [class*="bg-indigo-500/20"] {
+    background-color: rgba(49, 46, 129, 0.45) !important;
+    border-color: rgba(99, 102, 241, 0.55) !important;
+    color: #c7d2fe !important;
+}
+
+.dashboard-page [class*="bg-brand-500/20"] {
+    background-color: rgba(30, 41, 59, 0.60) !important;
+    border-color: rgba(100, 116, 139, 0.50) !important;
+    color: #e2e8f0 !important;
+}
+
+.dashboard-page [class*="bg-amber-500/15"] {
+    background-color: rgba(120, 53, 15, 0.45) !important;
+    border-color: rgba(245, 158, 11, 0.50) !important;
+    color: #fcd34d !important;
+}
+
+.dashboard-page [class*="bg-emerald-500/15"] {
+    background-color: rgba(6, 78, 59, 0.45) !important;
+    border-color: rgba(16, 185, 129, 0.50) !important;
+    color: #a7f3d0 !important;
+}
+
+.dashboard-page [class*="bg-teal-500/20"] {
+    background-color: rgba(19, 78, 74, 0.45) !important;
+    border-color: rgba(45, 212, 191, 0.50) !important;
+    color: #99f6e4 !important;
+}
+
+/* ── 46b. Quick Action Cards (Light Mode) ────────────────────────────────── */
+html[data-theme='light'] .dashboard-page [class*="bg-indigo-500/15"],
+html[data-theme='light'] .dashboard-page [class*="bg-indigo-500/20"] {
+    background-color: #e0e7ff !important;
+    border-color: #818cf8 !important;
+    box-shadow: 0 2px 6px rgba(79, 70, 229, 0.08) !important;
+}
+html[data-theme='light'] .dashboard-page [class*="bg-indigo-500/15"] .font-extrabold,
+html[data-theme='light'] .dashboard-page [class*="bg-indigo-500/20"] .font-extrabold {
+    color: #312e81 !important;
+}
+html[data-theme='light'] .dashboard-page [class*="bg-indigo-500/15"] .text-slate-400,
+html[data-theme='light'] .dashboard-page [class*="bg-indigo-500/20"] .text-slate-400 {
+    color: #4338ca !important;
+}
+html[data-theme='light'] .dashboard-page [class*="bg-indigo-500/15"] [class*="bg-[#0f172a]/50"],
+html[data-theme='light'] .dashboard-page [class*="bg-indigo-500/20"] [class*="bg-[#0f172a]/50"] {
+    background-color: #ffffff !important;
+    color: #3730a3 !important;
+}
+
+html[data-theme='light'] .dashboard-page [class*="bg-brand-500/20"] {
+    background-color: #e2e8f0 !important;
+    border-color: #94a3b8 !important;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06) !important;
+}
+html[data-theme='light'] .dashboard-page [class*="bg-brand-500/20"] .font-extrabold {
+    color: #0f172a !important;
+}
+html[data-theme='light'] .dashboard-page [class*="bg-brand-500/20"] .text-slate-400 {
+    color: #334155 !important;
+}
+html[data-theme='light'] .dashboard-page [class*="bg-brand-500/20"] [class*="bg-[#0f172a]/50"] {
+    background-color: #ffffff !important;
+    color: #1e293b !important;
+}
+
+html[data-theme='light'] .dashboard-page [class*="bg-amber-500/15"] {
+    background-color: #fef3c7 !important;
+    border-color: #f59e0b !important;
+    box-shadow: 0 2px 6px rgba(245, 158, 11, 0.08) !important;
+}
+html[data-theme='light'] .dashboard-page [class*="bg-amber-500/15"] .font-extrabold {
+    color: #78350f !important;
+}
+html[data-theme='light'] .dashboard-page [class*="bg-amber-500/15"] .text-slate-400 {
+    color: #92400e !important;
+}
+html[data-theme='light'] .dashboard-page [class*="bg-amber-500/15"] [class*="bg-[#0f172a]/50"] {
+    background-color: #ffffff !important;
+    color: #b45309 !important;
+}
+
+html[data-theme='light'] .dashboard-page [class*="bg-emerald-500/15"] {
+    background-color: #d1fae5 !important;
+    border-color: #34d399 !important;
+    box-shadow: 0 2px 6px rgba(16, 185, 129, 0.08) !important;
+}
+html[data-theme='light'] .dashboard-page [class*="bg-emerald-500/15"] .font-extrabold {
+    color: #064e3b !important;
+}
+html[data-theme='light'] .dashboard-page [class*="bg-emerald-500/15"] .text-slate-400 {
+    color: #065f46 !important;
+}
+html[data-theme='light'] .dashboard-page [class*="bg-emerald-500/15"] [class*="bg-[#0f172a]/50"] {
+    background-color: #ffffff !important;
+    color: #047857 !important;
+}
+
+html[data-theme='light'] .dashboard-page [class*="bg-teal-500/20"] {
+    background-color: #ccfbf1 !important;
+    border-color: #2dd4bf !important;
+    box-shadow: 0 2px 6px rgba(45, 212, 191, 0.08) !important;
+}
+html[data-theme='light'] .dashboard-page [class*="bg-teal-500/20"] .font-extrabold {
+    color: #134e4a !important;
+}
+html[data-theme='light'] .dashboard-page [class*="bg-teal-500/20"] .text-slate-400 {
+    color: #0f766e !important;
+}
+html[data-theme='light'] .dashboard-page [class*="bg-teal-500/20"] [class*="bg-[#0f172a]/50"] {
+    background-color: #ffffff !important;
+    color: #0d9488 !important;
+}
+
+/* Hover effects for Quick Action cards in light mode */
+html[data-theme='light'] .dashboard-page a[class*="bg-indigo-500"]:hover { background-color: #c7d2fe !important; border-color: #4f46e5 !important; transform: translateY(-1px) !important; }
+html[data-theme='light'] .dashboard-page a[class*="bg-brand-500"]:hover { background-color: #cbd5e1 !important; border-color: #64748b !important; transform: translateY(-1px) !important; }
+html[data-theme='light'] .dashboard-page a[class*="bg-amber-500"]:hover { background-color: #fde68a !important; border-color: #d97706 !important; transform: translateY(-1px) !important; }
+html[data-theme='light'] .dashboard-page a[class*="bg-emerald-500"]:hover { background-color: #a7f3d0 !important; border-color: #059669 !important; transform: translateY(-1px) !important; }
+html[data-theme='light'] .dashboard-page a[class*="bg-teal-500"]:hover { background-color: #99f6e4 !important; border-color: #0d9488 !important; transform: translateY(-1px) !important; }
+
+/* ── 46c. Guest Directory & Calendar Links ───────────────────────────────── */
+html[data-theme='light'] .dashboard-page a[href*="guests"],
+html[data-theme='light'] .dashboard-page a[href*="calendar"] {
+    color: #1d4ed8 !important;
+}
+html[data-theme='light'] .dashboard-page a[href*="guests"]:hover,
+html[data-theme='light'] .dashboard-page a[href*="calendar"]:hover {
+    color: #1e3a8a !important;
+}
+
+/* ── 46d. Action Center ──────────────────────────────────────────────────── */
+/* "3 OPEN" Badge */
+.dashboard-page span[class*="bg-brand-500/15"] {
+    background-color: rgba(49, 46, 129, 0.45) !important;
+    border-color: rgba(99, 102, 241, 0.55) !important;
+    color: #a5b4fc !important;
+}
+html[data-theme='light'] .dashboard-page span[class*="bg-brand-500/15"] {
+    background-color: #dbeafe !important;
+    border-color: #93c5fd !important;
+    color: #1e40af !important;
+}
+
+/* Overdue Alert Card in Light Mode */
+html[data-theme='light'] .dashboard-page [class*="bg-red-950/15"],
+html[data-theme='light'] .dashboard-page [class*="border-red-500/25"] {
+    background-color: #fee2e2 !important;
+    border-color: #f87171 !important;
+}
+html[data-theme='light'] .dashboard-page [class*="bg-red-950/15"] .text-slate-100 {
+    color: #991b1b !important;
+}
+html[data-theme='light'] .dashboard-page [class*="bg-red-950/15"] .text-slate-400 {
+    color: #7f1d1d !important;
+}
+html[data-theme='light'] .dashboard-page [class*="bg-red-950/15"] [class*="bg-[#0f172a]/75"] {
+    background-color: #fca5a5 !important;
+    color: #7f1d1d !important;
+}
+
+/* Maintenance Alert Card in Light Mode */
+html[data-theme='light'] .dashboard-page [class*="bg-[#0f172a]/35"] {
+    background-color: #f8fafc !important;
+    border-color: #cbd5e1 !important;
+}
+html[data-theme='light'] .dashboard-page [class*="bg-[#0f172a]/35"] .text-slate-100 {
+    color: #0f172a !important;
+}
+html[data-theme='light'] .dashboard-page [class*="bg-[#0f172a]/35"] .text-slate-400 {
+    color: #475569 !important;
+}
+html[data-theme='light'] .dashboard-page [class*="bg-[#0f172a]/35"] [class*="bg-[#0f172a]/75"] {
+    background-color: #e2e8f0 !important;
+    color: #334155 !important;
+}
+
+/* ── 46e. Room Status Cards ──────────────────────────────────────────────── */
+html[data-theme='light'] .dashboard-page aside a[href*="rooms"] {
+    background-color: #ffffff !important;
+    border-color: #cbd5e1 !important;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06) !important;
+}
+html[data-theme='light'] .dashboard-page aside a[href*="rooms"]:hover {
+    background-color: #f8fafc !important;
+    border-color: #94a3b8 !important;
+}
+html[data-theme='light'] .dashboard-page aside a[href*="rooms"] .text-slate-400 {
+    color: #475569 !important;
+}
+html[data-theme='light'] .dashboard-page aside a[href*="rooms"] .text-emerald-300 { color: #047857 !important; }
+html[data-theme='light'] .dashboard-page aside a[href*="rooms"] .text-indigo-300 { color: #4338ca !important; }
+html[data-theme='light'] .dashboard-page aside a[href*="rooms"] .text-cyan-300 { color: #0e7490 !important; }
+html[data-theme='light'] .dashboard-page aside a[href*="rooms"] .text-rose-300 { color: #be123c !important; }
+
+/* ── 46f. Today at a Glance in Light Mode ────────────────────────────────── */
+html[data-theme='light'] .dashboard-page aside [class*="border-t"] .text-slate-400 {
+    color: #475569 !important;
+}
+html[data-theme='light'] .dashboard-page aside [class*="border-t"] .text-slate-300 {
+    color: #0f172a !important;
+}
+html[data-theme='light'] .dashboard-page aside [class*="border-t"] .text-slate-500 {
+    color: #64748b !important;
+}
+html[data-theme='light'] .dashboard-page aside [class*="border-t"] .text-indigo-300 {
+    color: #4338ca !important;
+}
+
+
+
+
+
+
