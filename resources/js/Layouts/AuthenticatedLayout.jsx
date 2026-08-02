@@ -33,6 +33,7 @@ import {
     Sliders,
     Receipt,
     Coins,
+    CircleHelp,
     Sun,
     Moon
 } from 'lucide-react';
@@ -794,6 +795,18 @@ export default function AuthenticatedLayout({ children }) {
                         ) : null}
 
                         {/* ─── Notification Bell ──────────────────────────────── */}
+                        <a
+                            href="/user-manual/"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center justify-center gap-2 w-10 sm:w-auto h-10 sm:px-3 rounded-xl bg-[#0f172a]/55 border border-[#334155] text-slate-300 hover:bg-[#334155] hover:text-slate-100 transition-all duration-200"
+                            aria-label="Open User Manual in a new tab"
+                            title="User Manual"
+                        >
+                            <CircleHelp size={18} />
+                            <span className="hidden sm:inline text-xs font-bold">Help</span>
+                        </a>
+
                         <button
                             type="button"
                             onClick={() => setTheme(currentTheme => currentTheme === 'dark' ? 'light' : 'dark')}

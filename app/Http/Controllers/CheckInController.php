@@ -53,6 +53,12 @@ class CheckInController extends Controller
         $sortBy = $request->input('sort_by', 'id');
         $sortDir = $request->input('sort_dir', 'desc');
         $showGroupsOnly = $request->boolean('show_groups_only', false);
+        $dateScope = $request->input('date_scope');
+        if (! in_array($dateScope, ['departures_today'], true)) {
+            $dateScope = null;
+        }
+        $todayStart = now()->startOfDay();
+        $todayEnd = now()->endOfDay();
 
         $allowedSorts = ['id', 'guest_name', 'status', 'check_in_time', 'expected_check_out', 'amount'];
         if (! in_array($sortBy, $allowedSorts)) {
@@ -64,6 +70,7 @@ class CheckInController extends Controller
 
         $bookings = Booking::with(['room', 'room.type'])
             ->when($status && $status !== 'all', fn ($q) => $q->where('status', $status))
+            ->when($dateScope === 'departures_today', fn ($q) => $q->whereBetween('expected_check_out', [$todayStart, $todayEnd]))
             ->when($showGroupsOnly, fn ($q) => $q->whereNotNull('group_ref'))
             ->orderBy($sortBy, $sortDir)
             ->paginate(15)
@@ -91,6 +98,7 @@ class CheckInController extends Controller
             'bookings' => $bookings,
             'groupBookings' => (object) $groupBookings,
             'currentFilter' => $status,
+            'dateScope' => $dateScope,
             'showGroupsOnly' => $showGroupsOnly,
             'sortBy' => $sortBy,
             'sortDir' => $sortDir,

@@ -58,6 +58,7 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
         gcash_amount: 0.00,
         gcash_ref: '',
         notes: '',
+        waive_late_fee: false,
         extra_charge_amount: '',
         extra_charge_description: '',
         extra_charge_separate_payment: false,
@@ -65,8 +66,22 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
         extra_charge_payment_reference: ''
     });
     const checkoutExtraCharge = Number(checkoutForm.data.extra_charge_amount) || 0;
-    const checkoutMainSettlementDue = (calculations.additional_due || 0)
+    const checkoutLateFee = checkoutForm.data.waive_late_fee ? 0 : Number(calculations.late_fee || 0);
+    const checkoutInventoryDue = Number(calculations.unpaid_inventory || 0);
+    const checkoutBaseSettlementDue = checkoutLateFee + checkoutInventoryDue;
+    const checkoutMainSettlementDue = checkoutBaseSettlementDue
         + (checkoutForm.data.extra_charge_separate_payment ? 0 : checkoutExtraCharge);
+    const checkoutLateRate = Number(calculations.late_hours || 0) > 0
+        ? Number(calculations.late_fee || 0) / Number(calculations.late_hours)
+        : 0;
+    const formatCheckoutDateTime = (value) => {
+        if (!value) return '—';
+        const date = new Date(String(value).replace(' ', 'T'));
+        if (Number.isNaN(date.getTime())) return '—';
+        return date.toLocaleString('en-US', {
+            month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit'
+        });
+    };
 
     const paymentForm = useForm({
         booking_id: booking.id,
@@ -511,7 +526,13 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
                                                 cash_amount: calculations.additional_due,
                                                 gcash_amount: 0.00,
                                                 gcash_ref: '',
-                                                notes: ''
+                                                notes: '',
+                                                waive_late_fee: false,
+                                                extra_charge_amount: '',
+                                                extra_charge_description: '',
+                                                extra_charge_separate_payment: false,
+                                                extra_charge_payment_method: 'gcash',
+                                                extra_charge_payment_reference: ''
                                             });
                                         }}
                                         className="w-full flex items-center justify-center gap-1.5 px-5 py-3.5 bg-emerald-600 hover:bg-emerald-500 rounded-xl text-slate-50 text-sm font-extrabold font-outfit tracking-wide shadow-lg shadow-emerald-600/10 active:scale-95 transition-all"
@@ -871,7 +892,7 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
                                             value={checkoutForm.data.extra_charge_amount}
                                             onChange={e => {
                                                 const newAmount = e.target.value;
-                                                const totalDue = (calculations.additional_due || 0)
+                                                const totalDue = checkoutBaseSettlementDue
                                                     + (checkoutForm.data.extra_charge_separate_payment ? 0 : (Number(newAmount) || 0));
                                                 checkoutForm.setData(prev => ({
                                                     ...prev,
@@ -893,7 +914,7 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
                                                 checked={checkoutForm.data.extra_charge_separate_payment}
                                                 onChange={e => {
                                                     const separate = e.target.checked;
-                                                    const totalDue = (calculations.additional_due || 0) + (separate ? 0 : checkoutExtraCharge);
+                                                    const totalDue = checkoutBaseSettlementDue + (separate ? 0 : checkoutExtraCharge);
                                                     checkoutForm.setData(prev => ({
                                                         ...prev,
                                                         extra_charge_separate_payment: separate,
@@ -937,9 +958,79 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
                                 )}
                             </div>
 
+                            <section className="p-4 rounded-xl bg-[#0f172a]/60 border border-[#334155] flex flex-col gap-3" aria-label="Settlement breakdown">
+                                <div className="flex items-center justify-between gap-3">
+                                    <div>
+                                        <h4 className="font-outfit font-extrabold text-slate-200 text-xs">Settlement Breakdown</h4>
+                                        <p className="text-[10px] text-slate-500 mt-0.5">Review this with the guest before collecting payment.</p>
+                                    </div>
+                                    {calculations.late_hours > 0 && (
+                                        <span className={`text-[9px] font-black uppercase tracking-wide px-2 py-1 rounded border ${checkoutForm.data.waive_late_fee ? 'text-emerald-300 bg-emerald-500/10 border-emerald-500/30' : 'text-rose-300 bg-rose-500/10 border-rose-500/30'}`}>
+                                            {checkoutForm.data.waive_late_fee ? 'Late fee waived' : 'Late checkout'}
+                                        </span>
+                                    )}
+                                </div>
+
+                                <div className="flex flex-col gap-2 text-[11px]">
+                                    {calculations.late_hours > 0 && (
+                                        <div className="flex flex-col gap-1 rounded-lg bg-[#1e293b]/70 border border-[#334155]/70 px-3 py-2.5">
+                                            <div className="flex items-start justify-between gap-3">
+                                                <div>
+                                                    <p className="font-semibold text-slate-200">Late checkout</p>
+                                                    <p className="text-slate-400 mt-0.5">{calculations.late_hours} hour{calculations.late_hours === 1 ? '' : 's'} × ₱{checkoutLateRate.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                                                </div>
+                                                <span className={`font-mono font-bold ${checkoutForm.data.waive_late_fee ? 'text-emerald-400 line-through decoration-emerald-500/70' : 'text-rose-400'}`}>₱{Number(calculations.late_fee || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                            </div>
+                                            <p className="text-[10px] text-slate-500">Expected: {formatCheckoutDateTime(booking.expected_check_out)} · Calculated: {formatCheckoutDateTime(calculations.current_time)}</p>
+                                            <p className="text-[10px] text-slate-500">The late fee is verified again when checkout is confirmed.</p>
+                                        </div>
+                                    )}
+
+                                    {checkoutInventoryDue > 0 && (
+                                        <div className="flex items-center justify-between gap-3 px-1">
+                                            <span className="text-slate-400">Unpaid minibar / room orders</span>
+                                            <span className="font-mono font-bold text-brand-300">₱{checkoutInventoryDue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                        </div>
+                                    )}
+
+                                    {checkoutExtraCharge > 0 && (
+                                        <div className="flex items-center justify-between gap-3 px-1">
+                                            <span className="text-slate-400 truncate">{checkoutForm.data.extra_charge_description || 'Additional charge'}{checkoutForm.data.extra_charge_separate_payment ? ' (paid separately)' : ''}</span>
+                                            <span className="font-mono font-bold text-amber-300 shrink-0">₱{checkoutExtraCharge.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                        </div>
+                                    )}
+
+                                    {checkoutBaseSettlementDue === 0 && checkoutExtraCharge === 0 && (
+                                        <span className="text-emerald-400 font-semibold">No outstanding checkout charges.</span>
+                                    )}
+                                </div>
+
+                                {Number(calculations.late_fee || 0) > 0 && (
+                                    <label className="flex items-center gap-2 rounded-lg bg-[#1e293b]/50 border border-[#334155]/70 px-3 py-2.5 text-slate-300 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={checkoutForm.data.waive_late_fee}
+                                            onChange={e => {
+                                                const waiveLateFee = e.target.checked;
+                                                const baseDue = (waiveLateFee ? 0 : Number(calculations.late_fee || 0)) + checkoutInventoryDue;
+                                                const totalDue = baseDue + (checkoutForm.data.extra_charge_separate_payment ? 0 : checkoutExtraCharge);
+                                                checkoutForm.setData(prev => ({
+                                                    ...prev,
+                                                    waive_late_fee: waiveLateFee,
+                                                    cash_amount: prev.payment_method === 'cash' ? totalDue : prev.cash_amount,
+                                                    gcash_amount: prev.payment_method === 'gcash' ? totalDue : prev.gcash_amount,
+                                                }));
+                                            }}
+                                            className="rounded border-[#334155] bg-[#0f172a] text-brand-500 focus:ring-brand-500"
+                                        />
+                                        <span>Waive late checkout fee <span className="font-mono font-bold text-slate-200">(₱{Number(calculations.late_fee || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })})</span></span>
+                                    </label>
+                                )}
+                            </section>
+
                             <div className="p-4 rounded-xl bg-[#0f172a]/60 border border-[#334155] flex justify-between items-center text-xs">
-                                <span className="font-bold text-slate-400">Total Amount Due:</span>
-                                <span className="font-mono text-emerald-400 font-bold text-lg">₱{((calculations.additional_due || 0) + (Number(checkoutForm.data.extra_charge_amount) || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                <span className="font-bold text-slate-400">Total Settlement Due:</span>
+                                <span className="font-mono text-emerald-400 font-bold text-lg">₱{checkoutMainSettlementDue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                             </div>
 
                             {checkoutMainSettlementDue > 0 && (

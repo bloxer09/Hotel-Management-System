@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>User Manual & Operating Guide — Hotel Management System</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #315f8c;
+      --primary-dark: #0f172a;
+      --primary-light: #eff6ff;
+      --brand: #416089;
+      --success: #059669;
+      --danger: #e11d48;
+      --warning: #d97706;
+      --purple: #6366f1;
+      --sidebar-w: 280px;
+      --text: #1e293b;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --bg: #f8fafc;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* ─── Print ─── */
+    @media print {
+      .sidebar, .top-bar { display: none !important; }
+      .main { margin-left: 0 !important; padding: 20px !important; }
+      .section { page-break-inside: avoid; }
+      .hero { background: #0f172a !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+
+    /* ─── Sidebar ─── */
+    .sidebar {
+      width: var(--sidebar-w);
+      background: var(--primary-dark);
+      min-height: 100vh;
+      position: fixed;
+      top: 0; left: 0;
+      display: flex; flex-direction: column;
+      overflow-y: auto;
+      z-index: 100;
+      transition: transform .3s;
+    }
+    .sidebar-brand {
+      padding: 24px 20px 16px;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+    }
+    .sidebar-brand .icon {
+      width: 42px; height: 42px;
+      background: rgba(255,255,255,.13);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.2rem; color: #93c5fd; margin-bottom: 10px;
+    }
+    .sidebar-brand h2 {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 1rem; font-weight: 800;
+      color: #fff; line-height: 1.2;
+    }
+    .sidebar-brand p { font-size: .68rem; color: rgba(255,255,255,.45); margin-top: 3px; }
+    .nav-section {
+      padding: 16px 20px 4px;
+      font-size: .63rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 1.2px;
+      color: rgba(255,255,255,.3);
+    }
+    .nav-link {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 20px;
+      color: rgba(255,255,255,.65);
+      text-decoration: none;
+      font-size: .82rem; font-weight: 500;
+      transition: all .2s;
+      border-left: 3px solid transparent;
+    }
+    .nav-link:hover, .nav-link.active {
+      color: #fff;
+      background: rgba(255,255,255,.07);
+      border-left-color: var(--primary);
+    }
+    .nav-link i { font-size: .95rem; width: 18px; flex-shrink: 0; }
+
+    /* ─── Top Bar ─── */
+    .top-bar {
+      position: fixed; top: 0;
+      left: var(--sidebar-w); right: 0;
+      height: 56px;
+      background: #fff;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center;
+      padding: 0 28px; gap: 12px;
+      z-index: 90;
+      box-shadow: 0 1px 4px rgba(0,0,0,.04);
+    }
+    .top-bar .badge-version {
+      background: var(--primary-light);
+      color: var(--primary);
+      font-size: .72rem; font-weight: 700;
+      padding: 3px 10px; border-radius: 20px;
+    }
+    .top-bar h1 {
+      font-size: 1rem; font-weight: 700; color: var(--primary-dark);
+    }
+    .top-bar .print-btn {
+      margin-left: auto;
+      background: var(--primary);
+      color: #fff; border: none;
+      padding: 6px 16px; border-radius: 8px;
+      font-size: .8rem; font-weight: 600; cursor: pointer;
+      display: flex; align-items: center; gap: 6px;
+      transition: background .2s;
+    }
+    .top-bar .print-btn:hover { background: #244d73; }
+
+    /* ─── Main Content ─── */
+    .main {
+      margin-left: var(--sidebar-w);
+      padding-top: 56px;
+      flex: 1;
+      min-width: 0;
+    }
+    .content-wrap { max-width: 900px; margin: 0 auto; padding: 36px 28px 60px; }
+
+    /* ─── Hero ─── */
+    .hero {
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #315f8c 100%);
+      border-radius: 18px;
+      padding: 44px 44px 40px;
+      margin-bottom: 36px;
+      position: relative; overflow: hidden;
+      color: #fff;
+    }
+    .hero::before {
+      content: '';
+      position: absolute; top: -80px; right: -80px;
+      width: 260px; height: 260px; border-radius: 50%;
+      background: rgba(255,255,255,.05);
+    }
+    .hero::after {
+      content: '';
+      position: absolute; bottom: -60px; left: -60px;
+      width: 200px; height: 200px; border-radius: 50%;
+      background: rgba(255,255,255,.04);
+    }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: rgba(255,255,255,.12);
+      border: 1px solid rgba(255,255,255,.2);
+      border-radius: 20px; padding: 4px 14px;
+      font-size: .75rem; font-weight: 600; color: #93c5fd;
+      margin-bottom: 18px; position: relative; z-index: 1;
+    }
+    .hero h1 {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 2.2rem; font-weight: 800;
+      line-height: 1.15; letter-spacing: -.5px;
+      position: relative; z-index: 1;
+    }
+    .hero h1 span { color: #93c5fd; }
+    .hero p {
+      font-size: .9rem; color: rgba(255,255,255,.78);
+      margin-top: 12px; max-width: 580px;
+      line-height: 1.65; position: relative; z-index: 1;
+    }
+    .hero-meta {
+      display: flex; gap: 24px; margin-top: 24px;
+      flex-wrap: wrap; position: relative; z-index: 1;
+    }
+    .hero-meta-item { font-size: .75rem; color: rgba(255,255,255,.55); }
+    .hero-meta-item strong { display: block; color: #fff; font-size: .85rem; }
+
+    /* ─── Section ─── */
+    .section {
+      background: #fff;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      margin-bottom: 24px;
+      overflow: hidden;
+    }
+    .section-header {
+      padding: 18px 24px 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 12px;
+    }
+    .section-icon {
+      width: 36px; height: 36px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1rem; flex-shrink: 0;
+    }
+    .section-header h2 {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 1.05rem; font-weight: 700; color: var(--primary-dark);
+    }
+    .section-body { padding: 24px; }
+
+    /* ─── Button Pill ─── */
+    .btn-pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 12px; border-radius: 20px;
+      font-size: .75rem; font-weight: 600;
+      border: 1.5px solid;
+    }
+    .btn-primary-pill { color: #1e40af; border-color: #93c5fd; background: #dbeafe; }
+    .btn-success-pill { color: #064e3b; border-color: #34d399; background: #d1fae5; }
+    .btn-danger-pill { color: #881337; border-color: #f43f5e; background: #ffe4e6; }
+    .btn-secondary-pill { color: #334155; border-color: #cbd5e1; background: #f8fafc; }
+    .btn-warning-pill { color: #78350f; border-color: #f59e0b; background: #fef3c7; }
+    .btn-purple-pill { color: #312e81; border-color: #818cf8; background: #e0e7ff; }
+
+    /* ─── Feature Table ─── */
+    .feature-table { width: 100%; border-collapse: collapse; font-size: .83rem; }
+    .feature-table th {
+      background: #f1f5f9; padding: 10px 14px;
+      text-align: left; font-weight: 700; font-size: .75rem;
+      text-transform: uppercase; letter-spacing: .5px; color: var(--muted);
+      border-bottom: 1px solid var(--border);
+    }
+    .feature-table td {
+      padding: 10px 14px; border-bottom: 1px solid #f1f5f9;
+      vertical-align: top; line-height: 1.5;
+    }
+    .feature-table tr:last-child td { border-bottom: none; }
+    .feature-table tr:hover td { background: #f8fafc; }
+
+    /* ─── Step ─── */
+    .steps { counter-reset: step; }
+    .step {
+      display: flex; gap: 16px;
+      margin-bottom: 18px; align-items: flex-start;
+    }
+    .step-num {
+      width: 30px; height: 30px; border-radius: 50%;
+      background: var(--primary); color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-size: .8rem; font-weight: 800; flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .step-content { flex: 1; }
+    .step-content strong { display: block; font-size: .88rem; color: var(--primary-dark); margin-bottom: 4px; }
+    .step-content p { font-size: .82rem; color: var(--muted); line-height: 1.55; }
+
+    /* ─── Alert Box ─── */
+    .alert-box {
+      border-radius: 10px; padding: 12px 16px;
+      display: flex; gap: 10px; align-items: flex-start;
+      font-size: .82rem; line-height: 1.55;
+      margin-bottom: 14px;
+    }
+    .alert-info { background: #eff6ff; border: 1px solid #bfdbfe; color: #1d4ed8; }
+    .alert-warn { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; }
+    .alert-danger { background: #fff5f5; border: 1px solid #fca5a5; color: #991b1b; }
+    .alert-success { background: #f0fdfa; border: 1px solid #99f6e4; color: #065f46; }
+    .alert-box i { font-size: 1rem; flex-shrink: 0; margin-top: 1px; }
+
+    /* ─── Role Grid ─── */
+    .role-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .role-card {
+      border-radius: 12px; padding: 18px;
+      border: 1.5px solid;
+    }
+    .role-card.admin { background: #eff6ff; border-color: #bfdbfe; }
+    .role-card.frontdesk { background: #e0e7ff; border-color: #818cf8; }
+    .role-card.cashier { background: #f0fdfa; border-color: #99f6e4; }
+    .role-card.housekeeping { background: #fffbeb; border-color: #fde68a; }
+    .role-card h3 { font-size: .88rem; font-weight: 700; margin-bottom: 10px; }
+    .role-card.admin h3 { color: var(--primary); }
+    .role-card.frontdesk h3 { color: #312e81; }
+    .role-card.cashier h3 { color: var(--success); }
+    .role-card.housekeeping h3 { color: #78350f; }
+    .role-card ul { padding-left: 16px; font-size: .8rem; color: var(--muted); }
+    .role-card ul li { margin-bottom: 5px; line-height: 1.45; }
+
+    /* ─── TOC ─── */
+    .toc-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .toc-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px 14px; border-radius: 10px;
+      background: #f8fafc; border: 1px solid var(--border);
+      text-decoration: none; color: var(--text);
+      font-size: .82rem; font-weight: 600;
+      transition: all .2s;
+    }
+    .toc-item:hover { background: var(--primary-light); border-color: #bfdbfe; color: var(--primary); }
+    .toc-item i { font-size: 1rem; }
+
+    /* ─── Status Badges ─── */
+    .badge-vacant { background: #d1fae5; color: #064e3b; border: 1px solid #34d399; border-radius: 6px; padding: 2px 8px; font-size: .72rem; font-weight: 700; }
+    .badge-occupied { background: #ffe4e6; color: #881337; border: 1px solid #f43f5e; border-radius: 6px; padding: 2px 8px; font-size: .72rem; font-weight: 700; }
+    .badge-cleaning { background: #fef3c7; color: #78350f; border: 1px solid #f59e0b; border-radius: 6px; padding: 2px 8px; font-size: .72rem; font-weight: 700; }
+    .badge-ooo { background: #f1f5f9; color: #334155; border: 1px solid #94a3b8; border-radius: 6px; padding: 2px 8px; font-size: .72rem; font-weight: 700; }
+
+    /* ─── Responsive ─── */
+    @media (max-width: 900px) {
+      .sidebar { transform: translateX(-100%); }
+      .main { margin-left: 0; }
+      .top-bar { left: 0; }
+      .role-grid, .toc-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════ SIDEBAR ═══════════════════ -->
+<aside class="sidebar">
+  <div class="sidebar-brand">
+    <div class="icon"><i class="bi bi-building"></i></div>
+    <h2>Hotel Management System</h2>
+    <p>Operating & User Manual v1.0</p>
+  </div>
+
+  <div class="nav-section">Pangkalahatan</div>
+  <a href="#overview" class="nav-link"><i class="bi bi-house"></i> Overview</a>
+  <a href="#roles" class="nav-link"><i class="bi bi-people"></i> User Roles & Access</a>
+  <a href="#navigation" class="nav-link"><i class="bi bi-compass"></i> System Controls</a>
+
+  <div class="nav-section">Mga Module</div>
+  <a href="#dashboard" class="nav-link"><i class="bi bi-speedometer2"></i> Dashboard</a>
+  <a href="#rooms" class="nav-link"><i class="bi bi-door-open"></i> Room Status Board</a>
+  <a href="#shifts" class="nav-link"><i class="bi bi-clock-history"></i> Shift Register Desk</a>
+  <a href="#checkin" class="nav-link"><i class="bi bi-box-arrow-in-right"></i> Check-In & Reservations</a>
+  <a href="#guests" class="nav-link"><i class="bi bi-person-lines-fill"></i> Guest Directory</a>
+  <a href="#pos" class="nav-link"><i class="bi bi-credit-card"></i> POS / Room Charges</a>
+  <a href="#financials" class="nav-link"><i class="bi bi-cash-stack"></i> Incomes & Expenses</a>
+  <a href="#reports" class="nav-link"><i class="bi bi-file-earmark-bar-graph"></i> Sales & Remittance Reports</a>
+  <a href="#maintenance" class="nav-link"><i class="bi bi-wrench"></i> Maintenance Tickets</a>
+  <a href="#settings" class="nav-link"><i class="bi bi-gear"></i> System Settings</a>
+
+  <div class="nav-section">Tulong at Sanggunian</div>
+  <a href="#buttons-ref" class="nav-link"><i class="bi bi-hand-index-thumb"></i> Complete Button Guide</a>
+  <a href="#faq" class="nav-link"><i class="bi bi-question-circle"></i> FAQ & Troubleshooting</a>
+</aside>
+
+<!-- ═══════════════════ TOP BAR ═══════════════════ -->
+<header class="top-bar">
+  <span class="badge-version">v1.0.0</span>
+  <h1>Hotel Management System — Operating & User Manual</h1>
+  <button onclick="window.print()" class="print-btn"><i class="bi bi-printer"></i> Print / Save PDF</button>
+</header>
+
+<!-- ═══════════════════ MAIN CONTENT ═══════════════════ -->
+<main class="main">
+  <div class="content-wrap">
+
+    <!-- ─── HERO ─── -->
+    <div class="hero">
+      <div class="hero-badge"><i class="bi bi-shield-check"></i> OPERATING & USER MANUAL</div>
+      <h1>Hotel Management System <span>Gabay sa Paggamit</span></h1>
+      <p>Komprehensibong gabay sa bawat module, pindutan (buttons), navigation controls, at proseso sa system para sa Front Desk, Cashiers, Housekeeping, at Administrators.</p>
+      <div class="hero-meta">
+        <div class="hero-meta-item">Nababagay sa Roles<strong>Admin, Front Desk, Cashier, Housekeeping</strong></div>
+        <div class="hero-meta-item">Bersyon ng System<strong>v1.0.0 (Production)</strong></div>
+        <div class="hero-meta-item">Huling Na-update<strong>2026-08-02</strong></div>
+      </div>
+    </div>
+
+    <!-- ─── TABLE OF CONTENTS ─── -->
+    <div class="section" id="overview">
+      <div class="section-header">
+        <div class="section-icon" style="background:#eff6ff; color:#1d4ed8;"><i class="bi bi-list-stars"></i></div>
+        <h2>Pangunahing Talaan ng Nilalaman</h2>
+      </div>
+      <div class="section-body">
+        <div class="toc-grid">
+          <a href="#roles" class="toc-item"><i class="bi bi-people" style="color:#315f8c;"></i> 1. User Roles & Access</a>
+          <a href="#navigation" class="toc-item"><i class="bi bi-compass" style="color:#059669;"></i> 2. System Controls & Header</a>
+          <a href="#dashboard" class="toc-item"><i class="bi bi-speedometer2" style="color:#6366f1;"></i> 3. Dashboard & Quick Actions</a>
+          <a href="#rooms" class="toc-item"><i class="bi bi-door-open" style="color:#d97706;"></i> 4. Room Status Board</a>
+          <a href="#shifts" class="toc-item"><i class="bi bi-clock-history" style="color:#0d9488;"></i> 5. Shift Register Desk</a>
+          <a href="#checkin" class="toc-item"><i class="bi bi-box-arrow-in-right" style="color:#e11d48;"></i> 6. Check-In & Reservations</a>
+          <a href="#pos" class="toc-item"><i class="bi bi-credit-card" style="color:#059669;"></i> 7. POS & Room Charges</a>
+          <a href="#reports" class="toc-item"><i class="bi bi-file-earmark-bar-graph" style="color:#315f8c;"></i> 8. Sales & Remittance Reports</a>
+          <a href="#maintenance" class="toc-item"><i class="bi bi-wrench" style="color:#d97706;"></i> 9. Maintenance Tickets</a>
+          <a href="#buttons-ref" class="toc-item"><i class="bi bi-hand-index-thumb" style="color:#6366f1;"></i> 10. Complete Button Reference</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── SECTION 1: USER ROLES ─── -->
+    <div class="section" id="roles">
+      <div class="section-header">
+        <div class="section-icon" style="background:#eff6ff; color:#315f8c;"><i class="bi bi-people"></i></div>
+        <h2>1. User Roles at Permission Levels</h2>
+      </div>
+      <div class="section-body">
+        <p style="font-size:.88rem; color:var(--muted); margin-bottom:18px;">Ang bawat account sa system ay may nakatalagang tungkulin (Role) na nagtatakda ng mga pahinang maaaring buksan at mga transaksyong maaaring iproseso.</p>
+
+        <div class="role-grid">
+          <div class="role-card admin">
+            <h3><i class="bi bi-shield-lock"></i> System Administrator</h3>
+            <ul>
+              <li>May ganap na access sa LAHAT ng pahina at setting ng system.</li>
+              <li>Maaaring magdagdag at mag-edit ng mga Room Rates, Peak Dates, at Staff Accounts.</li>
+              <li>Nakakakita ng Audit Trail Logs at may kakayahang mag-override ng Shift Register.</li>
+              <li>Maaaring mag-verify at mag-close ng Maintenance Tickets.</li>
+            </ul>
+          </div>
+          <div class="role-card frontdesk">
+            <h3><i class="bi bi-person-workspace"></i> Front Desk Staff</h3>
+            <ul>
+              <li>Nagtatala ng Walk-in Check-In at Future Booking Reservations.</li>
+              <li>Nagsasagawa ng Room Transfers, Reschedule, at Checkout.</li>
+              <li>Gumagamit ng POS para mag-record ng benta at room charges.</li>
+              <li>Nagtatala ng maintenance issues at tumitingin sa Guest Directory.</li>
+            </ul>
+          </div>
+          <div class="role-card cashier">
+            <h3><i class="bi bi-cash-coin"></i> Cashier Operator</h3>
+            <ul>
+              <li>Mamahala sa Shift Register at Cash Drawer remittances.</li>
+              <li>Magproseso ng pumasok na bayad (Payments) at mag-issue ng Official Receipts.</li>
+              <li>Mag-record ng karagdagang kita (*Incomes*) at gastusin (*Expenses*).</li>
+              <li>Mag-generate ng End-of-Day (EOD) Sales & Remittance reports.</li>
+            </ul>
+          </div>
+          <div class="role-card housekeeping">
+            <h3><i class="bi bi-stars"></i> Housekeeping Staff</h3>
+            <ul>
+              <li>Tumitingin sa Room Status Board at nag-uupdate ng status mula *Cleaning* patungong *Vacant*.</li>
+              <li>Gumagamit ng **Bulk Clean** button para sa pangmaramihang pag-update ng kuwarto.</li>
+              <li>Nagtatala ng sirang kagamitan sa kuwarto sa pamamagitan ng Maintenance Tickets.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── SECTION 2: SYSTEM CONTROLS ─── -->
+    <div class="section" id="navigation">
+      <div class="section-header">
+        <div class="section-icon" style="background:#f0fdfa; color:#059669;"><i class="bi bi-compass"></i></div>
+        <h2>2. System Controls at Topbar Header</h2>
+      </div>
+      <div class="section-body">
+        <div class="alert-box alert-info">
+          <i class="bi bi-info-circle"></i>
+          <div><strong>Topbar Controls:</strong> Ang mga kontrol na ito ay laging nakatampok sa itaas ng bawat pahina upang magbigay ng mabilisang akses sa tema, notifications, at lagay ng cashier shift.</div>
+        </div>
+
+        <table class="feature-table">
+          <thead>
+            <tr>
+              <th>Control / Button Name</th>
+              <th>Icon</th>
+              <th>Deskripsyon (Description)</th>
+              <th>Function (Ano ang nangyayari kapag pinindot)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Sidebar Toggle</strong></td>
+              <td><i class="bi bi-list"></i> / <i class="bi bi-chevron-left"></i></td>
+              <td>Pinapaliit o pinapalaki ang kaliwang navigation menu bar.</td>
+              <td>Nagbibigay ng mas malawak na espasyo sa screen para sa mga talahanayan at kard.</td>
+            </tr>
+            <tr>
+              <td><strong>Theme Switcher</strong></td>
+              <td><i class="bi bi-moon-stars"></i> / <i class="bi bi-sun"></i></td>
+              <td>Nagpapalit ng visual theme ng buong application.</td>
+              <td>Nagpapalit sa pagitan ng **Dark Mode** (madilim) at **Light Mode** (maliwanag).</td>
+            </tr>
+            <tr>
+              <td><strong>Notifications Bell</strong></td>
+              <td><i class="bi bi-bell"></i></td>
+              <td>Nagtataglay ng mga aktibong babala at paalala sa system.</td>
+              <td>Nagbubukas ng dropdown na nagpapakita ng *Overdue Checkout Alerts* at *Pending Maintenance Tickets*.</td>
+            </tr>
+            <tr>
+              <td><strong>Shift Status Indicator</strong></td>
+              <td><span class="btn-pill btn-success-pill">🟢 REGISTER RUNNING</span></td>
+              <td>Ipinapakita kung ang iyong account ay may nakabukas na cashier shift.</td>
+              <td>Kapag berde, maaari kang magproseso ng pera, check-in, POS, at anumang transaksyong may singilin.</td>
+            </tr>
+            <tr>
+              <td><strong>Viewer Mode Indicator</strong></td>
+              <td><span class="btn-pill btn-primary-pill">🔵 VIEWER MODE</span></td>
+              <td>Ipinapakita kapag ibang empleyado ang nakabukas sa cashier register.</td>
+              <td>Binabawal ang pagtanggap ng pera habang nakatala sa pangalan ng ibang staff ang cashier register.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ─── SECTION 3: DASHBOARD ─── -->
+    <div class="section" id="dashboard">
+      <div class="section-header">
+        <div class="section-icon" style="background:#e0e7ff; color:#312e81;"><i class="bi bi-speedometer2"></i></div>
+        <h2>3. Dashboard at Quick Action Cards</h2>
+      </div>
+      <div class="section-body">
+        <p style="font-size:.88rem; color:var(--muted); margin-bottom:16px;">Ang Dashboard ang pangunahing command center ng hotel na nagbibigay ng agarang akses sa mga pinakamadalas na gawain sa front desk.</p>
+
+        <div class="module-card">
+          <div class="module-card-header" style="background:#f8fafc; border-bottom:1px solid var(--border);">
+            <i class="bi bi-grid-3x3-gap"></i> Quick Action Buttons Reference
+          </div>
+          <div class="module-card-body">
+            <table class="feature-table">
+              <thead>
+                <tr>
+                  <th>Button Name</th>
+                  <th>Visual Style</th>
+                  <th>Deskripsyon</th>
+                  <th>Function (Aksyon)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>New Reservation</strong></td>
+                  <td><span class="btn-pill btn-purple-pill"><i class="bi bi-calendar-plus"></i> New Reservation</span></td>
+                  <td>Pag-book para sa darating na petsa.</td>
+                  <td>Nagbubukas ng Reservation Booking Form window.</td>
+                </tr>
+                <tr>
+                  <td><strong>Walk-in Check-In</strong></td>
+                  <td><span class="btn-pill btn-secondary-pill"><i class="bi bi-box-arrow-in-right"></i> Walk-in Check-In</span></td>
+                  <td>Direktang pag-checkin sa dumating na bisita.</td>
+                  <td>Lumilipat sa Walk-in Check-In Wizard page.</td>
+                </tr>
+                <tr>
+                  <td><strong>Check-Out Guest</strong></td>
+                  <td><span class="btn-pill btn-warning-pill"><i class="bi bi-box-arrow-right"></i> Check-Out Guest</span></td>
+                  <td>Pag-settle ng bill at pag-check out.</td>
+                  <td>Nagpapakita ng listahan ng mga bisitang handa nang mag-checkout.</td>
+                </tr>
+                <tr>
+                  <td><strong>Room Status Grid</strong></td>
+                  <td><span class="btn-pill btn-purple-pill"><i class="bi bi-grid-fill"></i> Room Status Grid</span></td>
+                  <td>Mabilisang pagtingin sa lagay ng kuwarto.</td>
+                  <td>Lumilipat rekdirect sa Room Status Board.</td>
+                </tr>
+                <tr>
+                  <td><strong>POS / Room Charge</strong></td>
+                  <td><span class="btn-pill btn-success-pill"><i class="bi bi-credit-card"></i> POS / Room Charge</span></td>
+                  <td>Pagbenta ng paninda o room charges.</td>
+                  <td>Nagbubukas ng Point of Sale register window.</td>
+                </tr>
+                <tr>
+                  <td><strong>Manage Active Shift</strong></td>
+                  <td><span class="btn-pill btn-primary-pill"><i class="bi bi-clipboard-data"></i> Manage Active Shift</span></td>
+                  <td>Pamamahala ng cashier shift session.</td>
+                  <td>Lumilipat sa Shift Register Control Desk.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="steps">
+          <div class="step">
+            <div class="step-num">1</div>
+            <div class="step-content">
+              <strong>Pagsusuri sa Operational Metrics</strong>
+              <p>Suriin ang **Occupancy Rate (%)**, **Expected Arrivals**, **Expected Departures**, at **Total Revenue** sa mga kard sa itaas ng dashboard.</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">2</div>
+            <div class="step-content">
+              <strong>Pagtugon sa Action Center Alerts</strong>
+              <p>Tingnan ang listahan sa **Action Center** para sa mga urgent tasks tulad ng *Overdue Departure Alerts* at *Pending Repairs*.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── SECTION 4: ROOM STATUS BOARD ─── -->
+    <div class="section" id="rooms">
+      <div class="section-header">
+        <div class="section-icon" style="background:#fef3c7; color:#78350f;"><i class="bi bi-door-open"></i></div>
+        <h2>4. Room Status Board at Card Controls</h2>
+      </div>
+      <div class="section-body">
+        <p style="font-size:.88rem; color:var(--muted); margin-bottom:16px;">Ang Room Status Board ang nagpapakita sa estado ng bawat kuwarto sa bawat floor ng hotel.</p>
+
+        <div class="alert-box alert-success">
+          <i class="bi bi-check-circle"></i>
+          <div><strong>Status Color Legend:</strong> Lunti (🟢 **VACANT**) = Handa nang patirahan | Pula (🔴 **OCCUPIED**) = May nakatira | Dilaw (🟡 **CLEANING**) = Nililinis pa | Gris (⚪ **OUT OF ORDER**) = Kinukumpuni.</div>
+        </div>
+
+        <table class="feature-table">
+          <thead>
+            <tr>
+              <th>Button / Control Name</th>
+              <th>Visual Pill</th>
+              <th>Deskripsyon</th>
+              <th>Function</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Availability Button</strong></td>
+              <td><span class="btn-pill btn-primary-pill"><i class="bi bi-calendar-event"></i> Availability</span></td>
+              <td>Nasa loob ng bawat Room Card.</td>
+              <td>Tinitingnan ang natitirang bakanteng petsa ng partikular na kuwarto.</td>
+            </tr>
+            <tr>
+              <td><strong>Check-In Button</strong></td>
+              <td><span class="btn-pill btn-success-pill"><i class="bi bi-key"></i> Check-In</span></td>
+              <td>Nasa loob ng Vacant Room Card.</td>
+              <td>Mabilisang pagproseso ng check-in sa kuwartong iyon.</td>
+            </tr>
+            <tr>
+              <td><strong>Bulk Clean Button</strong></td>
+              <td><span class="btn-pill btn-warning-pill"><i class="bi bi-stars"></i> Bulk Clean</span></td>
+              <td>Matatagpuan sa itaas ng Room Board.</td>
+              <td>**Pangmaramihang Paglinis**: Sa isang pilit lamang, ginagawang **Vacant** ang LAHAT ng kuwartong nasa status na *Cleaning*.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ─── SECTION 5: SHIFT & REGISTER DESK ─── -->
+    <div class="section" id="shifts">
+      <div class="section-header">
+        <div class="section-icon" style="background:#f0fdfa; color:#0d9488;"><i class="bi bi-clock-history"></i></div>
+        <h2>5. Shift & Register Control Desk</h2>
+      </div>
+      <div class="section-body">
+        <p style="font-size:.88rem; color:var(--muted); margin-bottom:16px;">Upang makatanggap ng perang bayad o magproseso ng anumang billing transaksyon, kinakailangang bukas ang iyong **Register Shift**.</p>
+
+        <div class="steps">
+          <div class="step">
+            <div class="step-num">1</div>
+            <div class="step-content">
+              <strong>Pagpapasimula ng Shift (Open Register)</strong>
+              <p>Pindutin ang <span class="btn-pill btn-primary-pill">PROCEED AND OPEN REGISTER</span> button. Ilagay ang panimulang perang papel at barya sa drawer (Opening Cash Denominations).</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">2</div>
+            <div class="step-content">
+              <strong>Pag-record ng Cash Movements (In-Shift)</strong>
+              <p>Gamitin ang <span class="btn-pill btn-purple-pill">+ Cash Movement</span> button kung mag-aalis o magdagdag ng pera sa drawer habang nag-ooperate.</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">3</div>
+            <div class="step-content">
+              <strong>Pagtatapos ng Shift (Close Register & Remittance)</strong>
+              <p>Pindutin ang <span class="btn-pill btn-danger-pill">Close Register & End Shift</span> button sa pagtatapos ng iyong trabaho upang mai-print ang opisyal na Shift Remittance Report.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── SECTION 6: FINANCIALS & REPORTS ─── -->
+    <div class="section" id="reports">
+      <div class="section-header">
+        <div class="section-icon" style="background:#eff6ff; color:#315f8c;"><i class="bi bi-file-earmark-bar-graph"></i></div>
+        <h2>6. Sales, POS, Expenses, at Remittance Reports</h2>
+      </div>
+      <div class="section-body">
+        <p style="font-size:.88rem; color:var(--muted); margin-bottom:16px;">Mga kontrol sa pag-export ng mga ulat at pag-record ng mga pumasok at lumabas na pera sa hotel.</p>
+
+        <table class="feature-table">
+          <thead>
+            <tr>
+              <th>Button Name</th>
+              <th>Visual Pill</th>
+              <th>Pahina (Page)</th>
+              <th>Function (Aksyon)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Export Sold Items</strong></td>
+              <td><span class="btn-pill btn-secondary-pill"><i class="bi bi-download"></i> Export Sold Items</span></td>
+              <td>POS Page</td>
+              <td>Downloads a complete Excel list of all POS products sold.</td>
+            </tr>
+            <tr>
+              <td><strong>EOD Summary</strong></td>
+              <td><span class="btn-pill btn-purple-pill"><i class="bi bi-printer"></i> EOD Summary</span></td>
+              <td>Reports Page</td>
+              <td>Nagbubukas ng **End of Day Summary Modal** para sa pang-araw-araw na pagsusuri ng kita.</td>
+            </tr>
+            <tr>
+              <td><strong>Export Excel</strong></td>
+              <td><span class="btn-pill btn-success-pill"><i class="bi bi-file-earmark-excel"></i> Export Excel</span></td>
+              <td>Reports Page</td>
+              <td>I-download ang kumpletong Financial Report sa spreadsheet format (.XLSX).</td>
+            </tr>
+            <tr>
+              <td><strong>Record Expense</strong></td>
+              <td><span class="btn-pill btn-primary-pill"><i class="bi bi-plus-circle"></i> Record Expense</span></td>
+              <td>Expenses Page</td>
+              <td>Nagtatala ng gastusin ng hotel (utility bills, supplies) kasama ang resibo.</td>
+            </tr>
+            <tr>
+              <td><strong>Record Income</strong></td>
+              <td><span class="btn-pill btn-success-pill"><i class="bi bi-plus-circle"></i> Record Income</span></td>
+              <td>Incomes Page</td>
+              <td>Nagtatala ng karagdagang kita na labas sa booking sales (space rental, souvenirs).</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ─── SECTION 7: MAINTENANCE TICKETS ─── -->
+    <div class="section" id="maintenance">
+      <div class="section-header">
+        <div class="section-icon" style="background:#fffbeb; color:#d97706;"><i class="bi bi-wrench"></i></div>
+        <h2>7. Maintenance Tickets at Priority Cycling</h2>
+      </div>
+      <div class="section-body">
+        <p style="font-size:.88rem; color:var(--muted); margin-bottom:16px;">Seksyon sa pag-uulat at pag-subaybay sa mga sirang kagamitan sa kuwarto o pasilidad ng hotel.</p>
+
+        <div class="module-card">
+          <div class="module-card-header" style="background:#f8fafc; border-bottom:1px solid var(--border);">
+            <i class="bi bi-sliders"></i> Priority & Status Badge Controls
+          </div>
+          <div class="module-card-body">
+            <table class="feature-table">
+              <thead>
+                <tr>
+                  <th>Badge / Control Name</th>
+                  <th>Visual Pill</th>
+                  <th>Deskripsyon at Aksyon</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>Priority Cycling</strong></td>
+                  <td><span class="badge-low">MEDIUM</span> ➔ <span class="badge-critical">HIGH</span></td>
+                  <td>I-click ang priority badge sa talahanayan upang magpalit mula **LOW** ➔ **MEDIUM** ➔ **HIGH** ➔ **CRITICAL**.</td>
+                </tr>
+                <tr>
+                  <td><strong>Status: OPEN</strong></td>
+                  <td><span class="btn-pill btn-danger-pill">🔴 OPEN</span></td>
+                  <td>Bago at naghihintay ng aksyon ng maintenance staff.</td>
+                </tr>
+                <tr>
+                  <td><strong>Status: REPAIRING</strong></td>
+                  <td><span class="btn-pill btn-purple-pill">🔵 REPAIRING</span></td>
+                  <td>Kasalukuyang ginagawa at kinukumpuni ang sira.</td>
+                </tr>
+                <tr>
+                  <td><strong>Status: FOR VERIFICATION</strong></td>
+                  <td><span class="btn-pill btn-warning-pill">🟡 FOR VERIFICATION</span></td>
+                  <td>Tapos na ang kumpuni; naghihintay ng pag-apruba ng Admin.</td>
+                </tr>
+                <tr>
+                  <td><strong>Status: RESOLVED</strong></td>
+                  <td><span class="btn-pill btn-success-pill">🟢 RESOLVED</span></td>
+                  <td>Ganap nang naayos at naisara na ang ulat.</td>
+                </tr>
+                <tr>
+                  <td><strong>View Details Button</strong></td>
+                  <td><span class="btn-pill btn-primary-pill">View Details</span></td>
+                  <td>Nagbubukas ng modal upang makita ang larawan ng sira at mga tala sa pagkakaayos.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── SECTION 8: COMPLETE BUTTON REFERENCE ─── -->
+    <div class="section" id="buttons-ref">
+      <div class="section-header">
+        <div class="section-icon" style="background:#e0e7ff; color:#312e81;"><i class="bi bi-hand-index-thumb"></i></div>
+        <h2>8. Pangkalahatang Gabay sa Lahat ng Buttons sa System</h2>
+      </div>
+      <div class="section-body">
+        <table class="feature-table">
+          <thead>
+            <tr>
+              <th>Button Name</th>
+              <th>Visual Pill</th>
+              <th>Location</th>
+              <th>Function (Ano ang nangyayari)</th>
+              <th>Permitted Roles</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Sidebar Toggle</strong></td>
+              <td><span class="btn-pill btn-secondary-pill">☰ Toggle</span></td>
+              <td>Topbar Header</td>
+              <td>Pinapaliit/Pinapalaki ang kaliwang menu navigation.</td>
+              <td>Lahat ng Roles</td>
+            </tr>
+            <tr>
+              <td><strong>Theme Switcher</strong></td>
+              <td><span class="btn-pill btn-secondary-pill">🌙 / ☀️ Theme</span></td>
+              <td>Topbar Header</td>
+              <td>Pinapalitan ang screen saitan ng Dark Mode at Light Mode.</td>
+              <td>Lahat ng Roles</td>
+            </tr>
+            <tr>
+              <td><strong>New Reservation</strong></td>
+              <td><span class="btn-pill btn-purple-pill">New Reservation</span></td>
+              <td>Dashboard / Reservations</td>
+              <td>Nagbubukas ng booking modal para sa hinaharap na stay.</td>
+              <td>Admin, Front Desk</td>
+            </tr>
+            <tr>
+              <td><strong>Walk-in Check-In</strong></td>
+              <td><span class="btn-pill btn-secondary-pill">Walk-in Check-In</span></td>
+              <td>Dashboard / Check-In</td>
+              <td>Nagtatala ng direktang pag-checkin sa dumating na bisita.</td>
+              <td>Admin, Front Desk</td>
+            </tr>
+            <tr>
+              <td><strong>Check-Out Guest</strong></td>
+              <td><span class="btn-pill btn-warning-pill">Check-Out Guest</span></td>
+              <td>Dashboard / Booking List</td>
+              <td>Pag-settle ng bill at pag-check out sa kasalukuyang nakatira.</td>
+              <td>Admin, Front Desk, Cashier</td>
+            </tr>
+            <tr>
+              <td><strong>Bulk Clean</strong></td>
+              <td><span class="btn-pill btn-warning-pill">Bulk Clean</span></td>
+              <td>Room Status Board</td>
+              <td>Ginagawang **Vacant** ang LAHAT ng kuwartong *Cleaning*.</td>
+              <td>Housekeeping, Admin</td>
+            </tr>
+            <tr>
+              <td><strong>Open Register</strong></td>
+              <td><span class="btn-pill btn-primary-pill">PROCEED & OPEN</span></td>
+              <td>Shift Control Desk</td>
+              <td>Pinasimulan ang cashier register shift session.</td>
+              <td>Admin, Front Desk, Cashier</td>
+            </tr>
+            <tr>
+              <td><strong>Close Register</strong></td>
+              <td><span class="btn-pill btn-danger-pill">Close Register</span></td>
+              <td>Shift Control Desk</td>
+              <td>Isinasara ang cashier session at nag-iissue ng remittance report.</td>
+              <td>Admin, Front Desk, Cashier</td>
+            </tr>
+            <tr>
+              <td><strong>EOD Summary</strong></td>
+              <td><span class="btn-pill btn-purple-pill">EOD Summary</span></td>
+              <td>Reports Page</td>
+              <td>Nagbubukas ng End of Day collection & sales modal.</td>
+              <td>Admin, Cashier</td>
+            </tr>
+            <tr>
+              <td><strong>Export Excel</strong></td>
+              <td><span class="btn-pill btn-success-pill">Export Excel</span></td>
+              <td>Reports / POS / Expenses</td>
+              <td>I-download ang mga talaan sa spreadsheet (.XLSX) format.</td>
+              <td>Admin, Cashier, Front Desk</td>
+            </tr>
+            <tr>
+              <td><strong>File Ticket</strong></td>
+              <td><span class="btn-pill btn-primary-pill">File Maintenance</span></td>
+              <td>Maintenance Page</td>
+              <td>Nag-uulat ng sirang kagamitan sa kuwarto o pasilidad.</td>
+              <td>Lahat ng Roles</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ─── SECTION 9: FAQ ─── -->
+    <div class="section" id="faq">
+      <div class="section-header">
+        <div class="section-icon" style="background:#eff6ff; color:#315f8c;"><i class="bi bi-question-circle"></i></div>
+        <h2>9. Mga Madalas Itanong (FAQ) at Troubleshooting</h2>
+      </div>
+      <div class="section-body">
+        <div class="glossary-item">
+          <div class="glossary-term">❓ Bakit nakasulat ang "VIEWER MODE" sa aking header at ayaw magproseso ng Check-In?</div>
+          <div class="glossary-def">Nangangahulugan ito na may ibang empleyadong kasalukuyang nakabukas ang cashier register session. Pumunta sa **Shift Register Control Desk** upang suriin kung sino ang operator o hilingin sa Admin na i-handover ang register sa iyo.</div>
+        </div>
+        <div class="glossary-item">
+          <div class="glossary-term">❓ Paano palitan ang status ng kuwarto mula "Cleaning" patungong "Vacant"?</div>
+          <div class="glossary-def">Pumunta sa **Room Status Board** at i-click ang **Bulk Clean** button sa itaas kung malinis na ang lahat ng kuwarto, o pumasok sa partikular na kuwarto at i-update ang status nito.</div>
+        </div>
+        <div class="glossary-item">
+          <div class="glossary-term">❓ Paano i-print ang End of Day (EOD) Summary Report sa pagtatapos ng araw?</div>
+          <div class="glossary-def">Pumunta sa **Reports** page, i-click ang <span class="btn-pill btn-purple-pill">EOD Summary</span> button, at pindutin ang <span class="btn-pill btn-purple-pill">Print / PDF</span> button sa loob ng modal window.</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+</body>
+</html>

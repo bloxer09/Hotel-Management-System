@@ -74,6 +74,7 @@ export default function Dashboard({ stats, charts, recentBookings, lowStockItems
             desc: "Expected guest check-ins",
             icon: LogIn,
             accent: "text-indigo-300 bg-indigo-500/15 border-indigo-500/25",
+            href: `${route('reservations.index')}?status=reserved&date_scope=arrivals_today`,
         },
         {
             title: "Departures Today",
@@ -81,6 +82,7 @@ export default function Dashboard({ stats, charts, recentBookings, lowStockItems
             desc: "Scheduled guest check-outs",
             icon: LogOut,
             accent: "text-amber-300 bg-amber-500/15 border-amber-500/25",
+            href: `${route('checkin.index')}?status=active&date_scope=departures_today`,
         },
         {
             title: "In-House",
@@ -231,13 +233,17 @@ export default function Dashboard({ stats, charts, recentBookings, lowStockItems
 
                 {/* KPI Cards Grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
-                    {operationalCards.map((card, idx) => (
-                        <motion.div
+                    {operationalCards.map((card, idx) => {
+                        const Card = card.href ? motion(Link) : motion.div;
+
+                        return (
+                        <Card
                             key={card.title}
+                            {...(card.href ? { href: card.href, 'aria-label': `View ${card.title.toLowerCase()}` } : {})}
                             initial={{ opacity: 0, y: 15 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: idx * 0.1 }}
-                            className="dashboard-kpi p-5 rounded-2xl bg-[#1e293b] border border-[#334155] shadow-xl flex flex-col justify-between min-h-[126px]"
+                            className={`dashboard-kpi p-5 rounded-2xl bg-[#1e293b] border border-[#334155] shadow-xl flex flex-col justify-between min-h-[126px]${card.href ? ' cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0f172a]' : ''}`}
                         >
                             <div>
                                 <div className="flex items-center justify-between mb-3">
@@ -250,8 +256,9 @@ export default function Dashboard({ stats, charts, recentBookings, lowStockItems
                                 <div className="font-mono font-black text-2xl tracking-tight text-slate-100">{card.value}</div>
                             </div>
                             <div className="text-[10px] text-slate-500 mt-2">{card.desc}</div>
-                        </motion.div>
-                    ))}
+                        </Card>
+                        );
+                    })}
                 </div>
 
                 {/* Front-desk workspace: immediate actions and the single prioritized task queue. */}
