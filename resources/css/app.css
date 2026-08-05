@@ -23,12 +23,12 @@ html[data-theme='light'] body {
     background:
         radial-gradient(circle at 76% -10%, rgba(69, 125, 174, 0.10), transparent 30rem),
         #f3f6fa;
-    color: #172033;
+    color: #0f172a;
 }
 
 html[data-theme='light'] .app-shell {
     background-color: #f3f6fa !important;
-    color: #172033 !important;
+    color: #0f172a !important;
 }
 
 html[data-theme='light'] .app-sidebar {
@@ -81,48 +81,76 @@ html[data-theme='light'] [class*="border-slate-8"] {
     border-color: #d8e2ed !important;
 }
 
+/* ─── Light Mode Text Contrast Rules ───────────────────────────────────── */
+/* Primary high-contrast text */
 html[data-theme='light'] [class*="text-slate-50"],
 html[data-theme='light'] [class*="text-slate-100"],
-html[data-theme='light'] [class*="text-slate-200"] {
-    color: #172033 !important;
+html[data-theme='light'] [class*="text-slate-200"],
+html[data-theme='light'] [class*="text-slate-700"],
+html[data-theme='light'] [class*="text-slate-800"],
+html[data-theme='light'] [class*="text-slate-900"],
+html[data-theme='light'] [class*="text-gray-50"],
+html[data-theme='light'] [class*="text-gray-100"],
+html[data-theme='light'] [class*="text-gray-200"],
+html[data-theme='light'] [class*="text-gray-700"],
+html[data-theme='light'] [class*="text-gray-800"],
+html[data-theme='light'] [class*="text-gray-900"],
+html[data-theme='light'] [class*="text-zinc-50"],
+html[data-theme='light'] [class*="text-zinc-100"],
+html[data-theme='light'] [class*="text-zinc-200"],
+html[data-theme='light'] [class*="text-zinc-700"],
+html[data-theme='light'] [class*="text-zinc-800"],
+html[data-theme='light'] [class*="text-zinc-900"] {
+    color: #0f172a !important;
 }
 
-html[data-theme='light'] [class*="text-slate-3"] {
+/* Secondary dark text (headers, subtitles, key labels) */
+html[data-theme='light'] [class*="text-slate-300"],
+html[data-theme='light'] [class*="text-slate-350"],
+html[data-theme='light'] [class*="text-slate-400"],
+html[data-theme='light'] [class*="text-gray-300"],
+html[data-theme='light'] [class*="text-gray-400"],
+html[data-theme='light'] [class*="text-zinc-300"],
+html[data-theme='light'] [class*="text-zinc-400"] {
+    color: #1e293b !important;
+}
+
+/* Muted / description text - solid, clear dark slate */
+html[data-theme='light'] [class*="text-slate-500"],
+html[data-theme='light'] [class*="text-slate-600"],
+html[data-theme='light'] [class*="text-gray-500"],
+html[data-theme='light'] [class*="text-gray-600"],
+html[data-theme='light'] [class*="text-zinc-500"],
+html[data-theme='light'] [class*="text-zinc-600"],
+html[data-theme='light'] [class*="text-neutral-500"],
+html[data-theme='light'] [class*="text-neutral-600"] {
     color: #334155 !important;
-}
-
-html[data-theme='light'] [class*="text-slate-4"] {
-    color: #475569 !important;
-}
-
-html[data-theme='light'] [class*="text-slate-5"],
-html[data-theme='light'] [class*="text-slate-6"] {
-    color: #596981 !important;
 }
 
 /* Sidebar navigation: clear default, hover, active and keyboard states. */
 html[data-theme='light'] .app-navigation .app-nav-link {
     position: relative;
-    color: #52647c !important;
+    color: #1e293b !important;
     background: transparent !important;
     border: 1px solid transparent;
     box-shadow: none !important;
+    font-weight: 500;
 }
 
 html[data-theme='light'] .app-navigation .app-nav-link svg {
-    color: #6a7c94 !important;
+    color: #334155 !important;
     transition: color 180ms ease, transform 180ms ease;
 }
 
 html[data-theme='light'] .app-navigation .app-nav-link:not(.is-active):hover {
-    color: #244d73 !important;
+    color: #0f172a !important;
     background: linear-gradient(90deg, #eaf2fb, #f1f6fb) !important;
     border-color: #d4e3f2;
     transform: translateX(2px);
 }
 
 html[data-theme='light'] .app-navigation .app-nav-link:not(.is-active):hover svg {
-    color: #356b9b !important;
+    color: #0f172a !important;
     transform: scale(1.08);
 }
 
@@ -163,8 +191,8 @@ html[data-theme='light'] [class*="bg-[#1e293b]"][class*="rounded-"][class*="shad
 
 html[data-theme='light'] .page-title {
     background-image: none !important;
-    color: #17243a !important;
-    -webkit-text-fill-color: #17243a;
+    color: #0f172a !important;
+    -webkit-text-fill-color: #0f172a;
 }
 
 html[data-theme='light'] .dashboard-kpi {
@@ -204,8 +232,8 @@ html[data-theme='light'] table tbody tr:hover {
 
 html[data-theme='light'] .recharts-cartesian-axis-tick-value,
 html[data-theme='light'] .recharts-legend-item-text {
-    fill: #52647c;
-    color: #52647c !important;
+    fill: #1e293b;
+    color: #1e293b !important;
 }
 
 html[data-theme='light'] input:not([type='checkbox']):not([type='radio']),
@@ -213,7 +241,7 @@ html[data-theme='light'] textarea,
 html[data-theme='light'] select {
     color-scheme: light;
     background-color: #ffffff !important;
-    color: #172033 !important;
+    color: #0f172a !important;
     border-color: #cfdbe7 !important;
     box-shadow: 0 1px 2px rgba(26, 45, 70, 0.03);
 }
@@ -226,12 +254,12 @@ html[data-theme='light'] select:hover {
 
 html[data-theme='light'] input::placeholder,
 html[data-theme='light'] textarea::placeholder {
-    color: #73839a !important;
+    color: #475569 !important;
 }
 
 html[data-theme='light'] option {
     background-color: #ffffff !important;
-    color: #172033 !important;
+    color: #0f172a !important;
 }
 
 /* Dark background for all native <CustomSelect> and <option> elements */
