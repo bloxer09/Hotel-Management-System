@@ -149,13 +149,26 @@ class Booking extends Model
         return $this->belongsTo(User::class, 'checked_out_by');
     }
 
-    public function checkedInBy()
+    public static function getActiveGroupsMap(array $pendingPaymentSum = []): array
     {
-        return $this->belongsTo(User::class, 'checked_in_by');
-    }
+        $query = static::with(['room', 'room.type', 'guestProfile']);
+        if (!empty($pendingPaymentSum)) {
+            $query->withSum($pendingPaymentSum, 'allocated_amount');
+        }
 
-    public function checkedOutBy()
-    {
-        return $this->belongsTo(User::class, 'checked_out_by');
+        $groupBookingsRaw = $query->whereNotNull('group_ref')
+            ->whereIn('status', ['active', 'reserved', 'checked_out', 'completed', 'no_show', 'cancelled'])
+            ->orderBy('id', 'desc')
+            ->get();
+
+        $groupBookings = [];
+        foreach ($groupBookingsRaw->groupBy('group_ref') as $groupRef => $groupItems) {
+            $hasActiveOrReserved = $groupItems->contains(fn ($b) => in_array($b->status, ['active', 'reserved']));
+            if ($hasActiveOrReserved) {
+                $groupBookings[$groupRef] = $groupItems;
+            }
+        }
+
+        return $groupBookings;
     }
 }

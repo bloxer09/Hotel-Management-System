@@ -39,7 +39,97 @@ import {
 } from 'lucide-react';
 import ProfileModal from '@/Components/ProfileModal';
 import ConfirmModal from '@/Components/ConfirmModal';
+import { useTheme } from '@/hooks/useTheme';
+import { useFlashToast } from '@/hooks/useFlashToast';
+import { useNotificationChime } from '@/hooks/useNotificationChime';
+import { useNotifications } from '@/hooks/useNotifications';
 
+
+// ─── Alert Toast Card Component (Module Scope) ───────────────────────────
+const AlertToastCard = ({ item, onDismiss }) => {
+    let titleText = 'Alert';
+    let isCritical = false;
+    let Icon = Bell;
+    let colorClass = 'bg-amber-950/90 border-amber-500/50 text-amber-100 shadow-amber-950/40';
+    let iconColorClass = 'text-amber-400';
+    let iconBgClass = 'bg-amber-500/20';
+    let barColorClass = 'bg-amber-400';
+
+    if (item.type === 'checkout') {
+        isCritical = item.state === 'overdue';
+        titleText = isCritical ? 'Overdue Checkout' : 'Upcoming Checkout';
+        Icon = Timer;
+        if (isCritical) {
+            colorClass = 'bg-red-950/90 border-red-500/50 text-red-100 shadow-red-950/40';
+            iconColorClass = 'text-red-400';
+            iconBgClass = 'bg-red-500/20';
+            barColorClass = 'bg-red-400';
+        }
+    } else if (item.type === 'inventory') {
+        isCritical = item.state === 'out_of_stock';
+        titleText = isCritical ? 'Out of Stock' : 'Low Stock Alert';
+        Icon = ShoppingCart;
+        if (isCritical) {
+            colorClass = 'bg-red-950/90 border-red-500/50 text-red-100 shadow-red-950/40';
+            iconColorClass = 'text-red-400';
+            iconBgClass = 'bg-red-500/20';
+            barColorClass = 'bg-red-400';
+        }
+    } else if (item.type === 'cleaning_finished') {
+        titleText = 'Cleaning Finished';
+        Icon = CheckCircle2;
+        colorClass = 'bg-emerald-950/90 border-emerald-500/50 text-emerald-100 shadow-emerald-950/40';
+        iconColorClass = 'text-emerald-400';
+        iconBgClass = 'bg-emerald-500/20';
+        barColorClass = 'bg-emerald-400';
+    } else if (item.type === 'maintenance') {
+        isCritical = item.priority === 'critical';
+        titleText = isCritical ? 'Critical Maintenance' : 'High Maintenance';
+        Icon = Wrench;
+        colorClass = 'bg-red-950/90 border-red-500/50 text-red-100 shadow-red-950/40';
+        iconColorClass = 'text-red-400';
+        iconBgClass = 'bg-red-500/20';
+        barColorClass = 'bg-red-400';
+    }
+
+    return (
+        <motion.div
+            role="alert"
+            aria-live="polite"
+            aria-atomic="true"
+            layout
+            initial={{ opacity: 0, x: 80, scale: 0.95 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={{ opacity: 0, x: 80, scale: 0.9 }}
+            transition={{ type: 'spring', damping: 22, stiffness: 280 }}
+            className={`relative flex items-start gap-3 p-4 rounded-2xl border shadow-2xl backdrop-blur-xl max-w-xs w-full ${colorClass}`}
+        >
+            <div className={`shrink-0 mt-0.5 p-1.5 rounded-lg ${iconBgClass}`}>
+                <Icon size={16} className={iconColorClass} />
+            </div>
+            <div className="flex-1 min-w-0">
+                <div className={`text-[10px] uppercase font-black tracking-wider mb-0.5 ${iconColorClass}`}>
+                    {titleText}
+                </div>
+                <p className="text-xs font-medium leading-relaxed opacity-90">{item.message}</p>
+            </div>
+            <button
+                onClick={onDismiss}
+                aria-label="Dismiss notification"
+                className="shrink-0 text-current opacity-50 hover:opacity-100 transition-opacity"
+            >
+                <X size={14} />
+            </button>
+            {/* Auto-dismiss progress bar */}
+            <motion.div
+                className={`absolute bottom-0 left-0 h-0.5 rounded-full ${barColorClass}`}
+                initial={{ width: '100%' }}
+                animate={{ width: '0%' }}
+                transition={{ duration: 7, ease: 'linear' }}
+            />
+        </motion.div>
+    );
+};
 
 export default function AuthenticatedLayout({ children }) {
     const { auth, flash, app_name } = usePage().props;
@@ -56,132 +146,21 @@ export default function AuthenticatedLayout({ children }) {
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-    const [theme, setTheme] = useState(() => document.documentElement.dataset.theme === 'light' ? 'light' : 'dark');
 
-    // ─── Toast state ─────────────────────────────────────────────────────────
-    const [toast, setToast] = useState(null);
-
-    // ─── Notification System State ────────────────────────────────────────────
-    const [notifications, setNotifications] = useState([]);
-    const [notifCounts, setNotifCounts] = useState({ total: 0, checkout: 0, inventory: 0, overdue: 0, out_of_stock: 0 });
-    const [isBellOpen, setIsBellOpen] = useState(false);
-    const [alertToasts, setAlertToasts] = useState([]);
-    const seenAlertKeysRef = useRef(new Set());
-    const notifInitializedRef = useRef(false);
-    const audioCtxRef = useRef(null);
-    const bellDropdownRef = useRef(null);
+    // ─── Custom Hooks ─────────────────────────────────────────────────────────
+    const { theme, setTheme } = useTheme();
+    const { toast, setToast } = useFlashToast();
+    const { playAlertChime } = useNotificationChime();
     const canSeeNotifications = ['admin', 'front_desk', 'cashier', 'housekeeping'].includes(user.role);
+    const { notifications, counts: notifCounts, alertToasts, dismissAlertToast } = useNotifications({
+        enabled: canSeeNotifications,
+        chime: playAlertChime,
+    });
 
-    useEffect(() => {
-        if (flash.success) {
-            setToast({ type: 'success', message: flash.success });
-        } else if (flash.warning) {
-            setToast({ type: 'warning', message: flash.warning });
-        } else if (flash.error) {
-            setToast({ type: 'error', message: flash.error });
-        }
-    }, [flash]);
 
-    useEffect(() => {
-        if (toast) {
-            const timer = setTimeout(() => setToast(null), 5000);
-            return () => clearTimeout(timer);
-        }
-    }, [toast]);
 
-    // ─── Web Audio API: Dual-Oscillator Synthesizer Chime ────────────────────
-    const unlockAudio = useCallback(() => {
-        if (!audioCtxRef.current) {
-            const Ctx = window.AudioContext || window.webkitAudioContext;
-            if (Ctx) audioCtxRef.current = new Ctx();
-        }
-        if (audioCtxRef.current?.state === 'suspended') {
-            audioCtxRef.current.resume().catch(() => { });
-        }
-    }, []);
-
-    useEffect(() => {
-        const handler = () => unlockAudio();
-        window.addEventListener('click', handler, { once: true });
-        window.addEventListener('keydown', handler, { once: true });
-        return () => {
-            window.removeEventListener('click', handler);
-            window.removeEventListener('keydown', handler);
-        };
-    }, [unlockAudio]);
-
-    const playAlertChime = useCallback(() => {
-        try {
-            unlockAudio();
-            const ctx = audioCtxRef.current;
-            if (!ctx) return;
-            const now = ctx.currentTime;
-            [{ freq: 880, offset: 0 }, { freq: 660, offset: 0.22 }].forEach(({ freq, offset }) => {
-                const osc = ctx.createOscillator();
-                const gain = ctx.createGain();
-                osc.type = 'sine';
-                osc.frequency.value = freq;
-                gain.gain.setValueAtTime(0.0001, now + offset);
-                gain.gain.exponentialRampToValueAtTime(0.14, now + offset + 0.02);
-                gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + 0.18);
-                osc.connect(gain);
-                gain.connect(ctx.destination);
-                osc.start(now + offset);
-                osc.stop(now + offset + 0.22);
-            });
-        } catch (e) {
-            console.warn('Notification chime failed:', e);
-        }
-    }, [unlockAudio]);
-
-    // ─── Fetch + Process Notifications ───────────────────────────────────────
-    const loadNotifications = useCallback(async () => {
-        if (!canSeeNotifications) return;
-        try {
-            const res = await fetch('/api/notifications', { cache: 'no-store' });
-            if (!res.ok) return;
-            const payload = await res.json();
-            if (!payload.success) return;
-
-            const items = Array.isArray(payload.items) ? payload.items : [];
-            setNotifications(items);
-            setNotifCounts(payload.counts || {});
-
-            const newItems = items.filter(item => !seenAlertKeysRef.current.has(item.alert_key));
-            newItems.forEach(item => seenAlertKeysRef.current.add(item.alert_key));
-
-            if (notifInitializedRef.current && newItems.length > 0) {
-                playAlertChime();
-                setAlertToasts(prev => {
-                    const incoming = newItems.slice(0, 3).map((item, i) => ({
-                        ...item,
-                        id: Date.now() + i,
-                    }));
-                    return [...prev, ...incoming].slice(-5);
-                });
-            }
-            notifInitializedRef.current = true;
-        } catch (e) {
-            console.warn('Notifications failed to load:', e);
-        }
-    }, [canSeeNotifications, playAlertChime]);
-
-    useEffect(() => {
-        if (!canSeeNotifications) return;
-        loadNotifications();
-        const interval = setInterval(loadNotifications, 30000);
-        return () => clearInterval(interval);
-    }, [canSeeNotifications, loadNotifications]);
-
-    const dismissAlertToast = useCallback((id) => {
-        setAlertToasts(prev => prev.filter(t => t.id !== id));
-    }, []);
-
-    useEffect(() => {
-        if (alertToasts.length === 0) return;
-        const timers = alertToasts.map(t => setTimeout(() => dismissAlertToast(t.id), 7000));
-        return () => timers.forEach(clearTimeout);
-    }, [alertToasts, dismissAlertToast]);
+    const [isBellOpen, setIsBellOpen] = useState(false);
+    const bellDropdownRef = useRef(null);
 
     useEffect(() => {
         const handler = (e) => {
@@ -192,15 +171,6 @@ export default function AuthenticatedLayout({ children }) {
         document.addEventListener('mousedown', handler);
         return () => document.removeEventListener('mousedown', handler);
     }, []);
-
-    useEffect(() => {
-        document.documentElement.dataset.theme = theme;
-        try {
-            localStorage.setItem('pms-theme', theme);
-        } catch (error) {
-            // Keep the selected theme for this session even if browser storage is unavailable.
-        }
-    }, [theme]);
 
     const handleLogout = (e) => {
         e.preventDefault();
@@ -343,102 +313,17 @@ export default function AuthenticatedLayout({ children }) {
         }
     ];
 
-    // ─── Alert Toast Card Component ───────────────────────────────────────────
-    const AlertToastCard = ({ item, onDismiss }) => {
-        let titleText = 'Alert';
-        let isCritical = false;
-        let Icon = Bell;
-        let colorClass = 'bg-amber-950/90 border-amber-500/50 text-amber-100 shadow-amber-950/40';
-        let iconColorClass = 'text-amber-400';
-        let iconBgClass = 'bg-amber-500/20';
-        let barColorClass = 'bg-amber-400';
-
-        if (item.type === 'checkout') {
-            isCritical = item.state === 'overdue';
-            titleText = isCritical ? 'Overdue Checkout' : 'Upcoming Checkout';
-            Icon = Timer;
-            if (isCritical) {
-                colorClass = 'bg-red-950/90 border-red-500/50 text-red-100 shadow-red-950/40';
-                iconColorClass = 'text-red-400';
-                iconBgClass = 'bg-red-500/20';
-                barColorClass = 'bg-red-400';
-            }
-        } else if (item.type === 'inventory') {
-            isCritical = item.state === 'out_of_stock';
-            titleText = isCritical ? 'Out of Stock' : 'Low Stock Alert';
-            Icon = ShoppingCart;
-            if (isCritical) {
-                colorClass = 'bg-red-950/90 border-red-500/50 text-red-100 shadow-red-950/40';
-                iconColorClass = 'text-red-400';
-                iconBgClass = 'bg-red-500/20';
-                barColorClass = 'bg-red-400';
-            }
-        } else if (item.type === 'cleaning_finished') {
-            titleText = 'Cleaning Finished';
-            Icon = CheckCircle2;
-            colorClass = 'bg-emerald-950/90 border-emerald-500/50 text-emerald-100 shadow-emerald-950/40';
-            iconColorClass = 'text-emerald-400';
-            iconBgClass = 'bg-emerald-500/20';
-            barColorClass = 'bg-emerald-400';
-        } else if (item.type === 'maintenance') {
-            isCritical = item.priority === 'critical';
-            titleText = isCritical ? 'Critical Maintenance' : 'High Maintenance';
-            Icon = Wrench;
-            colorClass = 'bg-red-950/90 border-red-500/50 text-red-100 shadow-red-950/40';
-            iconColorClass = 'text-red-400';
-            iconBgClass = 'bg-red-500/20';
-            barColorClass = 'bg-red-400';
-        }
-
-        return (
-            <motion.div
-                layout
-                initial={{ opacity: 0, x: 80, scale: 0.95 }}
-                animate={{ opacity: 1, x: 0, scale: 1 }}
-                exit={{ opacity: 0, x: 80, scale: 0.9 }}
-                transition={{ type: 'spring', damping: 22, stiffness: 280 }}
-                className={`relative flex items-start gap-3 p-4 rounded-2xl border shadow-2xl backdrop-blur-xl max-w-xs w-full ${colorClass}`}
-            >
-                <div className={`shrink-0 mt-0.5 p-1.5 rounded-lg ${iconBgClass}`}>
-                    <Icon size={16} className={iconColorClass} />
-                </div>
-                <div className="flex-1 min-w-0">
-                    <div className={`text-[10px] uppercase font-black tracking-wider mb-0.5 ${iconColorClass}`}>
-                        {titleText}
-                    </div>
-                    <p className="text-xs font-medium leading-relaxed opacity-90">{item.message}</p>
-                </div>
-                <button
-                    onClick={onDismiss}
-                    className="shrink-0 text-current opacity-50 hover:opacity-100 transition-opacity"
-                >
-                    <X size={14} />
-                </button>
-                {/* Auto-dismiss progress bar */}
-                <motion.div
-                    className={`absolute bottom-0 left-0 h-0.5 rounded-full ${barColorClass}`}
-                    initial={{ width: '100%' }}
-                    animate={{ width: '0%' }}
-                    transition={{ duration: 7, ease: 'linear' }}
-                />
-            </motion.div>
-        );
-    };
-
     // Derived values for the notification dropdown
-    const inventoryAlerts = notifications.filter(n => n.type === 'inventory');
-    const checkoutAlerts = notifications.filter(n => n.type === 'checkout');
+    const inventoryAlerts = notifications.filter(n => n.type === 'out_of_stock' || n.type === 'low_stock' || n.type === 'inventory');
+    const checkoutAlerts = notifications.filter(n => n.type === 'checkout_overdue' || n.type === 'checkout_upcoming' || n.type === 'checkout');
     const cleaningAlerts = notifications.filter(n => n.type === 'cleaning_finished');
     const maintenanceAlerts = notifications.filter(n => n.type === 'maintenance');
-    const totalAlerts = notifCounts.total || 0;
+    const totalAlerts = notifCounts.total || notifications.length;
 
     // Helper mapping sidebar items to active alert counts
     const getSidebarBadgeCount = (itemName) => {
         if (itemName === 'Rooms') {
-            return cleaningAlerts.length;
-        }
-        if (itemName === 'Bookings') {
-            return checkoutAlerts.length;
+            return checkoutAlerts.length + cleaningAlerts.length;
         }
         if (itemName === 'Inventory') {
             return inventoryAlerts.length;
@@ -463,6 +348,8 @@ export default function AuthenticatedLayout({ children }) {
                         <img
                             src="/images/logo.jpg"
                             alt={app_name || 'Uptown Pension House'}
+                            width={48}
+                            height={48}
                             className="h-12 w-12 object-contain rounded-lg shrink-0 bg-white p-0.5"
                             onError={(e) => {
                                 e.currentTarget.style.display = 'none';
@@ -548,26 +435,33 @@ export default function AuthenticatedLayout({ children }) {
                                 )}
                             </button>
 
-                            {!isCollapsed && isSettingsOpen && (
-                                <motion.div
-                                    initial={{ opacity: 0, height: 0 }}
-                                    animate={{ opacity: 1, height: 'auto' }}
-                                    className="pl-6 space-y-1 bg-[#1e293b]/40 py-1.5 rounded-lg border-l border-[#334155] ml-4"
-                                >
-                                    {adminSettings.map(subItem => (
-                                        <Link
-                                            key={subItem.name}
-                                            href={subItem.href}
-                                            className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${subItem.current
-                                                ? 'text-brand-400 bg-brand-500/10 font-bold'
-                                                : 'text-slate-400 hover:text-slate-200'
-                                                }`}
+                            {!isCollapsed && (
+                                <AnimatePresence initial={false}>
+                                    {isSettingsOpen && (
+                                        <motion.div
+                                            key="admin-settings-dropdown"
+                                            initial={{ opacity: 0, height: 0 }}
+                                            animate={{ opacity: 1, height: 'auto' }}
+                                            exit={{ opacity: 0, height: 0 }}
+                                            transition={{ duration: 0.2, ease: 'easeInOut' }}
+                                            className="pl-6 space-y-1 bg-[#1e293b]/40 py-1.5 rounded-lg border-l border-[#334155] ml-4 overflow-hidden"
                                         >
-                                            <subItem.icon size={14} />
-                                            <span>{subItem.name}</span>
-                                        </Link>
-                                    ))}
-                                </motion.div>
+                                            {adminSettings.map(subItem => (
+                                                <Link
+                                                    key={subItem.name}
+                                                    href={subItem.href}
+                                                    className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${subItem.current
+                                                        ? 'text-brand-400 bg-brand-500/10 font-bold'
+                                                        : 'text-slate-400 hover:text-slate-200'
+                                                        }`}
+                                                >
+                                                    <subItem.icon size={14} />
+                                                    <span>{subItem.name}</span>
+                                                </Link>
+                                            ))}
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
                             )}
                         </div>
                     )}
@@ -599,6 +493,8 @@ export default function AuthenticatedLayout({ children }) {
                                     <img
                                         src="/images/logo.jpg"
                                         alt={app_name || 'Uptown Pension House'}
+                                        width={40}
+                                        height={40}
                                         className="h-10 w-10 object-contain rounded-lg shrink-0 bg-white p-0.5"
                                         onError={(e) => {
                                             e.currentTarget.style.display = 'none';
@@ -877,57 +773,62 @@ export default function AuthenticatedLayout({ children }) {
                                                 {/* Inventory Alerts Section */}
                                                 {inventoryAlerts.length > 0 && (
                                                     <div>
-                                                        {inventoryAlerts.map(item => (
-                                                            <Link
-                                                                key={item.alert_key}
-                                                                href={route('inventory.index')}
-                                                                onClick={() => setIsBellOpen(false)}
-                                                                className="flex items-start gap-3 px-4 py-3 hover:bg-[#334155]/40 transition-colors border-b border-[#334155]/30 last:border-b-0"
-                                                            >
-                                                                <div className={`shrink-0 mt-0.5 h-2.5 w-2.5 rounded-full ${item.state === 'out_of_stock' ? 'bg-rose-500' : 'bg-amber-500'}`} />
-                                                                <div className="flex-1 min-w-0">
-                                                                    <div className="text-xs font-bold text-slate-200 truncate">{item.item_name}</div>
-                                                                    <div className="text-[11px] text-slate-400 leading-relaxed mt-0.5">{item.message}</div>
-                                                                    <div className="text-[10px] text-slate-500 mt-0.5 capitalize">{item.category} • {item.current_stock} {item.unit} remaining</div>
-                                                                </div>
-                                                                <span className={`shrink-0 text-[9px] font-black px-1.5 py-0.5 rounded border uppercase ${item.state === 'out_of_stock'
-                                                                    ? 'bg-rose-950/60 border-rose-500/40 text-rose-300'
-                                                                    : 'bg-amber-950/60 border-amber-500/40 text-amber-300'
-                                                                    }`}>
-                                                                    {item.state === 'out_of_stock' ? 'Out' : 'Low'}
-                                                                </span>
-                                                            </Link>
-                                                        ))}
+                                                        {inventoryAlerts.map(item => {
+                                                            const isOut = item.type === 'out_of_stock' || item.state === 'out_of_stock';
+                                                            return (
+                                                                <Link
+                                                                    key={item.alert_key}
+                                                                    href={route('inventory.index')}
+                                                                    onClick={() => setIsBellOpen(false)}
+                                                                    className="flex items-start gap-3 px-4 py-3 hover:bg-[#334155]/40 transition-colors border-b border-[#334155]/30 last:border-b-0"
+                                                                >
+                                                                    <div className={`shrink-0 mt-0.5 h-2.5 w-2.5 rounded-full ${isOut ? 'bg-rose-500' : 'bg-amber-500'}`} />
+                                                                    <div className="flex-1 min-w-0">
+                                                                        <div className="text-xs font-bold text-slate-200 truncate">{item.item_name}</div>
+                                                                        <div className="text-[11px] text-slate-400 leading-relaxed mt-0.5">{item.message}</div>
+                                                                        <div className="text-[10px] text-slate-500 mt-0.5 capitalize">{item.quantity} {item.unit || 'units'} remaining</div>
+                                                                    </div>
+                                                                    <span className={`shrink-0 text-[9px] font-black px-1.5 py-0.5 rounded border uppercase ${isOut
+                                                                        ? 'bg-rose-950/60 border-rose-500/40 text-rose-300'
+                                                                        : 'bg-amber-950/60 border-amber-500/40 text-amber-300'
+                                                                        }`}>
+                                                                        {isOut ? 'Out' : 'Low'}
+                                                                    </span>
+                                                                </Link>
+                                                            );
+                                                        })}
                                                     </div>
                                                 )}
 
                                                 {/* Checkout Alerts Section */}
                                                 {checkoutAlerts.length > 0 && (
                                                     <div>
-                                                        {checkoutAlerts.map(item => (
-                                                            <Link
-                                                                key={item.alert_key}
-                                                                href={route('rooms.index')}
-                                                                onClick={() => setIsBellOpen(false)}
-                                                                className="flex items-start gap-3 px-4 py-3 hover:bg-[#334155]/40 transition-colors border-b border-[#334155]/30 last:border-b-0"
-                                                            >
-                                                                <div className={`shrink-0 mt-0.5 h-2.5 w-2.5 rounded-full ${item.state === 'overdue' ? 'bg-rose-500 animate-pulse' : 'bg-amber-400'}`} />
-                                                                <div className="flex-1 min-w-0">
-                                                                    <div className="text-xs font-bold text-slate-200">
-                                                                        Room {item.room_number}
-                                                                        <span className="font-normal text-slate-400 ml-1">• {item.guest_name}</span>
+                                                        {checkoutAlerts.map(item => {
+                                                            const isOverdue = item.type === 'checkout_overdue' || item.state === 'overdue';
+                                                            return (
+                                                                <Link
+                                                                    key={item.alert_key}
+                                                                    href={route('rooms.index')}
+                                                                    onClick={() => setIsBellOpen(false)}
+                                                                    className="flex items-start gap-3 px-4 py-3 hover:bg-[#334155]/40 transition-colors border-b border-[#334155]/30 last:border-b-0"
+                                                                >
+                                                                    <div className={`shrink-0 mt-0.5 h-2.5 w-2.5 rounded-full ${isOverdue ? 'bg-rose-500 animate-pulse' : 'bg-amber-400'}`} />
+                                                                    <div className="flex-1 min-w-0">
+                                                                        <div className="text-xs font-bold text-slate-200">
+                                                                            Room {item.room_number}
+                                                                            {item.guest_name && <span className="font-normal text-slate-400 ml-1">• {item.guest_name}</span>}
+                                                                        </div>
+                                                                        <div className="text-[11px] text-slate-400 leading-relaxed mt-0.5">{item.message}</div>
                                                                     </div>
-                                                                    <div className="text-[11px] text-slate-400 leading-relaxed mt-0.5">{item.message}</div>
-                                                                    <div className="text-[10px] text-slate-500 mt-0.5">{item.expected_check_out_label} • {item.room_type}</div>
-                                                                </div>
-                                                                <span className={`shrink-0 text-[9px] font-black px-1.5 py-0.5 rounded border uppercase ${item.state === 'overdue'
-                                                                    ? 'bg-rose-950/60 border-rose-500/40 text-rose-300'
-                                                                    : 'bg-amber-950/60 border-amber-500/40 text-amber-300'
-                                                                    }`}>
-                                                                    {item.state === 'overdue' ? 'Overdue' : 'Upcoming'}
-                                                                </span>
-                                                            </Link>
-                                                        ))}
+                                                                    <span className={`shrink-0 text-[9px] font-black px-1.5 py-0.5 rounded border uppercase ${isOverdue
+                                                                        ? 'bg-rose-950/60 border-rose-500/40 text-rose-300'
+                                                                        : 'bg-amber-950/60 border-amber-500/40 text-amber-300'
+                                                                        }`}>
+                                                                        {isOverdue ? 'Overdue' : 'Upcoming'}
+                                                                    </span>
+                                                                </Link>
+                                                            );
+                                                        })}
                                                     </div>
                                                 )}
 

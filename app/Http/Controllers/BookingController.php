@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\CheckoutBookingRequest;
+use App\Http\Requests\ExtendBookingRequest;
+use App\Http\Requests\UpdateBookingRequest;
 use App\Models\Booking;
 use App\Models\InventoryItem;
 use App\Models\InventoryUsage;
@@ -13,12 +16,16 @@ use App\Models\Transaction;
 use App\Services\BookingService;
 use App\Services\PaymentService;
 use Carbon\Carbon;
-use DB;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
 class BookingController extends Controller
 {
+    public function __construct(
+        private readonly PaymentService $payments
+    ) {}
+
     public function show(Booking $booking, Request $request)
     {
         $booking->load([
@@ -92,18 +99,8 @@ class BookingController extends Controller
         ]);
     }
 
-    public function extend(Booking $booking, Request $request)
+    public function extend(Booking $booking, ExtendBookingRequest $request)
     {
-        $request->validate([
-            'hours' => 'required_without:days|nullable|integer|min:1',
-            'days' => 'required_without:hours|nullable|integer|min:1',
-            'payment_method' => 'required|in:cash,gcash,card,bank_transfer,maya,other_ewallet,other,split',
-            'cash_amount' => 'nullable|numeric|min:0',
-            'gcash_amount' => 'nullable|numeric|min:0',
-            'gcash_ref' => 'nullable|string|max:50',
-            'reference_number' => 'nullable|string|max:50',
-        ]);
-
         $user = $request->user();
 
         $activeShift = ShiftSession::where('user_id', $user->id)
@@ -141,26 +138,14 @@ class BookingController extends Controller
 
                 // Verify payment
                 $paymentMethod = $request->payment_method;
-                $cashAmount = 0.00;
-                $gcashAmount = 0.00;
-                $refNum = $request->gcash_ref ?: $request->reference_number ?: null;
-                if ($paymentMethod !== 'cash' && blank($refNum)) {
-                    throw new \InvalidArgumentException('A payment reference is required for non-cash extension payments.');
-                }
-
-                if ($paymentMethod === 'cash') {
-                    $cashAmount = $cost;
-                } elseif ($paymentMethod === 'gcash') {
-                    $gcashAmount = $cost;
-                } elseif (in_array($paymentMethod, ['card', 'bank_transfer', 'maya', 'other_ewallet', 'other'], true)) {
-                    // Card/Bank Transfer
-                } else { // split
-                    $cashAmount = (float) ($request->cash_amount ?: 0);
-                    $gcashAmount = (float) ($request->gcash_amount ?: 0);
-                    if (abs(($cashAmount + $gcashAmount) - $cost) > 0.01) {
-                        throw new \Exception("Split amounts must equal extension fee ₱{$cost}.");
-                    }
-                }
+                $resolved = $this->payments->resolveComponents(
+                    $paymentMethod,
+                    $cost,
+                    $request->only(['gcash_ref', 'reference_number', 'cash_amount', 'gcash_amount'])
+                );
+                $refNum = $resolved['ref_number'];
+                $cashAmount = $resolved['cash_amount'];
+                $gcashAmount = $resolved['gcash_amount'];
 
                 // Update stay charges first; payment is recorded separately below.
                 $booking->expected_check_out = $expectedOut->format('Y-m-d H:i:s');
@@ -169,7 +154,7 @@ class BookingController extends Controller
                 $booking->save();
 
                 $paymentStatus = $paymentMethod === 'cash' ? 'verified' : 'pending';
-                $payment = app(PaymentService::class)->record([
+                $payment = $this->payments->record([
                     'payer_name' => $booking->booker_name ?: $booking->guest_name,
                     'payer_contact' => $booking->booker_contact ?: $booking->guest_contact,
                     'payment_method_code' => $paymentMethod,
@@ -179,13 +164,7 @@ class BookingController extends Controller
                     'status' => $paymentStatus,
                     'recorded_by' => $user->id,
                     'remarks' => $request->transaction_notes,
-                ], [$booking->id => $cost], $this->paymentComponents(
-                    $paymentMethod,
-                    $cost,
-                    $cashAmount,
-                    $gcashAmount,
-                    $refNum
-                ), [
+                ], [$booking->id => $cost], $resolved['components'], [
                     'transaction_type' => 'extension',
                     'description' => "Extension fee for Ref: {$booking->booking_ref}. {$desc}",
                 ]);
@@ -275,24 +254,8 @@ class BookingController extends Controller
         }
     }
 
-    public function checkout(Booking $booking, Request $request)
+    public function checkout(Booking $booking, CheckoutBookingRequest $request)
     {
-        $request->validate([
-            'payment_method' => 'required|in:cash,gcash,card,bank_transfer,maya,other_ewallet,other,split',
-            'cash_amount' => 'nullable|numeric|min:0',
-            'gcash_amount' => 'nullable|numeric|min:0',
-            'gcash_ref' => 'nullable|string|max:50',
-            'reference_number' => 'nullable|string|max:50',
-            'notes' => 'nullable|string',
-            'transaction_notes' => 'nullable|string',
-            'waive_late_fee' => 'nullable|boolean',
-            'extra_charge_amount' => 'nullable|numeric|min:0',
-            'extra_charge_description' => 'nullable|string|max:255',
-            'extra_charge_separate_payment' => 'nullable|boolean',
-            'extra_charge_payment_method' => 'nullable|in:cash,gcash,card,bank_transfer,maya,other_ewallet,other',
-            'extra_charge_payment_reference' => 'nullable|string|max:50',
-        ]);
-
         $user = $request->user();
 
         $activeShift = ShiftSession::where('user_id', $user->id)
@@ -334,33 +297,20 @@ class BookingController extends Controller
 
                 // Validate payments
                 $paymentMethod = $request->payment_method;
-                $cashAmount = 0.00;
-                $gcashAmount = 0.00;
-                $refNum = $request->gcash_ref ?: $request->reference_number ?: null;
-                if ($mainSettlementDue > 0 && $paymentMethod !== 'cash' && blank($refNum)) {
-                    throw new \InvalidArgumentException('A payment reference is required for non-cash checkout payments.');
-                }
+                $resolved = $this->payments->resolveComponents(
+                    $paymentMethod,
+                    $mainSettlementDue,
+                    $request->only(['gcash_ref', 'reference_number', 'cash_amount', 'gcash_amount'])
+                );
+                $refNum = $resolved['ref_number'];
+                $cashAmount = $resolved['cash_amount'];
+                $gcashAmount = $resolved['gcash_amount'];
+
                 if ($separateExtraChargePayment && blank($extraChargePaymentMethod)) {
                     throw new \InvalidArgumentException('Select a payment method for the separate extra charge.');
                 }
                 if ($separateExtraChargePayment && $extraChargePaymentMethod !== 'cash' && blank($extraChargePaymentReference)) {
                     throw new \InvalidArgumentException('A payment reference is required for a non-cash extra charge.');
-                }
-
-                if ($mainSettlementDue > 0) {
-                    if ($paymentMethod === 'cash') {
-                        $cashAmount = $mainSettlementDue;
-                    } elseif ($paymentMethod === 'gcash') {
-                        $gcashAmount = $mainSettlementDue;
-                    } elseif (in_array($paymentMethod, ['card', 'bank_transfer', 'maya', 'other_ewallet', 'other'], true)) {
-                        // Card/Bank Transfer
-                    } else { // split
-                        $cashAmount = (float) ($request->cash_amount ?: 0);
-                        $gcashAmount = (float) ($request->gcash_amount ?: 0);
-                        if (abs(($cashAmount + $gcashAmount) - $mainSettlementDue) > 0.01) {
-                            throw new \Exception("Split payments must match checkout settlement due ₱{$mainSettlementDue}.");
-                        }
-                    }
                 }
 
                 // Update booking details
@@ -400,7 +350,7 @@ class BookingController extends Controller
                     
                     // Checkout is completed only after the front-desk staff has
                     // accepted the settlement, so the receipt is verified here.
-                    $payment = app(PaymentService::class)->record([
+                    $payment = $this->payments->record([
                         'payer_name' => $booking->booker_name ?: $booking->guest_name,
                         'payer_contact' => $booking->booker_contact ?: $booking->guest_contact,
                         'payment_method_code' => $paymentMethod,
@@ -412,13 +362,7 @@ class BookingController extends Controller
                         'verified_by' => $user->id,
                         'verified_at' => $now,
                         'remarks' => $request->transaction_notes ?: $request->notes,
-                    ], [$booking->id => $mainSettlementDue], $this->paymentComponents(
-                        $paymentMethod,
-                        $mainSettlementDue,
-                        $cashAmount,
-                        $gcashAmount,
-                        $refNum
-                    ), [
+                    ], [$booking->id => $mainSettlementDue], $resolved['components'], [
                         'transaction_type' => 'check_out',
                         'description' => $desc,
                     ]);
@@ -738,30 +682,8 @@ class BookingController extends Controller
         ]);
     }
 
-    public function update(Booking $booking, Request $request)
+    public function update(Booking $booking, UpdateBookingRequest $request)
     {
-        $request->validate([
-            'room_id' => 'required|exists:rooms,id',
-            'guest_name' => 'required|string|max:100',
-            'guest_contact' => 'nullable|string|max:20',
-            'guest_id_type' => 'nullable|string|max:50',
-            'guest_id_number' => 'nullable|string|max:50',
-            'id_image' => 'nullable|image|max:5120',
-            'guest_email' => 'nullable|email|max:100',
-            'guest_address' => 'nullable|string',
-            'num_guests' => 'required|integer|min:1',
-
-            'booking_type' => 'required|in:overnight,short_time',
-            'num_nights' => 'nullable|integer|min:1',
-            'short_time_hours' => 'nullable|integer|in:3,6,12,24',
-
-            'discount_type' => 'nullable|string',
-            'discount_amount' => 'nullable|numeric|min:0',
-            'promo_code' => 'nullable|string',
-
-            'notes' => 'nullable|string',
-        ]);
-
         $user = $request->user();
         $room = Room::with('type')->findOrFail($request->room_id);
 

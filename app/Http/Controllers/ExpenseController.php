@@ -53,20 +53,10 @@ class ExpenseController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(\App\Http\Requests\StoreExpenseRequest $request)
     {
         $user = $request->user();
-        if (!in_array($user->role, ['admin', 'front_desk', 'cashier'], true)) {
-            abort(403);
-        }
-
-        $validated = $request->validate([
-            'expense_date' => 'required|date',
-            'amount' => 'required|numeric|min:0.01',
-            'cash_drawer' => 'required|in:room,minibar',
-            'notes' => 'nullable|string|max:1000',
-            'receipt' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
-        ]);
+        $validated = $request->validated();
 
         $receiptPath = null;
         if ($request->hasFile('receipt')) {
@@ -85,20 +75,9 @@ class ExpenseController extends Controller
         return back()->with('success', 'Expense recorded successfully.');
     }
 
-    public function update(Request $request, \App\Models\Expense $expense)
+    public function update(\App\Http\Requests\StoreExpenseRequest $request, \App\Models\Expense $expense)
     {
-        $user = $request->user();
-        if (!in_array($user->role, ['admin', 'front_desk', 'cashier'], true)) {
-            abort(403);
-        }
-
-        $validated = $request->validate([
-            'expense_date' => 'required|date',
-            'amount' => 'required|numeric|min:0.01',
-            'cash_drawer' => 'required|in:room,minibar',
-            'notes' => 'nullable|string|max:1000',
-            'receipt' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
-        ]);
+        $validated = $request->validated();
 
         $receiptPath = $expense->receipt_path;
         if ($request->hasFile('receipt')) {

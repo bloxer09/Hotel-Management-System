@@ -53,20 +53,10 @@ class IncomeController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(\App\Http\Requests\StoreIncomeRequest $request)
     {
         $user = $request->user();
-        if (!in_array($user->role, ['admin', 'front_desk', 'cashier'], true)) {
-            abort(403);
-        }
-
-        $validated = $request->validate([
-            'income_date' => 'required|date',
-            'amount' => 'required|numeric|min:0.01',
-            'cash_drawer' => 'required|in:room,minibar',
-            'notes' => 'nullable|string|max:1000',
-            'receipt' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
-        ]);
+        $validated = $request->validated();
 
         $receiptPath = null;
         if ($request->hasFile('receipt')) {
@@ -85,20 +75,9 @@ class IncomeController extends Controller
         return back()->with('success', 'Additional income recorded successfully.');
     }
 
-    public function update(Request $request, \App\Models\Income $income)
+    public function update(\App\Http\Requests\StoreIncomeRequest $request, \App\Models\Income $income)
     {
-        $user = $request->user();
-        if (!in_array($user->role, ['admin', 'front_desk', 'cashier'], true)) {
-            abort(403);
-        }
-
-        $validated = $request->validate([
-            'income_date' => 'required|date',
-            'amount' => 'required|numeric|min:0.01',
-            'cash_drawer' => 'required|in:room,minibar',
-            'notes' => 'nullable|string|max:1000',
-            'receipt' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
-        ]);
+        $validated = $request->validated();
 
         $receiptPath = $income->receipt_path;
         if ($request->hasFile('receipt')) {

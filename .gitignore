@@ -6,6 +6,7 @@
 /storage/*.key
 /storage/pail
 /vendor
+/database/*.sqlite
 .env
 .env.backup
 .env.production
@@ -21,3 +22,7 @@ yarn-error.log
 /.nova
 /.vscode
 /.zed
+*.zip
+scratch_*
+*.pdf
+user_manual.html

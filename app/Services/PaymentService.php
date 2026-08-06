@@ -31,6 +31,85 @@ class PaymentService
 
     public const OUTFLOW_TYPES = ['refund', 'reversal'];
 
+    /**
+     * Parse a payment method + request inputs into a resolved components array
+     * and validate that non-cash payments have a reference.
+     *
+     * @param  string  $method
+     * @param  float   $amount
+     * @param  array   $inputs
+     * @return array{
+     *     components: array,
+     *     ref_number: string|null,
+     *     cash_amount: float,
+     *     gcash_amount: float,
+     * }
+     */
+    public function resolveComponents(string $method, float $amount, array $inputs): array
+    {
+        $refNum = $inputs['gcash_ref'] ?? $inputs['reference_number'] ?? null;
+        if ($refNum) {
+            $refNum = trim((string) $refNum) ?: null;
+        }
+
+        if ($amount > 0 && $method !== 'cash' && blank($refNum)) {
+            throw new InvalidArgumentException(
+                'A payment reference is required for non-cash payments.'
+            );
+        }
+
+        $cashAmount  = 0.00;
+        $gcashAmount = 0.00;
+
+        if ($method === 'cash') {
+            $cashAmount = $amount;
+            return [
+                'components'   => [['payment_method_code' => 'cash', 'amount' => $amount]],
+                'ref_number'   => null,
+                'cash_amount'  => $cashAmount,
+                'gcash_amount' => $gcashAmount,
+            ];
+        }
+
+        if ($method === 'gcash') {
+            $gcashAmount = $amount;
+            return [
+                'components'   => [['payment_method_code' => 'gcash', 'amount' => $amount, 'reference_number' => $refNum]],
+                'ref_number'   => $refNum,
+                'cash_amount'  => $cashAmount,
+                'gcash_amount' => $gcashAmount,
+            ];
+        }
+
+        if ($method === 'split') {
+            $cashAmount  = (float) ($inputs['cash_amount'] ?? 0);
+            $gcashAmount = (float) ($inputs['gcash_amount'] ?? 0);
+
+            if (abs(($cashAmount + $gcashAmount) - $amount) > 0.01) {
+                throw new InvalidArgumentException(
+                    "Split amounts (₱{$cashAmount} + ₱{$gcashAmount}) must equal ₱{$amount}."
+                );
+            }
+
+            return [
+                'components' => [
+                    ['payment_method_code' => 'cash',  'amount' => $cashAmount],
+                    ['payment_method_code' => 'gcash', 'amount' => $gcashAmount, 'reference_number' => $refNum],
+                ],
+                'ref_number'   => $refNum,
+                'cash_amount'  => $cashAmount,
+                'gcash_amount' => $gcashAmount,
+            ];
+        }
+
+        return [
+            'components'   => [['payment_method_code' => $method, 'amount' => $amount, 'reference_number' => $refNum]],
+            'ref_number'   => $refNum,
+            'cash_amount'  => 0.00,
+            'gcash_amount' => 0.00,
+        ];
+    }
+
     public function record(
         array $paymentData,
         array $allocations,

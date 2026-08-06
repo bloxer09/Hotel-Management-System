@@ -1,6 +1,9 @@
+import { useState } from 'react';
 import { Head, useForm } from '@inertiajs/react';
+import { Eye, EyeOff } from 'lucide-react';
 
 export default function Login({ status, canResetPassword }) {
+    const [showPassword, setShowPassword] = useState(false);
     const { data, setData, post, processing, errors, reset } = useForm({
         username: '',
         password: '',
@@ -34,6 +37,8 @@ export default function Login({ status, canResetPassword }) {
                     <img
                         src="/images/logo.jpg"
                         alt="Uptown Pension House"
+                        width={128}
+                        height={128}
                         className="w-32 mx-auto drop-shadow-xl rounded-2xl mb-4 border border-[#334155]/40"
                         onError={(e) => { e.currentTarget.style.display = 'none'; }}
                     />
@@ -72,16 +77,26 @@ export default function Login({ status, canResetPassword }) {
                             <label htmlFor="password" className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">
                                 Password
                             </label>
-                            <input
-                                id="password"
-                                type="password"
-                                name="password"
-                                value={data.password}
-                                autoComplete="current-password"
-                                onChange={e => setData('password', e.target.value)}
-                                placeholder="Enter password"
-                                className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 px-4 py-2.5 text-xs focus:outline-none focus:border-amber-500/65 focus:ring-1 focus:ring-amber-500/20 transition-all placeholder:text-slate-650"
-                            />
+                            <div className="relative">
+                                <input
+                                    id="password"
+                                    type={showPassword ? 'text' : 'password'}
+                                    name="password"
+                                    value={data.password}
+                                    autoComplete="current-password"
+                                    onChange={e => setData('password', e.target.value)}
+                                    placeholder="Enter password"
+                                    className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 px-4 py-2.5 pr-10 text-xs focus:outline-none focus:border-amber-500/65 focus:ring-1 focus:ring-amber-500/20 transition-all placeholder:text-slate-650"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(prev => !prev)}
+                                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-200 transition-colors"
+                                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                                >
+                                    {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                                </button>
+                            </div>
                             {errors.password && <p className="mt-1 text-[11px] text-red-400">{errors.password}</p>}
                         </div>
 
@@ -109,26 +124,28 @@ export default function Login({ status, canResetPassword }) {
                 </div>
 
                 {/* Quick Demo Access */}
-                <div className="p-4 rounded-xl bg-[#1e293b]/40 border border-[#334155]/40 text-center">
-                    <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mb-2.5">Quick Demo Access</p>
-                    <div className="flex flex-wrap gap-2 justify-center">
-                        {[
-                            { label: 'Admin', username: 'admin' },
-                            { label: 'Front Desk', username: 'frontdesk1' },
-                            { label: 'Cashier', username: 'cashier1' },
-                            { label: 'Housekeeper', username: 'housekeeping1' },
-                        ].map(({ label, username }) => (
-                            <button
-                                key={username}
-                                type="button"
-                                onClick={() => quickFill(username, 'password')}
-                                className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-[#1e293b] border border-[#334155]/60 text-slate-400 hover:text-slate-200 hover:border-brand-500/40 transition-all active:scale-95"
-                            >
-                                {label}
-                            </button>
-                        ))}
+                {import.meta.env.VITE_DEMO_MODE === 'true' && (
+                    <div className="p-4 rounded-xl bg-[#1e293b]/40 border border-[#334155]/40 text-center">
+                        <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mb-2.5">Quick Demo Access</p>
+                        <div className="flex flex-wrap gap-2 justify-center">
+                            {[
+                                { label: 'Admin', username: 'admin' },
+                                { label: 'Front Desk', username: 'frontdesk1' },
+                                { label: 'Cashier', username: 'cashier1' },
+                                { label: 'Housekeeper', username: 'housekeeping1' },
+                            ].map(({ label, username }) => (
+                                <button
+                                    key={username}
+                                    type="button"
+                                    onClick={() => quickFill(username, 'password')}
+                                    className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-[#1e293b] border border-[#334155]/60 text-slate-400 hover:text-slate-200 hover:border-brand-500/40 transition-all active:scale-95"
+                                >
+                                    {label}
+                                </button>
+                            ))}
+                        </div>
                     </div>
-                </div>
+                )}
 
             </div>
         </div>

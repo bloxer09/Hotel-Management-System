@@ -432,7 +432,7 @@ export default function Dashboard({ stats, charts, recentBookings, lowStockItems
 
                         {/* Chart Render */}
                         <div className="h-72 w-full">
-                            <ResponsiveContainer width="100%" height="100%">
+                            <ResponsiveContainer minWidth={0} width="100%" height="100%">
                                 {chartTab === 'revenue' ? (
                                     <AreaChart data={filteredRevenueData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                                         <defs>
@@ -489,7 +489,7 @@ export default function Dashboard({ stats, charts, recentBookings, lowStockItems
                         </div>
 
                         <div className="h-56 w-full relative flex items-center justify-center">
-                            <ResponsiveContainer width="100%" height="100%">
+                            <ResponsiveContainer minWidth={0} width="100%" height="100%">
                                 <PieChart>
                                     <Pie
                                         data={charts?.roomTypeRevenue || []}

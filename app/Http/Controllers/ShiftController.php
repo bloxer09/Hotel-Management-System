@@ -14,7 +14,7 @@ use App\Models\ShiftSession;
 use App\Models\Transaction;
 use App\Services\BookingService;
 use App\Services\ShiftService;
-use DB;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Inertia\Inertia;

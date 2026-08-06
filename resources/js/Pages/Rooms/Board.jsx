@@ -443,11 +443,11 @@ export default function Board({ rooms, roomTypes, housekeepers = [] }) {
                 {Object.keys(roomsByFloor).sort((a, b) => +a - +b).map(floor => (
                     <div key={floor}>
                         <div className="flex items-center gap-3 mb-3">
-                            <span className="text-xs font-extrabold text-slate-550 uppercase tracking-widest flex items-center gap-1">
+                            <span className="text-xs font-extrabold text-slate-400 uppercase tracking-widest flex items-center gap-1">
                                 <Layers size={13} /> Floor {floor}
                             </span>
-                            <span className="text-xs text-slate-600">({roomsByFloor[floor].length} rooms)</span>
-                            <div className="flex-1 h-px bg-[#334155]" />
+                            <span className="text-xs text-slate-500">({roomsByFloor[floor].length} rooms)</span>
+                            <div className="flex-1 h-px bg-slate-800" />
                         </div>
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4">
                             {roomsByFloor[floor].map(room => {
@@ -455,6 +455,15 @@ export default function Board({ rooms, roomTypes, housekeepers = [] }) {
                                 return (
                                     <motion.div
                                         key={room.id}
+                                        role="button"
+                                        tabIndex={0}
+                                        aria-label={`Room ${room.room_number} — ${STATUS_LABELS[room.status] || room.status}`}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter' || e.key === ' ') {
+                                                e.preventDefault();
+                                                handleRoomClick(room);
+                                            }
+                                        }}
                                         whileHover={{ y: -3 }}
                                         onClick={() => handleRoomClick(room)}
                                         className={`p-4 rounded-2xl border shadow-lg cursor-pointer flex flex-col justify-between gap-3 transition-all duration-300 relative overflow-hidden ${STATUS_COLORS[room.status]} ${alert?.state === 'overdue' ? 'ring-2 ring-red-500/60' : alert?.state === 'upcoming' ? 'ring-2 ring-amber-400/50' : ''}`}

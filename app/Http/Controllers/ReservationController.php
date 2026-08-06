@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreReservationRequest;
 use App\Models\Booking;
 use App\Models\GuestProfile;
 use App\Models\InventoryUsage;
@@ -14,13 +15,17 @@ use App\Services\BookingService;
 use App\Services\PaymentService;
 use App\Services\ShiftService;
 use Carbon\Carbon;
-use DB;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 
 class ReservationController extends Controller
 {
+    public function __construct(
+        private readonly PaymentService $payments
+    ) {}
+
     public function index(Request $request)
     {
         $status = $request->input('status', 'reserved');
@@ -60,35 +65,14 @@ class ReservationController extends Controller
             ->paginate(15)
             ->withQueryString();
 
-        $groupBookingsRaw = Booking::with(['room', 'room.type', 'guestProfile'])
-            ->withSum($pendingPaymentSum, 'allocated_amount')
-            ->whereNotNull('group_ref')
-            ->whereIn('status', ['active', 'reserved', 'checked_out', 'completed', 'no_show', 'cancelled'])
-            ->orderBy('id', 'desc')
-            ->get();
-
-        $groupBookings = [];
-        foreach ($groupBookingsRaw->groupBy('group_ref') as $groupRef => $groupItems) {
-            $hasActiveOrReserved = $groupItems->contains(fn ($b) => in_array($b->status, ['active', 'reserved']));
-            if ($hasActiveOrReserved) {
-                $groupBookings[$groupRef] = $groupItems;
-            }
-        }
+        $groupBookings = Booking::getActiveGroupsMap($pendingPaymentSum);
 
         // Wizard data for the New Booking modal
         $rooms = Room::with('type')
             ->orderBy('room_number', 'asc')
             ->get();
 
-        $promoCodes = PromoCode::where('is_active', true)
-            ->where(function ($query) {
-                $query->whereNull('expires_at')
-                    ->orWhere('expires_at', '>', now());
-            })
-            ->where(function ($query) {
-                $query->whereNull('max_uses')
-                    ->orWhereColumn('used_count', '<', 'max_uses');
-            })
+        $promoCodes = PromoCode::available()
             ->orderBy('code', 'asc')
             ->get(['code', 'discount_type', 'discount_value']);
 
@@ -141,15 +125,7 @@ class ReservationController extends Controller
             $prefilledGuest = GuestProfile::find($request->input('guest_id'));
         }
 
-        $promoCodes = PromoCode::where('is_active', true)
-            ->where(function ($query) {
-                $query->whereNull('expires_at')
-                    ->orWhere('expires_at', '>', now());
-            })
-            ->where(function ($query) {
-                $query->whereNull('max_uses')
-                    ->orWhereColumn('used_count', '<', 'max_uses');
-            })
+        $promoCodes = PromoCode::available()
             ->orderBy('code', 'asc')
             ->get(['code', 'discount_type', 'discount_value']);
 
@@ -334,44 +310,8 @@ class ReservationController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(StoreReservationRequest $request)
     {
-        $request->validate([
-            'room_ids' => 'required|array|min:1',
-            'room_ids.*' => 'exists:rooms,id',
-            'check_in' => 'required|date',
-            'guest_name' => 'required|string|max:100',
-            'guest_contact' => 'nullable|string|max:20',
-            'booker_name' => 'nullable|string|max:150',
-            'booker_contact' => 'nullable|string|max:50',
-            'guest_id_type' => 'nullable|string|max:50',
-            'guest_id_number' => 'nullable|string|max:50',
-            'id_image' => 'nullable|image|max:5120',
-            'guest_email' => 'nullable|email|max:100',
-            'guest_address' => 'nullable|string',
-            'extra_pax' => 'nullable|array',
-            'extra_pax.*' => 'integer|min:0',
-
-            'booking_type' => 'required|in:overnight,short_time',
-            'booking_source' => 'required|in:walk_in,online',
-            'num_nights' => 'nullable|integer|min:1',
-            'short_time_hours' => 'nullable|integer|in:3,6,12,24',
-
-            'discount_type' => 'nullable|string',
-            'discount_amount' => 'nullable|numeric|min:0',
-            'promo_code' => 'nullable|string',
-
-            'payment_ratio' => 'nullable|in:full,half',
-            'payment_method' => 'required|in:cash,gcash,card,bank_transfer,maya,other_ewallet,other,split',
-            'cash_received' => 'required_if:payment_method,cash|nullable|numeric|min:0',
-            'cash_amount' => 'nullable|numeric|min:0',
-            'gcash_amount' => 'nullable|numeric|min:0',
-            'gcash_ref' => 'nullable|string|max:50',
-            'reference_number' => 'nullable|string|max:50',
-            'notes' => 'nullable|string',
-            'transaction_notes' => 'nullable|string',
-        ]);
-
         $user = $request->user();
 
         if ($request->booking_source === 'online'

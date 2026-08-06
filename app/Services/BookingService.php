@@ -3,8 +3,9 @@
 namespace App\Services;
 
 use App\Models\PeakDate;
-use App\Models\RoomType;
 use App\Models\Room;
+use App\Models\RoomType;
+use App\Services\AuditService;
 use DateTime;
 use InvalidArgumentException;
 
@@ -14,6 +15,8 @@ class BookingService
     const OVERNIGHT_CHECKOUT_HOUR = 12;  // 12:00 PM
     const LATE_CHECKOUT_FEE = 150.00;    // Per hour, rounded up
     const EXTENSION_MIN_HOURS = 1;
+    const EXTRA_PAX_FEE_STANDARD = 200.00;
+    const EXTRA_PAX_FEE_PEAK = 300.00;
 
     public static function getShortTimeDurations(): array
     {
@@ -130,17 +133,15 @@ class BookingService
 
         $peakDate = self::isPeakDate($checkIn);
         $peakSurcharge = self::calculateSurcharge($peakDate, $baseAmount);
-        $isPeak = $peakDate ? true : false;
+        $isPeak = (bool) $peakDate;
 
         $extraPaxCharges = 0;
         $maxOccupancy = (int)$roomType->max_occupancy;
         if ($numGuests > $maxOccupancy) {
             $extraGuests = $numGuests - $maxOccupancy;
-            $feePerHead = $isPeak ? 300.00 : 200.00;
-            // The user approved applying fully for all stay durations, so we don't multiply by numNights
-            // Wait, normally extra person is charged per night. If it's overnight, should it be per night?
-            // User requested: "when the people who uses the room is more than x pax the room can, they should be charged 200 per extra head"
-            // For overnight stays, usually extra pax is per night. Let's do per night for overnight, and just flat fee for short time.
+            // Extra guest fee: ₱200/head/night (₱300 during peak dates).
+            // Overnight stays charge per night; short-time stays charge a flat fee.
+            $feePerHead = $isPeak ? self::EXTRA_PAX_FEE_PEAK : self::EXTRA_PAX_FEE_STANDARD;
             $multiplier = ($bookingType === 'overnight') ? $numNights : 1;
             $extraPaxCharges = $extraGuests * $feePerHead * $multiplier;
         }
@@ -171,15 +172,6 @@ class BookingService
 
     public static function auditLog($userId, string $action, string $module, ?int $recordId = null, $oldValue = null, $newValue = null, ?string $reason = null): void
     {
-        \App\Models\AuditLog::create([
-            'user_id' => $userId,
-            'action' => $action,
-            'module' => $module,
-            'record_id' => $recordId,
-            'old_value' => is_scalar($oldValue) ? $oldValue : json_encode($oldValue),
-            'new_value' => is_scalar($newValue) ? $newValue : json_encode($newValue),
-            'reason' => $reason,
-            'ip_address' => request()->ip(),
-        ]);
+        AuditService::log($userId, $action, $module, $recordId, $oldValue, $newValue, $reason);
     }
 }

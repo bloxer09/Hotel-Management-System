@@ -15,8 +15,6 @@ import CustomSelect from '@/Components/CustomSelect';
 import axios from 'axios';
 
 export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode = 'checkin' }) {
-    if (!isOpen || !bookingId) return null;
-
     const { auth } = usePage().props;
     const currentUser = auth.user;
 
@@ -77,6 +75,7 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
 
     // Fetch Details on Open
     const loadDetails = async () => {
+        if (!isOpen || !bookingId) return;
         setLoading(true);
         try {
             const res = await axios.get(route('bookings.show', { booking: bookingId, json: 1 }));
@@ -107,8 +106,10 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
     };
 
     useEffect(() => {
-        loadDetails();
-    }, [bookingId]);
+        if (isOpen && bookingId) {
+            loadDetails();
+        }
+    }, [bookingId, isOpen]);
 
     // Handle Submissions
     const handleExtendSubmit = (e) => {
@@ -195,6 +196,7 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
         const gcash = Math.min(total, Math.max(0, Number(e.target.value) || 0));
         checkoutForm.setData(prev => ({ ...prev, cash_amount: total - gcash, gcash_amount: gcash }));
     };
+    if (!isOpen || !bookingId) return null;
 
     return (
         <>

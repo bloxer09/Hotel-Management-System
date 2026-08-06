@@ -9,7 +9,7 @@ use App\Models\Payment;
 use App\Models\Room;
 use App\Models\Transaction;
 use Carbon\Carbon;
-use DB;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Shuchkin\SimpleXLSXGen;
@@ -44,7 +44,7 @@ class ReportController extends Controller
 
         // Summary from bookings table (matching reference)
         $summary = DB::table('bookings')
-            ->whereBetween(DB::raw('DATE(check_in)'), [$dateFrom, $dateTo])
+            ->whereBetween('check_in', [$startCarbon, $endCarbon])
             ->whereNotIn('status', ['cancelled', 'no_show'])
             ->selectRaw("
                 COUNT(*) as total_bookings,
@@ -85,7 +85,7 @@ class ReportController extends Controller
         $byRoomType = DB::table('bookings as b')
             ->join('rooms as r', 'b.room_id', '=', 'r.id')
             ->join('room_types as rt', 'r.room_type_id', '=', 'rt.id')
-            ->whereBetween(DB::raw('DATE(b.check_in)'), [$dateFrom, $dateTo])
+            ->whereBetween('b.check_in', [$startCarbon, $endCarbon])
             ->whereNotIn('b.status', ['cancelled', 'no_show'])
             ->selectRaw('rt.type_name, COUNT(b.id) as cnt, COALESCE(SUM(b.base_amount + b.peak_surcharge + b.extra_pax_charges - b.discount_amount + b.extension_fee + b.late_checkout_fee),0) as revenue')
             ->groupBy('rt.id', 'rt.type_name')
@@ -97,7 +97,7 @@ class ReportController extends Controller
             ->join('rooms as r', 'b.room_id', '=', 'r.id')
             ->join('room_types as rt', 'r.room_type_id', '=', 'rt.id')
             ->leftJoin('users as u', 'b.checked_out_by', '=', 'u.id')
-            ->whereBetween(DB::raw('DATE(b.check_in)'), [$dateFrom, $dateTo])
+            ->whereBetween('b.check_in', [$startCarbon, $endCarbon])
             ->whereNotIn('b.status', ['cancelled', 'no_show'])
             ->selectRaw('
                 b.id, b.booking_ref, b.guest_name, b.booking_type, b.check_in, b.check_out, b.expected_check_out,
@@ -120,11 +120,11 @@ class ReportController extends Controller
 
         // Advanced Lodging Rooms vs Inventory Products Revenue Reconciliations
         $bookingsInventoryRevenue = (float) InventoryUsage::whereNotNull('booking_id')
-            ->whereBetween(DB::raw('DATE(created_at)'), [$dateFrom, $dateTo])
+            ->whereBetween('created_at', [$startCarbon, $endCarbon])
             ->sum('total_price');
 
         $walkinInventoryRevenue = (float) InventoryUsage::whereNull('booking_id')
-            ->whereBetween(DB::raw('DATE(created_at)'), [$dateFrom, $dateTo])
+            ->whereBetween('created_at', [$startCarbon, $endCarbon])
             ->sum('total_price');
 
         $productRevenue = $bookingsInventoryRevenue + $walkinInventoryRevenue;
@@ -215,8 +215,11 @@ class ReportController extends Controller
             $dateTo = $tmp;
         }
 
+        $exportStart = Carbon::parse($dateFrom)->startOfDay();
+        $exportEnd = Carbon::parse($dateTo)->endOfDay();
+
         $summary = DB::table('bookings')
-            ->whereBetween(DB::raw('DATE(check_in)'), [$dateFrom, $dateTo])
+            ->whereBetween('check_in', [$exportStart, $exportEnd])
             ->whereNotIn('status', ['cancelled', 'no_show'])
             ->selectRaw('COUNT(*) as total_bookings,COALESCE(SUM(amount_paid),0) as total_revenue,COALESCE(SUM(cash_amount),0) as total_cash,COALESCE(SUM(gcash_amount),0) as total_gcash,COALESCE(SUM(discount_amount),0) as total_discount')
             ->first();
@@ -225,14 +228,12 @@ class ReportController extends Controller
             ->join('rooms as r', 'b.room_id', '=', 'r.id')
             ->join('room_types as rt', 'r.room_type_id', '=', 'rt.id')
             ->leftJoin('users as u', 'b.checked_out_by', '=', 'u.id')
-            ->whereBetween(DB::raw('DATE(b.check_in)'), [$dateFrom, $dateTo])
+            ->whereBetween('b.check_in', [$exportStart, $exportEnd])
             ->whereNotIn('b.status', ['cancelled', 'no_show'])
             ->selectRaw('b.booking_ref,b.guest_name,r.room_number,rt.type_name,b.check_in,b.check_out,b.booking_type,b.base_amount,b.peak_surcharge,b.discount_type,b.discount_amount,b.extension_fee,b.late_checkout_fee,b.total_amount,b.amount_paid,b.payment_method,b.cash_amount,b.gcash_amount,b.gcash_ref,u.full_name as cashier_name,b.status,b.notes')
             ->orderByDesc('b.check_in')
             ->get();
 
-        $exportStart = Carbon::parse($dateFrom)->startOfDay();
-        $exportEnd = Carbon::parse($dateTo)->endOfDay();
         $byCashier = DB::table('payments as p')
             ->join('payment_components as pc', 'pc.payment_id', '=', 'p.id')
             ->join('users as u', 'p.recorded_by', '=', 'u.id')
@@ -249,11 +250,11 @@ class ReportController extends Controller
             ->get();
 
         $bookingsInventoryRevenue = (float) InventoryUsage::whereNotNull('booking_id')
-            ->whereBetween(DB::raw('DATE(created_at)'), [$dateFrom, $dateTo])
+            ->whereBetween('created_at', [$exportStart, $exportEnd])
             ->sum('total_price');
 
         $walkinInventoryRevenue = (float) InventoryUsage::whereNull('booking_id')
-            ->whereBetween(DB::raw('DATE(created_at)'), [$dateFrom, $dateTo])
+            ->whereBetween('created_at', [$exportStart, $exportEnd])
             ->sum('total_price');
 
         $productRevenue = $bookingsInventoryRevenue + $walkinInventoryRevenue;

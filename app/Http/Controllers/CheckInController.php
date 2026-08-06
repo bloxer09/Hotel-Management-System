@@ -11,7 +11,7 @@ use App\Services\BookingService;
 use App\Services\PaymentService;
 use App\Services\ShiftService;
 use Carbon\Carbon;
-use DB;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -19,6 +19,10 @@ use Inertia\Inertia;
 
 class CheckInController extends Controller
 {
+    public function __construct(
+        private readonly PaymentService $payments
+    ) {}
+
     public function index(Request $request)
     {
         // Wizard data (for the Check-In modal)
@@ -34,15 +38,7 @@ class CheckInController extends Controller
             $prefilledGuest = GuestProfile::find($request->input('guest_id'));
         }
 
-        $promoCodes = PromoCode::where('is_active', true)
-            ->where(function ($query) {
-                $query->whereNull('expires_at')
-                    ->orWhere('expires_at', '>', now());
-            })
-            ->where(function ($query) {
-                $query->whereNull('max_uses')
-                    ->orWhereColumn('used_count', '<', 'max_uses');
-            })
+        $promoCodes = PromoCode::available()
             ->orderBy('code', 'asc')
             ->get(['code', 'discount_type', 'discount_value']);
 
@@ -77,19 +73,7 @@ class CheckInController extends Controller
             ->paginate(15)
             ->withQueryString();
 
-        $groupBookingsRaw = Booking::with(['room', 'room.type', 'guestProfile'])
-            ->whereNotNull('group_ref')
-            ->whereIn('status', ['active', 'reserved', 'checked_out', 'completed', 'no_show', 'cancelled'])
-            ->orderBy('id', 'desc')
-            ->get();
-
-        $groupBookings = [];
-        foreach ($groupBookingsRaw->groupBy('group_ref') as $groupRef => $groupItems) {
-            $hasActiveOrReserved = $groupItems->contains(fn ($b) => in_array($b->status, ['active', 'reserved']));
-            if ($hasActiveOrReserved) {
-                $groupBookings[$groupRef] = $groupItems;
-            }
-        }
+        $groupBookings = Booking::getActiveGroupsMap();
 
         return Inertia::render('CheckIn/Index', [
             'vacantRooms' => $rooms,

@@ -68,12 +68,6 @@ class DashboardController extends Controller
             $results[$key] = compact('cash', 'gcash', 'card', 'bank', 'total', 'product', 'room', 'income', 'expense', 'net');
         }
 
-        extract([
-            'cashToday' => $results['today']['cash'], 'gcashToday' => $results['today']['gcash'], 'cardToday' => $results['today']['card'], 'bankToday' => $results['today']['bank'], 'totalToday' => $results['today']['total'], 'productToday' => $results['today']['product'], 'roomToday' => $results['today']['room'], 'expenseToday' => $results['today']['expense'], 'netToday' => $results['today']['net'],
-            'cash7d' => $results['7d']['cash'], 'gcash7d' => $results['7d']['gcash'], 'card7d' => $results['7d']['card'], 'bank7d' => $results['7d']['bank'], 'total7d' => $results['7d']['total'], 'product7d' => $results['7d']['product'], 'room7d' => $results['7d']['room'], 'expense7d' => $results['7d']['expense'], 'net7d' => $results['7d']['net'],
-            'cashMonth' => $results['month']['cash'], 'gcashMonth' => $results['month']['gcash'], 'cardMonth' => $results['month']['card'], 'bankMonth' => $results['month']['bank'], 'totalMonth' => $results['month']['total'], 'productMonth' => $results['month']['product'], 'roomMonth' => $results['month']['room'], 'expenseMonth' => $results['month']['expense'], 'netMonth' => $results['month']['net'],
-            'cashYear' => $results['year']['cash'], 'gcashYear' => $results['year']['gcash'], 'cardYear' => $results['year']['card'], 'bankYear' => $results['year']['bank'], 'totalYear' => $results['year']['total'], 'productYear' => $results['year']['product'], 'roomYear' => $results['year']['room'], 'expenseYear' => $results['year']['expense'], 'netYear' => $results['year']['net'],
-        ]);
 
         // 3. Recent Bookings (limit 5)
         $recentBookings = Booking::with(['room', 'room.type'])
@@ -374,45 +368,45 @@ class DashboardController extends Controller
                     'available_tonight' => $vacantCount,
                 ],
                 'revenue' => [
-                    'cash' => $cashToday,
-                    'gcash' => $gcashToday,
-                    'card' => $cardToday,
-                    'bank' => $bankToday,
-                    'total' => $totalToday,
-                    'room' => $roomToday,
-                    'product' => $productToday,
+                    'cash' => $results['today']['cash'],
+                    'gcash' => $results['today']['gcash'],
+                    'card' => $results['today']['card'],
+                    'bank' => $results['today']['bank'],
+                    'total' => $results['today']['total'],
+                    'room' => $results['today']['room'],
+                    'product' => $results['today']['product'],
                 ],
                 'revenue_periods' => [
                     'today' => [
-                        'total' => $totalToday,
-                        'room' => $roomToday,
-                        'product' => $productToday,
-                        'expenses' => $expenseToday,
-                        'net_income' => $netToday,
+                        'total' => $results['today']['total'],
+                        'room' => $results['today']['room'],
+                        'product' => $results['today']['product'],
+                        'expenses' => $results['today']['expense'],
+                        'net_income' => $results['today']['net'],
                         'label' => "Today's Revenue"
                     ],
                     'last_7_days' => [
-                        'total' => $total7d,
-                        'room' => $room7d,
-                        'product' => $product7d,
-                        'expenses' => $expense7d,
-                        'net_income' => $net7d,
+                        'total' => $results['7d']['total'],
+                        'room' => $results['7d']['room'],
+                        'product' => $results['7d']['product'],
+                        'expenses' => $results['7d']['expense'],
+                        'net_income' => $results['7d']['net'],
                         'label' => "Last 7 Days"
                     ],
                     'this_month' => [
-                        'total' => $totalMonth,
-                        'room' => $roomMonth,
-                        'product' => $productMonth,
-                        'expenses' => $expenseMonth,
-                        'net_income' => $netMonth,
+                        'total' => $results['month']['total'],
+                        'room' => $results['month']['room'],
+                        'product' => $results['month']['product'],
+                        'expenses' => $results['month']['expense'],
+                        'net_income' => $results['month']['net'],
                         'label' => "This Month"
                     ],
                     'this_year' => [
-                        'total' => $totalYear,
-                        'room' => $roomYear,
-                        'product' => $productYear,
-                        'expenses' => $expenseYear,
-                        'net_income' => $netYear,
+                        'total' => $results['year']['total'],
+                        'room' => $results['year']['room'],
+                        'product' => $results['year']['product'],
+                        'expenses' => $results['year']['expense'],
+                        'net_income' => $results['year']['net'],
                         'label' => "This Year"
                     ],
                 ],

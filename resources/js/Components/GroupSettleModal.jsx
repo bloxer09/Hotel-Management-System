@@ -5,8 +5,6 @@ import { X, ShieldAlert, Coins, BedDouble, CalendarDays, Receipt } from 'lucide-
 import axios from 'axios';
 
 export default function GroupSettleModal({ isOpen, groupRef, onClose, onSuccess }) {
-    if (!isOpen || !groupRef) return null;
-
     const [loading, setLoading] = useState(true);
     const [data, setData] = useState(null);
     const [error, setError] = useState(null);
@@ -25,6 +23,7 @@ export default function GroupSettleModal({ isOpen, groupRef, onClose, onSuccess 
     });
 
     useEffect(() => {
+        if (!isOpen || !groupRef) return;
         setLoading(true);
         setError(null);
         axios.get(route('reservations.group_checkout_preview', groupRef))
@@ -42,7 +41,7 @@ export default function GroupSettleModal({ isOpen, groupRef, onClose, onSuccess 
                 setError(err.response?.data?.error || 'Failed to load group details.');
                 setLoading(false);
             });
-    }, [groupRef]);
+    }, [groupRef, isOpen]);
 
     useEffect(() => {
         setCashReceived('');
@@ -147,6 +146,7 @@ export default function GroupSettleModal({ isOpen, groupRef, onClose, onSuccess 
             }
         });
     };
+    if (!isOpen || !groupRef) return null;
 
     return (
         <Transition show={isOpen} as={Fragment}>

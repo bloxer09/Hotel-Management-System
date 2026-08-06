@@ -218,6 +218,37 @@ hotel_management/
 
 > ⚠️ Change these immediately in a production environment.
 
+## 🚀 Production Deployment
+
+### Environment Configuration
+1. Copy `.env.example` to `.env` and set `APP_ENV=production` and `APP_DEBUG=false`.
+2. Generate an application key: `php artisan key:generate`.
+3. Set your production database configuration (MySQL/PostgreSQL) in `.env`.
+
+### Queue Worker
+Run the queue worker in production to handle background jobs:
+```bash
+php artisan queue:work --tries=3 --timeout=60
+```
+Use a process manager like **Supervisor** to ensure the queue worker runs continuously:
+```ini
+[program:hotel-pms-worker]
+command=php /var/www/hotel_management/artisan queue:work --tries=3
+autostart=true
+autorestart=true
+```
+
+### Health Check Endpoint
+A system health check endpoint is available at `/health`:
+```json
+{
+  "status": "ok",
+  "db": "ok",
+  "cache": "ok",
+  "timestamp": "2026-08-06T10:50:00+08:00"
+}
+```
+
 ---
 
 ## 📄 License

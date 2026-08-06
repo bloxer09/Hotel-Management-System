@@ -31,4 +31,11 @@ class GuestProfile extends Model
     {
         return $this->hasMany(Booking::class);
     }
+
+    public function computedTotalSpent(): float
+    {
+        return (float) $this->bookings()
+            ->whereIn('status', ['checked_out', 'completed'])
+            ->sum('total_amount');
+    }
 }

@@ -29,6 +29,13 @@ class InventoryItem extends Model
         'is_active' => 'boolean',
     ];
 
+    public function isLowStock()
+    {
+        $stock = $this->current_stock ?? $this->quantity ?? 0;
+        $min = $this->minimum_stock ?? $this->reorder_level ?? 0;
+        return $stock <= $min;
+    }
+
     public function usages()
     {
         return $this->hasMany(InventoryUsage::class, 'item_id');

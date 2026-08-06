@@ -311,6 +311,7 @@ class SeparateCashDrawersTest extends TestCase
             'discount_type' => 'none',
             'payment_method' => 'cash',
             'cash_amount' => 1500.00,
+            'cash_received' => 1500.00,
             'transaction_notes' => 'Tendered exact cash amount',
         ]);
 

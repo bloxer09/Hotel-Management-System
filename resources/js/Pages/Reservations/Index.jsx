@@ -10,13 +10,16 @@ import {
 import { AnimatePresence, motion } from 'framer-motion';
 import AlertModal from '@/Components/AlertModal';
 import ConfirmModal from '@/Components/ConfirmModal';
-import StayDetailsModal from '@/Components/StayDetailsModal';
-import GroupSettleModal from '@/Components/GroupSettleModal';
 import ImagePreviewModal from '@/Components/ImagePreviewModal';
 import CustomSelect from '@/Components/CustomSelect';
+
+import StayDetailsModal from '@/Components/StayDetailsModal';
+import GroupSettleModal from '@/Components/GroupSettleModal';
 import ActionModal from '@/Components/ActionModal';
 import SortableHeader from '@/Components/SortableHeader';
 import Pagination from '@/Components/Pagination';
+import ReservationFilterBar from './Partials/ReservationFilterBar';
+import ReservationTable from './Partials/ReservationTable';
 
 const roundCurrency = (value) => Math.round((Number(value) + Number.EPSILON) * 100) / 100;
 
@@ -2504,14 +2507,16 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
                 message={confirmAction?.message}
                 confirmText="Proceed"
             />
-            <GroupSettleModal
-                isOpen={isGroupSettleOpen}
-                groupRef={settleGroupRef}
-                onClose={() => {
-                    setIsGroupSettleOpen(false);
-                    setSettleGroupRef(null);
-                }}
-            />
+            <React.Suspense fallback={null}>
+                <GroupSettleModal
+                    isOpen={isGroupSettleOpen}
+                    groupRef={settleGroupRef}
+                    onClose={() => {
+                        setIsGroupSettleOpen(false);
+                        setSettleGroupRef(null);
+                    }}
+                />
+            </React.Suspense>
         </AuthenticatedLayout>
     );
 }

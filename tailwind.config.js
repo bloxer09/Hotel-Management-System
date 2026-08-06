@@ -1,5 +1,6 @@
 import defaultTheme from 'tailwindcss/defaultTheme';
 import forms from '@tailwindcss/forms';
+import colors from 'tailwindcss/colors';
 
 /** @type {import('tailwindcss').Config} */
 export default {
@@ -16,7 +17,23 @@ export default {
                 sans: ['Inter', ...defaultTheme.fontFamily.sans],
                 outfit: ['Outfit', ...defaultTheme.fontFamily.sans],
             },
+            fontSize: {
+                nano: ['9px', { lineHeight: '1.3' }],
+                micro: ['10px', { lineHeight: '1.4' }],
+                mini: ['11px', { lineHeight: '1.5' }],
+            },
             colors: {
+                surface: {
+                    base: '#0f172a',
+                    raised: '#1e293b',
+                    overlay: '#334155',
+                    deep: '#070b13',
+                },
+                slate: {
+                    ...colors.slate,
+                    350: '#8ea4b8',
+                    450: '#6b84a0',
+                },
                 brand: {
                     50: '#f5f7fa',
                     100: '#eaeef4',

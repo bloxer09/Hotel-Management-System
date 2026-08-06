@@ -198,8 +198,21 @@ Route::middleware('auth')->group(function () {
         Route::delete('/promo-codes/{promoCode}', [PromoCodeController::class, 'destroy'])->name('promo_codes.destroy');
     });
 
+    // Real-time Notifications API
+    Route::get('/api/notifications', [NotificationController::class, 'getNotifications'])
+        ->middleware('throttle:60,1')
+        ->name('api.notifications');
+
 });
 
-Route::get('/api/notifications', [NotificationController::class, 'getNotifications'])->name('api.notifications');
-
 require __DIR__.'/auth.php';
+
+// Public System Health Check
+Route::get('/health', function () {
+    return response()->json([
+        'status' => 'ok',
+        'db' => \Illuminate\Support\Facades\DB::select('SELECT 1') ? 'ok' : 'fail',
+        'cache' => \Illuminate\Support\Facades\Cache::put('health_check', true, 10) ? 'ok' : 'fail',
+        'timestamp' => now()->toIso8601String(),
+    ]);
+})->name('health');

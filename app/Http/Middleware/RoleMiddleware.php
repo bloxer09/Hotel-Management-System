@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Enums\UserRole;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -25,7 +26,7 @@ class RoleMiddleware
         $userRole = $request->user()->role;
 
         // Allow 'admin' to bypass role blocks for convenience, except housekeeping check constraints
-        if ($userRole === 'admin') {
+        if ($userRole === UserRole::Admin->value) {
             return $next($request);
         }
 
