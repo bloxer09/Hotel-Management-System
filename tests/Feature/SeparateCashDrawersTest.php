@@ -241,7 +241,7 @@ class SeparateCashDrawersTest extends TestCase
         ]);
 
         // Record income targeting Room drawer
-        \App\Models\Income::create([
+        \App\Models\AdditionalCash::create([
             'income_date' => now()->format('Y-m-d'),
             'amount' => 300.00,
             'cash_drawer' => 'room',

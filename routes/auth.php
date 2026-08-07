@@ -9,6 +9,7 @@ use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\Auth\VerifyEmailController;
+use App\Http\Controllers\Auth\OtpPasswordController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('guest')->group(function () {
@@ -28,6 +29,18 @@ Route::middleware('guest')->group(function () {
 
     Route::post('forgot-password', [PasswordResetLinkController::class, 'store'])
         ->name('password.email');
+
+    // OTP Forgot Password routes
+    Route::post('forgot-password/send-otp', [OtpPasswordController::class, 'sendForgotOtp'])
+        ->middleware('throttle:6,1')
+        ->name('password.send-otp');
+
+    Route::post('forgot-password/verify-otp', [OtpPasswordController::class, 'verifyForgotOtp'])
+        ->middleware('throttle:6,1')
+        ->name('password.verify-otp');
+
+    Route::post('forgot-password/reset-otp', [OtpPasswordController::class, 'resetPasswordWithOtp'])
+        ->name('password.reset-otp');
 
     Route::get('reset-password/{token}', [NewPasswordController::class, 'create'])
         ->name('password.reset');
@@ -54,6 +67,14 @@ Route::middleware('auth')->group(function () {
     Route::post('confirm-password', [ConfirmablePasswordController::class, 'store']);
 
     Route::put('password', [PasswordController::class, 'update'])->name('password.update');
+
+    // OTP Change Password routes
+    Route::post('password/send-otp', [OtpPasswordController::class, 'sendChangePasswordOtp'])
+        ->middleware('throttle:6,1')
+        ->name('password.change-send-otp');
+
+    Route::put('password/update-otp', [OtpPasswordController::class, 'updatePasswordWithOtp'])
+        ->name('password.update-otp');
 
     Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])
         ->name('logout');

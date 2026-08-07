@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Booking;
 use App\Models\CashMovement;
 use App\Models\Expense;
-use App\Models\Income;
+use App\Models\AdditionalCash;
 use App\Models\InventoryItem;
 use App\Models\InventoryUsage;
 use App\Models\MaintenanceTicket;
@@ -78,7 +78,7 @@ class ShiftController extends Controller
                 ->whereBetween('created_at', [$liveStart, $liveEnd])
                 ->sum('amount');
 
-            $incomesSum = (float) Income::where('recorded_by', $user->id)
+            $incomesSum = (float) AdditionalCash::where('recorded_by', $user->id)
                 ->whereBetween('created_at', [$liveStart, $liveEnd])
                 ->sum('amount');
 
@@ -274,7 +274,7 @@ class ShiftController extends Controller
             ->whereBetween('created_at', [$start, $end])
             ->get();
 
-        $incomes = Income::with('user')->where('recorded_by', $shiftUserId)
+        $incomes = AdditionalCash::with('user')->where('recorded_by', $shiftUserId)
             ->whereBetween('created_at', [$start, $end])
             ->get();
 
@@ -606,7 +606,7 @@ class ShiftController extends Controller
         $roomSalesCash = (float) ($stayCollections['cash'] ?? 0);
 
         // Other cash receipts (incomes from room drawer)
-        $incomes = Income::where('recorded_by', $shiftUserId)
+        $incomes = AdditionalCash::where('recorded_by', $shiftUserId)
             ->whereBetween('created_at', [$start, $end])
             ->where('cash_drawer', 'room')
             ->get();
@@ -616,7 +616,7 @@ class ShiftController extends Controller
             ->whereBetween('created_at', [$start, $end])
             ->where('cash_drawer', 'minibar')
             ->get();
-        $minibarIncomes = Income::where('recorded_by', $shiftUserId)
+        $minibarIncomes = AdditionalCash::where('recorded_by', $shiftUserId)
             ->whereBetween('created_at', [$start, $end])
             ->where('cash_drawer', 'minibar')
             ->get();
@@ -772,7 +772,7 @@ class ShiftController extends Controller
             ->orderBy('created_at')
             ->get();
 
-        $incomes = Income::where('recorded_by', $shiftUserId)
+        $incomes = AdditionalCash::where('recorded_by', $shiftUserId)
             ->whereBetween('created_at', [$start, $end])
             ->orderBy('created_at')
             ->get();
@@ -855,7 +855,7 @@ class ShiftController extends Controller
             $income->cash_drawer,
             (float) $income->amount,
             $income->notes,
-        ])->all()), 'Income');
+        ])->all()), 'Additional Cash');
 
         $workbook->addSheet(array_merge([
             ['Date/Time', 'Room', 'Item', 'Quantity', 'Unit Price', 'Total Price'],
@@ -989,7 +989,7 @@ class ShiftController extends Controller
             }
         }
 
-        $incomes = Income::where('recorded_by', $userId)
+        $incomes = AdditionalCash::where('recorded_by', $userId)
             ->whereBetween('created_at', [$start, $end])
             ->get();
 

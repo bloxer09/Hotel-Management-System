@@ -61,7 +61,7 @@ export default function Report({ shift, report }) {
         { id: 'minibar', label: 'Minibar & POS', icon: Coffee, count: (report.transactions?.filter(t => t.transaction_type === 'pos_sale').length || 0) + (report.inventory_usage_details?.filter(u => u.booking_id !== null).length || 0) },
         { id: 'inventory', label: 'Inventory Status', icon: Package, count: report.inventory_items?.length || 0 },
         { id: 'expenses', label: 'Expenses', icon: MinusCircle, count: report.expenses?.length || 0 },
-        { id: 'income', label: 'Additional Income', icon: PlusCircle, count: report.incomes?.length || 0 },
+        { id: 'income', label: 'Additional Cash', icon: PlusCircle, count: report.incomes?.length || 0 },
         { id: 'maintenance', label: 'Maintenance', icon: Wrench, count: report.maintenance_tickets?.length || 0 },
     ];
 
@@ -516,7 +516,7 @@ export default function Report({ shift, report }) {
                                                 <th className="p-2">Opening</th>
                                                 <th className="p-2">Cash Collections</th>
                                                 <th className="p-2">GCash Payments</th>
-                                                <th className="p-2">Add. Income</th>
+                                                <th className="p-2">Add. Cash</th>
                                                 <th className="p-2">Expenses Out</th>
                                                 <th className="p-2">Expected Cash</th>
                                                 <th className="p-2">Actual Cash</th>
@@ -863,7 +863,7 @@ export default function Report({ shift, report }) {
                                     <h3 className="text-sm font-bold text-slate-200 uppercase mb-3 font-mono flex items-center gap-2">
                                         <span>Critical Low Stock Level Warnings</span>
                                         {report.low_stock?.length > 0 && (
-                                            <AlertTriangle size={15} className="text-red-400 animate-pulse" />
+                                            <AlertTriangle size={15} className="text-red-400" />
                                         )}
                                     </h3>
                                     <div className="overflow-x-auto rounded-lg border border-slate-700">
@@ -950,7 +950,7 @@ export default function Report({ shift, report }) {
                         </div>
                     )}
 
-                    {/* Tab 6: ADDITIONAL INCOME */}
+                    {/* Tab 6: ADDITIONAL CASH */}
                     {activeTab === 'income' && (
                         <div className="flex flex-col gap-4">
                             <h3 className="text-sm font-bold text-slate-200 uppercase font-mono flex justify-between">
@@ -985,7 +985,7 @@ export default function Report({ shift, report }) {
                                         ) : (
                                             <tr>
                                                 <td colSpan="6" className="text-center py-6 text-slate-500 font-sans">
-                                                    No additional incomes recorded during this shift.
+                                                    No additional cash recorded during this shift.
                                                 </td>
                                             </tr>
                                         )}
@@ -1111,7 +1111,7 @@ export default function Report({ shift, report }) {
                                 <tr>
                                     <th>Total Guests</th>
                                     <td className="text-center font-bold">{report.total_guests} pax</td>
-                                    <th>Additional Income</th>
+                                    <th>Additional Cash</th>
                                     <td className="text-right">{formatCurrency(report.incomes_sum)}</td>
                                     <td colSpan="2"></td>
                                 </tr>
@@ -1128,7 +1128,7 @@ export default function Report({ shift, report }) {
                                     <th>Opening</th>
                                     <th>Cash Sales</th>
                                     <th>GCash Payments</th>
-                                    <th>Add. Income</th>
+                                    <th>Add. Cash</th>
                                     <th>Expenses Out</th>
                                     <th>Expected Cash</th>
                                     <th>Actual Cash</th>
@@ -1628,9 +1628,9 @@ export default function Report({ shift, report }) {
                     <PrintFooter title="Drawer Disbursement Records" />
                 </div>
 
-                {/* 6. ADDITIONAL INCOME LOG */}
+                {/* 6. ADDITIONAL CASH LOG */}
                 <div className={`print-page-break ${printMode === 'active' && activeTab !== 'income' ? 'hidden' : ''}`}>
-                    <PrintHeader title="VI. ADDITIONAL INCOME LOG" pageNum={6} />
+                    <PrintHeader title="VI. ADDITIONAL CASH LOG" pageNum={6} />
 
                     <div className="mb-4">
                         <table className="w-full text-left border-collapse logbook-table">
@@ -1639,7 +1639,7 @@ export default function Report({ shift, report }) {
                                     <th className="w-[10%]">TIME</th>
                                     <th className="w-[15%]">REF NO</th>
                                     <th className="w-[15%]">DRAWER</th>
-                                    <th className="w-[30%]">INCOME CATEGORY / DESCRIPTION</th>
+                                    <th className="w-[30%]">CASH CATEGORY / DESCRIPTION</th>
                                     <th className="w-[15%]">RECORDED BY</th>
                                     <th className="w-[15%] text-right">INFLOW</th>
                                 </tr>
@@ -1659,7 +1659,7 @@ export default function Report({ shift, report }) {
                                 ) : (
                                     <tr>
                                         <td colSpan="6" className="text-center py-6">
-                                            No additional incomes recorded during this shift.
+                                            No additional cash recorded during this shift.
                                         </td>
                                     </tr>
                                 )}
@@ -1669,7 +1669,7 @@ export default function Report({ shift, report }) {
 
                     <div className="flex justify-end gap-4 mt-6">
                         <div className="ledger-handwritten-circle text-[9px]">
-                            Total Shift Incomes: +{formatCurrency(report.incomes_sum)}
+                            Total Shift Additional Cash: +{formatCurrency(report.incomes_sum)}
                         </div>
                     </div>
 

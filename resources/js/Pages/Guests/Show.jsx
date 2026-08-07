@@ -187,7 +187,7 @@ export default function Show({ guest, bookings }) {
                                                 <td className="py-3.5">
                                                     {b.status === 'active' ? (
                                                         <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-emerald-950 border border-emerald-800 text-emerald-400 text-[10px] rounded-full font-extrabold uppercase">
-                                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0 animate-pulse" />
+                                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
                                                             Active
                                                         </span>
                                                     ) : b.status === 'checked_out' ? (
@@ -221,7 +221,7 @@ export default function Show({ guest, bookings }) {
                         <div className="p-6 rounded-2xl bg-[#1e293b] border border-[#334155] shadow-xl flex flex-col gap-4">
                             <div className="flex items-center justify-between border-b border-[#334155]/60 pb-3">
                                 <h3 className="text-sm font-outfit font-black uppercase tracking-wider text-slate-300">VIP configuration</h3>
-                                <Star size={16} className={guest.is_vip ? 'text-amber-400 fill-amber-400 animate-pulse' : 'text-slate-500'} />
+                                <Star size={16} className={guest.is_vip ? 'text-amber-400 fill-amber-400' : 'text-slate-500'} />
                             </div>
                             
                             {isAdmin ? (

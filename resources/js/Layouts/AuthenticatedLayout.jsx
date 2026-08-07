@@ -258,11 +258,11 @@ export default function AuthenticatedLayout({ children }) {
             current: route().current('expenses.*')
         },
         {
-            name: 'Additional Incomes',
+            name: 'Additional Cash',
             icon: Coins,
-            href: route('incomes.index'),
+            href: route('additional-cash.index'),
             roles: ['admin', 'front_desk', 'cashier'],
-            current: route().current('incomes.*')
+            current: route().current('additional-cash.*')
         },
         {
             name: 'Maintenance Tickets',
@@ -383,20 +383,20 @@ export default function AuthenticatedLayout({ children }) {
                                 <Link
                                     key={item.name}
                                     href={linkHref}
-                                    className={`app-nav-link flex items-center ${isCollapsed ? 'justify-center px-2.5 py-3' : 'gap-3.5 px-4 py-3'} rounded-xl font-medium transition-all duration-200 group relative ${item.current
-                                        ? 'is-active bg-brand-600/70 text-slate-50 border border-brand-500/40 shadow-lg shadow-brand-600/20'
+                                    className={`app-nav-link flex items-center ${isCollapsed ? 'justify-center px-2.5 py-3' : 'gap-3.5 px-4 py-3'} rounded-xl font-medium transition-colors duration-150 group relative ${item.current
+                                        ? 'is-active bg-brand-600 text-white shadow-lg shadow-brand-600/20'
                                         : 'text-slate-400 hover:bg-[#334155]/50 hover:text-slate-100'
                                         }`}
                                 >
                                     <div className="relative shrink-0">
-                                        <item.icon size={20} className={`${item.current ? 'text-slate-50' : 'text-slate-400 group-hover:text-brand-400'}`} />
+                                        <item.icon size={20} className={`${item.current ? 'text-white' : 'text-slate-400 group-hover:text-brand-400'}`} />
                                         {badgeCount > 0 && isCollapsed && (
-                                            <span className="absolute -top-1.5 -right-1.5 flex h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-slate-900 animate-pulse" />
+                                            <span className="absolute -top-1.5 -right-1.5 flex h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-slate-900" />
                                         )}
                                     </div>
                                     {!isCollapsed && <span className="text-sm font-outfit">{item.name}</span>}
                                     {!isCollapsed && badgeCount > 0 && (
-                                        <span className="ml-auto flex h-5 min-w-[20px] px-1.5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white animate-pulse">
+                                        <span className="ml-auto flex h-5 min-w-[20px] px-1.5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
                                             {badgeCount}
                                         </span>
                                     )}
@@ -423,7 +423,7 @@ export default function AuthenticatedLayout({ children }) {
                         <div className="space-y-1 pt-2">
                             <button
                                 onClick={() => setIsSettingsOpen(!isSettingsOpen)}
-                                className={`app-nav-link w-full flex items-center ${isCollapsed ? 'justify-center px-2.5 py-3' : 'gap-3.5 px-4 py-3'} rounded-xl font-medium text-slate-400 hover:bg-[#334155]/50 hover:text-slate-100 transition-all duration-200 ${isSettingsOpen ? 'is-active text-slate-100' : ''
+                                className={`app-nav-link w-full flex items-center ${isCollapsed ? 'justify-center px-2.5 py-3' : 'gap-3.5 px-4 py-3'} rounded-xl font-medium text-slate-400 hover:bg-[#334155]/50 hover:text-slate-100 transition-colors duration-150 ${isSettingsOpen ? 'is-active text-slate-100' : ''
                                     }`}
                             >
                                 <Settings size={20} className="text-slate-400" />
@@ -545,7 +545,7 @@ export default function AuthenticatedLayout({ children }) {
                                     <div className="mt-2 pt-2 border-t border-[#334155]/60 flex items-center gap-2">
                                         {activeShift ? (
                                             <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-extrabold uppercase font-outfit tracking-wider">
-                                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
+                                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0"></span>
                                                 <span>{activeShift.shift_code} Shift Active</span>
                                             </div>
                                         ) : viewerMode ? (
@@ -559,7 +559,7 @@ export default function AuthenticatedLayout({ children }) {
                                             </Link>
                                         ) : registerShift ? (
                                             <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-extrabold uppercase font-outfit tracking-wider">
-                                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
+                                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0"></span>
                                                 <span>Register: {registerShift.user?.name || 'Assigned'}</span>
                                             </div>
                                         ) : (
@@ -670,7 +670,7 @@ export default function AuthenticatedLayout({ children }) {
                         {/* Shift Status Pill */}
                         {activeShift ? (
                             <div className="hidden lg:flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-950/30 border border-emerald-900/40 text-emerald-400 text-xs font-semibold">
-                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
                                 <span className="uppercase font-mono tracking-wide">{activeShift.shift_code} REGISTER RUNNING</span>
                             </div>
                         ) : viewerMode ? (
@@ -680,7 +680,7 @@ export default function AuthenticatedLayout({ children }) {
                             </div>
                         ) : registerShift ? (
                             <div className="hidden lg:flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-950/30 border border-emerald-900/40 text-emerald-400 text-xs font-semibold">
-                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
                                 <span className="uppercase tracking-wide">REGISTER: {registerShift.user?.name || 'ASSIGNED'}</span>
                             </div>
                         ) : user.role !== 'housekeeping' ? (
@@ -732,9 +732,6 @@ export default function AuthenticatedLayout({ children }) {
                                         <span className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-white text-[10px] font-black shadow-lg border border-[#1e293b]">
                                             {totalAlerts > 9 ? '9+' : totalAlerts}
                                         </span>
-                                    )}
-                                    {totalAlerts > 0 && (
-                                        <span className="absolute inset-0 rounded-xl animate-ping bg-rose-500/20 pointer-events-none" />
                                     )}
                                 </button>
 
@@ -812,7 +809,7 @@ export default function AuthenticatedLayout({ children }) {
                                                                     onClick={() => setIsBellOpen(false)}
                                                                     className="flex items-start gap-3 px-4 py-3 hover:bg-[#334155]/40 transition-colors border-b border-[#334155]/30 last:border-b-0"
                                                                 >
-                                                                    <div className={`shrink-0 mt-0.5 h-2.5 w-2.5 rounded-full ${isOverdue ? 'bg-rose-500 animate-pulse' : 'bg-amber-400'}`} />
+                                                                    <div className={`shrink-0 mt-0.5 h-2.5 w-2.5 rounded-full ${isOverdue ? 'bg-rose-500' : 'bg-amber-400'}`} />
                                                                     <div className="flex-1 min-w-0">
                                                                         <div className="text-xs font-bold text-slate-200">
                                                                             Room {item.room_number}
@@ -865,7 +862,7 @@ export default function AuthenticatedLayout({ children }) {
                                                                 onClick={() => setIsBellOpen(false)}
                                                                 className="flex items-start gap-3 px-4 py-3 hover:bg-[#334155]/40 transition-colors border-b border-[#334155]/30 last:border-b-0"
                                                             >
-                                                                <div className={`shrink-0 mt-0.5 h-2.5 w-2.5 rounded-full ${item.status === 'for_verification' ? 'bg-amber-400' : item.priority === 'critical' ? 'bg-red-500 animate-pulse' : 'bg-orange-500'}`} />
+                                                                <div className={`shrink-0 mt-0.5 h-2.5 w-2.5 rounded-full ${item.status === 'for_verification' ? 'bg-amber-400' : item.priority === 'critical' ? 'bg-red-500' : 'bg-orange-500'}`} />
                                                                 <div className="flex-1 min-w-0">
                                                                     <div className="text-xs font-bold text-slate-200">Room {item.room_number} Issue</div>
                                                                     <div className="text-[11px] text-slate-400 leading-relaxed mt-0.5">{item.message}</div>

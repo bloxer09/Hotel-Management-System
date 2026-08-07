@@ -60,7 +60,7 @@ class DashboardController extends Controller
 
             $product = round((float) InventoryUsage::where('created_at', '>=', $startDate)->sum('total_price'), 2);
             $room = round(max(0.00, $sales_total - $product), 2);
-            $income = round((float) \App\Models\Income::where('income_date', '>=', $startDate->format('Y-m-d'))->sum('amount'), 2);
+            $income = round((float) \App\Models\AdditionalCash::where('income_date', '>=', $startDate->format('Y-m-d'))->sum('amount'), 2);
             $total = round($sales_total + $income, 2);
             $expense = round((float) \App\Models\Expense::where('expense_date', '>=', $startDate->format('Y-m-d'))->sum('amount'), 2);
             $net = round($total - $expense, 2);
@@ -120,7 +120,7 @@ class DashboardController extends Controller
             ->pluck('total_amount', 'expense_date');
 
         // Pre-calculate daily incomes/cash injections for 30 days
-        $incomes30d = \App\Models\Income::where('income_date', '>=', $startDate->format('Y-m-d'))
+        $incomes30d = \App\Models\AdditionalCash::where('income_date', '>=', $startDate->format('Y-m-d'))
             ->selectRaw('income_date, SUM(amount) as total_amount')
             ->groupBy('income_date')
             ->pluck('total_amount', 'income_date');

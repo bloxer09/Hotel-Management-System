@@ -556,7 +556,7 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
                                                     reason: ''
                                                 });
                                             }}
-                                            className="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 bg-brand-950/20 hover:bg-brand-950/35 border border-brand-900/30 rounded-xl text-brand-400 hover:text-brand-300 text-xs font-bold font-outfit transition-all animate-pulse-subtle"
+                                            className="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 bg-brand-950/20 hover:bg-brand-950/35 border border-brand-900/30 rounded-xl text-brand-400 hover:text-brand-300 text-xs font-bold font-outfit transition-all"
                                         >
                                             <Shuffle size={14} /> Reassign / Move Room
                                         </button>

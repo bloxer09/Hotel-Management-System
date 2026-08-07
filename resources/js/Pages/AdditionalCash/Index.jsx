@@ -20,7 +20,7 @@ import Pagination from '@/Components/Pagination';
 import ConfirmModal from '@/Components/ConfirmModal';
 import CustomSelect from '@/Components/CustomSelect';
 
-export default function IncomesIndex({ incomes, filters, summary, sortBy, sortDir }) {
+export default function AdditionalCashIndex({ incomes, filters, summary, sortBy, sortDir }) {
     const { auth } = usePage().props;
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -40,18 +40,18 @@ export default function IncomesIndex({ incomes, filters, summary, sortBy, sortDi
 
     const handleSearch = (e) => {
         e.preventDefault();
-        router.get(route('incomes.index'), { search: searchQuery, from: dateFrom, to: dateTo }, { preserveState: true });
+        router.get(route('additional-cash.index'), { search: searchQuery, from: dateFrom, to: dateTo }, { preserveState: true });
     };
 
     const handleClearFilters = () => {
         setSearchQuery('');
         setDateFrom('');
         setDateTo('');
-        router.get(route('incomes.index'), {}, { preserveState: true });
+        router.get(route('additional-cash.index'), {}, { preserveState: true });
     };
 
     const handleExport = () => {
-        let url = route('incomes.export');
+        let url = route('additional-cash.export');
         const params = new URLSearchParams();
         if (dateFrom) params.append('from', dateFrom);
         if (dateTo) params.append('to', dateTo);
@@ -84,7 +84,7 @@ export default function IncomesIndex({ incomes, filters, summary, sortBy, sortDi
 
     const handleDelete = () => {
         if (confirmDeleteIncome) {
-            router.delete(route('incomes.destroy', confirmDeleteIncome.id), { preserveScroll: true });
+            router.delete(route('additional-cash.destroy', confirmDeleteIncome.id), { preserveScroll: true });
             setConfirmDeleteIncome(null);
         }
     };
@@ -98,7 +98,7 @@ export default function IncomesIndex({ incomes, filters, summary, sortBy, sortDi
         formData.append('notes', notes);
         if (receipt) formData.append('receipt', receipt);
 
-        router.post(route('incomes.store'), formData, {
+        router.post(route('additional-cash.store'), formData, {
             onSuccess: () => {
                 setIsAddModalOpen(false);
             },
@@ -116,7 +116,7 @@ export default function IncomesIndex({ incomes, filters, summary, sortBy, sortDi
         formData.append('notes', notes);
         if (receipt) formData.append('receipt', receipt);
 
-        router.post(route('incomes.update', selectedIncome.id), formData, {
+        router.post(route('additional-cash.update', selectedIncome.id), formData, {
             onSuccess: () => {
                 setIsEditModalOpen(false);
             },
@@ -132,15 +132,15 @@ export default function IncomesIndex({ incomes, filters, summary, sortBy, sortDi
 
     return (
         <AuthenticatedLayout user={auth.user}>
-            <Head title="Additional Incomes" />
+            <Head title="Additional Cash" />
 
             <div className="flex flex-col gap-6">
 
                 {/* Header */}
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                     <div>
-                        <h1 className="text-2xl sm:text-3xl font-outfit font-extrabold tracking-tight text-slate-100">Additional Incomes</h1>
-                        <p className="text-xs sm:text-sm text-slate-400 font-medium mt-1">Manage extra cash entries, float injections, and miscellaneous sales.</p>
+                        <h1 className="text-2xl sm:text-3xl font-outfit font-extrabold tracking-tight text-slate-100">Additional Cash</h1>
+                        <p className="text-xs sm:text-sm text-slate-400 font-medium mt-1">Manage extra cash entries, float injections, and additional cash.</p>
                     </div>
                     <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto mt-2 sm:mt-0">
                         <button onClick={handleExport}
@@ -149,7 +149,7 @@ export default function IncomesIndex({ incomes, filters, summary, sortBy, sortDi
                         </button>
                         <button onClick={openAddModal}
                             className="flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-outfit font-bold text-sm transition-all shadow-lg shadow-brand-600/20 active:scale-95 shrink-0 w-full sm:w-auto">
-                            <Plus size={16} /> Record Income
+                            <Plus size={16} /> Record Cash
                         </button>
                     </div>
                 </div>
@@ -161,7 +161,7 @@ export default function IncomesIndex({ incomes, filters, summary, sortBy, sortDi
                             <Coins className="w-6 h-6" />
                         </div>
                         <div>
-                            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Total Incomes Amount</p>
+                            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Total Additional Cash</p>
                             <h3 className="text-2xl font-bold font-mono text-slate-100">
                                 ₱{Number(summary.total_amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </h3>
@@ -172,7 +172,7 @@ export default function IncomesIndex({ incomes, filters, summary, sortBy, sortDi
                             <FileText className="w-6 h-6" />
                         </div>
                         <div>
-                            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Recorded Incomes</p>
+                            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Recorded Cash Entries</p>
                             <h3 className="text-2xl font-bold font-mono text-slate-100">{summary.total_count}</h3>
                         </div>
                     </div>
@@ -239,7 +239,7 @@ export default function IncomesIndex({ incomes, filters, summary, sortBy, sortDi
                                 {incomes.data.length === 0 ? (
                                     <tr>
                                         <td colSpan={7} className="px-4 py-12 text-center text-slate-500">
-                                            No incomes found matching the criteria.
+                                            No additional cash records found matching the criteria.
                                         </td>
                                     </tr>
                                 ) : incomes.data.map((inc, i) => (
@@ -301,7 +301,7 @@ export default function IncomesIndex({ incomes, filters, summary, sortBy, sortDi
                 </div>
             </div>
 
-            {/* Add Income Modal */}
+            {/* Add Cash Modal */}
             <AnimatePresence>
                 {isAddModalOpen && (
                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -317,8 +317,8 @@ export default function IncomesIndex({ incomes, filters, summary, sortBy, sortDi
                                 <div className="flex items-center gap-3">
                                     <div className="p-2 bg-brand-500/10 text-brand-400 rounded-xl"><Coins size={18} /></div>
                                     <div>
-                                        <h2 className="text-base font-outfit font-extrabold text-slate-100">Record Income</h2>
-                                        <p className="text-[10px] text-slate-400">Save a new additional cash injection or miscellaneous sale</p>
+                                        <h2 className="text-base font-outfit font-extrabold text-slate-100">Record Cash</h2>
+                                        <p className="text-[10px] text-slate-400">Save a new additional cash injection or entry</p>
                                     </div>
                                 </div>
                                 <button type="button" onClick={() => setIsAddModalOpen(false)} className="p-2 rounded-xl text-slate-400 hover:text-slate-100 hover:bg-[#334155] transition-all">
@@ -369,7 +369,7 @@ export default function IncomesIndex({ incomes, filters, summary, sortBy, sortDi
                                             onChange={e => setNotes(e.target.value)}
                                             rows="3"
                                             className={inputCls}
-                                            placeholder="E.g., Additional Cash Float, Mini-store Miscellaneous Income..."
+                                            placeholder="E.g., Additional Cash Float, Mini-store Cash Injection..."
                                         ></textarea>
                                     </div>
                                     <div className="flex flex-col gap-1">
@@ -389,7 +389,7 @@ export default function IncomesIndex({ incomes, filters, summary, sortBy, sortDi
                                     </button>
                                     <button type="submit"
                                         className="px-5 py-2 bg-brand-600 hover:bg-brand-500 text-white font-bold text-xs rounded-xl transition-all shadow-lg shadow-brand-500/20">
-                                        Save Income
+                                        Save Cash
                                     </button>
                                 </div>
                             </form>
@@ -398,7 +398,7 @@ export default function IncomesIndex({ incomes, filters, summary, sortBy, sortDi
                 )}
             </AnimatePresence>
 
-            {/* Edit Income Modal */}
+            {/* Edit Cash Modal */}
             <AnimatePresence>
                 {isEditModalOpen && (
                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -414,8 +414,8 @@ export default function IncomesIndex({ incomes, filters, summary, sortBy, sortDi
                                 <div className="flex items-center gap-3">
                                     <div className="p-2 bg-amber-500/10 text-amber-400 rounded-xl"><Edit size={18} /></div>
                                     <div>
-                                        <h2 className="text-base font-outfit font-extrabold text-slate-100">Edit Income</h2>
-                                        <p className="text-[10px] text-slate-400">Update additional income record details</p>
+                                        <h2 className="text-base font-outfit font-extrabold text-slate-100">Edit Cash</h2>
+                                        <p className="text-[10px] text-slate-400">Update additional cash record details</p>
                                     </div>
                                 </div>
                                 <button type="button" onClick={() => setIsEditModalOpen(false)} className="p-2 rounded-xl text-slate-400 hover:text-slate-100 hover:bg-[#334155] transition-all">
@@ -499,7 +499,7 @@ export default function IncomesIndex({ incomes, filters, summary, sortBy, sortDi
             <ActionModal
                 isOpen={!!actionModalIncome}
                 onClose={() => setActionModalIncome(null)}
-                title={`Manage Income`}
+                title={`Manage Cash Entry`}
             >
                 {actionModalIncome && (
                     <>
@@ -507,13 +507,13 @@ export default function IncomesIndex({ incomes, filters, summary, sortBy, sortDi
                             onClick={() => { setActionModalIncome(null); openEditModal(actionModalIncome); }}
                             className="w-full flex items-center gap-2 px-4 py-3 bg-[#1e293b] hover:bg-amber-600/20 border border-[#334155] hover:border-amber-500/40 rounded-xl text-xs font-bold text-amber-400 transition-colors uppercase"
                         >
-                            <Edit size={16} /> Edit Income
+                            <Edit size={16} /> Edit Cash
                         </button>
                         <button
                             onClick={() => { setActionModalIncome(null); setConfirmDeleteIncome(actionModalIncome); }}
                             className="w-full flex items-center gap-2 px-4 py-3 bg-[#1e293b] hover:bg-rose-900/30 border border-[#334155] hover:border-rose-500/40 rounded-xl text-xs font-bold text-rose-400 transition-colors uppercase"
                         >
-                            <Trash2 size={16} /> Delete Income
+                            <Trash2 size={16} /> Delete Cash
                         </button>
                     </>
                 )}
@@ -523,8 +523,8 @@ export default function IncomesIndex({ incomes, filters, summary, sortBy, sortDi
                 isOpen={!!confirmDeleteIncome}
                 onClose={() => setConfirmDeleteIncome(null)}
                 onConfirm={handleDelete}
-                title="Delete Income"
-                message="Are you sure you want to delete this additional income entry?"
+                title="Delete Cash"
+                message="Are you sure you want to delete this additional cash entry?"
                 confirmText="Delete"
                 isDanger={true}
             />

@@ -302,7 +302,7 @@ export default function Index({ items, activeBookings = [], currentSearch, curre
                                                             ></div>
                                                         </div>
                                                         {isLow && (
-                                                            <span className="text-[9px] text-red-400 font-bold uppercase tracking-wider animate-pulse flex items-center gap-1">
+                                                            <span className="text-[9px] text-red-400 font-bold uppercase tracking-wider flex items-center gap-1">
                                                                 <AlertTriangle size={8} /> Restock Needed
                                                             </span>
                                                         )}

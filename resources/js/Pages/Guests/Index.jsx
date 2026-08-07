@@ -332,7 +332,7 @@ export default function Index({ guests, currentSearch, currentVip, stats, sortBy
                                                     <span className="font-mono">{selectedGuest.contact_number || 'No Contact Number'}</span>
                                                 </div>
                                                 <div className="flex items-center gap-2">
-                                                    <Mail size={12} className="text-slate-500 shrink-0 animate-pulse" />
+                                                    <Mail size={12} className="text-slate-500 shrink-0" />
                                                     <span className="truncate">{selectedGuest.email || 'No Registered Email'}</span>
                                                 </div>
                                                 <div className="flex items-center gap-2">

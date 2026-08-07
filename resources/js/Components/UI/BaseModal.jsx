@@ -27,7 +27,7 @@ export default function BaseModal({
                     leaveFrom="opacity-100"
                     leaveTo="opacity-0"
                 >
-                    <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm" />
+                    <div className="fixed inset-0 bg-slate-950/80" />
                 </TransitionChild>
 
                 <div className="fixed inset-0 overflow-y-auto p-4 sm:p-6 md:p-10">

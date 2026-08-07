@@ -41,7 +41,7 @@ class SingleActiveRegisterTest extends TestCase
         $shift = $this->activeShiftFor($operator);
 
         $this->actingAs($viewer)
-            ->get(route('incomes.index'))
+            ->get(route('additional-cash.index'))
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->where('auth.viewer_mode', true)
@@ -78,17 +78,17 @@ class SingleActiveRegisterTest extends TestCase
         $this->activeShiftFor($operator);
 
         $response = $this->actingAs($viewer)
-            ->from(route('incomes.index'))
-            ->post(route('incomes.store'), [
+            ->from(route('additional-cash.index'))
+            ->post(route('additional-cash.store'), [
                 'income_date' => now()->toDateString(),
                 'amount' => 500,
                 'cash_drawer' => 'room',
                 'notes' => 'Blocked viewer entry',
             ]);
 
-        $response->assertRedirect(route('incomes.index'));
+        $response->assertRedirect(route('additional-cash.index'));
         $response->assertSessionHas('warning');
-        $this->assertDatabaseCount('incomes', 0);
+        $this->assertDatabaseCount('additional_cash', 0);
     }
 
     public function test_assigned_operator_can_change_operational_data(): void

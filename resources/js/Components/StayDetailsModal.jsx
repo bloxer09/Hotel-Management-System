@@ -1076,7 +1076,7 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
                             <form onSubmit={handleCancelSubmit} className="space-y-4 text-xs">
 
                                 <div className="flex items-center gap-3 p-3 rounded-xl bg-red-950/20 border border-red-500/30 text-red-300">
-                                    <AlertTriangle size={18} className="shrink-0 animate-pulse text-red-400" />
+                                    <AlertTriangle size={18} className="shrink-0 text-red-400" />
                                     <span><strong>Warning:</strong> Cancellation reverts room status to Vacant and restores inventory counts. This action is auditable.</span>
                                 </div>
 

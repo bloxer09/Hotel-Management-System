@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import Modal from '@/Components/Modal';
+import ActionModal from '@/Components/ActionModal';
 import CustomSelect from '@/Components/CustomSelect';
 import SortableHeader from '@/Components/SortableHeader';
 import Pagination from '@/Components/Pagination';
@@ -30,6 +31,7 @@ export default function Maintenance({ tickets, rooms, filters = {}, sortBy, sort
     const [searchTerm, setSearchTerm] = useState(filters.search || '');
     const [isDetailsOpen, setIsDetailsOpen] = useState(false);
     const [detailTicket, setDetailTicket] = useState(null);
+    const [actionModalTicket, setActionModalTicket] = useState(null);
     const [dateFrom, setDateFrom] = useState(filters.from || '');
     const [dateTo, setDateTo] = useState(filters.to || '');
 
@@ -276,17 +278,18 @@ export default function Maintenance({ tickets, rooms, filters = {}, sortBy, sort
                         <table className="w-full min-w-[980px] text-xs table-fixed">
                             <thead>
                                 <tr className="border-b border-[#334155] bg-[#0f172a]/60">
-                                    <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left w-[27%]">Room / Issue</th>
+                                    <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left w-[23%]">Room / Issue</th>
                                     <SortableHeader sortKey="priority" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left w-[9%]">Priority</SortableHeader>
-                                    <SortableHeader sortKey="created_at" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left w-[17%]">Reported By / Date</SortableHeader>
-                                    <SortableHeader sortKey="status" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left w-[14%]">Status</SortableHeader>
-                                    <th className="px-5 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left w-[33%]">Resolution / Notes</th>
+                                    <SortableHeader sortKey="created_at" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left w-[16%]">Reported By / Date</SortableHeader>
+                                    <SortableHeader sortKey="status" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left w-[13%]">Status</SortableHeader>
+                                    <th className="px-5 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left w-[27%]">Resolution / Notes</th>
+                                    <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-right w-[12%]">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {tickets.data.length === 0 ? (
                                     <tr>
-                                        <td colSpan={5} className="px-4 py-12 text-center text-slate-500">
+                                        <td colSpan={6} className="px-4 py-12 text-center text-slate-500">
                                             {searchTerm ? `No results for "${searchTerm}"` : `No ${activeTab.label.toLowerCase()} found.`}
                                         </td>
                                     </tr>
@@ -297,9 +300,6 @@ export default function Maintenance({ tickets, rooms, filters = {}, sortBy, sort
                                         <td className="px-4 py-4">
                                             <span className="text-slate-300 font-extrabold text-[11px] block">Room {ticket.room?.room_number}</span>
                                             <span className="font-outfit font-bold text-slate-100 text-sm mt-0.5 block">{ticket.title}</span>
-                                            <button onClick={() => openDetailsModal(ticket)} className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 bg-brand-600/15 hover:bg-brand-600/25 border border-brand-500/35 rounded-lg text-[10px] font-bold text-brand-300 transition-colors">
-                                                View Details
-                                            </button>
                                         </td>
 
                                         <td className="px-4 py-4">
@@ -325,7 +325,7 @@ export default function Maintenance({ tickets, rooms, filters = {}, sortBy, sort
                                                 </span>
                                             )}
                                             {ticket.status === 'in_progress' && (
-                                                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-indigo-950/40 border border-indigo-800 text-indigo-400 text-[10px] rounded-full font-extrabold uppercase animate-pulse">
+                                                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-indigo-950/40 border border-indigo-800 text-indigo-400 text-[10px] rounded-full font-extrabold uppercase">
                                                     <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0" />
                                                     Repairing
                                                 </span>
@@ -393,6 +393,12 @@ export default function Maintenance({ tickets, rooms, filters = {}, sortBy, sort
                                             )}
                                         </td>
 
+                                        <td className="px-4 py-4 text-right">
+                                            <button onClick={() => setActionModalTicket(ticket)} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#0f172a] hover:bg-slate-800 border border-[#334155] rounded-lg text-[10px] font-bold text-slate-300 transition-colors">
+                                                Manage
+                                            </button>
+                                        </td>
+
                                     </motion.tr>
                                 ))}
                             </tbody>
@@ -413,7 +419,7 @@ export default function Maintenance({ tickets, rooms, filters = {}, sortBy, sort
                 <Modal show={isOpen} onClose={() => setIsOpen(false)} maxWidth="md">
                     <div className="p-6 border-b border-[#334155] flex items-center justify-between">
                         <h2 className="font-outfit font-black text-slate-100 text-lg flex items-center gap-2">
-                            <Wrench size={20} className="text-brand-400 animate-pulse" /> File Maintenance Ticket
+                            <Wrench size={20} className="text-brand-400" /> File Maintenance Ticket
                         </h2>
                         <button onClick={() => setIsOpen(false)} className="text-slate-400 hover:text-slate-100"><X size={18} /></button>
                     </div>
@@ -514,7 +520,7 @@ export default function Maintenance({ tickets, rooms, filters = {}, sortBy, sort
                 <Modal show={isEditOpen && !!editingTicket} onClose={() => { setIsEditOpen(false); setEditingTicket(null); }} maxWidth="md">
                     <div className="p-6 border-b border-[#334155] flex items-center justify-between">
                         <h2 className="font-outfit font-black text-slate-100 text-lg flex items-center gap-2">
-                            <Wrench size={20} className="text-brand-400 animate-pulse" /> Edit Maintenance Ticket
+                            <Wrench size={20} className="text-brand-400" /> Edit Maintenance Ticket
                         </h2>
                         <button onClick={() => { setIsEditOpen(false); setEditingTicket(null); }} className="text-slate-400 hover:text-slate-100"><X size={18} /></button>
                     </div>
@@ -747,6 +753,37 @@ export default function Maintenance({ tickets, rooms, filters = {}, sortBy, sort
                     </>
                 )}
             </Modal>
+            {/* ACTION MODAL */}
+            <ActionModal
+                isOpen={!!actionModalTicket}
+                onClose={() => setActionModalTicket(null)}
+                title={`Ticket #${actionModalTicket?.id} — Room ${actionModalTicket?.room?.room_number}`}
+            >
+                {actionModalTicket && (
+                    <>
+                        <button
+                            onClick={() => { const t = actionModalTicket; setActionModalTicket(null); openDetailsModal(t); }}
+                            className="w-full flex items-center gap-2 px-4 py-3 bg-[#1e293b] hover:bg-brand-600/20 border border-[#334155] hover:border-brand-500/40 rounded-xl text-xs font-bold text-brand-400 transition-colors uppercase"
+                        >
+                            <HelpCircle size={16} /> View Details
+                        </button>
+
+                        <button
+                            onClick={() => { const t = actionModalTicket; setActionModalTicket(null); handleStatusTransition(t, t.status === 'open' ? 'in_progress' : t.status === 'in_progress' ? 'for_verification' : t.status === 'for_verification' ? 'closed' : 'in_progress'); }}
+                            className="w-full flex items-center gap-2 px-4 py-3 bg-[#1e293b] hover:bg-amber-600/20 border border-[#334155] hover:border-amber-500/40 rounded-xl text-xs font-bold text-amber-400 transition-colors uppercase"
+                        >
+                            <Wrench size={16} /> Update Status
+                        </button>
+
+                        <button
+                            onClick={(e) => { const t = actionModalTicket; cyclePriority(t, e); setActionModalTicket(null); }}
+                            className="w-full flex items-center gap-2 px-4 py-3 bg-[#1e293b] hover:bg-indigo-600/20 border border-[#334155] hover:border-indigo-500/40 rounded-xl text-xs font-bold text-indigo-400 transition-colors uppercase"
+                        >
+                            <AlertOctagon size={16} /> Cycle Priority ({actionModalTicket.priority})
+                        </button>
+                    </>
+                )}
+            </ActionModal>
         </AuthenticatedLayout>
     );
 }

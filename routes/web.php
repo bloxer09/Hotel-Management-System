@@ -7,7 +7,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\FrontDeskReportController;
 use App\Http\Controllers\GuestController;
-use App\Http\Controllers\IncomeController;
+use App\Http\Controllers\AdditionalCashController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\MaintenanceController;
 use App\Http\Controllers\NotificationController;
@@ -91,12 +91,12 @@ Route::middleware('auth')->group(function () {
             Route::delete('/expenses/{expense}', [ExpenseController::class, 'destroy'])->name('expenses.destroy');
             Route::get('/expenses-export', [ExpenseController::class, 'export'])->name('expenses.export');
 
-            // Additional Incomes (requiring active shift)
-            Route::get('/incomes', [IncomeController::class, 'index'])->name('incomes.index');
-            Route::post('/incomes', [IncomeController::class, 'store'])->name('incomes.store');
-            Route::post('/incomes/{income}', [IncomeController::class, 'update'])->name('incomes.update');
-            Route::delete('/incomes/{income}', [IncomeController::class, 'destroy'])->name('incomes.destroy');
-            Route::get('/incomes-export', [IncomeController::class, 'export'])->name('incomes.export');
+            // Additional Cash (requiring active shift)
+            Route::get('/additional-cash', [AdditionalCashController::class, 'index'])->name('additional-cash.index');
+            Route::post('/additional-cash', [AdditionalCashController::class, 'store'])->name('additional-cash.store');
+            Route::post('/additional-cash/{income}', [AdditionalCashController::class, 'update'])->name('additional-cash.update');
+            Route::delete('/additional-cash/{income}', [AdditionalCashController::class, 'destroy'])->name('additional-cash.destroy');
+            Route::get('/additional-cash-export', [AdditionalCashController::class, 'export'])->name('additional-cash.export');
         });
 
         // Reservation Operations (Admin, Front Desk)

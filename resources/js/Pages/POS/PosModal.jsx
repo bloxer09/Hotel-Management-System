@@ -265,7 +265,7 @@ export default function PosModal({ isOpen, onClose, items = [], activeBookings =
                                                             className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
                                                         />
                                                         {item.current_stock <= 0 && (
-                                                            <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+                                                            <div className="absolute inset-0 flex items-center justify-center bg-black/60">
                                                                 <span className="font-outfit font-black text-red-500 uppercase tracking-widest text-[10px] px-2 py-1 bg-red-950/80 rounded border border-red-500/30">
                                                                     Out of Stock
                                                                 </span>
@@ -414,8 +414,8 @@ export default function PosModal({ isOpen, onClose, items = [], activeBookings =
 
                             <AnimatePresence>
                                 {toastMessage && (
-                                    <motion.div initial={{ opacity: 0, y: 20, x: '-50%' }} animate={{ opacity: 1, y: 0, x: '-50%' }} exit={{ opacity: 0, y: 20, x: '-50%' }} className="absolute bottom-6 left-1/2 z-[99999] px-5 py-3.5 bg-red-950/90 border border-red-500/40 text-red-200 rounded-2xl shadow-2xl backdrop-blur-md text-xs font-bold flex items-center gap-2.5">
-                                        <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0" />
+                                    <motion.div initial={{ opacity: 0, y: 20, x: '-50%' }} animate={{ opacity: 1, y: 0, x: '-50%' }} exit={{ opacity: 0, y: 20, x: '-50%' }} className="absolute bottom-6 left-1/2 z-[99999] px-5 py-3.5 bg-red-950/90 border border-red-500/40 text-red-200 rounded-2xl shadow-2xl text-xs font-bold flex items-center gap-2.5">
+                                        <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
                                         <span>{toastMessage}</span>
                                     </motion.div>
                                 )}

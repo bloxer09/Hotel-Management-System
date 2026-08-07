@@ -413,7 +413,7 @@ class ShiftReportPaymentSummaryTest extends TestCase
             'notes' => 'Mini bar supplies',
             'recorded_by' => $user->id,
         ]);
-        \App\Models\Income::create([
+        \App\Models\AdditionalCash::create([
             'income_date' => now()->toDateString(),
             'amount' => 30,
             'cash_drawer' => 'minibar',

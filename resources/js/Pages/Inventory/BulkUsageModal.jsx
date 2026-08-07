@@ -385,7 +385,7 @@ export default function BulkUsageModal({ isOpen, onClose, items = [], activeBook
                                                             >
                                                                 {/* Mini badge count if already added */}
                                                                 {cartQty > 0 && (
-                                                                    <div className="absolute top-3 right-3 bg-brand-600 text-white font-mono font-bold text-[10px] h-6 w-6 rounded-full flex items-center justify-center shadow-lg border border-brand-400 z-10 animate-pulse-subtle">
+                                                                    <div className="absolute top-3 right-3 bg-brand-600 text-white font-mono font-bold text-[10px] h-6 w-6 rounded-full flex items-center justify-center shadow-lg border border-brand-400 z-10">
                                                                         {cartQty}
                                                                     </div>
                                                                 )}
@@ -821,9 +821,9 @@ export default function BulkUsageModal({ isOpen, onClose, items = [], activeBook
                             initial={{ opacity: 0, y: -20, scale: 0.95 }}
                             animate={{ opacity: 1, y: 0, scale: 1 }}
                             exit={{ opacity: 0, y: -20, scale: 0.95 }}
-                            className="fixed top-6 left-1/2 -translate-x-1/2 z-[99999] px-5 py-3.5 bg-red-950/90 border border-red-500/40 text-red-200 rounded-2xl shadow-2xl backdrop-blur-md text-xs font-bold font-outfit flex items-center gap-2.5"
+                            className="fixed top-6 left-1/2 -translate-x-1/2 z-[99999] px-5 py-3.5 bg-red-950/90 border border-red-500/40 text-red-200 rounded-2xl shadow-2xl text-xs font-bold font-outfit flex items-center gap-2.5"
                         >
-                            <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0" />
+                            <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
                             <span>{toastMessage}</span>
                         </motion.div>
                     )}

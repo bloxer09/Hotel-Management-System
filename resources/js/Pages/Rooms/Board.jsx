@@ -493,7 +493,7 @@ export default function Board({ rooms, roomTypes, housekeepers = [] }) {
                                             <span className="text-2xl font-outfit font-black block tracking-tight">{room.room_number}</span>
                                             <span className="text-[10px] uppercase font-extrabold tracking-wider block mt-1 opacity-75">
                                                 {room.status === 'cleaning' ? (
-                                                    <span className="inline-flex items-center gap-1 text-amber-400 font-extrabold animate-pulse">
+                                                    <span className="inline-flex items-center gap-1 text-amber-400 font-extrabold">
                                                         <Brush size={10} /> Cleaning
                                                     </span>
                                                 ) : STATUS_LABELS[room.status]}

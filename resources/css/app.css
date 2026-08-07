@@ -54,15 +54,14 @@ html[data-theme='light'] .app-shell {
 }
 
 html[data-theme='light'] .app-sidebar {
-    background:
-        linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(248, 251, 254, 0.98)) !important;
-    border-color: #dce5ef !important;
-    box-shadow: 10px 0 35px rgba(30, 58, 88, 0.07) !important;
+    background: #ffffff !important;
+    border-color: #e2e8f0 !important;
+    box-shadow: 4px 0 25px rgba(15, 23, 42, 0.05) !important;
 }
 
 html[data-theme='light'] .app-topbar {
     background-color: rgba(255, 255, 255, 0.92) !important;
-    border-color: #dce5ef !important;
+    border-color: #e2e8f0 !important;
     box-shadow: 0 1px 0 rgba(30, 58, 88, 0.04), 0 8px 24px rgba(30, 58, 88, 0.035);
     backdrop-filter: blur(18px);
 }
@@ -74,130 +73,215 @@ html[data-theme='light'] .app-main {
         #f4f7fb;
 }
 
-html[data-theme='light'] [class*="bg-[#0f172a]"],
-html[data-theme='light'] [class*="bg-slate-900"],
-html[data-theme='light'] [class*="bg-slate-950"] {
+html[data-theme='light'] [class*="bg-[#0f172a]"]:not(.app-sidebar *):not(.fixed.inset-0):not([class*="fixed inset-0"]),
+html[data-theme='light'] [class*="bg-slate-900"]:not(.app-sidebar *):not(.fixed.inset-0):not([class*="fixed inset-0"]),
+html[data-theme='light'] [class*="bg-slate-950"]:not(.app-sidebar *):not(.fixed.inset-0):not([class*="fixed inset-0"]) {
     background-color: #f1f5f9 !important;
 }
 
-html[data-theme='light'] [class*="bg-[#1e293b]"],
-html[data-theme='light'] [class*="bg-slate-800"],
-html[data-theme='light'] [class*="bg-slate-750"] {
+html[data-theme='light'] [class*="bg-[#1e293b]"]:not(.app-sidebar *):not(.fixed.inset-0):not([class*="fixed inset-0"]),
+html[data-theme='light'] [class*="bg-slate-800"]:not(.app-sidebar *):not(.fixed.inset-0):not([class*="fixed inset-0"]),
+html[data-theme='light'] [class*="bg-slate-750"]:not(.app-sidebar *):not(.fixed.inset-0):not([class*="fixed inset-0"]) {
     background-color: #ffffff !important;
 }
 
-html[data-theme='light'] [class*="bg-[#334155]"],
-html[data-theme='light'] [class*="bg-[#070b13]"],
-html[data-theme='light'] [class*="bg-[#0a0f1a]"],
-html[data-theme='light'] [class*="bg-slate-700"],
-html[data-theme='light'] [class*="bg-slate-600"] {
+html[data-theme='light'] [class*="bg-[#334155]"]:not(.app-sidebar *):not(.fixed.inset-0):not([class*="fixed inset-0"]),
+html[data-theme='light'] [class*="bg-[#070b13]"]:not(.app-sidebar *):not(.fixed.inset-0):not([class*="fixed inset-0"]),
+html[data-theme='light'] [class*="bg-[#0a0f1a]"]:not(.app-sidebar *):not(.fixed.inset-0):not([class*="fixed inset-0"]),
+html[data-theme='light'] [class*="bg-slate-700"]:not(.app-sidebar *):not(.fixed.inset-0):not([class*="fixed inset-0"]),
+html[data-theme='light'] [class*="bg-slate-600"]:not(.app-sidebar *):not(.fixed.inset-0):not([class*="fixed inset-0"]) {
     background-color: #e8eef5 !important;
 }
 
-html[data-theme='light'] [class*="border-[#334155]"],
-html[data-theme='light'] [class*="border-[#1e293b]"],
-html[data-theme='light'] [class*="border-[#475569]"],
-html[data-theme='light'] [class*="border-slate-6"],
-html[data-theme='light'] [class*="border-slate-7"],
-html[data-theme='light'] [class*="border-slate-8"] {
+/* Ensure modal overlays stay dark semi-transparent backdrops in light mode */
+html[data-theme='light'] div.fixed.inset-0[class*="bg-"],
+html[data-theme='light'] div[class*="fixed inset-0"][class*="bg-"] {
+    background-color: rgba(15, 23, 42, 0.7) !important;
+}
+
+/* Globally disable backdrop blur filters on modals */
+[class*="backdrop-blur"] {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+html[data-theme='light'] [class*="border-[#334155]"]:not(.app-sidebar *),
+html[data-theme='light'] [class*="border-[#1e293b]"]:not(.app-sidebar *),
+html[data-theme='light'] [class*="border-[#475569]"]:not(.app-sidebar *),
+html[data-theme='light'] [class*="border-slate-6"]:not(.app-sidebar *),
+html[data-theme='light'] [class*="border-slate-7"]:not(.app-sidebar *),
+html[data-theme='light'] [class*="border-slate-8"]:not(.app-sidebar *) {
     border-color: #d8e2ed !important;
 }
 
-/* ─── Light Mode Text Contrast Rules ───────────────────────────────────── */
-/* Primary high-contrast text */
-html[data-theme='light'] [class*="text-slate-50"],
-html[data-theme='light'] [class*="text-slate-100"],
-html[data-theme='light'] [class*="text-slate-200"],
-html[data-theme='light'] [class*="text-slate-700"],
-html[data-theme='light'] [class*="text-slate-800"],
-html[data-theme='light'] [class*="text-slate-900"],
-html[data-theme='light'] [class*="text-gray-50"],
-html[data-theme='light'] [class*="text-gray-100"],
-html[data-theme='light'] [class*="text-gray-200"],
-html[data-theme='light'] [class*="text-gray-700"],
-html[data-theme='light'] [class*="text-gray-800"],
-html[data-theme='light'] [class*="text-gray-900"],
-html[data-theme='light'] [class*="text-zinc-50"],
-html[data-theme='light'] [class*="text-zinc-100"],
-html[data-theme='light'] [class*="text-zinc-200"],
-html[data-theme='light'] [class*="text-zinc-700"],
-html[data-theme='light'] [class*="text-zinc-800"],
-html[data-theme='light'] [class*="text-zinc-900"] {
+/* ─── Light Mode Text Contrast & Gradient Title Rules ───────────────────── */
+/* Unify all primary/secondary text elements to match sidebar dark charcoal (#0f172a) */
+html[data-theme='light'] [class*="text-slate-"]:not(.app-sidebar *):not(.is-active *):not([class*="text-brand-"]):not([class*="text-emerald-"]):not([class*="text-indigo-"]):not([class*="text-rose-"]):not([class*="text-amber-"]):not([class*="text-cyan-"]):not([class*="text-red-"]):not([class*="text-white"]),
+html[data-theme='light'] [class*="text-gray-"]:not(.app-sidebar *):not(.is-active *):not([class*="text-brand-"]):not([class*="text-emerald-"]):not([class*="text-indigo-"]):not([class*="text-rose-"]):not([class*="text-amber-"]):not([class*="text-cyan-"]):not([class*="text-red-"]):not([class*="text-white"]),
+html[data-theme='light'] [class*="text-zinc-"]:not(.app-sidebar *):not(.is-active *):not([class*="text-brand-"]):not([class*="text-emerald-"]):not([class*="text-indigo-"]):not([class*="text-rose-"]):not([class*="text-amber-"]):not([class*="text-cyan-"]):not([class*="text-red-"]):not([class*="text-white"]),
+html[data-theme='light'] [class*="text-neutral-"]:not(.app-sidebar *):not(.is-active *):not([class*="text-brand-"]):not([class*="text-emerald-"]):not([class*="text-indigo-"]):not([class*="text-rose-"]):not([class*="text-amber-"]):not([class*="text-cyan-"]):not([class*="text-red-"]):not([class*="text-white"]) {
     color: #0f172a !important;
 }
 
-/* Secondary dark text (headers, subtitles, key labels) */
-html[data-theme='light'] [class*="text-slate-300"],
-html[data-theme='light'] [class*="text-slate-350"],
-html[data-theme='light'] [class*="text-slate-400"],
-html[data-theme='light'] [class*="text-gray-300"],
-html[data-theme='light'] [class*="text-gray-400"],
-html[data-theme='light'] [class*="text-zinc-300"],
-html[data-theme='light'] [class*="text-zinc-400"] {
-    color: #1e293b !important;
+/* Gradient Titles Override (e.g. "Front Desk Dashboard") */
+html[data-theme='light'] .page-title,
+html[data-theme='light'] [class*="bg-clip-text"] {
+    background: none !important;
+    -webkit-background-clip: unset !important;
+    background-clip: unset !important;
+    color: #0f172a !important;
+    -webkit-text-fill-color: #0f172a !important;
 }
 
-/* Muted / description text - solid, clear dark slate */
-html[data-theme='light'] [class*="text-slate-500"],
-html[data-theme='light'] [class*="text-slate-600"],
-html[data-theme='light'] [class*="text-gray-500"],
-html[data-theme='light'] [class*="text-gray-600"],
-html[data-theme='light'] [class*="text-zinc-500"],
-html[data-theme='light'] [class*="text-zinc-600"],
-html[data-theme='light'] [class*="text-neutral-500"],
-html[data-theme='light'] [class*="text-neutral-600"] {
-    color: #334155 !important;
-}
-
-/* Sidebar navigation: clear default, hover, active and keyboard states. */
-html[data-theme='light'] .app-navigation .app-nav-link {
-    position: relative;
-    color: #1e293b !important;
-    background: transparent !important;
-    border: 1px solid transparent;
+/* ─── Dedicated Light Mode Sidebar Styling ───────────────────────────── */
+html[data-theme='light'] .app-sidebar {
+    background: #ffffff !important;
+    border-right: 1px solid #e2e8f0 !important;
     box-shadow: none !important;
-    font-weight: 500;
 }
 
-html[data-theme='light'] .app-navigation .app-nav-link svg {
-    color: #334155 !important;
+/* Disable border/outline transitions across sidebar to prevent white outline flash on theme toggle */
+.app-sidebar .app-nav-link,
+html[data-theme='light'] .app-sidebar .app-nav-link,
+html[data-theme='dark'] .app-sidebar .app-nav-link {
+    transition-property: background-color, color, transform, opacity !important;
+    border: none !important;
+    outline: none !important;
+}
+
+/* Sidebar Logo Title & Subtitle */
+html[data-theme='light'] .app-sidebar span.text-slate-100 {
+    color: #0f172a !important;
+}
+
+html[data-theme='light'] .app-sidebar span.text-brand-400 {
+    color: #2563eb !important;
+}
+
+/* Inactive Nav Links */
+html[data-theme='light'] .app-sidebar .app-nav-link:not(.is-active) {
+    position: relative;
+    color: #0f172a !important;
+    background: transparent !important;
+    background-color: transparent !important;
+    background-image: none !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    font-weight: 700 !important;
+}
+
+html[data-theme='light'] .app-sidebar .app-nav-link:not(.is-active) span {
+    color: #0f172a !important;
+    font-weight: 700 !important;
+}
+
+html[data-theme='light'] .app-sidebar .app-nav-link:not(.is-active) svg {
+    color: #1e293b !important;
     transition: color 180ms ease, transform 180ms ease;
 }
 
-html[data-theme='light'] .app-navigation .app-nav-link:not(.is-active):hover {
+/* Hover Nav Links */
+html[data-theme='light'] .app-sidebar .app-nav-link:not(.is-active):hover {
     color: #0f172a !important;
-    background: linear-gradient(90deg, #eaf2fb, #f1f6fb) !important;
-    border-color: #d4e3f2;
-    transform: translateX(2px);
+    background-color: #f1f5f9 !important;
+    background-image: none !important;
+    border: none !important;
+    box-shadow: none !important;
 }
 
-html[data-theme='light'] .app-navigation .app-nav-link:not(.is-active):hover svg {
+html[data-theme='light'] .app-sidebar .app-nav-link:not(.is-active):hover span {
     color: #0f172a !important;
-    transform: scale(1.08);
 }
 
-html[data-theme='light'] .app-navigation .app-nav-link.is-active {
+html[data-theme='light'] .app-sidebar .app-nav-link:not(.is-active):hover svg {
+    color: #2563eb !important;
+}
+
+/* Active Nav Link - High Specificity Solid Blue Pill */
+.app-sidebar .app-nav-link.is-active,
+html[data-theme='light'] .app-sidebar .app-nav-link.is-active,
+html[data-theme='dark'] .app-sidebar .app-nav-link.is-active {
+    background-color: #2563eb !important;
+    background-image: none !important;
+    border: none !important;
+    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.3) !important;
+}
+
+.app-sidebar .app-nav-link.is-active *,
+.app-sidebar .app-nav-link.is-active span,
+.app-sidebar .app-nav-link.is-active svg,
+html[data-theme='light'] .app-sidebar .app-nav-link.is-active *,
+html[data-theme='light'] .app-sidebar .app-nav-link.is-active span,
+html[data-theme='light'] .app-sidebar .app-nav-link.is-active svg {
     color: #ffffff !important;
-    background: linear-gradient(135deg, #315f8c 0%, #477da9 100%) !important;
-    border-color: rgba(255, 255, 255, 0.28) !important;
-    box-shadow: 0 9px 20px rgba(49, 95, 140, 0.22) !important;
 }
 
-html[data-theme='light'] .app-navigation .app-nav-link.is-active svg,
-html[data-theme='light'] .app-navigation .app-nav-link.is-active span {
-    color: #ffffff !important;
+/* Configurations Dropdown Container in Sidebar */
+html[data-theme='light'] .app-sidebar .bg-\[\#1e293b\]\/40 {
+    background-color: transparent !important;
+    border-color: transparent !important;
 }
 
-html[data-theme='light'] .app-navigation .app-nav-link.is-active::before {
-    content: "";
-    position: absolute;
-    left: -0.35rem;
-    width: 3px;
-    height: 1.4rem;
-    border-radius: 999px;
-    background: #f2c66d;
-    box-shadow: 0 0 0 3px rgba(242, 198, 109, 0.15);
+/* ─── Light Mode Topbar Controls & Buttons Overrides ─────────────────── */
+html[data-theme='light'] .app-topbar button,
+html[data-theme='light'] .app-topbar a {
+    background-color: #ffffff !important;
+    border-color: #e2e8f0 !important;
+    color: #0f172a !important;
 }
+
+html[data-theme='light'] .app-topbar button svg,
+html[data-theme='light'] .app-topbar a svg {
+    color: #1e293b !important;
+}
+
+/* ─── Global Animation Override: Disable Pulse and Ping Animations ─────── */
+.animate-pulse,
+.animate-ping,
+.animate-pulse-subtle {
+    animation: none !important;
+}
+
+/* Topbar Notification Bell Override (When alerts exist) */
+html[data-theme='light'] #notification-bell-btn[class*="bg-rose-950"] {
+    background-color: #fef2f2 !important;
+    border-color: #fecdd3 !important;
+    color: #dc2626 !important;
+    box-shadow: 0 4px 12px rgba(220, 38, 38, 0.12) !important;
+}
+
+html[data-theme='light'] #notification-bell-btn[class*="bg-rose-950"] svg {
+    color: #dc2626 !important;
+}
+
+/* Log Off Button Override in Light Mode */
+html[data-theme='light'] .app-topbar button[title="Logout"],
+html[data-theme='light'] .app-topbar button[aria-label="Logout"] {
+    background-color: #fef2f2 !important;
+    border-color: #fecdd3 !important;
+    color: #dc2626 !important;
+}
+
+html[data-theme='light'] .app-topbar button[title="Logout"] svg,
+html[data-theme='light'] .app-topbar button[aria-label="Logout"] svg {
+    color: #dc2626 !important;
+}
+
+/* ─── Light Mode Dashboard KPI & Quick Action Cards Overrides ─────────── */
+html[data-theme='light'] [class*="text-indigo-300"] { color: #4338ca !important; }
+html[data-theme='light'] [class*="text-amber-300"] { color: #b45309 !important; }
+html[data-theme='light'] [class*="text-emerald-300"] { color: #047857 !important; }
+html[data-theme='light'] [class*="text-brand-300"] { color: #1d4ed8 !important; }
+html[data-theme='light'] [class*="text-cyan-300"] { color: #0e7490 !important; }
+html[data-theme='light'] [class*="text-rose-300"] { color: #be123c !important; }
+
+html[data-theme='light'] [class*="bg-indigo-500/"] { background-color: #e0e7ff !important; border-color: #c7d2fe !important; }
+html[data-theme='light'] [class*="bg-amber-500/"] { background-color: #fef3c7 !important; border-color: #fde68a !important; }
+html[data-theme='light'] [class*="bg-emerald-500/"] { background-color: #d1fae5 !important; border-color: #a7f3d0 !important; }
+html[data-theme='light'] [class*="bg-brand-500/"] { background-color: #dbeafe !important; border-color: #bfdbfe !important; }
+html[data-theme='light'] [class*="bg-cyan-500/"] { background-color: #cffafe !important; border-color: #a5f3fc !important; }
+html[data-theme='light'] [class*="bg-rose-500/"] { background-color: #ffe4e6 !important; border-color: #fecdd3 !important; }
 
 html[data-theme='light'] [class*="hover:bg-[#334155]"]:hover,
 html[data-theme='light'] [class*="hover:bg-[#1e293b]"]:hover {

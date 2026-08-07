@@ -368,7 +368,7 @@ export default function Index({ activeShift, registerShift, isRegisterOperator, 
                                             <div>
                                                 <div className="flex items-center gap-2">
                                                     <span className="text-xl font-outfit font-bold text-slate-200 uppercase tracking-wide">{activeShift.shift_code} Shift Active</span>
-                                                    <span className="h-2 w-2 bg-emerald-400 rounded-full animate-ping"></span>
+                                                    <span className="h-2 w-2 bg-emerald-400 rounded-full"></span>
                                                 </div>
                                                 <p className="text-xs text-slate-400 font-medium">Logged in at {new Date(activeShift.started_at).toLocaleString()}</p>
                                             </div>
@@ -468,7 +468,7 @@ export default function Index({ activeShift, registerShift, isRegisterOperator, 
                                                         <span className="font-mono text-xs font-bold text-rose-400">-₱{Number(liveSummary.expenses_sum || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                                     </div>
                                                     <div className="p-3 rounded-xl bg-[#0f172a]/55 border border-[#334155]/40 flex justify-between items-center">
-                                                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Shift Additional Incomes</span>
+                                                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Shift Additional Cash</span>
                                                         <span className="font-mono text-xs font-bold text-emerald-400">+₱{Number(liveSummary.incomes_sum || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                                     </div>
                                                 </div>
@@ -675,7 +675,7 @@ export default function Index({ activeShift, registerShift, isRegisterOperator, 
                                                     <div className="flex justify-between items-center">
                                                         <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Shift Closing Notes & Handover Report</label>
                                                         {isDiscrepancy && (
-                                                            <span className="text-[10px] bg-red-950 border border-red-500/30 text-rose-400 font-extrabold uppercase px-2 py-0.5 rounded animate-pulse">
+                                                            <span className="text-[10px] bg-red-950 border border-red-500/30 text-rose-400 font-extrabold uppercase px-2 py-0.5 rounded">
                                                                 ⚠️ EXPLAIN DISCREPANCY (REQUIRED)
                                                             </span>
                                                         )}
@@ -749,7 +749,7 @@ export default function Index({ activeShift, registerShift, isRegisterOperator, 
                                         </td>
                                         <td className="px-4 py-3 text-xs text-slate-300">
                                             {s.ended_at ? new Date(s.ended_at).toLocaleString() : (
-                                                <span className="text-emerald-400 font-bold uppercase animate-pulse">Running</span>
+                                                <span className="text-emerald-400 font-bold uppercase">Running</span>
                                             )}
                                         </td>
                                         <td className="px-4 py-3 font-mono text-slate-300">

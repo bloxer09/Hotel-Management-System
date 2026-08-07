@@ -2,15 +2,20 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreAdditionalCashRequest;
+use App\Models\AdditionalCash;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+use Inertia\Inertia;
+use Shuchkin\SimpleXLSXGen;
 
-class IncomeController extends Controller
+class AdditionalCashController extends Controller
 {
     public function index(Request $request)
     {
         $user = $request->user();
         if (!in_array($user->role, ['admin', 'front_desk', 'cashier'], true)) {
-            abort(403, 'Unauthorized access to additional incomes.');
+            abort(403, 'Unauthorized access to additional cash.');
         }
 
         $sortBy = $request->input('sort_by', 'income_date');
@@ -20,7 +25,7 @@ class IncomeController extends Controller
         if (!in_array($sortBy, $allowedSorts)) $sortBy = 'income_date';
         if (!in_array($sortDir, ['asc', 'desc'])) $sortDir = 'desc';
 
-        $query = \App\Models\Income::with('user:id,full_name,username')
+        $query = AdditionalCash::with('user:id,full_name,username')
             ->orderBy($sortBy, $sortDir);
             
         if ($sortBy !== 'id') {
@@ -44,7 +49,7 @@ class IncomeController extends Controller
             'total_count' => $query->count()
         ];
 
-        return \Inertia\Inertia::render('Incomes/Index', [
+        return Inertia::render('AdditionalCash/Index', [
             'incomes' => $incomes,
             'filters' => $request->only(['from', 'to', 'search']),
             'summary' => $summary,
@@ -53,7 +58,7 @@ class IncomeController extends Controller
         ]);
     }
 
-    public function store(\App\Http\Requests\StoreIncomeRequest $request)
+    public function store(StoreAdditionalCashRequest $request)
     {
         $user = $request->user();
         $validated = $request->validated();
@@ -63,7 +68,7 @@ class IncomeController extends Controller
             $receiptPath = $request->file('receipt')->store('receipts', 'public');
         }
 
-        \App\Models\Income::create([
+        AdditionalCash::create([
             'income_date' => $validated['income_date'],
             'amount' => $validated['amount'],
             'cash_drawer' => $validated['cash_drawer'],
@@ -72,17 +77,17 @@ class IncomeController extends Controller
             'recorded_by' => $user->id,
         ]);
 
-        return back()->with('success', 'Additional income recorded successfully.');
+        return back()->with('success', 'Additional cash recorded successfully.');
     }
 
-    public function update(\App\Http\Requests\StoreIncomeRequest $request, \App\Models\Income $income)
+    public function update(StoreAdditionalCashRequest $request, AdditionalCash $income)
     {
         $validated = $request->validated();
 
         $receiptPath = $income->receipt_path;
         if ($request->hasFile('receipt')) {
             if ($receiptPath) {
-                \Illuminate\Support\Facades\Storage::disk('public')->delete($receiptPath);
+                Storage::disk('public')->delete($receiptPath);
             }
             $receiptPath = $request->file('receipt')->store('receipts', 'public');
         }
@@ -95,10 +100,10 @@ class IncomeController extends Controller
             'receipt_path' => $receiptPath,
         ]);
 
-        return back()->with('success', 'Additional income updated successfully.');
+        return back()->with('success', 'Additional cash updated successfully.');
     }
 
-    public function destroy(Request $request, \App\Models\Income $income)
+    public function destroy(Request $request, AdditionalCash $income)
     {
         $user = $request->user();
         if (!in_array($user->role, ['admin', 'front_desk', 'cashier'], true)) {
@@ -106,12 +111,12 @@ class IncomeController extends Controller
         }
 
         if ($income->receipt_path) {
-            \Illuminate\Support\Facades\Storage::disk('public')->delete($income->receipt_path);
+            Storage::disk('public')->delete($income->receipt_path);
         }
 
         $income->delete();
 
-        return back()->with('success', 'Additional income deleted successfully.');
+        return back()->with('success', 'Additional cash deleted successfully.');
     }
 
     public function export(Request $request)
@@ -121,7 +126,7 @@ class IncomeController extends Controller
             abort(403);
         }
 
-        $query = \App\Models\Income::with('user:id,full_name')
+        $query = AdditionalCash::with('user:id,full_name')
             ->orderByDesc('income_date')
             ->orderByDesc('id');
 
@@ -138,7 +143,7 @@ class IncomeController extends Controller
         $incomes = $query->get();
 
         $rows = [];
-        $rows[] = ['Hotel Management System — Additional Incomes Report'];
+        $rows[] = ['Hotel Management System — Additional Cash Report'];
         
         $from = $request->input('from', 'All Time');
         $to = $request->input('to', 'All Time');
@@ -146,7 +151,7 @@ class IncomeController extends Controller
         $rows[] = ['Generated:', date('Y-m-d H:i:s'), 'By:', $user->full_name];
         $rows[] = [];
 
-        $rows[] = ['=== INCOME INJECTION DETAILS ==='];
+        $rows[] = ['=== ADDITIONAL CASH INJECTION DETAILS ==='];
         $rows[] = ['ID', 'Date', 'Amount', 'Cash Drawer', 'Recorded By', 'Has Attachment', 'Notes'];
 
         $total = 0;
@@ -164,10 +169,9 @@ class IncomeController extends Controller
         }
 
         $rows[] = [];
-        $rows[] = ['Total Additional Income:', $total];
+        $rows[] = ['Total Additional Cash:', $total];
 
-        $filename = "incomes_report_" . date('Y-m-d_H-i-s') . ".xlsx";
-        \Shuchkin\SimpleXLSXGen::fromArray($rows)->downloadAs($filename);
-        exit;
+        $filename = "additional_cash_report_" . date('Y-m-d_H-i-s') . ".xlsx";
+        SimpleXLSXGen::fromArray($rows)->downloadAs($filename);
     }
 }
