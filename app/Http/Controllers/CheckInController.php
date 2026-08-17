@@ -10,7 +10,7 @@ use App\Models\RoomType;
 use App\Services\BookingService;
 use App\Services\PaymentService;
 use App\Services\ShiftService;
-use Carbon\Carbon;
+use App\Support\HotelDateTime;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -54,8 +54,7 @@ class CheckInController extends Controller
         if (! in_array($dateScope, ['departures_today'], true)) {
             $dateScope = null;
         }
-        $todayStart = now()->startOfDay();
-        $todayEnd = now()->endOfDay();
+        [$todayStart, $todayEnd] = HotelDateTime::dayWindow();
 
         $allowedSorts = ['id', 'guest_name', 'status', 'check_in_time', 'expected_check_out', 'amount'];
         if (! in_array($sortBy, $allowedSorts)) {
@@ -112,8 +111,8 @@ class CheckInController extends Controller
         }
 
         $checkIn = $request->filled('check_in')
-            ? Carbon::parse($request->check_in)->format('Y-m-d H:i:s')
-            : now()->format('Y-m-d H:i:s');
+            ? HotelDateTime::toDatabase($request->check_in)
+            : HotelDateTime::toDatabase();
 
         $rooms = Room::whereIn('id', $request->room_ids)->get();
         $numRooms = count($rooms);
@@ -258,7 +257,9 @@ class CheckInController extends Controller
                     $roomGuests[$room->id] = max(1, (int) $room->type->max_occupancy) + (int) $extraPax;
                 }
 
-                $checkInTime = $request->filled('check_in') ? Carbon::parse($request->check_in) : now();
+                $checkInTime = $request->filled('check_in')
+                    ? HotelDateTime::parseLocal($request->check_in)
+                    : HotelDateTime::now();
 
                 $reqDiscountType = $request->discount_type ?: '';
                 $reqDiscountAmountTotal = (float) ($request->discount_amount ?: 0);
@@ -410,7 +411,7 @@ class CheckInController extends Controller
                         'num_guests' => $roomGuests[$room->id],
                         'booking_type' => $request->booking_type,
                         'short_time_hours' => $request->booking_type !== 'overnight' ? $request->short_time_hours : null,
-                        'check_in' => $checkInTime->format('Y-m-d H:i:s'),
+                        'check_in' => HotelDateTime::toDatabase($checkInTime),
                         'expected_check_out' => $pricing['expected_check_out'],
                         'status' => 'active',
                         'payment_status' => 'unpaid',

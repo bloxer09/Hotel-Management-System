@@ -2,6 +2,7 @@ import React, { useRef, Fragment } from 'react';
 import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
 import { X, Printer, Building, User, Crown } from 'lucide-react';
 import { usePage } from '@inertiajs/react';
+import { formatHotelDateTime } from '@/Utils/datetime';
 
 export default function ReceiptModal({ isOpen, booking, onClose }) {
     const { app_name } = usePage().props;
@@ -156,8 +157,8 @@ export default function ReceiptModal({ isOpen, booking, onClose }) {
                                             <div className="space-y-1.5 text-xs">
                                                 <div className="grid grid-cols-3"><span className="text-slate-500 font-bold print-text-black">Room</span><span className="col-span-2 text-slate-200 print-text-black font-extrabold">Room {booking.room?.room_number} — {booking.room?.type?.type_name}</span></div>
                                                 <div className="grid grid-cols-3"><span className="text-slate-500 font-bold print-text-black">Type</span><span className="col-span-2 text-slate-300 print-text-black font-semibold">{displayStayType} {booking.short_time_hours ? `(${booking.short_time_hours} hrs)` : ''}</span></div>
-                                                <div className="grid grid-cols-3"><span className="text-slate-500 font-bold print-text-black">Check-In</span><span className="col-span-2 text-slate-300 print-text-black font-medium">{formatDate(booking.check_in)}</span></div>
-                                                <div className="grid grid-cols-3"><span className="text-slate-500 font-bold print-text-black">Check-Out</span><span className="col-span-2 text-slate-300 print-text-black font-medium">{formatDate(booking.check_out || booking.expected_check_out)}</span></div>
+                                                <div className="grid grid-cols-3"><span className="text-slate-500 font-bold print-text-black">Check-In</span><span className="col-span-2 text-slate-300 print-text-black font-medium">{formatHotelDateTime(booking.check_in)}</span></div>
+                                                <div className="grid grid-cols-3"><span className="text-slate-500 font-bold print-text-black">Check-Out</span><span className="col-span-2 text-slate-300 print-text-black font-medium">{formatHotelDateTime(booking.check_out || booking.expected_check_out)}</span></div>
                                             </div>
                                         </div>
                                     </div>

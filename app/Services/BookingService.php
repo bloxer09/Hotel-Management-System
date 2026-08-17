@@ -6,6 +6,7 @@ use App\Models\PeakDate;
 use App\Models\Room;
 use App\Models\RoomType;
 use App\Services\AuditService;
+use App\Support\HotelDateTime;
 use DateTime;
 use InvalidArgumentException;
 
@@ -76,13 +77,15 @@ class BookingService
     {
         if (empty($expectedCheckOut)) return 0;
 
-        $expected = $expectedCheckOut instanceof DateTime ? clone $expectedCheckOut : new DateTime($expectedCheckOut);
-        $actual = $actualCheckOut instanceof DateTime ? clone $actualCheckOut : new DateTime($actualCheckOut ?: 'now');
+        $expected = HotelDateTime::fromStay($expectedCheckOut);
+        $actual = $actualCheckOut === null
+            ? HotelDateTime::now()
+            : HotelDateTime::fromStay($actualCheckOut);
 
-        if ($actual <= $expected) return 0;
+        if ($actual->lte($expected)) return 0;
 
         $diffSeconds = $actual->getTimestamp() - $expected->getTimestamp();
-        return (int)ceil($diffSeconds / 3600);
+        return (int) ceil($diffSeconds / 3600);
     }
 
     public static function calculateLateCheckoutFee($expectedCheckOut, $actualCheckOut = null): float

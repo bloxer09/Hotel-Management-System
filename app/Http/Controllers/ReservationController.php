@@ -14,6 +14,7 @@ use App\Models\Transaction;
 use App\Services\BookingService;
 use App\Services\PaymentService;
 use App\Services\ShiftService;
+use App\Support\HotelDateTime;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
@@ -40,8 +41,7 @@ class ReservationController extends Controller
         if (! in_array($dateScope, ['arrivals_today'], true)) {
             $dateScope = null;
         }
-        $todayStart = now()->startOfDay();
-        $todayEnd = now()->endOfDay();
+        [$todayStart, $todayEnd] = HotelDateTime::dayWindow();
 
         $allowedSorts = ['id', 'guest_name', 'status', 'check_in_time', 'expected_check_out', 'amount'];
         if (! in_array($sortBy, $allowedSorts)) {
@@ -76,14 +76,13 @@ class ReservationController extends Controller
             ->orderBy('code', 'asc')
             ->get(['code', 'discount_type', 'discount_value']);
 
-        $calendarMonth = $request->input('calendar_month', now()->format('Y-m'));
+        $calendarMonth = $request->input('calendar_month', HotelDateTime::now()->format('Y-m'));
         try {
-            $calendarStart = Carbon::createFromFormat('!Y-m', $calendarMonth)->startOfMonth();
+            [$calendarStart, $calendarEnd] = HotelDateTime::monthWindow($calendarMonth);
         } catch (\Throwable $e) {
-            $calendarStart = now()->startOfMonth();
-            $calendarMonth = $calendarStart->format('Y-m');
+            [$calendarStart, $calendarEnd] = HotelDateTime::monthWindow();
+            $calendarMonth = HotelDateTime::now()->format('Y-m');
         }
-        $calendarEnd = $calendarStart->copy()->endOfMonth();
 
         // Include every stay that overlaps the month, not only arrivals in the month.
         // This prevents a multi-night stay from looking available after its check-in date.
@@ -158,7 +157,7 @@ class ReservationController extends Controller
             return response()->json(['error' => 'Only administrators can apply promo, staff, or complimentary discounts.'], 403);
         }
 
-        $checkInRaw = Carbon::parse($request->check_in);
+        $checkInRaw = HotelDateTime::parseLocal($request->check_in);
 
         $rooms = Room::with('type')->whereIn('id', $request->room_ids)->get();
         $numRooms = count($rooms);
@@ -245,8 +244,8 @@ class ReservationController extends Controller
                     'booking_ref' => $overlap->booking_ref,
                     'status' => $overlap->status,
                     'guest_name' => $overlap->guest_name,
-                    'check_in' => Carbon::parse($overlap->check_in)->format('M d, Y h:i A'),
-                    'expected_check_out' => Carbon::parse($overlap->expected_check_out)->format('M d, Y h:i A'),
+                    'check_in' => HotelDateTime::fromStay($overlap->check_in)->format('M d, Y h:i A'),
+                    'expected_check_out' => HotelDateTime::fromStay($overlap->expected_check_out)->format('M d, Y h:i A'),
                 ];
             }
 
@@ -277,7 +276,7 @@ class ReservationController extends Controller
             'exclude_booking_id' => 'nullable|exists:bookings,id',
         ]);
 
-        $checkInRaw = Carbon::parse($request->check_in);
+        $checkInRaw = HotelDateTime::parseLocal($request->check_in);
         $checkInTime = $checkInRaw;
 
         $dummyExpectedCheckOut = $request->booking_type === 'overnight'
@@ -345,7 +344,7 @@ class ReservationController extends Controller
                     $extraPax = $request->extra_pax[$room->id] ?? 0;
                     $roomGuests[$room->id] = max(1, (int) $room->type->max_occupancy) + (int) $extraPax;
                 }
-                $checkInRaw = Carbon::parse($request->check_in);
+                $checkInRaw = HotelDateTime::parseLocal($request->check_in);
                 $checkInTime = $checkInRaw;
 
                 $reqDiscountType = $request->discount_type ?: '';
@@ -537,7 +536,7 @@ class ReservationController extends Controller
                         'booking_source' => $request->booking_source,
                         'short_time_hours' => $request->booking_type !== 'overnight' ? $request->short_time_hours : null,
                         'num_nights' => $request->booking_type === 'overnight' ? $request->num_nights : null,
-                        'check_in' => $checkInTime->format('Y-m-d H:i:s'),
+                        'check_in' => HotelDateTime::toDatabase($checkInTime),
                         'expected_check_out' => $pricing['expected_check_out'],
                         'status' => 'reserved',
                         'payment_status' => 'unpaid',
@@ -928,7 +927,7 @@ class ReservationController extends Controller
         $room = Room::findOrFail($request->room_id);
 
         return DB::transaction(function () use ($booking, $request, $room, $user) {
-            $checkInRaw = Carbon::parse($request->check_in);
+            $checkInRaw = HotelDateTime::parseLocal($request->check_in);
             $checkInTime = $checkInRaw;
 
             // Calculate precise amounts
@@ -959,7 +958,7 @@ class ReservationController extends Controller
 
             // Update Booking details
             $booking->room_id = $room->id;
-            $booking->check_in = $checkInTime->format('Y-m-d H:i:s');
+            $booking->check_in = HotelDateTime::toDatabase($checkInTime);
             $booking->expected_check_out = $pricing['expected_check_out'];
             $booking->booking_type = $request->booking_type;
             $booking->short_time_hours = $request->booking_type !== 'overnight' ? $request->short_time_hours : null;
@@ -1023,7 +1022,7 @@ class ReservationController extends Controller
         }
 
         return DB::transaction(function () use ($bookings, $user, $groupRef) {
-            $now = now();
+            $stayNow = HotelDateTime::now();
             $roomNumbers = [];
 
             foreach ($bookings as $booking) {
@@ -1032,12 +1031,13 @@ class ReservationController extends Controller
                 $room->save();
 
                 $booking->status = 'active';
-                $booking->check_in = $now->format('Y-m-d H:i:s');
+                $booking->check_in = HotelDateTime::toDatabase($stayNow);
+                $booking->checked_in_by = $user->id;
 
                 $pricing = BookingService::calculateBookingAmounts(
                     $room,
                     $booking->booking_type,
-                    $now->format('Y-m-d H:i:s'),
+                    HotelDateTime::toDatabase($stayNow),
                     $booking->booking_type === 'overnight' ? max(1, Carbon::parse($booking->check_in)->diffInDays(Carbon::parse($booking->expected_check_out))) : 1,
                     $booking->short_time_hours ?: 3,
                     $booking->discount_type ?: '',
@@ -1056,7 +1056,7 @@ class ReservationController extends Controller
             $firstBooking = $bookings->first();
             if ($firstBooking->guestProfile) {
                 $firstBooking->guestProfile->total_stays += 1;
-                $firstBooking->guestProfile->last_visit = $now->format('Y-m-d');
+                $firstBooking->guestProfile->last_visit = $stayNow->toDateString();
                 $firstBooking->guestProfile->save();
             }
 
@@ -1098,8 +1098,8 @@ class ReservationController extends Controller
         }
 
         foreach ($bookings as $b) {
-            $lateHours = BookingService::calculateLateCheckoutHours($b->expected_check_out, now());
-            $lateFee = $waiveLateFee ? 0.00 : BookingService::calculateLateCheckoutFee($b->expected_check_out, now());
+            $lateHours = BookingService::calculateLateCheckoutHours($b->expected_check_out);
+            $lateFee = $waiveLateFee ? 0.00 : BookingService::calculateLateCheckoutFee($b->expected_check_out);
             $inventoryTotal = InventoryUsage::where('booking_id', $b->id)->sum('total_price');
             $balance = ($b->total_amount + $lateFee + $b->extension_fee + $inventoryTotal) - $b->amount_paid;
 
@@ -1109,7 +1109,6 @@ class ReservationController extends Controller
         }
 
         return DB::transaction(function () use ($bookings, $user, $groupRef, $waiveLateFee) {
-            $now = now();
             $roomNumbers = [];
 
             foreach ($bookings as $booking) {
@@ -1117,12 +1116,12 @@ class ReservationController extends Controller
                 $room->status = 'cleaning';
                 $room->save();
 
-                $lateHours = BookingService::calculateLateCheckoutHours($booking->expected_check_out, $now);
-                $originalLateFee = BookingService::calculateLateCheckoutFee($booking->expected_check_out, $now);
+                $lateHours = BookingService::calculateLateCheckoutHours($booking->expected_check_out);
+                $originalLateFee = BookingService::calculateLateCheckoutFee($booking->expected_check_out);
                 $lateFee = $waiveLateFee ? 0.00 : $originalLateFee;
 
                 $booking->status = 'checked_out';
-                $booking->check_out = $now->format('Y-m-d H:i:s');
+                $booking->check_out = HotelDateTime::toDatabase();
                 $booking->checked_out_by = $user->id;
                 $booking->late_hours = $lateHours;
                 $booking->late_checkout_fee = $lateFee;
@@ -1195,8 +1194,8 @@ class ReservationController extends Controller
         $groupBalanceTotal = 0.00;
 
         foreach ($bookings as $b) {
-            $lateHours = BookingService::calculateLateCheckoutHours($b->expected_check_out, now());
-            $lateFee = $waiveLateFee ? 0.00 : BookingService::calculateLateCheckoutFee($b->expected_check_out, now());
+            $lateHours = BookingService::calculateLateCheckoutHours($b->expected_check_out);
+            $lateFee = $waiveLateFee ? 0.00 : BookingService::calculateLateCheckoutFee($b->expected_check_out);
             $inventoryTotal = (float) InventoryUsage::where('booking_id', $b->id)->sum('total_price');
 
             $roomTotal = (float) $b->total_amount + $lateFee + $inventoryTotal;
@@ -1287,13 +1286,13 @@ class ReservationController extends Controller
 
                 // Update booking
                 $booking->status = 'checked_out';
-                $booking->check_out = $now->format('Y-m-d H:i:s');
+                $booking->check_out = HotelDateTime::toDatabase();
                 $booking->checked_out_by = $user->id;
                 $booking->late_hours = $bData['late_hours'];
                 $booking->late_checkout_fee = $bData['late_fee'];
                 $booking->total_amount = $bData['room_total'];
 
-                $originalLateFee = BookingService::calculateLateCheckoutFee($booking->expected_check_out, $now);
+                $originalLateFee = BookingService::calculateLateCheckoutFee($booking->expected_check_out);
                 if ($waiveLateFee && $originalLateFee > 0) {
                     $booking->notes = trim(($booking->notes ? $booking->notes."\n" : '').'Late check-out fee of ₱'.number_format($originalLateFee, 2).' waived by '.$user->name.'.');
                 }
@@ -1384,7 +1383,7 @@ class ReservationController extends Controller
             return response()->json(['error' => 'No active stays found for this group.'], 404);
         }
 
-        $now = now();
+        $now = HotelDateTime::now();
         $rooms = [];
         $totalBase = 0.00;
         $totalLate = 0.00;
@@ -1406,8 +1405,8 @@ class ReservationController extends Controller
                 'booking_ref' => $b->booking_ref,
                 'room_number' => $b->room ? $b->room->room_number : '?',
                 'guest_name' => $b->guest_name,
-                'check_in' => $b->check_in ? $b->check_in->format('Y-m-d H:i:s') : null,
-                'expected_check_out' => $b->expected_check_out ? $b->expected_check_out->format('Y-m-d H:i:s') : null,
+                'check_in' => $b->check_in ? HotelDateTime::toDatabase($b->check_in) : null,
+                'expected_check_out' => $b->expected_check_out ? HotelDateTime::toDatabase($b->expected_check_out) : null,
                 'base_amount' => (float) $b->base_amount + (float) $b->peak_surcharge + (float) $b->extra_pax_charges - (float) $b->discount_amount,
                 'extension_fee' => (float) $b->extension_fee,
                 'late_hours' => $lateHours,
@@ -1459,14 +1458,14 @@ class ReservationController extends Controller
             throw new \RuntimeException("Cannot check in. Room {$room->room_number} is currently {$room->status}.");
         }
 
-        $now = now();
+        $now = HotelDateTime::now();
         $expectedCheckOut = $booking->booking_type === 'overnight'
             ? BookingService::buildOvernightExpectedCheckOut(
-                $now->format('Y-m-d H:i:s'),
+                HotelDateTime::toDatabase($now),
                 max(1, (int) ($booking->num_nights ?: 1))
             )
             : BookingService::buildShortTimeExpectedCheckOut(
-                $now->format('Y-m-d H:i:s'),
+                HotelDateTime::toDatabase($now),
                 max(1, (int) ($booking->short_time_hours ?: 3))
             );
 
@@ -1476,7 +1475,7 @@ class ReservationController extends Controller
         // Preserve the confirmed booking price and payment history. Arrival changes
         // the operational stay timestamps only; it must not create a new charge.
         $booking->status = 'active';
-        $booking->check_in = $now->format('Y-m-d H:i:s');
+        $booking->check_in = HotelDateTime::toDatabase($now);
         $booking->expected_check_out = $expectedCheckOut->format('Y-m-d H:i:s');
         $booking->payment_status = 'paid';
         $booking->checked_in_by = $user->id;
@@ -1484,7 +1483,7 @@ class ReservationController extends Controller
 
         if ($booking->guestProfile) {
             $booking->guestProfile->increment('total_stays');
-            $booking->guestProfile->last_visit = $now->format('Y-m-d');
+            $booking->guestProfile->last_visit = $now->toDateString();
             $booking->guestProfile->save();
         }
 

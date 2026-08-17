@@ -18,6 +18,7 @@ import {
     Trash2
 } from 'lucide-react';
 import CustomSelect from '@/Components/CustomSelect';
+import { formatHotelDate, formatHotelTime } from '@/Utils/datetime';
 
 export default function Report({ shift, report }) {
     const { app_name } = usePage().props;
@@ -610,10 +611,10 @@ export default function Report({ shift, report }) {
                                                  return (
                                                     <tr key={booking.id} className="highlight-row text-xs font-mono">
                                                         <td className="text-center font-bold text-indigo-400">{booking.room?.room_number || '-'}</td>
-                                                        <td className="text-center">{formatDate(booking.check_in)}</td>
-                                                        <td className="text-center">{formatTime(booking.check_in)}</td>
-                                                        <td className="text-center">{formatDate(booking.check_out || booking.expected_check_out)}</td>
-                                                        <td className="text-center">{formatTime(booking.check_out || booking.expected_check_out)}</td>
+                                                        <td className="text-center">{formatHotelDate(booking.check_in)}</td>
+                                                        <td className="text-center">{formatHotelTime(booking.check_in)}</td>
+                                                        <td className="text-center">{formatHotelDate(booking.check_out || booking.expected_check_out)}</td>
+                                                        <td className="text-center">{formatHotelTime(booking.check_out || booking.expected_check_out)}</td>
                                                         <td className="text-center font-sans">
                                                             {booking.booking_type === 'overnight' ? `${booking.num_nights} nights` : `${booking.short_time_hours} hrs`}
                                                         </td>
@@ -1315,10 +1316,10 @@ export default function Report({ shift, report }) {
                                         return (
                                             <tr key={booking.id} className={`text-[8.5px] ${index % 2 === 0 ? 'bg-slate-50' : 'bg-white'}`}>
                                                 <td className="border border-slate-300 px-0.5 py-1 font-bold">{booking.room?.room_number || '-'}</td>
-                                                <td className="border border-slate-300 px-0.5 py-1">{formatDate(booking.check_in)}</td>
-                                                <td className="border border-slate-300 px-0.5 py-1">{formatTime(booking.check_in)}</td>
-                                                <td className="border border-slate-300 px-0.5 py-1">{formatDate(booking.check_out || booking.expected_check_out)}</td>
-                                                <td className="border border-slate-300 px-0.5 py-1">{formatTime(booking.check_out || booking.expected_check_out)}</td>
+                                                <td className="border border-slate-300 px-0.5 py-1">{formatHotelDate(booking.check_in)}</td>
+                                                <td className="border border-slate-300 px-0.5 py-1">{formatHotelTime(booking.check_in)}</td>
+                                                <td className="border border-slate-300 px-0.5 py-1">{formatHotelDate(booking.check_out || booking.expected_check_out)}</td>
+                                                <td className="border border-slate-300 px-0.5 py-1">{formatHotelTime(booking.check_out || booking.expected_check_out)}</td>
                                                 <td className="border border-slate-300 px-0.5 py-1 font-semibold">{hrsNights}</td>
                                                 <td className="border border-slate-300 px-0.5 py-1 font-bold whitespace-pre-line leading-tight">
                                                     {roomRateLabel}

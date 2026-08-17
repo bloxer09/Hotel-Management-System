@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Casts\HotelLocalDateTime;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 
@@ -51,9 +52,9 @@ class Booking extends Model
     ];
 
     protected $casts = [
-        'check_in' => 'datetime',
-        'check_out' => 'datetime',
-        'expected_check_out' => 'datetime',
+        'check_in' => HotelLocalDateTime::class,
+        'check_out' => HotelLocalDateTime::class,
+        'expected_check_out' => HotelLocalDateTime::class,
         'num_guests' => 'integer',
         'short_time_hours' => 'integer',
         'num_nights' => 'integer',

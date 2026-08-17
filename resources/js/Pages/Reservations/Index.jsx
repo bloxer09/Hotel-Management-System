@@ -12,6 +12,7 @@ import AlertModal from '@/Components/AlertModal';
 import ConfirmModal from '@/Components/ConfirmModal';
 import ImagePreviewModal from '@/Components/ImagePreviewModal';
 import CustomSelect from '@/Components/CustomSelect';
+import { formatHotelDateTime } from '@/Utils/datetime';
 
 import StayDetailsModal from '@/Components/StayDetailsModal';
 import GroupSettleModal from '@/Components/GroupSettleModal';
@@ -1646,7 +1647,7 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
                                                     <div className="flex flex-col gap-1 bg-[#0f172a]/65 p-3 rounded-xl border border-[#334155] mt-1">
                                                         <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1"><Calendar size={10} /> Expected Check-Out</span>
                                                         <span className="text-xs text-slate-300 font-bold font-mono">
-                                                            {calc.expected_check_out || calc.totals?.expected_check_out ? new Date(calc.expected_check_out || calc.totals?.expected_check_out).toLocaleString() : '-'}
+                                                            {calc.expected_check_out || calc.totals?.expected_check_out ? formatHotelDateTime(calc.expected_check_out || calc.totals?.expected_check_out) : '-'}
                                                         </span>
                                                     </div>
                                                 </>

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\AdditionalCash;
 use App\Models\Booking;
 use App\Models\CashMovement;
 use App\Models\Expense;
@@ -13,7 +14,9 @@ use App\Models\ShiftSession;
 use App\Models\Transaction;
 use App\Models\User;
 use App\Services\PaymentService;
+use App\Support\HotelDateTime;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
@@ -472,6 +475,400 @@ class ShiftReportPaymentSummaryTest extends TestCase
         ]);
     }
 
+    public function test_official_logbook_lists_reservations_created_by_the_shift_owner(): void
+    {
+        $user = $this->createCashier();
+        $otherUser = $this->createCashier();
+        $shift = ShiftSession::create([
+            'user_id' => $user->id,
+            'shift_code' => 'morning',
+            'started_at' => now()->subHour(),
+            'opening_cash' => 0,
+            'opening_cash_minibar' => 0,
+        ]);
+
+        $this->createBookings($user, true);
+        $ownReservation = $this->createReservation($user, [
+            'guest_name' => 'Own Reservation Guest',
+            'total_amount' => 1800,
+            'base_amount' => 1800,
+        ]);
+        $otherReservation = $this->createReservation($otherUser, [
+            'guest_name' => 'Other Desk Guest',
+        ]);
+        $outsideReservation = $this->createReservation($user, [
+            'guest_name' => 'Old Reservation Guest',
+        ]);
+        DB::table('bookings')->where('id', $outsideReservation->id)->update([
+            'created_at' => now()->subDays(2),
+            'updated_at' => now()->subDays(2),
+        ]);
+
+        app(PaymentService::class)->record([
+            'payer_name' => $ownReservation->guest_name,
+            'payment_method_code' => 'gcash',
+            'reference_number' => 'RES-GCASH-SHIFT-001',
+            'amount' => 500,
+            'payment_type' => 'deposit',
+            'status' => 'verified',
+            'recorded_by' => $user->id,
+            'received_at' => now()->subMinutes(10),
+        ], [$ownReservation->id => 500], [[
+            'payment_method_code' => 'gcash',
+            'amount' => 500,
+            'reference_number' => 'RES-GCASH-SHIFT-001',
+        ]]);
+
+        $response = $this->actingAs($user)->get(route('shifts.ledger-print', $shift->id));
+
+        $response->assertOk();
+        $response->assertInertia(fn (Assert $page) => $page
+            ->component('Reports/RoomBookingsLedgerPrint')
+            ->has('bookings', 2)
+            ->has('booking_transactions', 1)
+            ->where('booking_transactions.0.id', $ownReservation->id)
+            ->where('booking_transactions.0.booking_ref', $ownReservation->booking_ref)
+            ->where('booking_transactions.0.shift_collection_amount', 500)
+            ->where('booking_transactions.0.shift_collection_methods.gcash', 500)
+            ->where('booking_transactions.0.shift_collection_references.gcash.0', 'RES-GCASH-SHIFT-001')
+            ->where('booking_transactions.0.balance_amount', 1300)
+            ->where('totals.total_room_sales', 1900)
+            ->where('stay_collections.total_received', 0)
+            ->where('stay_collections.gcash', 0)
+            ->where('bookings', fn ($bookings) => collect($bookings)->every(
+                fn ($booking) => $booking['id'] !== $ownReservation->id
+                    && $booking['id'] !== $otherReservation->id
+                    && $booking['id'] !== $outsideReservation->id
+            ))
+        );
+    }
+
+    public function test_official_logbook_marks_pending_reservation_payment_without_counting_it(): void
+    {
+        $user = $this->createCashier();
+        $shift = ShiftSession::create([
+            'user_id' => $user->id,
+            'shift_code' => 'morning',
+            'started_at' => now()->subHour(),
+            'opening_cash' => 0,
+            'opening_cash_minibar' => 0,
+        ]);
+        $reservation = $this->createReservation($user, [
+            'total_amount' => 1200,
+            'base_amount' => 1200,
+        ]);
+
+        app(PaymentService::class)->record([
+            'payer_name' => $reservation->guest_name,
+            'payment_method_code' => 'gcash',
+            'reference_number' => 'RES-PENDING-001',
+            'amount' => 400,
+            'payment_type' => 'deposit',
+            'status' => 'pending',
+            'recorded_by' => $user->id,
+            'received_at' => now()->subMinutes(5),
+        ], [$reservation->id => 400], [[
+            'payment_method_code' => 'gcash',
+            'amount' => 400,
+            'reference_number' => 'RES-PENDING-001',
+        ]]);
+
+        $this->actingAs($user)->get(route('shifts.ledger-print', $shift->id))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('booking_transactions', 1)
+                ->where('booking_transactions.0.shift_collection_amount', 0)
+                ->where('booking_transactions.0.pending_payment_amount', 400)
+                ->where('booking_transactions.0.report_payment_status', 'pending_verification')
+                ->where('stay_collections.total_received', 0)
+                ->where('stay_collections.gcash', 0)
+            );
+    }
+
+    public function test_official_logbook_keeps_cancelled_and_no_show_reservations_visible(): void
+    {
+        $user = $this->createCashier();
+        $shift = ShiftSession::create([
+            'user_id' => $user->id,
+            'shift_code' => 'morning',
+            'started_at' => now()->subHour(),
+            'opening_cash' => 0,
+            'opening_cash_minibar' => 0,
+        ]);
+        $cancelled = $this->createReservation($user, [
+            'guest_name' => 'Cancelled Guest',
+            'status' => 'cancelled',
+        ]);
+        $noShow = $this->createReservation($user, [
+            'guest_name' => 'No Show Guest',
+            'status' => 'no_show',
+        ]);
+
+        $this->actingAs($user)->get(route('shifts.ledger-print', $shift->id))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('booking_transactions', 2)
+                ->where('booking_transactions', fn ($rows) => collect($rows)->pluck('id')->sort()->values()->all() === collect([$cancelled->id, $noShow->id])->sort()->values()->all()
+                    && collect($rows)->contains(fn ($row) => $row['status'] === 'cancelled')
+                    && collect($rows)->contains(fn ($row) => $row['status'] === 'no_show'))
+                ->has('bookings', 0)
+            );
+    }
+
+    public function test_official_pdf_includes_future_reservation_cash_deposit_in_drawer_once(): void
+    {
+        $user = $this->createCashier();
+        $shift = ShiftSession::create([
+            'user_id' => $user->id,
+            'shift_code' => 'morning',
+            'started_at' => now()->subHour(),
+            'opening_cash' => 1000,
+            'opening_cash_minibar' => 0,
+        ]);
+        $reservation = $this->createReservation($user, [
+            'guest_name' => 'Future Cash Guest',
+            'total_amount' => 1500,
+            'base_amount' => 1500,
+        ]);
+
+        app(PaymentService::class)->record([
+            'payer_name' => $reservation->guest_name,
+            'payment_method_code' => 'cash',
+            'amount' => 750,
+            'payment_type' => 'deposit',
+            'status' => 'verified',
+            'recorded_by' => $user->id,
+            'received_at' => now()->subMinutes(10),
+        ], [$reservation->id => 750], [[
+            'payment_method_code' => 'cash',
+            'amount' => 750,
+        ]]);
+
+        $this->actingAs($user)->get(route('shifts.ledger-print', $shift->id))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('booking_transactions', 1)
+                ->where('booking_transactions.0.id', $reservation->id)
+                ->where('booking_transactions.0.shift_collection_amount', 750)
+                ->where('booking_transactions.0.shift_collection_methods.cash', 750)
+                ->has('bookings', 0)
+                ->where('stay_collections.cash', 0)
+                ->where('totals.cash_collection', 0)
+                ->where('cash_tally.room_sales_cash', 750)
+                ->where('cash_tally.other_cash_receipts', 0)
+                ->where('cash_tally.expected_cash', 1750)
+            );
+    }
+
+    public function test_official_pdf_does_not_double_count_overlapping_stay_and_reservation_cash(): void
+    {
+        $user = $this->createCashier();
+        $shift = ShiftSession::create([
+            'user_id' => $user->id,
+            'shift_code' => 'morning',
+            'started_at' => now()->subHour(),
+            'opening_cash' => 0,
+            'opening_cash_minibar' => 0,
+        ]);
+        $reservation = $this->createReservation($user, [
+            'guest_name' => 'Overlap Guest',
+            'total_amount' => 3550,
+            'base_amount' => 3550,
+            'status' => 'checked_out',
+            'check_in' => HotelDateTime::now()->subMinutes(30)->format('Y-m-d H:i:s'),
+            'check_out' => HotelDateTime::now()->subMinutes(5)->format('Y-m-d H:i:s'),
+            'expected_check_out' => HotelDateTime::now()->subMinutes(5)->format('Y-m-d H:i:s'),
+            'checked_in_by' => $user->id,
+            'checked_out_by' => $user->id,
+        ]);
+
+        app(PaymentService::class)->record([
+            'payer_name' => $reservation->guest_name,
+            'payment_method_code' => 'cash',
+            'amount' => 3550,
+            'payment_type' => 'full',
+            'status' => 'verified',
+            'recorded_by' => $user->id,
+            'received_at' => now()->subMinutes(20),
+        ], [$reservation->id => 3550], [[
+            'payment_method_code' => 'cash',
+            'amount' => 3550,
+        ]]);
+
+        $this->actingAs($user)->get(route('shifts.ledger-print', $shift->id))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('bookings', 1)
+                ->has('booking_transactions', 1)
+                ->where('bookings.0.id', $reservation->id)
+                ->where('booking_transactions.0.id', $reservation->id)
+                ->where('stay_collections.cash', 3550)
+                ->where('booking_transactions.0.shift_collection_amount', 3550)
+                ->where('cash_tally.room_sales_cash', 3550)
+                ->where('cash_tally.expected_cash', 3550)
+                ->where('totals.cash_collection', 3550)
+            );
+    }
+
+    public function test_official_pdf_future_gcash_deposit_does_not_affect_drawer(): void
+    {
+        $user = $this->createCashier();
+        $shift = ShiftSession::create([
+            'user_id' => $user->id,
+            'shift_code' => 'morning',
+            'started_at' => now()->subHour(),
+            'opening_cash' => 1000,
+            'opening_cash_minibar' => 0,
+        ]);
+        $reservation = $this->createReservation($user, [
+            'total_amount' => 1500,
+            'base_amount' => 1500,
+        ]);
+
+        app(PaymentService::class)->record([
+            'payer_name' => $reservation->guest_name,
+            'payment_method_code' => 'gcash',
+            'reference_number' => 'FUTURE-GCASH-750',
+            'amount' => 750,
+            'payment_type' => 'deposit',
+            'status' => 'verified',
+            'recorded_by' => $user->id,
+            'received_at' => now()->subMinutes(10),
+        ], [$reservation->id => 750], [[
+            'payment_method_code' => 'gcash',
+            'amount' => 750,
+            'reference_number' => 'FUTURE-GCASH-750',
+        ]]);
+
+        $this->actingAs($user)->get(route('shifts.ledger-print', $shift->id))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('booking_transactions', 1)
+                ->has('bookings', 0)
+                ->where('booking_transactions.0.shift_collection_methods.gcash', 750)
+                ->where('cash_tally.room_sales_cash', 0)
+                ->where('cash_tally.expected_cash', 1000)
+            );
+    }
+
+    public function test_official_pdf_historical_cash_downpayment_does_not_enter_current_drawer(): void
+    {
+        $user = $this->createCashier();
+        $shift = ShiftSession::create([
+            'user_id' => $user->id,
+            'shift_code' => 'morning',
+            'started_at' => now()->subHour(),
+            'opening_cash' => 1000,
+            'opening_cash_minibar' => 0,
+        ]);
+        [$booking] = $this->createBookings($user, true);
+
+        app(PaymentService::class)->record([
+            'payer_name' => $booking->guest_name,
+            'payment_method_code' => 'cash',
+            'amount' => 750,
+            'payment_type' => 'deposit',
+            'status' => 'verified',
+            'recorded_by' => $user->id,
+            'received_at' => now()->subDays(2),
+        ], [$booking->id => 750], [[
+            'payment_method_code' => 'cash',
+            'amount' => 750,
+        ]]);
+
+        $prior = now()->subDays(2);
+        DB::table('payments')->where('recorded_by', $user->id)->update([
+            'received_at' => $prior,
+            'created_at' => $prior,
+            'updated_at' => $prior,
+        ]);
+        DB::table('transactions')->where('processed_by', $user->id)->update([
+            'created_at' => $prior,
+            'updated_at' => $prior,
+        ]);
+
+        $this->actingAs($user)->get(route('shifts.ledger-print', $shift->id))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('bookings', 2)
+                ->where('stay_collections.cash', 0)
+                ->where('cash_tally.room_sales_cash', 0)
+                ->where('cash_tally.expected_cash', 1000)
+            );
+    }
+
+    public function test_official_pdf_additional_cash_expense_and_movements_are_applied_once(): void
+    {
+        $user = $this->createCashier();
+        $shift = ShiftSession::create([
+            'user_id' => $user->id,
+            'shift_code' => 'morning',
+            'started_at' => now()->subHour(),
+            'opening_cash' => 1000,
+            'opening_cash_minibar' => 0,
+        ]);
+        $reservation = $this->createReservation($user, [
+            'total_amount' => 1500,
+            'base_amount' => 1500,
+        ]);
+
+        app(PaymentService::class)->record([
+            'payer_name' => $reservation->guest_name,
+            'payment_method_code' => 'cash',
+            'amount' => 750,
+            'payment_type' => 'deposit',
+            'status' => 'verified',
+            'recorded_by' => $user->id,
+            'received_at' => now()->subMinutes(10),
+        ], [$reservation->id => 750], [[
+            'payment_method_code' => 'cash',
+            'amount' => 750,
+        ]]);
+
+        AdditionalCash::create([
+            'income_date' => now()->toDateString(),
+            'amount' => 500,
+            'cash_drawer' => 'room',
+            'notes' => 'Towel charge',
+            'recorded_by' => $user->id,
+        ]);
+        Expense::create([
+            'expense_date' => now()->toDateString(),
+            'amount' => 100,
+            'cash_drawer' => 'room',
+            'notes' => 'gas',
+            'recorded_by' => $user->id,
+        ]);
+        CashMovement::create([
+            'shift_session_id' => $shift->id,
+            'movement_type' => 'cashier_transfer',
+            'cash_drawer' => 'room',
+            'amount' => 25,
+            'description' => 'Cash remitted to cashier',
+            'moved_at' => now(),
+            'recorded_by' => $user->id,
+        ]);
+        CashMovement::create([
+            'shift_session_id' => $shift->id,
+            'movement_type' => 'withdrawal',
+            'cash_drawer' => 'room',
+            'amount' => 50,
+            'description' => 'Approved withdrawal',
+            'moved_at' => now(),
+            'recorded_by' => $user->id,
+        ]);
+
+        $this->actingAs($user)->get(route('shifts.ledger-print', $shift->id))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('cash_tally.room_sales_cash', 750)
+                ->where('cash_tally.other_cash_receipts', 500)
+                ->where('cash_tally.total_expenses', 100)
+                ->where('cash_tally.total_movements', 75)
+                ->where('cash_tally.expected_cash', 2075)
+            );
+    }
+
     private function createCashier(): User
     {
         return User::create([
@@ -508,8 +905,12 @@ class ShiftReportPaymentSummaryTest extends TestCase
                 'num_guests' => 2,
                 'booking_type' => 'overnight',
                 'num_nights' => 1,
-                'check_in' => $checkedInThisShift ? now()->subMinutes(10 + $index) : now()->addDays($index + 2),
-                'expected_check_out' => $checkedInThisShift ? now()->addDay() : now()->addDays($index + 3),
+                'check_in' => $checkedInThisShift
+                    ? HotelDateTime::now()->subMinutes(10 + $index)->format('Y-m-d H:i:s')
+                    : HotelDateTime::now()->addDays($index + 2)->format('Y-m-d H:i:s'),
+                'expected_check_out' => $checkedInThisShift
+                    ? HotelDateTime::now()->addDay()->format('Y-m-d H:i:s')
+                    : HotelDateTime::now()->addDays($index + 3)->format('Y-m-d H:i:s'),
                 'status' => $checkedInThisShift ? 'active' : 'reserved',
                 'payment_status' => $index === 0 ? 'unpaid' : 'partial',
                 'base_amount' => $total,
@@ -523,5 +924,40 @@ class ShiftReportPaymentSummaryTest extends TestCase
         }
 
         return $bookings;
+    }
+
+    private function createReservation(User $user, array $overrides = []): Booking
+    {
+        $roomType = RoomType::create([
+            'type_name' => 'Reservation Report Room '.uniqid(),
+            'base_rate' => 1500,
+            'hourly_rate' => 300,
+            'max_occupancy' => 2,
+        ]);
+        $room = Room::create([
+            'room_number' => 'B'.substr(uniqid(), -5),
+            'room_type_id' => $roomType->id,
+            'status' => 'vacant',
+        ]);
+
+        return Booking::create(array_merge([
+            'booking_ref' => 'RES-'.strtoupper(substr(uniqid(), -10)),
+            'room_id' => $room->id,
+            'booked_by_user_id' => $user->id,
+            'guest_name' => 'Reserved Guest',
+            'guest_contact' => '09170000000',
+            'num_guests' => 1,
+            'booking_type' => 'overnight',
+            'booking_source' => 'walk_in',
+            'num_nights' => 1,
+            'check_in' => HotelDateTime::now()->addDays(3)->format('Y-m-d H:i:s'),
+            'expected_check_out' => HotelDateTime::now()->addDays(4)->format('Y-m-d H:i:s'),
+            'status' => 'reserved',
+            'payment_status' => 'unpaid',
+            'base_amount' => 1500,
+            'total_amount' => 1500,
+            'amount_paid' => 0,
+            'checked_in_by' => null,
+        ], $overrides));
     }
 }

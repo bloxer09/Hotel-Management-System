@@ -7,6 +7,7 @@ use App\Models\Booking;
 use App\Models\Transaction;
 use App\Models\InventoryItem;
 use App\Models\RoomType;
+use App\Support\HotelDateTime;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Carbon\Carbon;
@@ -99,11 +100,13 @@ class DashboardController extends Controller
             ->get();
 
         // Gather all bookings active in 30 days
+        $hotelNow = HotelDateTime::toDatabase();
+        $hotelChartStart = HotelDateTime::startOfDay($startDate->format('Y-m-d'))->format('Y-m-d H:i:s');
         $bookings30d = Booking::where('status', '!=', 'cancelled')
-            ->where('check_in', '<=', now())
-            ->where(function($q) use ($startDate) {
+            ->where('check_in', '<=', $hotelNow)
+            ->where(function($q) use ($hotelChartStart) {
                 $q->whereNull('check_out')
-                  ->orWhere('check_out', '>=', $startDate);
+                  ->orWhere('check_out', '>=', $hotelChartStart);
             })
             ->get();
 
@@ -168,19 +171,19 @@ class DashboardController extends Controller
             ];
 
             // Daily Occupancy
-            // A room is occupied if there was a booking covering this day
+            // A room is occupied if there was a booking covering this hotel-local day
             $occupiedOnDay = 0;
-            $dayStart = $day->copy()->startOfDay();
-            $dayEnd = $day->copy()->endOfDay();
+            $hotelDayStart = HotelDateTime::startOfDay($dayStr);
+            $hotelDayEnd = HotelDateTime::endOfDay($dayStr);
 
             foreach ($bookings30d as $booking) {
-                $checkIn = Carbon::parse($booking->check_in);
-                $checkOut = $booking->check_out ? Carbon::parse($booking->check_out) : null;
-                $expectedCheckOut = $booking->expected_check_out ? Carbon::parse($booking->expected_check_out) : null;
+                $checkIn = HotelDateTime::fromStay($booking->check_in);
+                $checkOut = $booking->check_out ? HotelDateTime::fromStay($booking->check_out) : null;
+                $expectedCheckOut = $booking->expected_check_out ? HotelDateTime::fromStay($booking->expected_check_out) : null;
 
-                $effectiveCheckOut = $checkOut ?: $expectedCheckOut ?: now();
+                $effectiveCheckOut = $checkOut ?: $expectedCheckOut ?: HotelDateTime::now();
 
-                if ($checkIn->lt($dayEnd) && $effectiveCheckOut->gt($dayStart)) {
+                if ($checkIn->lt($hotelDayEnd) && $effectiveCheckOut->gt($hotelDayStart)) {
                     $occupiedOnDay++;
                 }
             }
@@ -210,11 +213,12 @@ class DashboardController extends Controller
             ];
         }
 
-        // 6. Live updates/alerts for dashboard
-        $now = Carbon::now();
-        $startOfToday = Carbon::today();
-        $endOfToday = Carbon::today()->endOfDay();
-        $endOfTomorrow = Carbon::tomorrow()->endOfDay();
+        // 6. Live updates/alerts for dashboard (hotel-local stay clock)
+        $now = HotelDateTime::now();
+        [$startOfToday, $endOfToday] = HotelDateTime::dayWindow();
+        $endOfTomorrow = HotelDateTime::endOfDay(HotelDateTime::today()->addDay())->format('Y-m-d H:i:s');
+        $upcomingStart = HotelDateTime::toDatabase($now);
+        $upcomingEnd = HotelDateTime::toDatabase($now->copy()->addDay());
 
         // Today's front-desk workload for the operational dashboard.
         $arrivalsTodayCount = Booking::where('status', 'reserved')
@@ -234,8 +238,8 @@ class DashboardController extends Controller
                 'type' => 'check_in',
                 'id' => $b->id,
                 'title' => "Expected Check-in: Room " . ($b->room ? $b->room->room_number : 'N/A'),
-                'description' => "Guest {$b->guest_name} at " . Carbon::parse($b->check_in)->format('h:i A') . " (Ref: {$b->booking_ref})",
-                'time' => $b->check_in,
+                'description' => "Guest {$b->guest_name} at " . HotelDateTime::fromStay($b->check_in)->format('h:i A') . " (Ref: {$b->booking_ref})",
+                'time' => HotelDateTime::toDatabase($b->check_in),
                 'status' => 'pending',
                 'link' => route('reservations.index') . '?status=reserved',
             ]);
@@ -247,9 +251,9 @@ class DashboardController extends Controller
 
         $checkoutAlerts = collect();
         foreach ($activeStays as $stay) {
-            $expectedOut = Carbon::parse($stay->expected_check_out);
+            $expectedOut = HotelDateTime::fromStay($stay->expected_check_out);
             $roomNum = $stay->room ? $stay->room->room_number : 'N/A';
-            if ($expectedOut->isPast()) {
+            if ($expectedOut->lt($now)) {
                 // Overdue checkout!
                 $diffMins = $expectedOut->diffInMinutes($now);
                 $readableTime = '';
@@ -272,18 +276,21 @@ class DashboardController extends Controller
                     'id' => $stay->id,
                     'title' => "OVERDUE Departure: Room {$roomNum}",
                     'description' => "Guest {$stay->guest_name} was expected at " . $expectedOut->format('h:i A') . " ({$readableTime} ago)",
-                    'time' => $stay->expected_check_out,
+                    'time' => HotelDateTime::toDatabase($stay->expected_check_out),
                     'status' => 'critical',
                     'link' => route('reservations.index') . '?status=active',
                 ]);
-            } elseif ($expectedOut->between($startOfToday, $endOfToday)) {
+            } elseif ($expectedOut->between(
+                HotelDateTime::parseLocal($startOfToday),
+                HotelDateTime::parseLocal($endOfToday)
+            )) {
                 // Upcoming checkout today
                 $checkoutAlerts->push([
                     'type' => 'checkout',
                     'id' => $stay->id,
                     'title' => "Impending Checkout: Room {$roomNum}",
                     'description' => "Guest {$stay->guest_name} departing at " . $expectedOut->format('h:i A'),
-                    'time' => $stay->expected_check_out,
+                    'time' => HotelDateTime::toDatabase($stay->expected_check_out),
                     'status' => 'warning',
                     'link' => route('reservations.index') . '?status=active',
                 ]);
@@ -333,13 +340,13 @@ class DashboardController extends Controller
 
         $upcomingCheckInsList = Booking::with(['room', 'room.type'])
             ->where('status', 'reserved')
-            ->whereBetween('check_in', [now(), now()->addDay()])
+            ->whereBetween('check_in', [$upcomingStart, $upcomingEnd])
             ->orderBy('check_in', 'asc')
             ->get();
 
         $upcomingCheckOutsList = Booking::with(['room', 'room.type'])
             ->where('status', 'active')
-            ->whereBetween('expected_check_out', [now(), now()->addDay()])
+            ->whereBetween('expected_check_out', [$upcomingStart, $upcomingEnd])
             ->orderBy('expected_check_out', 'asc')
             ->get();
 

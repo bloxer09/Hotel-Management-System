@@ -32,6 +32,7 @@ import ActionModal from '@/Components/ActionModal';
 import CustomSelect from '@/Components/CustomSelect';
 import SortableHeader from '@/Components/SortableHeader';
 import Pagination from '@/Components/Pagination';
+import { formatHotelShort, formatHotelDateTime } from '@/Utils/datetime';
 
 const STATUS_TABS = [
     { key: 'all', label: 'All Stays', color: 'text-brand-400', dot: 'bg-brand-400' },
@@ -609,8 +610,8 @@ export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCod
                                                     <td className="px-4 py-3 text-slate-300 font-mono leading-normal">
                                                         {firstBooking.check_in ? (
                                                             <>
-                                                                <div className="text-[10px] text-slate-400 font-sans">IN: <span className="font-mono font-bold text-slate-300">{new Date(firstBooking.check_in).toLocaleString('en-US', { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</span></div>
-                                                                <div className="text-[10px] text-slate-400 font-sans mt-0.5">OUT: <span className="font-mono font-bold text-slate-300">{new Date(firstBooking.expected_check_out).toLocaleString('en-US', { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</span></div>
+                                                                <div className="text-[10px] text-slate-400 font-sans">IN: <span className="font-mono font-bold text-slate-300">{formatHotelShort(firstBooking.check_in)}</span></div>
+                                                                <div className="text-[10px] text-slate-400 font-sans mt-0.5">OUT: <span className="font-mono font-bold text-slate-300">{formatHotelShort(firstBooking.expected_check_out)}</span></div>
                                                             </>
                                                         ) : '-'}
                                                     </td>
@@ -710,10 +711,10 @@ export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCod
                                                 {booking.room?.type && <div className="text-slate-500 text-[10px]">{booking.room.type.type_name}</div>}
                                             </td>
                                             <td className="px-4 py-3 text-slate-300 font-mono">
-                                                {booking.check_in ? new Date(booking.check_in).toLocaleString('en-US', { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-'}
+                                                {booking.check_in ? formatHotelShort(booking.check_in) : '-'}
                                             </td>
                                             <td className="px-4 py-3 text-slate-300 font-mono">
-                                                {booking.expected_check_out ? new Date(booking.expected_check_out).toLocaleString('en-US', { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-'}
+                                                {booking.expected_check_out ? formatHotelShort(booking.expected_check_out) : '-'}
                                             </td>
                                             <td className="px-4 py-3">
                                                 <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-black uppercase ${booking.booking_type === 'overnight'
@@ -1249,7 +1250,7 @@ export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCod
                                                     <div className="flex flex-col gap-1 bg-[#0f172a]/65 p-3 rounded-xl border border-[#334155] mt-1">
                                                         <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1"><Calendar size={10} /> Expected Check-Out</span>
                                                         <span className="text-xs text-slate-300 font-bold font-mono">
-                                                            {calc.expected_check_out || calc.totals?.expected_check_out ? new Date(calc.expected_check_out || calc.totals?.expected_check_out).toLocaleString() : '-'}
+                                                            {calc.expected_check_out || calc.totals?.expected_check_out ? formatHotelDateTime(calc.expected_check_out || calc.totals?.expected_check_out) : '-'}
                                                         </span>
                                                     </div>
                                                 </>
@@ -1599,7 +1600,7 @@ export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCod
                                                     <div className="flex flex-col gap-1 bg-[#0f172a]/65 p-3 rounded-xl border border-[#334155]">
                                                         <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1"><Calendar size={10} /> Expected Out</span>
                                                         <span className="text-xs text-slate-300 font-bold font-mono">
-                                                            {(editCalc.totals?.expected_check_out ?? editCalc.expected_check_out) ? new Date(editCalc.totals?.expected_check_out ?? editCalc.expected_check_out).toLocaleString() : '-'}
+                                                            {(editCalc.totals?.expected_check_out ?? editCalc.expected_check_out) ? formatHotelDateTime(editCalc.totals?.expected_check_out ?? editCalc.expected_check_out) : '-'}
                                                         </span>
                                                     </div>
                                                 </div>

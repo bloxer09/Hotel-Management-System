@@ -39,6 +39,7 @@ import {
     Legend
 } from 'recharts';
 import CustomSelect from '@/Components/CustomSelect';
+import { formatHotelShort, formatHotelTime } from '@/Utils/datetime';
 
 export default function Dashboard({ stats, charts, recentBookings, lowStockItems, activeShift, liveUpdates = [], upcomingCheckins = [], upcomingCheckouts = [], recentExpenses = [], todayArrivals = [] }) {
     const [revenuePeriod, setRevenuePeriod] = useState('today');
@@ -365,7 +366,7 @@ export default function Dashboard({ stats, charts, recentBookings, lowStockItems
                                 <div className="mt-3 flex flex-col gap-1.5">
                                     {todayArrivals.length > 0 ? todayArrivals.slice(0, 3).map(booking => (
                                         <Link key={booking.id} href={route('reservations.index') + '?view=calendar'} className="flex items-center justify-between gap-2 text-[10px] text-slate-400 hover:text-slate-200 transition-colors">
-                                            <span className="truncate"><span className="font-mono text-indigo-300">{new Date(String(booking.check_in).replace(' ', 'T')).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</span> · Room {booking.room?.room_number || '—'} · {booking.guest_name}</span>
+                                            <span className="truncate"><span className="font-mono text-indigo-300">{formatHotelTime(booking.check_in)}</span> · Room {booking.room?.room_number || '—'} · {booking.guest_name}</span>
                                         </Link>
                                     )) : <span className="text-[10px] text-slate-500">No booked arrivals today.</span>}
                                 </div>
@@ -853,7 +854,7 @@ export default function Dashboard({ stats, charts, recentBookings, lowStockItems
                                                             <div className="text-[10px] text-slate-400 font-mono">{b.booking_ref}</div>
                                                         </td>
                                                         <td className="px-4 py-3 text-slate-300 hidden sm:table-cell font-mono">
-                                                            {new Date(b.check_in).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                                            {formatHotelShort(b.check_in)}
                                                         </td>
                                                         <td className="px-4 py-3 text-right">
                                                             <Link
@@ -897,7 +898,7 @@ export default function Dashboard({ stats, charts, recentBookings, lowStockItems
                                                             <div className="text-[10px] text-slate-400 font-mono">{b.booking_ref}</div>
                                                         </td>
                                                         <td className="px-4 py-3 text-slate-300 hidden sm:table-cell font-mono">
-                                                            {new Date(b.expected_check_out).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                                            {formatHotelShort(b.expected_check_out)}
                                                         </td>
                                                         <td className="px-4 py-3 text-right">
                                                             <Link

@@ -13,6 +13,7 @@ import ImagePreviewModal from '@/Components/ImagePreviewModal';
 import ReceiptModal from '@/Components/ReceiptModal';
 import CustomSelect from '@/Components/CustomSelect';
 import axios from 'axios';
+import { formatHotelDateTime } from '@/Utils/datetime';
 
 export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode = 'checkin' }) {
     const { auth } = usePage().props;
@@ -336,16 +337,16 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
                                                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-[#0f172a]/30 border border-[#334155]/60 p-3 rounded-xl">
                                                         <div className="flex flex-col gap-1">
                                                             <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Checked In</span>
-                                                            <span className="font-mono text-slate-300 font-bold">{new Date(booking.check_in).toLocaleString()}</span>
+                                                            <span className="font-mono text-slate-300 font-bold">{formatHotelDateTime(booking.check_in)}</span>
                                                         </div>
                                                         <div className="flex flex-col gap-1 border-t sm:border-t-0 sm:border-l border-[#334155]/60 pt-2 sm:pt-0 sm:pl-3">
                                                             <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Expected Checkout</span>
-                                                            <span className="font-mono text-slate-300 font-bold">{new Date(booking.expected_check_out).toLocaleString()}</span>
+                                                            <span className="font-mono text-slate-300 font-bold">{formatHotelDateTime(booking.expected_check_out)}</span>
                                                         </div>
                                                         <div className="flex flex-col gap-1 border-t sm:border-t-0 sm:border-l border-[#334155]/60 pt-2 sm:pt-0 sm:pl-3">
                                                             <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Actual Checkout</span>
                                                             <span className="font-mono text-slate-300 font-bold">
-                                                                {booking.check_out ? new Date(booking.check_out).toLocaleString() : 'Active stay'}
+                                                                {booking.check_out ? formatHotelDateTime(booking.check_out) : 'Active stay'}
                                                             </span>
                                                         </div>
                                                     </div>

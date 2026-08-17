@@ -17,6 +17,7 @@ import {
     Printer
 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { formatHotelDate } from '@/Utils/datetime';
 
 export default function Show({ guest, bookings }) {
     const { auth } = usePage().props;
@@ -175,9 +176,9 @@ export default function Show({ guest, bookings }) {
                                                 </td>
                                                 <td className="py-3.5">
                                                     <div className="flex items-center gap-1 text-[10px] text-slate-400">
-                                                        <span>{new Date(b.check_in).toLocaleDateString(undefined, { dateStyle: 'short' })}</span>
+                                                        <span>{formatHotelDate(b.check_in)}</span>
                                                         <span>→</span>
-                                                        <span>{b.check_out ? new Date(b.check_out).toLocaleDateString(undefined, { dateStyle: 'short' }) : new Date(b.expected_check_out).toLocaleDateString(undefined, { dateStyle: 'short' })}</span>
+                                                        <span>{formatHotelDate(b.check_out || b.expected_check_out)}</span>
                                                     </div>
                                                 </td>
                                                 <td className="py-3.5 font-mono">

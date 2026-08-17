@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, usePage } from '@inertiajs/react';
 import { Printer, ArrowLeft, Building, User, Calendar, CreditCard, Clipboard, Award, Crown } from 'lucide-react';
+import { formatHotelDateTime } from '@/Utils/datetime';
 
 export default function Receipt({ booking, transactions, settings }) {
     const { app_name } = usePage().props;
@@ -227,13 +228,13 @@ export default function Receipt({ booking, transactions, settings }) {
                                 <div className="grid grid-cols-3 py-0.5">
                                     <span className="text-slate-500 font-bold">Check-In</span>
                                     <span className="col-span-2 text-slate-300 print:text-black font-medium">
-                                        {formatDate(booking.check_in)}
+                                        {formatHotelDateTime(booking.check_in)}
                                     </span>
                                 </div>
                                 <div className="grid grid-cols-3 py-0.5">
                                     <span className="text-slate-500 font-bold">Check-Out</span>
                                     <span className="col-span-2 text-slate-300 print:text-black font-medium">
-                                        {formatDate(booking.check_out || booking.expected_check_out)}
+                                        {formatHotelDateTime(booking.check_out || booking.expected_check_out)}
                                     </span>
                                 </div>
                             </div>
@@ -483,8 +484,8 @@ export default function Receipt({ booking, transactions, settings }) {
                     <div><strong>Guest:</strong> {booking.guest_name}</div>
                     <div><strong>Room:</strong> Room {booking.room?.room_number} ({booking.room?.type?.type_name})</div>
                     <div><strong>Stay:</strong> {displayStayType} {booking.short_time_hours ? `(${booking.short_time_hours}h)` : ''}</div>
-                    <div><strong>Check-In:</strong> {formatDate(booking.check_in)}</div>
-                    <div><strong>Check-Out:</strong> {formatDate(booking.check_out || booking.expected_check_out)}</div>
+                    <div><strong>Check-In:</strong> {formatHotelDateTime(booking.check_in)}</div>
+                    <div><strong>Check-Out:</strong> {formatHotelDateTime(booking.check_out || booking.expected_check_out)}</div>
                 </div>
 
                 <div className="border-t border-dashed border-black my-2"></div>

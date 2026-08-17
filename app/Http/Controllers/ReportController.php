@@ -8,6 +8,7 @@ use App\Models\MaintenanceTicket;
 use App\Models\Payment;
 use App\Models\Room;
 use App\Models\Transaction;
+use App\Support\HotelDateTime;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
@@ -41,10 +42,12 @@ class ReportController extends Controller
 
         $startCarbon = Carbon::parse($dateFrom)->startOfDay();
         $endCarbon = Carbon::parse($dateTo)->endOfDay();
+        [$stayStart, $stayEnd] = HotelDateTime::dateWindow($dateFrom, $dateTo);
+        $hotelNow = HotelDateTime::toDatabase();
 
         // Summary from bookings table (matching reference)
         $summary = DB::table('bookings')
-            ->whereBetween('check_in', [$startCarbon, $endCarbon])
+            ->whereBetween('check_in', [$stayStart, $stayEnd])
             ->whereNotIn('status', ['cancelled', 'no_show'])
             ->selectRaw("
                 COUNT(*) as total_bookings,
@@ -85,7 +88,7 @@ class ReportController extends Controller
         $byRoomType = DB::table('bookings as b')
             ->join('rooms as r', 'b.room_id', '=', 'r.id')
             ->join('room_types as rt', 'r.room_type_id', '=', 'rt.id')
-            ->whereBetween('b.check_in', [$startCarbon, $endCarbon])
+            ->whereBetween('b.check_in', [$stayStart, $stayEnd])
             ->whereNotIn('b.status', ['cancelled', 'no_show'])
             ->selectRaw('rt.type_name, COUNT(b.id) as cnt, COALESCE(SUM(b.base_amount + b.peak_surcharge + b.extra_pax_charges - b.discount_amount + b.extension_fee + b.late_checkout_fee),0) as revenue')
             ->groupBy('rt.id', 'rt.type_name')
@@ -97,7 +100,7 @@ class ReportController extends Controller
             ->join('rooms as r', 'b.room_id', '=', 'r.id')
             ->join('room_types as rt', 'r.room_type_id', '=', 'rt.id')
             ->leftJoin('users as u', 'b.checked_out_by', '=', 'u.id')
-            ->whereBetween('b.check_in', [$startCarbon, $endCarbon])
+            ->whereBetween('b.check_in', [$stayStart, $stayEnd])
             ->whereNotIn('b.status', ['cancelled', 'no_show'])
             ->selectRaw('
                 b.id, b.booking_ref, b.guest_name, b.booking_type, b.check_in, b.check_out, b.expected_check_out,
@@ -146,7 +149,7 @@ class ReportController extends Controller
             ->join('bookings as b', 'b.id', '=', 'pa.booking_id')
             ->where('p.status', 'verified')
             ->whereBetween('p.received_at', [$startCarbon, $endCarbon])
-            ->where('b.check_in', '>', now())
+            ->where('b.check_in', '>', $hotelNow)
             ->selectRaw("
                 COALESCE(SUM(CASE WHEN p.payment_type NOT IN ('refund','reversal') THEN pa.allocated_amount ELSE 0 END),0)
                 - COALESCE(SUM(CASE WHEN p.payment_type IN ('refund','reversal') THEN pa.allocated_amount ELSE 0 END),0) AS net
@@ -155,7 +158,7 @@ class ReportController extends Controller
         $advanceDeposits = (float) ($advanceDepositRow->net ?? 0);
 
         $recognizedStayRevenueRow = Booking::whereIn('status', ['active', 'checked_out'])
-            ->whereBetween('check_in', [$startCarbon, $endCarbon])
+            ->whereBetween('check_in', [$stayStart, $stayEnd])
             ->selectRaw('COALESCE(SUM(base_amount + peak_surcharge + extra_pax_charges - discount_amount + extension_fee + late_checkout_fee), 0) AS total')
             ->first();
         $recognizedStayRevenue = (float) ($recognizedStayRevenueRow->total ?? 0);
@@ -217,9 +220,11 @@ class ReportController extends Controller
 
         $exportStart = Carbon::parse($dateFrom)->startOfDay();
         $exportEnd = Carbon::parse($dateTo)->endOfDay();
+        [$stayStart, $stayEnd] = HotelDateTime::dateWindow($dateFrom, $dateTo);
+        $hotelNow = HotelDateTime::toDatabase();
 
         $summary = DB::table('bookings')
-            ->whereBetween('check_in', [$exportStart, $exportEnd])
+            ->whereBetween('check_in', [$stayStart, $stayEnd])
             ->whereNotIn('status', ['cancelled', 'no_show'])
             ->selectRaw('COUNT(*) as total_bookings,COALESCE(SUM(amount_paid),0) as total_revenue,COALESCE(SUM(cash_amount),0) as total_cash,COALESCE(SUM(gcash_amount),0) as total_gcash,COALESCE(SUM(discount_amount),0) as total_discount')
             ->first();
@@ -228,7 +233,7 @@ class ReportController extends Controller
             ->join('rooms as r', 'b.room_id', '=', 'r.id')
             ->join('room_types as rt', 'r.room_type_id', '=', 'rt.id')
             ->leftJoin('users as u', 'b.checked_out_by', '=', 'u.id')
-            ->whereBetween('b.check_in', [$exportStart, $exportEnd])
+            ->whereBetween('b.check_in', [$stayStart, $stayEnd])
             ->whereNotIn('b.status', ['cancelled', 'no_show'])
             ->selectRaw('b.booking_ref,b.guest_name,r.room_number,rt.type_name,b.check_in,b.check_out,b.booking_type,b.base_amount,b.peak_surcharge,b.discount_type,b.discount_amount,b.extension_fee,b.late_checkout_fee,b.total_amount,b.amount_paid,b.payment_method,b.cash_amount,b.gcash_amount,b.gcash_ref,u.full_name as cashier_name,b.status,b.notes')
             ->orderByDesc('b.check_in')
@@ -270,12 +275,12 @@ class ReportController extends Controller
             ->join('bookings as b', 'b.id', '=', 'pa.booking_id')
             ->where('p.status', 'verified')
             ->whereBetween('p.received_at', [$start, $end])
-            ->where('b.check_in', '>', now())
+            ->where('b.check_in', '>', $hotelNow)
             ->selectRaw("COALESCE(SUM(CASE WHEN p.payment_type NOT IN ('refund','reversal') THEN pa.allocated_amount ELSE 0 END),0) - COALESCE(SUM(CASE WHEN p.payment_type IN ('refund','reversal') THEN pa.allocated_amount ELSE 0 END),0) AS net")
             ->first();
         $advanceDeposits = (float) ($advanceRow->net ?? 0);
         $revenueRow = Booking::whereIn('status', ['active', 'checked_out'])
-            ->whereBetween('check_in', [$start, $end])
+            ->whereBetween('check_in', [$stayStart, $stayEnd])
             ->selectRaw('COALESCE(SUM(base_amount + peak_surcharge + extra_pax_charges - discount_amount + extension_fee + late_checkout_fee), 0) AS total')
             ->first();
         $roomRevenue = (float) ($revenueRow->total ?? 0);
@@ -378,18 +383,20 @@ class ReportController extends Controller
             abort(403, 'Unauthorized access to analytics.');
         }
 
-        $monthStr = $request->input('month', Carbon::today()->format('Y-m'));
+        $monthStr = $request->input('month', HotelDateTime::now()->format('Y-m'));
         $selectedRoomId = $request->input('room_id');
 
         try {
             $month = Carbon::parse($monthStr.'-01');
         } catch (\Exception $e) {
-            $month = Carbon::today()->startOfMonth();
+            $month = Carbon::parse(HotelDateTime::now()->format('Y-m').'-01');
             $monthStr = $month->format('Y-m');
         }
 
         $monthStart = $month->copy()->startOfMonth();
         $monthEnd = $month->copy()->endOfMonth();
+        [$stayMonthStart, $stayMonthEnd] = HotelDateTime::monthWindow($monthStr);
+        $hotelToday = HotelDateTime::today()->toDateString();
 
         $rooms = Room::orderBy('room_number', 'asc')->get(['id', 'room_number', 'status']);
         $roomsCount = $rooms->count();
@@ -397,10 +404,10 @@ class ReportController extends Controller
 
         // Get bookings active during this month (filtered by selected room if applicable)
         $bookingsQuery = Booking::where('status', '!=', 'cancelled')
-            ->where('check_in', '<=', $monthEnd)
-            ->where(function ($q) use ($monthStart) {
+            ->where('check_in', '<=', $stayMonthEnd)
+            ->where(function ($q) use ($stayMonthStart) {
                 $q->whereNull('check_out')
-                    ->orWhere('check_out', '>=', $monthStart);
+                    ->orWhere('check_out', '>=', $stayMonthStart);
             });
 
         if ($selectedRoom) {
@@ -435,7 +442,7 @@ class ReportController extends Controller
                 // If it is vacant today, check if it has a reserved booking starting today
                 $hasReservationToday = Booking::where('room_id', $selectedRoom->id)
                     ->where('status', 'reserved')
-                    ->whereDate('check_in', Carbon::today())
+                    ->whereDate('check_in', $hotelToday)
                     ->exists();
                 if ($hasReservationToday) {
                     $todayLiveReserved = 1;
@@ -446,7 +453,7 @@ class ReportController extends Controller
             for ($d = 1; $d <= $daysInMonth; $d++) {
                 $day = $month->copy()->day($d);
                 $dayStr = $day->format('Y-m-d');
-                $isToday = $day->isToday();
+                $isToday = $dayStr === $hotelToday;
 
                 if ($isToday) {
                     $guestName = null;
@@ -458,7 +465,7 @@ class ReportController extends Controller
                     } elseif ($todayLiveReserved) {
                         $resBooking = Booking::where('room_id', $selectedRoom->id)
                             ->where('status', 'reserved')
-                            ->whereDate('check_in', Carbon::today())
+                            ->whereDate('check_in', $hotelToday)
                             ->first();
                         $guestName = $resBooking ? $resBooking->guest_name : 'Reserved';
                     }
@@ -477,18 +484,20 @@ class ReportController extends Controller
                 } else {
                     $dayStart = $day->copy()->startOfDay();
                     $dayEnd = $day->copy()->endOfDay();
+                    $hotelDayStart = HotelDateTime::startOfDay($dayStr);
+                    $hotelDayEnd = HotelDateTime::endOfDay($dayStr);
 
-                    // Check if room is occupied or reserved on this specific day
+                    // Check if room is occupied or reserved on this specific hotel-local day
                     $occupied = 0;
                     $reserved = 0;
                     $guestName = null;
                     foreach ($bookings as $booking) {
-                        $checkIn = Carbon::parse($booking->check_in);
-                        $checkOut = $booking->check_out ? Carbon::parse($booking->check_out) : null;
-                        $expected = $booking->expected_check_out ? Carbon::parse($booking->expected_check_out) : null;
-                        $effOut = $checkOut ?: $expected ?: now();
+                        $checkIn = HotelDateTime::fromStay($booking->check_in);
+                        $checkOut = $booking->check_out ? HotelDateTime::fromStay($booking->check_out) : null;
+                        $expected = $booking->expected_check_out ? HotelDateTime::fromStay($booking->expected_check_out) : null;
+                        $effOut = $checkOut ?: $expected ?: HotelDateTime::now();
 
-                        if ($checkIn->lt($dayEnd) && $effOut->gt($dayStart)) {
+                        if ($checkIn->lt($hotelDayEnd) && $effOut->gt($hotelDayStart)) {
                             if ($booking->status === 'reserved') {
                                 $reserved = 1;
                             } else {
@@ -537,14 +546,14 @@ class ReportController extends Controller
             $liveCleaning = Room::where('status', 'cleaning')->count();
             $liveOoo = Room::where('status', 'out_of_order')->count();
             $liveReserved = Booking::where('status', 'reserved')
-                ->whereDate('check_in', Carbon::today())
+                ->whereDate('check_in', $hotelToday)
                 ->count();
             $liveVacant = max(0, $liveVacant - $liveReserved);
 
             for ($d = 1; $d <= $daysInMonth; $d++) {
                 $day = $month->copy()->day($d);
                 $dayStr = $day->format('Y-m-d');
-                $isToday = $day->isToday();
+                $isToday = $dayStr === $hotelToday;
 
                 if ($isToday) {
                     $dailyStats[] = [
@@ -559,18 +568,20 @@ class ReportController extends Controller
                 } else {
                     $dayStart = $day->copy()->startOfDay();
                     $dayEnd = $day->copy()->endOfDay();
+                    $hotelDayStart = HotelDateTime::startOfDay($dayStr);
+                    $hotelDayEnd = HotelDateTime::endOfDay($dayStr);
 
                     $occupied = 0;
                     $reserved = 0;
                     $occupiedRoomIds = [];
                     $reservedRoomIds = [];
                     foreach ($bookings as $booking) {
-                        $checkIn = Carbon::parse($booking->check_in);
-                        $checkOut = $booking->check_out ? Carbon::parse($booking->check_out) : null;
-                        $expected = $booking->expected_check_out ? Carbon::parse($booking->expected_check_out) : null;
-                        $effOut = $checkOut ?: $expected ?: now();
+                        $checkIn = HotelDateTime::fromStay($booking->check_in);
+                        $checkOut = $booking->check_out ? HotelDateTime::fromStay($booking->check_out) : null;
+                        $expected = $booking->expected_check_out ? HotelDateTime::fromStay($booking->expected_check_out) : null;
+                        $effOut = $checkOut ?: $expected ?: HotelDateTime::now();
 
-                        if ($checkIn->lt($dayEnd) && $effOut->gt($dayStart)) {
+                        if ($checkIn->lt($hotelDayEnd) && $effOut->gt($hotelDayStart)) {
                             if ($booking->status === 'reserved') {
                                 $reserved++;
                                 $reservedRoomIds[] = $booking->room_id;

@@ -6,7 +6,7 @@ use App\Models\Booking;
 use App\Models\InventoryChangeRequest;
 use App\Models\InventoryItem;
 use App\Models\MaintenanceTicket;
-use Carbon\Carbon;
+use App\Support\HotelDateTime;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -33,13 +33,14 @@ class NotificationController extends Controller
             : 'notifications.user_'.$user->id;
         $data = Cache::remember($cacheKey, 15, function () use ($user) {
             $minutesAhead = 60;
-            $now = Carbon::now();
+            $now = HotelDateTime::now();
+            $dueSoonCutoff = HotelDateTime::toDatabase($now->copy()->addMinutes($minutesAhead));
 
             // ─── 1. Checkout Alerts ────────────────────────────────────────────────
             $checkoutRows = Booking::with(['room', 'room.type'])
                 ->where('status', 'active')
                 ->whereNotNull('expected_check_out')
-                ->where('expected_check_out', '<=', $now->copy()->addMinutes($minutesAhead))
+                ->where('expected_check_out', '<=', $dueSoonCutoff)
                 ->orderBy('expected_check_out', 'asc')
                 ->get();
 
@@ -48,7 +49,7 @@ class NotificationController extends Controller
             $overdueCount = 0;
 
             foreach ($checkoutRows as $row) {
-                $expectedOut = Carbon::parse($row->expected_check_out);
+                $expectedOut = HotelDateTime::fromStay($row->expected_check_out);
                 $diffSeconds = $expectedOut->diffInSeconds($now, false);
 
                 if ($diffSeconds >= 0) {
@@ -60,7 +61,7 @@ class NotificationController extends Controller
                         'booking_ref' => $row->booking_ref,
                         'guest_name' => $row->guest_name,
                         'room_number' => $row->room->room_number ?? '?',
-                        'expected_check_out' => $expectedOut->toIso8601String(),
+                        'expected_check_out' => HotelDateTime::toDatabase($expectedOut),
                         'overdue_seconds' => $diffSeconds,
                         'message' => 'Overdue check-out: Room '.($row->room->room_number ?? '?')." ({$row->guest_name})",
                     ];
@@ -73,7 +74,7 @@ class NotificationController extends Controller
                         'booking_ref' => $row->booking_ref,
                         'guest_name' => $row->guest_name,
                         'room_number' => $row->room->room_number ?? '?',
-                        'expected_check_out' => $expectedOut->toIso8601String(),
+                        'expected_check_out' => HotelDateTime::toDatabase($expectedOut),
                         'due_in_seconds' => abs($diffSeconds),
                         'message' => 'Check-out due soon: Room '.($row->room->room_number ?? '?')." ({$row->guest_name})",
                     ];

@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { Head } from '@inertiajs/react';
+import { formatHotelDate, formatHotelTime } from '@/Utils/datetime';
 
 const DENOMINATIONS = [
     { key: '1000', label: 'P 1,000' },
@@ -31,12 +32,17 @@ const formatTime = (dateString) => {
     return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
 };
 
+const formatDateTime = (dateString) => {
+    if (!dateString) return '—';
+    return `${formatDate(dateString)} ${formatTime(dateString)}`;
+};
+
 const denomValue = (key, qty) => {
     const vals = { '1000': 1000, '500': 500, '200': 200, '100': 100, '50': 50, '20': 20, '10': 10, '5': 5, '1': 1, '0.25': 0.25, '0.05': 0.05, '0.01': 0.01 };
     return (vals[key] || 0) * (qty || 0);
 };
 
-function DrawerTallyPage({ title, salesLabel, shiftDate, shiftCode, cashierName, datePrinted, cashTally, pageNumber }) {
+function DrawerTallyPage({ title, salesLabel, shiftPeriod, shiftCode, cashierName, datePrinted, cashTally, pageNumber, pageCaption }) {
     const tally = cashTally || {};
     const expenses = tally.expenses || [];
     const movements = tally.cash_movements || [];
@@ -61,14 +67,14 @@ function DrawerTallyPage({ title, salesLabel, shiftDate, shiftCode, cashierName,
     const varianceColor = variance === null ? '' : variance < 0 ? '#fde8e8' : variance > 0 ? '#e8f5e9' : '#e8f4e8';
 
     return (
-        <div className="page page-break">
+        <div className="page page-break tally-page">
             <div className="page2-banner">
                 <h1>{title}</h1>
                 <p>Cash Collection Summary and Reconciliation</p>
             </div>
             <div className="subheader-row">
                 <span style={{ fontWeight: 700, fontSize: 11 }}>PENSION HOUSE DAILY OPERATIONS REPORT</span>
-                <span>Report Date: {shiftDate} &nbsp;|&nbsp; Shift: {shiftCode} &nbsp;|&nbsp; Cashier: {cashierName}</span>
+                <span>Shift Period: {shiftPeriod} &nbsp;|&nbsp; Shift: {shiftCode} &nbsp;|&nbsp; Cashier: {cashierName}</span>
             </div>
             <div className="p2-layout">
                 <div>
@@ -92,7 +98,7 @@ function DrawerTallyPage({ title, salesLabel, shiftDate, shiftCode, cashierName,
                             <tr className="deduct-total"><td>TOTAL LESS / EXPENSES</td><td className="right">{php(totalDeductions)}</td><td></td></tr>
                         </tbody>
                     </table>
-                    <div className="section-title">ADD: OTHER CASH / INCOME</div>
+                    <div className="section-title">DETAIL OF OTHER CASH RECEIPTS (ALREADY INCLUDED ABOVE)</div>
                     <table className="tally-table">
                         <thead><tr><th>INCOME / RECEIPT</th><th className="right" style={{ width: 130 }}>AMOUNT</th><th style={{ width: 150 }}>REFERENCE / REMARKS</th></tr></thead>
                         <tbody>
@@ -133,14 +139,63 @@ function DrawerTallyPage({ title, salesLabel, shiftDate, shiftCode, cashierName,
                     </table>
                 </div>
             </div>
-            <div className="page-footer"><span>Pension House PMS • {title}</span><span>Printed: {datePrinted} &nbsp;|&nbsp; Page {pageNumber} of 5</span></div>
+            <div className="page-footer"><span>Pension House PMS • {title}</span><span>Printed: {datePrinted} &nbsp;|&nbsp; Page {pageNumber} of 6 — {pageCaption}</span></div>
         </div>
     );
 }
 
+const methodLabel = (method) => ({
+    cash: 'Cash',
+    gcash: 'GCash',
+    bank_transfer: 'Bank Transfer',
+    card: 'Card',
+    maya: 'Maya',
+    other_ewallet: 'E-Wallet',
+    other: 'Other',
+}[method] || method);
+
+const bookingStatusLabel = (status) => ({
+    reserved: 'Reserved',
+    active: 'Active',
+    cancelled: 'Cancelled',
+    no_show: 'No Show',
+    checked_out: 'Checked Out',
+    completed: 'Completed',
+}[status] || status);
+
+const bookingTypeLabel = (booking) => {
+    const type = booking.booking_type === 'overnight' ? 'Overnight' : 'Short Time';
+    const source = booking.booking_source === 'online' ? 'Online' : 'Walk-in';
+    return `${type} / ${source}`;
+};
+
+const bookingPaymentCell = (booking) => {
+    const lines = [];
+    const methods = booking.shift_collection_methods || {};
+    const references = booking.shift_collection_references || {};
+    const methodNames = Object.keys(methods).filter((key) => methods[key] > 0);
+
+    if (methodNames.length > 0) {
+        lines.push(methodNames.map((method) => {
+            let label = methodLabel(method);
+            if (method !== 'cash' && references[method]?.length) {
+                label += ` (Ref: ${references[method].join(', ')})`;
+            }
+            return `${label} ${php(methods[method])}`;
+        }).join('\n'));
+    }
+
+    if ((booking.pending_payment_amount || 0) > 0) {
+        lines.push(`Pending verification: ${php(booking.pending_payment_amount)}`);
+    }
+
+    return lines.length > 0 ? lines.join('\n') : '—';
+};
+
 export default function RoomBookingsLedgerPrint({
     shift,
     bookings,
+    booking_transactions = [],
     stay_collections,
     date_printed,
     cash_tally,
@@ -149,9 +204,11 @@ export default function RoomBookingsLedgerPrint({
 }) {
     useEffect(() => { window.print(); }, []);
 
-    const shiftDate = shift.started_at ? formatDate(shift.started_at) : '—';
     const shiftCode = shift.shift_code ? shift.shift_code.toUpperCase() : '—';
     const cashierName = shift.user?.full_name || '—';
+    const shiftPeriod = shift.started_at
+        ? `${formatDateTime(shift.started_at)} – ${shift.ended_at ? formatDateTime(shift.ended_at) : 'Active'}`
+        : '—';
 
     // Page 1 footer totals
     const totalRoomSales = totals?.total_room_sales ?? 0;
@@ -178,6 +235,11 @@ export default function RoomBookingsLedgerPrint({
     const minibarPosSales = minibarData.pos_sales || [];
     const minibarStayCharges = minibarData.stay_charges || [];
     const lowStock = minibarData.low_stock || [];
+    const bookingTransactions = Array.isArray(booking_transactions) ? booking_transactions : [];
+    const reservationsMade = bookingTransactions.length;
+    const totalBookedValue = bookingTransactions.reduce((sum, booking) => sum + Number(booking.total_amount || 0), 0);
+    const verifiedBookingPayments = bookingTransactions.reduce((sum, booking) => sum + Number(booking.shift_collection_amount || 0), 0);
+    const outstandingReservationBalance = bookingTransactions.reduce((sum, booking) => sum + Math.max(0, Number(booking.balance_amount || 0)), 0);
 
     // Compute actual cash count from closing denominations
     const denomRows = DENOMINATIONS.map(d => ({
@@ -206,10 +268,18 @@ export default function RoomBookingsLedgerPrint({
                 body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background: white; color: #1a1a2e; font-size: 11px; }
 
                 @media print {
-                    @page { size: A4 landscape; margin: 8mm 10mm; }
+                    @page { size: A4 landscape; margin: 5mm 10mm; }
                     body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
                     .no-print { display: none !important; }
                     .page-break { page-break-before: always; }
+                    .tally-page .page2-banner { padding: 8px 16px; margin-bottom: 6px; }
+                    .tally-page .subheader-row { margin-bottom: 6px; }
+                    .tally-page .tally-table { margin-bottom: 8px; }
+                    .tally-page .tally-table td { padding: 4px 10px; }
+                    .tally-page .expected-box { padding: 8px 16px; margin-bottom: 8px; }
+                    .tally-page .recon-table { margin-bottom: 8px; }
+                    .tally-page .recon-table td { padding: 4px 10px; }
+                    .tally-page .sig-row { margin-top: 10px !important; }
                 }
 
                 /* ── shared ── */
@@ -293,7 +363,7 @@ export default function RoomBookingsLedgerPrint({
                 {/* Sub-header */}
                 <div className="subheader-row">
                     <span style={{ fontWeight: 700, fontSize: 11 }}>PENSION HOUSE DAILY OPERATIONS REPORT</span>
-                    <span>Report Date: {shiftDate} &nbsp;|&nbsp; Shift: {shiftCode} &nbsp;|&nbsp; Cashier: {cashierName}</span>
+                    <span>Shift Period: {shiftPeriod} &nbsp;|&nbsp; Shift: {shiftCode} &nbsp;|&nbsp; Cashier: {cashierName}</span>
                 </div>
 
                 {/* Main Logbook Table */}
@@ -403,10 +473,10 @@ export default function RoomBookingsLedgerPrint({
 
                             return (
                                 <tr key={b.id}>
-                                    <td>{formatDate(b.check_in)}</td>
-                                    <td>{formatTime(b.check_in)}</td>
+                                    <td>{formatHotelDate(b.check_in)}</td>
+                                    <td>{formatHotelTime(b.check_in)}</td>
                                     <td style={{ whiteSpace: 'pre-line' }}>
-                                        {formatDate(b.check_out || b.expected_check_out)}{'\n'}{formatTime(b.check_out || b.expected_check_out)}
+                                        {formatHotelDate(b.check_out || b.expected_check_out)}{'\n'}{formatHotelTime(b.check_out || b.expected_check_out)}
                                     </td>
                                     <td className="td-bold">{b.room?.room_number || '—'}</td>
                                     <td>{hrsLabel}</td>
@@ -447,7 +517,7 @@ export default function RoomBookingsLedgerPrint({
                         <div className="value">{php(totalRoomSales)}</div>
                     </div>
                     <div className="footer-box">
-                        <div className="label">Cash Collection</div>
+                        <div className="label">Total Cash Payments on Reported Stays</div>
                         <div className="value">{php(cashCollection)}</div>
                     </div>
                     <div className="footer-box">
@@ -458,6 +528,9 @@ export default function RoomBookingsLedgerPrint({
                         <div className="label">Outstanding Balance</div>
                         <div className="value">{php(outstandingBalance)}</div>
                     </div>
+                </div>
+                <div style={{ fontSize: 8.5, color: '#555', fontStyle: 'italic', marginTop: 6 }}>
+                    Includes prior cash downpayments. See Daily Cash Tally for cash physically received during this shift.
                 </div>
 
                 {/* Signature Lines */}
@@ -475,12 +548,108 @@ export default function RoomBookingsLedgerPrint({
                 {/* Page Footer */}
                 <div className="page-footer">
                     <span>Pension House PMS • Front Desk Room Sales Logbook</span>
-                    <span>Printed: {date_printed} &nbsp;|&nbsp; Page 1 of 5</span>
+                    <span>Printed: {date_printed} &nbsp;|&nbsp; Page 1 of 6 — Room Sales Logbook</span>
                 </div>
             </div>
 
             {/* ═══════════════════════════════════════════════════ PAGE 2 ══ */}
             <div className="page page-break">
+                <div className="banner">
+                    <h1>FRONT DESK BOOKING TRANSACTIONS</h1>
+                    <p>Reservations Created During This Shift</p>
+                </div>
+                <div className="subheader-row">
+                    <span style={{ fontWeight: 700, fontSize: 11 }}>PENSION HOUSE DAILY OPERATIONS REPORT</span>
+                    <span>Shift Period: {shiftPeriod} &nbsp;|&nbsp; Shift: {shiftCode} &nbsp;|&nbsp; Cashier: {cashierName}</span>
+                </div>
+                <table className="ledger-table" style={{ fontSize: 10 }}>
+                    <thead>
+                        <tr>
+                            <th style={{ width: 78 }}>BOOKED AT</th>
+                            <th style={{ width: 92 }}>BOOKING REF</th>
+                            <th style={{ width: 48 }}>ROOM</th>
+                            <th>GUEST / CONTACT</th>
+                            <th style={{ width: 110 }}>STAY SCHEDULE</th>
+                            <th style={{ width: 88 }}>TYPE / SOURCE</th>
+                            <th style={{ width: 78 }}>BOOKING TOTAL</th>
+                            <th style={{ width: 78 }}>PAID THIS SHIFT</th>
+                            <th style={{ width: 120 }}>PAYMENT / REFERENCE</th>
+                            <th style={{ width: 72 }}>BALANCE</th>
+                            <th style={{ width: 78 }}>STATUS</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {bookingTransactions.length === 0 ? (
+                            <tr>
+                                <td colSpan={11} style={{ padding: '24px', color: '#888', fontStyle: 'italic' }}>
+                                    No reservations were created by this Front Desk officer during this shift.
+                                </td>
+                            </tr>
+                        ) : bookingTransactions.map((booking) => {
+                            const isClosedStatus = booking.status === 'cancelled' || booking.status === 'no_show';
+                            return (
+                                <tr key={booking.id}>
+                                    <td style={{ whiteSpace: 'pre-line' }}>{formatDate(booking.created_at)}{'\n'}{formatTime(booking.created_at)}</td>
+                                    <td className="td-bold">{booking.booking_ref}</td>
+                                    <td className="td-bold">{booking.room?.room_number || '—'}</td>
+                                    <td className="td-left" style={{ whiteSpace: 'pre-line' }}>
+                                        <strong style={{ textTransform: 'uppercase' }}>{booking.guest_name}</strong>
+                                        {'\n'}{booking.guest_contact || '—'}
+                                    </td>
+                                    <td style={{ whiteSpace: 'pre-line' }}>
+                                        {formatHotelDate(booking.check_in)} {formatHotelTime(booking.check_in)}
+                                        {'\n'}to {formatHotelDate(booking.check_out || booking.expected_check_out)} {formatHotelTime(booking.check_out || booking.expected_check_out)}
+                                    </td>
+                                    <td>{bookingTypeLabel(booking)}</td>
+                                    <td className="td-bold">{php(booking.total_amount)}</td>
+                                    <td className="td-bold">{php(booking.shift_collection_amount)}</td>
+                                    <td className="td-left" style={{ whiteSpace: 'pre-line', fontSize: 9.5 }}>{bookingPaymentCell(booking)}</td>
+                                    <td className="td-bold">{php(booking.balance_amount)}</td>
+                                    <td className="td-bold" style={{ color: isClosedStatus ? '#c62828' : undefined }}>{bookingStatusLabel(booking.status)}</td>
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+                <div className="footer-totals">
+                    <div className="footer-box">
+                        <div className="label">Reservations Made</div>
+                        <div className="value">{reservationsMade}</div>
+                    </div>
+                    <div className="footer-box">
+                        <div className="label">Total Booked Value</div>
+                        <div className="value">{php(totalBookedValue)}</div>
+                    </div>
+                    <div className="footer-box">
+                        <div className="label">Verified Payments Collected During Shift</div>
+                        <div className="value">{php(verifiedBookingPayments)}</div>
+                    </div>
+                    <div className="footer-box highlight">
+                        <div className="label">Outstanding Reservation Balance</div>
+                        <div className="value">{php(outstandingReservationBalance)}</div>
+                    </div>
+                </div>
+                <div style={{ fontSize: 8.5, color: '#555', fontStyle: 'italic', marginTop: 6 }}>
+                    Booking value is informational only and is not included in Total Room Sales, Cash Collection, Digital Payment, or Daily Cash Tally.
+                    {' '}Booking transaction records are for audit purposes and may also appear in the Room Sales Logbook after check-in. Do not add these totals to Room Sales.
+                </div>
+                <div className="sig-row">
+                    <div className="sig-box">
+                        <div className="sig-line"></div>
+                        <div className="sig-label">Prepared by: Front Desk Officer</div>
+                    </div>
+                    <div className="sig-box">
+                        <div className="sig-line"></div>
+                        <div className="sig-label">Verified by: Duty Manager</div>
+                    </div>
+                </div>
+                <div className="page-footer">
+                    <span>Pension House PMS • Front Desk Booking Transactions</span>
+                    <span>Printed: {date_printed} &nbsp;|&nbsp; Page 2 of 6 — Booking Transactions</span>
+                </div>
+            </div>
+
+            <div className="page page-break tally-page">
                 {/* Banner */}
                 <div className="page2-banner">
                     <h1>DAILY CASH TALLY &amp; DRAWER REPORT</h1>
@@ -490,7 +659,7 @@ export default function RoomBookingsLedgerPrint({
                 {/* Sub-header */}
                 <div className="subheader-row">
                     <span style={{ fontWeight: 700, fontSize: 11 }}>PENSION HOUSE DAILY OPERATIONS REPORT</span>
-                    <span>Report Date: {shiftDate} &nbsp;|&nbsp; Shift: {shiftCode} &nbsp;|&nbsp; Cashier: {cashierName}</span>
+                    <span>Shift Period: {shiftPeriod} &nbsp;|&nbsp; Shift: {shiftCode} &nbsp;|&nbsp; Cashier: {cashierName}</span>
                 </div>
 
                 <div className="p2-layout">
@@ -510,7 +679,7 @@ export default function RoomBookingsLedgerPrint({
                                     <td className="right">{php(openingCash)}</td>
                                 </tr>
                                 <tr>
-                                    <td>Cash check-ins / room collections</td>
+                                    <td>CASH ROOM / RESERVATION PAYMENTS RECEIVED THIS SHIFT</td>
                                     <td className="right">{php(roomSalesCash)}</td>
                                 </tr>
                                 <tr>
@@ -554,7 +723,7 @@ export default function RoomBookingsLedgerPrint({
                         </table>
 
                         {/* Income Table */}
-                        <div className="section-title">ADD: OTHER CASH / INCOME</div>
+                        <div className="section-title">DETAIL OF OTHER CASH RECEIPTS (ALREADY INCLUDED ABOVE)</div>
                         <table className="tally-table">
                             <thead>
                                 <tr>
@@ -672,7 +841,7 @@ export default function RoomBookingsLedgerPrint({
                 {/* Page Footer */}
                 <div className="page-footer">
                     <span>Pension House PMS • Daily Cash Tally &amp; Drawer Report</span>
-                    <span>Printed: {date_printed} &nbsp;|&nbsp; Page 2 of 5</span>
+                    <span>Printed: {date_printed} &nbsp;|&nbsp; Page 3 of 6 — Daily Cash Tally</span>
                 </div>
             </div>
 
@@ -683,7 +852,7 @@ export default function RoomBookingsLedgerPrint({
                 </div>
                 <div className="subheader-row">
                     <span style={{ fontWeight: 700, fontSize: 11 }}>PENSION HOUSE DAILY OPERATIONS REPORT</span>
-                    <span>Report Date: {shiftDate} &nbsp;|&nbsp; Shift: {shiftCode} &nbsp;|&nbsp; Cashier: {cashierName}</span>
+                    <span>Shift Period: {shiftPeriod} &nbsp;|&nbsp; Shift: {shiftCode} &nbsp;|&nbsp; Cashier: {cashierName}</span>
                 </div>
                 <div style={{ marginBottom: 14 }}>
                     <div className="section-title">WALK-IN MINI BAR / POS SALES</div>
@@ -727,18 +896,19 @@ export default function RoomBookingsLedgerPrint({
                         </tbody>
                     </table>
                 </div>
-                <div className="page-footer"><span>Pension House PMS • Mini Bar Sales Logbook</span><span>Printed: {date_printed} &nbsp;|&nbsp; Page 3 of 5</span></div>
+                <div className="page-footer"><span>Pension House PMS • Mini Bar Sales Logbook</span><span>Printed: {date_printed} &nbsp;|&nbsp; Page 4 of 6 — Mini Bar Sales</span></div>
             </div>
 
             <DrawerTallyPage
                 title="MINI BAR DAILY CASH TALLY & DRAWER REPORT"
                 salesLabel="Cash mini bar / POS sales"
-                shiftDate={shiftDate}
+                shiftPeriod={shiftPeriod}
                 shiftCode={shiftCode}
                 cashierName={cashierName}
                 datePrinted={date_printed}
                 cashTally={minibarData.cash_tally}
-                pageNumber={4}
+                pageNumber={5}
+                pageCaption="Mini Bar Cash Tally"
             />
 
             <div className="page page-break">
@@ -748,7 +918,7 @@ export default function RoomBookingsLedgerPrint({
                 </div>
                 <div className="subheader-row">
                     <span style={{ fontWeight: 700, fontSize: 11 }}>PENSION HOUSE DAILY OPERATIONS REPORT</span>
-                    <span>Report Date: {shiftDate} &nbsp;|&nbsp; Shift: {shiftCode} &nbsp;|&nbsp; Cashier: {cashierName}</span>
+                    <span>Shift Period: {shiftPeriod} &nbsp;|&nbsp; Shift: {shiftCode} &nbsp;|&nbsp; Cashier: {cashierName}</span>
                 </div>
                 <table className="tally-table" style={{ fontSize: 11 }}>
                     <thead><tr><th>ITEM NAME</th><th className="right" style={{ width: 120 }}>LIMIT</th><th className="right" style={{ width: 120 }}>CURRENT</th><th style={{ width: 160 }}>STATUS</th></tr></thead>
@@ -762,7 +932,7 @@ export default function RoomBookingsLedgerPrint({
                         ))}
                     </tbody>
                 </table>
-                <div className="page-footer"><span>Pension House PMS • Critical Stock Warnings</span><span>Printed: {date_printed} &nbsp;|&nbsp; Page 5 of 5</span></div>
+                <div className="page-footer"><span>Pension House PMS • Critical Stock Warnings</span><span>Printed: {date_printed} &nbsp;|&nbsp; Page 6 of 6 — Critical Stock Warnings</span></div>
             </div>
 
             {/* Print Button (screen only) */}

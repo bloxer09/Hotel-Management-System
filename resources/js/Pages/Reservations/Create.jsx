@@ -22,6 +22,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import ConfirmModal from '@/Components/ConfirmModal';
 import ActionModal from '@/Components/ActionModal';
 import CustomSelect from '@/Components/CustomSelect';
+import { formatHotelDateTime } from '@/Utils/datetime';
 
 export default function Create({ rooms = [], roomTypes = [], prefilledGuest, promoCodes = [] }) {
     const [conflictAlert, setConflictAlert] = useState(false);
@@ -850,10 +851,10 @@ export default function Create({ rooms = [], roomTypes = [], prefilledGuest, pro
                                         <div className="bg-[#0f172a]/60 border border-[#334155]/60 rounded-xl p-3.5 mt-2 space-y-1.5 leading-normal">
                                             <div className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Expected Stay Duration</div>
                                             <div className="text-xs text-slate-200 font-medium font-mono">
-                                                IN: {new Date(data.check_in).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
+                                                IN: {formatHotelDateTime(data.check_in)}
                                             </div>
                                             <div className="text-xs text-slate-300 font-semibold font-mono">
-                                                OUT: {new Date(getActiveCalc().expected_check_out).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
+                                                OUT: {formatHotelDateTime(getActiveCalc().expected_check_out)}
                                             </div>
                                         </div>
                                     )}

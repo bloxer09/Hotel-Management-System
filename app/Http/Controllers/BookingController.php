@@ -17,7 +17,7 @@ use App\Models\Transaction;
 use App\Services\BookingService;
 use App\Services\InventoryChangeRequestService;
 use App\Services\PaymentService;
-use Carbon\Carbon;
+use App\Support\HotelDateTime;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -48,8 +48,8 @@ class BookingController extends Controller
             ->where('current_stock', '>', 0)
             ->get();
 
-        // Calculate live checkout figures
-        $now = now();
+        // Calculate live checkout figures on the hotel stay clock
+        $now = HotelDateTime::now();
         $lateHours = BookingService::calculateLateCheckoutHours($booking->expected_check_out, $now);
         $lateFee = BookingService::calculateLateCheckoutFee($booking->expected_check_out, $now);
 
@@ -290,12 +290,13 @@ class BookingController extends Controller
         try {
             return DB::transaction(function () use ($booking, $request, $user) {
                 $now = now();
+                $stayNow = HotelDateTime::now();
 
                 $waiveLateFee = (bool) ($request->waive_late_fee ?? false);
 
                 // Calculate late fees
-                $lateHours = BookingService::calculateLateCheckoutHours($booking->expected_check_out, $now);
-                $originalLateFee = BookingService::calculateLateCheckoutFee($booking->expected_check_out, $now);
+                $lateHours = BookingService::calculateLateCheckoutHours($booking->expected_check_out, $stayNow);
+                $originalLateFee = BookingService::calculateLateCheckoutFee($booking->expected_check_out, $stayNow);
                 $lateFee = $waiveLateFee ? 0.00 : $originalLateFee;
 
                 // Fetch inventory totals
@@ -331,7 +332,7 @@ class BookingController extends Controller
                 }
 
                 // Update booking details
-                $booking->check_out = $now->format('Y-m-d H:i:s');
+                $booking->check_out = HotelDateTime::toDatabase();
                 $booking->late_hours = $lateHours;
                 $booking->late_checkout_fee = $lateFee;
                 $booking->total_amount += $additionalDue;
@@ -744,7 +745,9 @@ class BookingController extends Controller
                 $oldRoomId = $booking->room_id;
                 $newRoomId = $room->id;
 
-                $checkInTime = $request->has('check_in') ? Carbon::parse($request->check_in) : Carbon::parse($booking->check_in);
+                $checkInTime = $request->has('check_in')
+                    ? HotelDateTime::parseLocal($request->check_in)
+                    : HotelDateTime::parseLocal(optional($booking->check_in)->format('Y-m-d H:i:s'));
 
                 $reqDiscountType = $request->discount_type ?: '';
                 $reqDiscountAmount = (float) ($request->discount_amount ?: 0);
@@ -777,7 +780,7 @@ class BookingController extends Controller
                 );
 
                 // Overlap check if room has changed or time has changed
-                if ($newRoomId != $oldRoomId || $checkInTime->format('Y-m-d H:i:s') !== $booking->check_in) {
+                if ($newRoomId != $oldRoomId || $checkInTime->format('Y-m-d H:i:s') !== HotelDateTime::toDatabase($booking->check_in)) {
                     $overlap = Booking::where('room_id', $newRoomId)
                         ->where('id', '!=', $booking->id)
                         ->whereIn('status', ['active', 'reserved'])
@@ -819,7 +822,7 @@ class BookingController extends Controller
                 $booking->booking_type = $request->booking_type;
                 $booking->short_time_hours = $request->booking_type !== 'overnight' ? $request->short_time_hours : null;
                 $booking->num_nights = $request->booking_type === 'overnight' ? $request->num_nights : null;
-                $booking->check_in = $checkInTime->format('Y-m-d H:i:s');
+                $booking->check_in = HotelDateTime::toDatabase($checkInTime);
                 $booking->expected_check_out = $pricing['expected_check_out'];
 
                 $booking->base_amount = $pricing['base_amount'];

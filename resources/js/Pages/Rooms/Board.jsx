@@ -34,6 +34,7 @@ import Modal from '@/Components/Modal';
 import AlertModal from '@/Components/AlertModal';
 import ConfirmModal from '@/Components/ConfirmModal';
 import CustomSelect from '@/Components/CustomSelect';
+import { formatHotelDateTime, formatHotelShort, hotelLocalNowTimestamp, hotelLocalTimestamp } from '@/Utils/datetime';
 
 const STATUS_LABELS = { vacant: 'Vacant', occupied: 'Occupied', cleaning: 'Cleaning', out_of_order: 'Out of Order' };
 const STATUS_COLORS = {
@@ -58,15 +59,13 @@ function formatMinsToReadable(totalMins) {
 }
 
 function formatExpectedCheckout(dateStr) {
-    if (!dateStr) return '';
-    const d = new Date(dateStr);
-    return d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    return formatHotelShort(dateStr);
 }
 
 function getCheckoutAlertState(room) {
     if (room.status !== 'occupied' || !room.active_booking?.expected_check_out) return null;
-    const now = Date.now();
-    const expectedTs = new Date(room.active_booking.expected_check_out).getTime();
+    const now = hotelLocalNowTimestamp();
+    const expectedTs = hotelLocalTimestamp(room.active_booking.expected_check_out);
     const diffMs = expectedTs - now;
     if (diffMs < 0) {
         const minsOver = Math.max(1, Math.ceil(Math.abs(diffMs) / 60000));
@@ -114,13 +113,14 @@ export default function Board({ rooms, roomTypes, housekeepers = [] }) {
 
     const getStayProgress = (room) => {
         if (room.status !== 'occupied' || !room.active_booking?.check_in || !room.active_booking?.expected_check_out) return null;
-        const start = new Date(room.active_booking.check_in).getTime();
-        const end = new Date(room.active_booking.expected_check_out).getTime();
+        const start = hotelLocalTimestamp(room.active_booking.check_in);
+        const end = hotelLocalTimestamp(room.active_booking.expected_check_out);
         const total = end - start;
         if (total <= 0) return { pct: 100, minsLeft: 0 };
-        const elapsed = currentTime - start;
+        const nowTs = hotelLocalNowTimestamp();
+        const elapsed = nowTs - start;
         const pct = Math.min(100, Math.max(0, (elapsed / total) * 100));
-        const minsLeft = Math.max(0, Math.ceil((end - currentTime) / 60000));
+        const minsLeft = Math.max(0, Math.ceil((end - nowTs) / 60000));
         return { pct, minsLeft };
     };
 
@@ -666,8 +666,8 @@ export default function Board({ rooms, roomTypes, housekeepers = [] }) {
                                         <div className="flex justify-between"><span className="text-slate-400">Ref:</span><span className="font-mono text-slate-300">{selectedRoom.active_booking.booking_ref}</span></div>
                                         {selectedRoom.active_booking.group_ref && <div className="flex justify-between"><span className="text-slate-400">Group Ref:</span><span className="font-mono text-indigo-400 font-bold">{selectedRoom.active_booking.group_ref}</span></div>}
                                         <div className="flex justify-between"><span className="text-slate-400">Check-In Type:</span><span className="font-bold text-brand-400 uppercase">{selectedRoom.active_booking.booking_type === 'overnight' ? 'Overnight' : `${selectedRoom.active_booking.short_time_hours} Hours`}</span></div>
-                                        <div className="flex justify-between"><span className="text-slate-400">Check-In Time:</span><span className="font-mono text-slate-200">{new Date(selectedRoom.active_booking.check_in).toLocaleString()}</span></div>
-                                        <div className="flex justify-between"><span className="text-slate-400">Checkout Time:</span><span className="font-mono text-rose-400 font-bold">{new Date(selectedRoom.active_booking.expected_check_out).toLocaleString()}</span></div>
+                                        <div className="flex justify-between"><span className="text-slate-400">Check-In Time:</span><span className="font-mono text-slate-200">{formatHotelDateTime(selectedRoom.active_booking.check_in)}</span></div>
+                                        <div className="flex justify-between"><span className="text-slate-400">Checkout Time:</span><span className="font-mono text-rose-400 font-bold">{formatHotelDateTime(selectedRoom.active_booking.expected_check_out)}</span></div>
                                     </div>
                                     <button
                                         type="button"

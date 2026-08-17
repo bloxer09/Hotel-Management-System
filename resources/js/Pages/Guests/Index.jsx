@@ -13,6 +13,7 @@ import ActionModal from '@/Components/ActionModal';
 import CustomSelect from '@/Components/CustomSelect';
 import SortableHeader from '@/Components/SortableHeader';
 import Pagination from '@/Components/Pagination';
+import { formatHotelDate } from '@/Utils/datetime';
 
 const FILTER_TABS = [
     { key: 'all', label: 'All Guests', color: 'text-brand-400', dot: 'bg-brand-400' },
@@ -403,9 +404,9 @@ export default function Index({ guests, currentSearch, currentVip, stats, sortBy
                                                                         </td>
                                                                         <td className="px-4 py-3 text-[10px]">
                                                                             <div className="flex items-center gap-1 text-slate-400">
-                                                                                <span>{new Date(b.check_in).toLocaleDateString(undefined, { dateStyle: 'short' })}</span>
+                                                                                <span>{formatHotelDate(b.check_in)}</span>
                                                                                 <span>→</span>
-                                                                                <span>{b.check_out ? new Date(b.check_out).toLocaleDateString(undefined, { dateStyle: 'short' }) : new Date(b.expected_check_out).toLocaleDateString(undefined, { dateStyle: 'short' })}</span>
+                                                                                <span>{formatHotelDate(b.check_out || b.expected_check_out)}</span>
                                                                             </div>
                                                                         </td>
                                                                         <td className="px-4 py-3 font-mono">

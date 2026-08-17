@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Booking;
 use App\Models\Payment;
 use App\Models\User;
+use App\Support\HotelDateTime;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -117,7 +118,7 @@ class FrontDeskReportController extends Controller
             'paymentAllocations.payment.components',
             'paymentAllocations.payment.recorder',
         ])
-            ->where('check_in', '>', now())
+            ->where('check_in', '>', HotelDateTime::toDatabase())
             ->when($status, fn ($q) => $q->where('status', $status))
             ->when($request->filled('booking_from'), fn ($q) => $q->whereDate('created_at', '>=', $request->booking_from))
             ->when($request->filled('booking_to'), fn ($q) => $q->whereDate('created_at', '<=', $request->booking_to))

@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import CustomSelect from '@/Components/CustomSelect';
+import { formatHotelDate } from '@/Utils/datetime';
 
 const fmt = (val) => '₱' + Number(val || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -386,7 +387,7 @@ export default function Index({ dateFrom, dateTo, summary, byCashier, byRoomType
                                                 <div className="text-[9px] text-slate-500">{tx.type_name}</div>
                                             </td>
                                             <td className="px-4 py-3 font-mono text-slate-400 text-[10px]">
-                                                {tx.check_in ? new Date(tx.check_in).toLocaleDateString() : '—'}
+                                                {tx.check_in ? formatHotelDate(tx.check_in) : '—'}
                                             </td>
                                             <td className="px-4 py-3">
                                                 <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase ${tx.booking_type === 'overnight' ? 'bg-brand-900/40 text-brand-300' : 'bg-amber-900/30 text-amber-300'}`}>

@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReceiptModal from '@/Components/ReceiptModal';
+import { formatHotelDateTime } from '@/Utils/datetime';
 
 export default function Show({ booking, vacantRooms = [], inventoryUsages, inventoryItems, calculations }) {
     const { auth } = usePage().props;
@@ -74,14 +75,7 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
     const checkoutLateRate = Number(calculations.late_hours || 0) > 0
         ? Number(calculations.late_fee || 0) / Number(calculations.late_hours)
         : 0;
-    const formatCheckoutDateTime = (value) => {
-        if (!value) return '—';
-        const date = new Date(String(value).replace(' ', 'T'));
-        if (Number.isNaN(date.getTime())) return '—';
-        return date.toLocaleString('en-US', {
-            month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit'
-        });
-    };
+    const formatCheckoutDateTime = (value) => formatHotelDateTime(value);
 
     const paymentForm = useForm({
         booking_id: booking.id,
@@ -313,16 +307,16 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-[#0f172a]/30 border border-[#334155] p-4 rounded-xl text-xs">
                                 <div className="flex flex-col gap-1.5">
                                     <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Checked In Time</span>
-                                    <span className="font-mono text-slate-300 font-bold">{new Date(booking.check_in).toLocaleString()}</span>
+                                    <span className="font-mono text-slate-300 font-bold">{formatHotelDateTime(booking.check_in)}</span>
                                 </div>
                                 <div className="flex flex-col gap-1.5 border-t sm:border-t-0 sm:border-l border-[#334155] pt-3 sm:pt-0 sm:pl-4">
                                     <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Expected Checkout Hour</span>
-                                    <span className="font-mono text-slate-300 font-bold">{new Date(booking.expected_check_out).toLocaleString()}</span>
+                                    <span className="font-mono text-slate-300 font-bold">{formatHotelDateTime(booking.expected_check_out)}</span>
                                 </div>
                                 <div className="flex flex-col gap-1.5 border-t sm:border-t-0 sm:border-l border-[#334155] pt-3 sm:pt-0 sm:pl-4">
                                     <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Actual Checkout Hour</span>
                                     <span className="font-mono text-slate-300 font-bold">
-                                        {booking.check_out ? new Date(booking.check_out).toLocaleString() : 'Active stay'}
+                                        {booking.check_out ? formatHotelDateTime(booking.check_out) : 'Active stay'}
                                     </span>
                                 </div>
                             </div>
