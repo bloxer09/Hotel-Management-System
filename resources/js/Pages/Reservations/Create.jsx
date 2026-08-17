@@ -22,7 +22,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import ConfirmModal from '@/Components/ConfirmModal';
 import ActionModal from '@/Components/ActionModal';
 import CustomSelect from '@/Components/CustomSelect';
+import StayTypeFields from '@/Components/StayTypeFields';
 import { formatHotelDateTime } from '@/Utils/datetime';
+import { reservationAvailabilityNote } from '@/Utils/roomAvailability';
 
 export default function Create({ rooms = [], roomTypes = [], prefilledGuest, promoCodes = [] }) {
     const [conflictAlert, setConflictAlert] = useState(false);
@@ -61,7 +63,7 @@ export default function Create({ rooms = [], roomTypes = [], prefilledGuest, pro
     });
 
     const [showRoomSelectModal, setShowRoomSelectModal] = useState(false);
-    const [roomFilter, setRoomFilter] = useState('all');
+    const [roomFilter, setRoomFilter] = useState('available');
     const [availableRooms, setAvailableRooms] = useState(rooms);
     const [isLoadingRooms, setIsLoadingRooms] = useState(false);
     const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -189,8 +191,15 @@ export default function Create({ rooms = [], roomTypes = [], prefilledGuest, pro
                 booking_type: data.booking_type,
                 num_nights: data.num_nights,
                 short_time_hours: data.short_time_hours,
+                purpose: 'reservation',
             }).then(res => {
-                setAvailableRooms(res.data.available_rooms);
+                const nextRooms = res.data.available_rooms || [];
+                setAvailableRooms(nextRooms);
+                const availableIds = new Set(nextRooms.map(room => room.id.toString()));
+                setData(prev => ({
+                    ...prev,
+                    room_ids: (prev.room_ids || []).filter(id => availableIds.has(id.toString())),
+                }));
                 setIsLoadingRooms(false);
             }).catch(() => { setIsLoadingRooms(false); });
         }
@@ -474,44 +483,17 @@ export default function Create({ rooms = [], roomTypes = [], prefilledGuest, pro
 
                             {/* Booking type & duration */}
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                                <div className="flex flex-col gap-1.5">
-                                    <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Booking Type</label>
-                                    <CustomSelect
-                                        value={data.booking_type}
-                                        onChange={e => setData('booking_type', e.target.value)}
-                                        className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 px-3 py-2.5 focus:outline-none focus:border-brand-500 text-xs font-bold"
-                                    >
-                                        <option value="overnight">Overnight Stay</option>
-                                        <option value="short_time">Short time (Hourly)</option>
-                                    </CustomSelect>
-                                </div>
-
-                                {data.booking_type === 'overnight' ? (
-                                    <div className="flex flex-col gap-1.5">
-                                        <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Number of Nights</label>
-                                        <input
-                                            type="number"
-                                            min="1"
-                                            value={data.num_nights}
-                                            onChange={e => setData('num_nights', e.target.value)}
-                                            className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 px-3 py-2.5 focus:outline-none focus:border-brand-500 text-xs font-mono font-bold"
-                                        />
-                                    </div>
-                                ) : (
-                                    <div className="flex flex-col gap-1.5">
-                                        <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Short-Time Hours Tier</label>
-                                        <CustomSelect
-                                            value={data.short_time_hours}
-                                            onChange={e => setData('short_time_hours', Number(e.target.value))}
-                                            className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 px-3 py-2.5 focus:outline-none focus:border-brand-500 text-xs font-mono font-bold"
-                                        >
-                                            <option value={3}>3 Hours</option>
-                                            <option value={6}>6 Hours</option>
-                                            <option value={12}>12 Hours</option>
-                                            <option value={24}>24 Hours</option>
-                                        </CustomSelect>
-                                    </div>
-                                )}
+                                <StayTypeFields
+                                    checkIn={data.check_in}
+                                    bookingType={data.booking_type}
+                                    numNights={data.num_nights}
+                                    shortTimeHours={data.short_time_hours}
+                                    expectedCheckOut={getActiveCalc().expected_check_out}
+                                    onBookingTypeChange={e => setData('booking_type', e.target.value)}
+                                    onNightsChange={e => setData('num_nights', e.target.value)}
+                                    onHoursChange={e => setData('short_time_hours', Number(e.target.value))}
+                                    inputCls="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 px-3 py-2.5 focus:outline-none focus:border-brand-500 text-xs"
+                                />
                             </div>
 
                             {/* Double Booking Overlap Conflict Alert Banner */}
@@ -907,16 +889,10 @@ export default function Create({ rooms = [], roomTypes = [], prefilledGuest, pro
             >
                 <div className="flex gap-1 overflow-x-auto custom-scrollbar pb-2 mb-2 border-b border-[#334155]/50">
                     <button
-                        onClick={() => setRoomFilter('all')}
-                        className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${roomFilter === 'all' ? 'bg-brand-600 text-white shadow' : 'bg-[#1e293b] text-slate-400 hover:text-slate-200 border border-[#334155]'}`}
+                        onClick={() => setRoomFilter('available')}
+                        className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${roomFilter === 'available' || roomFilter === 'all' ? 'bg-emerald-600 text-white shadow' : 'bg-[#1e293b] text-slate-400 hover:text-slate-200 border border-[#334155]'}`}
                     >
-                        All Rooms
-                    </button>
-                    <button
-                        onClick={() => setRoomFilter('vacant')}
-                        className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${roomFilter === 'vacant' ? 'bg-emerald-600 text-white shadow' : 'bg-[#1e293b] text-slate-400 hover:text-slate-200 border border-[#334155]'}`}
-                    >
-                        Vacant Only
+                        Available for Selected Dates
                     </button>
                     {[...new Set(availableRooms.map(r => r.floor))].filter(Boolean).sort((a, b) => a - b).map(f => (
                         <button
@@ -941,8 +917,7 @@ export default function Create({ rooms = [], roomTypes = [], prefilledGuest, pro
                 <div className="flex flex-col gap-2 max-h-72 overflow-y-auto pr-1 custom-scrollbar">
                     {isLoadingRooms && <div className="text-center p-4 text-xs text-brand-400 font-bold">Refreshing availability...</div>}
                     {!isLoadingRooms && availableRooms.filter(r => {
-                        if (roomFilter === 'all') return true;
-                        if (roomFilter === 'vacant') return r.status === 'vacant';
+                        if (roomFilter === 'available' || roomFilter === 'all' || roomFilter === 'vacant') return true;
                         if (roomFilter.startsWith('floor-')) return r.floor?.toString() === roomFilter.replace('floor-', '');
                         if (roomFilter.startsWith('type-')) return r.type?.type_name === roomFilter.replace('type-', '');
                         return true;
@@ -962,16 +937,13 @@ export default function Create({ rooms = [], roomTypes = [], prefilledGuest, pro
                                 }}
                             />
                             <div className="flex flex-col">
-                                <span className="font-outfit font-bold text-slate-200 text-sm flex items-center gap-2">
+                                <span className="font-outfit font-bold text-slate-200 text-sm">
                                     Room {r.room_number}
-                                    {r.status !== 'vacant' && (
-                                        <span className={`text-[8px] uppercase px-1.5 py-0.5 rounded-full ${r.status === 'occupied' ? 'bg-rose-500/20 text-rose-400' :
-                                            r.status === 'cleaning' ? 'bg-amber-500/20 text-amber-400' :
-                                                'bg-slate-500/20 text-slate-400'
-                                            }`}>{r.status}</span>
-                                    )}
                                 </span>
                                 <span className="text-[10px] text-slate-400 font-medium">{r.type?.type_name}</span>
+                                {reservationAvailabilityNote(r.status) && (
+                                    <span className="text-[10px] text-slate-500 font-medium mt-0.5">{reservationAvailabilityNote(r.status)}</span>
+                                )}
                             </div>
                         </label>
                     ))}

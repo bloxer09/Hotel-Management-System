@@ -33,6 +33,9 @@ import CustomSelect from '@/Components/CustomSelect';
 import SortableHeader from '@/Components/SortableHeader';
 import Pagination from '@/Components/Pagination';
 import { formatHotelShort, formatHotelDateTime } from '@/Utils/datetime';
+import { stayDurationLabel } from '@/Utils/stayDuration';
+import StaySchedule from '@/Components/StaySchedule';
+import StayTypeFields from '@/Components/StayTypeFields';
 
 const STATUS_TABS = [
     { key: 'all', label: 'All Stays', color: 'text-brand-400', dot: 'bg-brand-400' },
@@ -122,7 +125,7 @@ export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCod
 
     // ── Room Selection Modal ──
     const [showRoomSelectModal, setShowRoomSelectModal] = useState(false);
-    const [roomFilter, setRoomFilter] = useState('all');
+    const [roomFilter, setRoomFilter] = useState('vacant');
     const [availableRooms, setAvailableRooms] = useState(vacantRooms);
     const [isLoadingRooms, setIsLoadingRooms] = useState(false);
     const [showConfirmCheckInModal, setShowConfirmCheckInModal] = useState(false);
@@ -137,6 +140,7 @@ export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCod
 
     const editForm = useForm({
         room_id: '',
+        check_in: '',
         guest_name: '', guest_contact: '', guest_id_type: 'Driver License',
         guest_id_number: '', id_image: null, guest_email: '', guest_address: '', num_guests: 1,
         booking_type: 'overnight', num_nights: 1, short_time_hours: 3,
@@ -151,6 +155,7 @@ export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCod
             axios.post(route('checkin.calculate'), {
                 room_ids: [editForm.data.room_id], booking_type: editForm.data.booking_type,
                 num_nights: editForm.data.num_nights, short_time_hours: editForm.data.short_time_hours,
+                check_in: editForm.data.check_in,
                 discount_type: editForm.data.discount_type, discount_amount: editForm.data.discount_amount,
                 promo_code: editForm.data.promo_code
             }).then(res => {
@@ -164,7 +169,7 @@ export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCod
                 });
             }).catch(() => { });
         }
-    }, [editForm.data.room_id, editForm.data.booking_type, editForm.data.num_nights, editForm.data.short_time_hours, editForm.data.discount_type, editForm.data.discount_amount, editForm.data.promo_code]);
+    }, [editForm.data.room_id, editForm.data.check_in, editForm.data.booking_type, editForm.data.num_nights, editForm.data.short_time_hours, editForm.data.discount_type, editForm.data.discount_amount, editForm.data.promo_code]);
 
     const selectEditGuest = (guest) => {
         editForm.setData(prev => ({
@@ -227,6 +232,7 @@ export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCod
         setEditingBooking(booking);
         editForm.setData({
             room_id: booking.room_id,
+            check_in: booking.check_in || '',
             guest_name: booking.guest_name,
             guest_contact: booking.guest_contact || '',
             guest_id_type: booking.guest_id_type || 'Driver License',
@@ -368,8 +374,15 @@ export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCod
                 booking_type: data.booking_type,
                 num_nights: data.num_nights,
                 short_time_hours: data.short_time_hours,
+                purpose: 'checkin',
             }).then(res => {
-                setAvailableRooms(res.data.available_rooms);
+                const nextRooms = (res.data.available_rooms || []).filter(room => room.status === 'vacant');
+                setAvailableRooms(nextRooms);
+                const availableIds = new Set(nextRooms.map(room => room.id.toString()));
+                setData(prev => ({
+                    ...prev,
+                    room_ids: (prev.room_ids || []).filter(id => availableIds.has(id.toString())),
+                }));
                 setIsLoadingRooms(false);
             }).catch(() => { setIsLoadingRooms(false); });
         }
@@ -608,12 +621,7 @@ export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCod
                                                         </div>
                                                     </td>
                                                     <td className="px-4 py-3 text-slate-300 font-mono leading-normal">
-                                                        {firstBooking.check_in ? (
-                                                            <>
-                                                                <div className="text-[10px] text-slate-400 font-sans">IN: <span className="font-mono font-bold text-slate-300">{formatHotelShort(firstBooking.check_in)}</span></div>
-                                                                <div className="text-[10px] text-slate-400 font-sans mt-0.5">OUT: <span className="font-mono font-bold text-slate-300">{formatHotelShort(firstBooking.expected_check_out)}</span></div>
-                                                            </>
-                                                        ) : '-'}
+                                                        <StaySchedule booking={firstBooking} />
                                                     </td>
                                                     <td className="px-4 py-3">
                                                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-black uppercase bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
@@ -722,7 +730,7 @@ export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCod
                                                     : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
                                                     }`}>
                                                     <BedDouble size={9} />
-                                                    {booking.booking_type === 'overnight' ? 'Overnight' : `${booking.short_time_hours}h`}
+                                                    {stayDurationLabel(booking)}
                                                 </span>
                                             </td>
                                             <td className="px-4 py-3 text-right">
@@ -935,27 +943,17 @@ export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCod
                                                         className={`${inputCls} font-mono`}
                                                     />
                                                 </div>
-                                                <div className="flex flex-col gap-1">
-                                                    <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Stay Type</label>
-                                                    <CustomSelect value={data.booking_type} onChange={e => setData('booking_type', e.target.value)} className={`${inputCls} font-bold`} elevateWhenOpen>
-                                                        <option value="overnight">Overnight</option>
-                                                        <option value="short_time">Short-time (Hourly)</option>
-                                                    </CustomSelect>
-                                                </div>
-                                                {data.booking_type === 'overnight' ? (
-                                                    <div className="flex flex-col gap-1">
-                                                        <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Nights</label>
-                                                        <input type="number" min="1" value={data.num_nights} onChange={e => setData('num_nights', e.target.value)} className={`${inputCls} font-mono font-bold`} />
-                                                    </div>
-                                                ) : (
-                                                    <div className="flex flex-col gap-1">
-                                                        <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Hours Tier</label>
-                                                        <CustomSelect value={data.short_time_hours} onChange={e => setData('short_time_hours', Number(e.target.value))} className={`${inputCls} font-mono font-bold`}>
-                                                            <option value={3}>3 Hours</option><option value={6}>6 Hours</option>
-                                                            <option value={12}>12 Hours</option><option value={24}>24 Hours</option>
-                                                        </CustomSelect>
-                                                    </div>
-                                                )}
+                                                <StayTypeFields
+                                                    checkIn={data.check_in}
+                                                    bookingType={data.booking_type}
+                                                    numNights={data.num_nights}
+                                                    shortTimeHours={data.short_time_hours}
+                                                    expectedCheckOut={calc.expected_check_out || calc.totals?.expected_check_out}
+                                                    onBookingTypeChange={e => setData('booking_type', e.target.value)}
+                                                    onNightsChange={e => setData('num_nights', e.target.value)}
+                                                    onHoursChange={e => setData('short_time_hours', Number(e.target.value))}
+                                                    inputCls={inputCls}
+                                                />
 
                                                 <div className="flex flex-col gap-1">
                                                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Discount</label>
@@ -1444,27 +1442,17 @@ export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCod
                                                         {vacantRooms.map(r => <option key={r.id} value={r.id}>Room {r.room_number} ({r.type?.type_name})</option>)}
                                                     </CustomSelect>
                                                 </div>
-                                                <div className="flex flex-col gap-1">
-                                                    <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Stay Type</label>
-                                                    <CustomSelect value={editForm.data.booking_type} onChange={e => editForm.setData('booking_type', e.target.value)} className={`${inputCls} font-bold`} elevateWhenOpen>
-                                                        <option value="overnight">Overnight</option>
-                                                        <option value="short_time">Short-time (Hourly)</option>
-                                                    </CustomSelect>
-                                                </div>
-                                                {editForm.data.booking_type === 'overnight' ? (
-                                                    <div className="flex flex-col gap-1">
-                                                        <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Nights</label>
-                                                        <input type="number" min="1" value={editForm.data.num_nights} onChange={e => editForm.setData('num_nights', e.target.value)} className={`${inputCls} font-mono font-bold`} />
-                                                    </div>
-                                                ) : (
-                                                    <div className="flex flex-col gap-1">
-                                                        <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Hours Tier</label>
-                                                        <CustomSelect value={editForm.data.short_time_hours} onChange={e => editForm.setData('short_time_hours', Number(e.target.value))} className={`${inputCls} font-mono font-bold`}>
-                                                            <option value={3}>3 Hours</option><option value={6}>6 Hours</option>
-                                                            <option value={12}>12 Hours</option><option value={24}>24 Hours</option>
-                                                        </CustomSelect>
-                                                    </div>
-                                                )}
+                                                <StayTypeFields
+                                                    checkIn={editForm.data.check_in}
+                                                    bookingType={editForm.data.booking_type}
+                                                    numNights={editForm.data.num_nights}
+                                                    shortTimeHours={editForm.data.short_time_hours}
+                                                    expectedCheckOut={editCalc.totals?.expected_check_out ?? editCalc.expected_check_out}
+                                                    onBookingTypeChange={e => editForm.setData('booking_type', e.target.value)}
+                                                    onNightsChange={e => editForm.setData('num_nights', e.target.value)}
+                                                    onHoursChange={e => editForm.setData('short_time_hours', Number(e.target.value))}
+                                                    inputCls={inputCls}
+                                                />
                                                 <div className="flex flex-col gap-1">
                                                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Guests</label>
                                                     <input type="number" min="1" value={editForm.data.num_guests} onChange={e => editForm.setData('num_guests', e.target.value)} className={`${inputCls} font-mono font-bold`} />
@@ -1681,16 +1669,10 @@ export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCod
                 {/* Filter Tabs */}
                 <div className="flex gap-1 overflow-x-auto custom-scrollbar pb-2 mb-2 border-b border-[#334155]/50">
                     <button
-                        onClick={() => setRoomFilter('all')}
-                        className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${roomFilter === 'all' ? 'bg-brand-600 text-white shadow' : 'bg-[#1e293b] text-slate-400 hover:text-slate-200 border border-[#334155]'}`}
-                    >
-                        All Rooms
-                    </button>
-                    <button
                         onClick={() => setRoomFilter('vacant')}
-                        className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${roomFilter === 'vacant' ? 'bg-emerald-600 text-white shadow' : 'bg-[#1e293b] text-slate-400 hover:text-slate-200 border border-[#334155]'}`}
+                        className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${roomFilter === 'vacant' || roomFilter === 'all' ? 'bg-emerald-600 text-white shadow' : 'bg-[#1e293b] text-slate-400 hover:text-slate-200 border border-[#334155]'}`}
                     >
-                        Vacant Only
+                        Ready Now
                     </button>
                     {[...new Set(availableRooms.map(r => r.floor))].filter(Boolean).sort((a, b) => a - b).map(f => (
                         <button
@@ -1715,8 +1697,8 @@ export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCod
                 <div className="flex flex-col gap-2 max-h-72 overflow-y-auto pr-1 custom-scrollbar">
                     {isLoadingRooms && <div className="text-center p-4 text-xs text-brand-400 font-bold">Refreshing availability...</div>}
                     {!isLoadingRooms && availableRooms.filter(r => {
-                        if (roomFilter === 'all') return true;
-                        if (roomFilter === 'vacant') return r.status === 'vacant';
+                        if (r.status !== 'vacant') return false;
+                        if (roomFilter === 'vacant' || roomFilter === 'all') return true;
                         if (roomFilter.startsWith('floor-')) return r.floor?.toString() === roomFilter.replace('floor-', '');
                         if (roomFilter.startsWith('type-')) return r.type?.type_name === roomFilter.replace('type-', '');
                         return true;

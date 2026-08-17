@@ -9,6 +9,7 @@ use App\Models\ShiftSession;
 use App\Models\User;
 use App\Services\PaymentService;
 use App\Support\HotelDateTime;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
@@ -16,6 +17,18 @@ use Tests\TestCase;
 class ShiftReportWalkInTimezoneTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        Carbon::setTestNow(Carbon::parse('2026-08-17 18:00:00', HotelDateTime::TIMEZONE));
+    }
+
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow();
+        parent::tearDown();
+    }
 
     public function test_datetime_local_is_stored_as_manila_wall_clock(): void
     {

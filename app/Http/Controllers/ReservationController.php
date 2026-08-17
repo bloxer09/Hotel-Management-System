@@ -15,7 +15,6 @@ use App\Services\BookingService;
 use App\Services\PaymentService;
 use App\Services\ShiftService;
 use App\Support\HotelDateTime;
-use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -274,38 +273,58 @@ class ReservationController extends Controller
             'num_nights' => 'nullable|integer|min:1',
             'short_time_hours' => 'nullable|integer|in:3,6,12,24',
             'exclude_booking_id' => 'nullable|exists:bookings,id',
+            'purpose' => 'nullable|in:reservation,checkin',
+            'require_physical_ready' => 'nullable|boolean',
         ]);
 
-        $checkInRaw = HotelDateTime::parseLocal($request->check_in);
-        $checkInTime = $checkInRaw;
+        $checkInTime = HotelDateTime::parseLocal($request->check_in);
+        BookingService::rejectInvalidStayType(
+            $checkInTime->format('Y-m-d H:i:s'),
+            $request->booking_type,
+            $request->num_nights ?: 1
+        );
 
-        $dummyExpectedCheckOut = $request->booking_type === 'overnight'
+        $expectedCheckOut = $request->booking_type === 'overnight'
             ? BookingService::buildOvernightExpectedCheckOut(
                 $checkInTime->format('Y-m-d H:i:s'),
                 $request->num_nights ?: 1
             )
-            : $checkInTime->copy()->addHours($request->short_time_hours ?: 3);
+            : BookingService::buildShortTimeExpectedCheckOut(
+                $checkInTime->format('Y-m-d H:i:s'),
+                $request->short_time_hours ?: 3
+            );
 
         $checkInStr = $checkInTime->format('Y-m-d H:i:s');
-        $checkOutStr = $dummyExpectedCheckOut->format('Y-m-d H:i:s');
+        $checkOutStr = $expectedCheckOut->format('Y-m-d H:i:s');
 
         $query = Booking::whereIn('status', ['active', 'reserved'])
             ->where('check_in', '<', $checkOutStr)
             ->where('expected_check_out', '>', $checkInStr);
 
-        if ($request->has('exclude_booking_id') && $request->exclude_booking_id) {
+        if ($request->filled('exclude_booking_id')) {
             $query->where('id', '!=', $request->exclude_booking_id);
         }
 
         $bookedRoomIds = $query->pluck('room_id')->toArray();
 
-        $availableRooms = Room::with('type')
+        $purpose = $request->input('purpose', 'reservation');
+        $isSameDayOrPast = $checkInTime->toDateString() <= HotelDateTime::today()->toDateString();
+        $requirePhysicalReady = $purpose === 'checkin'
+            || $request->boolean('require_physical_ready')
+            || $isSameDayOrPast;
+
+        $roomsQuery = Room::with('type')
             ->whereNotIn('id', $bookedRoomIds)
-            ->orderBy('room_number', 'asc')
-            ->get();
+            ->orderBy('room_number', 'asc');
+
+        if ($requirePhysicalReady) {
+            $roomsQuery->where('status', 'vacant');
+        }
 
         return response()->json([
-            'available_rooms' => $availableRooms,
+            'available_rooms' => $roomsQuery->get(),
+            'expected_check_out' => $checkOutStr,
+            'require_physical_ready' => $requirePhysicalReady,
         ]);
     }
 
@@ -339,13 +358,18 @@ class ReservationController extends Controller
                 $rooms = Room::with('type')->whereIn('id', $request->room_ids)->lockForUpdate()->get();
                 $numRooms = count($rooms);
 
+                $checkInRaw = HotelDateTime::parseLocal($request->check_in);
+                $checkInTime = $checkInRaw;
+                $isSameDayOrPast = $checkInTime->toDateString() <= HotelDateTime::today()->toDateString();
+
                 $roomGuests = [];
                 foreach ($rooms as $room) {
+                    if ($isSameDayOrPast && $room->status !== 'vacant') {
+                        throw new \Exception("Room {$room->room_number} is not ready for a same-day stay.");
+                    }
                     $extraPax = $request->extra_pax[$room->id] ?? 0;
                     $roomGuests[$room->id] = max(1, (int) $room->type->max_occupancy) + (int) $extraPax;
                 }
-                $checkInRaw = HotelDateTime::parseLocal($request->check_in);
-                $checkInTime = $checkInRaw;
 
                 $reqDiscountType = $request->discount_type ?: '';
                 $reqDiscountAmountTotal = (float) ($request->discount_amount ?: 0);
@@ -924,6 +948,12 @@ class ReservationController extends Controller
             return back()->with('error', 'Only pending reservations can be rescheduled.');
         }
 
+        BookingService::rejectInvalidStayType(
+            HotelDateTime::parseLocal($request->check_in)->format('Y-m-d H:i:s'),
+            $request->booking_type,
+            $request->num_nights ?: 1
+        );
+
         $room = Room::findOrFail($request->room_id);
 
         return DB::transaction(function () use ($booking, $request, $room, $user) {
@@ -1021,8 +1051,9 @@ class ReservationController extends Controller
             }
         }
 
-        return DB::transaction(function () use ($bookings, $user, $groupRef) {
-            $stayNow = HotelDateTime::now();
+        $arrival = HotelDateTime::now();
+
+        return DB::transaction(function () use ($bookings, $user, $groupRef, $arrival) {
             $roomNumbers = [];
 
             foreach ($bookings as $booking) {
@@ -1031,23 +1062,9 @@ class ReservationController extends Controller
                 $room->save();
 
                 $booking->status = 'active';
-                $booking->check_in = HotelDateTime::toDatabase($stayNow);
+                $booking->check_in = HotelDateTime::toDatabase($arrival);
+                $booking->expected_check_out = $this->expectedCheckOutOnArrival($booking, $arrival)->format('Y-m-d H:i:s');
                 $booking->checked_in_by = $user->id;
-
-                $pricing = BookingService::calculateBookingAmounts(
-                    $room,
-                    $booking->booking_type,
-                    HotelDateTime::toDatabase($stayNow),
-                    $booking->booking_type === 'overnight' ? max(1, Carbon::parse($booking->check_in)->diffInDays(Carbon::parse($booking->expected_check_out))) : 1,
-                    $booking->short_time_hours ?: 3,
-                    $booking->discount_type ?: '',
-                    $booking->discount_amount
-                );
-                $booking->expected_check_out = $pricing['expected_check_out'];
-                $booking->base_amount = $pricing['base_amount'];
-                $booking->peak_surcharge = $pricing['peak_surcharge'];
-                $booking->total_amount = $pricing['total_amount'];
-                $booking->payment_status = ($booking->amount_paid >= $pricing['total_amount'] * 0.99) ? 'paid' : 'partial';
                 $booking->save();
 
                 $roomNumbers[] = $room->room_number;
@@ -1056,7 +1073,7 @@ class ReservationController extends Controller
             $firstBooking = $bookings->first();
             if ($firstBooking->guestProfile) {
                 $firstBooking->guestProfile->total_stays += 1;
-                $firstBooking->guestProfile->last_visit = $stayNow->toDateString();
+                $firstBooking->guestProfile->last_visit = $arrival->toDateString();
                 $firstBooking->guestProfile->save();
             }
 
@@ -1459,15 +1476,7 @@ class ReservationController extends Controller
         }
 
         $now = HotelDateTime::now();
-        $expectedCheckOut = $booking->booking_type === 'overnight'
-            ? BookingService::buildOvernightExpectedCheckOut(
-                HotelDateTime::toDatabase($now),
-                max(1, (int) ($booking->num_nights ?: 1))
-            )
-            : BookingService::buildShortTimeExpectedCheckOut(
-                HotelDateTime::toDatabase($now),
-                max(1, (int) ($booking->short_time_hours ?: 3))
-            );
+        $expectedCheckOut = $this->expectedCheckOutOnArrival($booking, $now);
 
         $room->status = 'occupied';
         $room->save();
@@ -1495,6 +1504,23 @@ class ReservationController extends Controller
             'reserved',
             'active',
             "Checked in guest {$booking->guest_name} from reservation {$booking->booking_ref} into Room {$room->room_number}. Confirmed booking price preserved at ₱".number_format((float) $booking->total_amount, 2).'.'
+        );
+    }
+
+    private function expectedCheckOutOnArrival(Booking $booking, $arrival): \DateTime
+    {
+        $checkIn = HotelDateTime::toDatabase($arrival);
+
+        if ($booking->booking_type === 'overnight') {
+            return BookingService::buildOvernightExpectedCheckOut(
+                $checkIn,
+                max(1, (int) ($booking->num_nights ?: 1))
+            );
+        }
+
+        return BookingService::buildShortTimeExpectedCheckOut(
+            $checkIn,
+            max(1, (int) ($booking->short_time_hours ?: 3))
         );
     }
 }

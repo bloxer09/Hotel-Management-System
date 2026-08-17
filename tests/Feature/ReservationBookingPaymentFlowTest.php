@@ -21,7 +21,7 @@ class ReservationBookingPaymentFlowTest extends TestCase
 
         $response = $this->actingAs($user)->post(route('reservations.store'), [
             'room_ids' => [$room->id],
-            'check_in' => now()->addDay()->format('Y-m-d H:i:s'),
+            'check_in' => '2026-08-27 14:00:00',
             'guest_name' => 'Walk In Guest',
             'booking_type' => 'overnight',
             'booking_source' => 'walk_in',
@@ -51,7 +51,7 @@ class ReservationBookingPaymentFlowTest extends TestCase
 
         $response = $this->actingAs($user)->post(route('reservations.store'), [
             'room_ids' => [$room->id],
-            'check_in' => now()->addDays(2)->format('Y-m-d H:i:s'),
+            'check_in' => '2026-08-28 14:00:00',
             'guest_name' => 'Online Guest',
             'booking_type' => 'overnight',
             'booking_source' => 'online',
@@ -82,7 +82,7 @@ class ReservationBookingPaymentFlowTest extends TestCase
         $response = $this->actingAs($user)->from(route('reservations.index'))
             ->post(route('reservations.store'), [
                 'room_ids' => [$room->id],
-                'check_in' => now()->addDays(3)->format('Y-m-d H:i:s'),
+                'check_in' => '2026-08-29 14:00:00',
                 'guest_name' => 'Invalid Online Guest',
                 'booking_type' => 'overnight',
                 'booking_source' => 'online',

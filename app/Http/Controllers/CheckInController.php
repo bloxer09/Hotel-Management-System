@@ -227,6 +227,15 @@ class CheckInController extends Controller
             'transaction_notes' => 'nullable|string',
         ]);
 
+        $checkInForStayType = $request->filled('check_in')
+            ? HotelDateTime::toDatabase($request->check_in)
+            : HotelDateTime::toDatabase();
+        BookingService::rejectInvalidStayType(
+            $checkInForStayType,
+            $request->booking_type,
+            $request->num_nights ?: 1
+        );
+
         $user = $request->user();
 
         $discountType = $request->discount_type;
@@ -411,6 +420,7 @@ class CheckInController extends Controller
                         'num_guests' => $roomGuests[$room->id],
                         'booking_type' => $request->booking_type,
                         'short_time_hours' => $request->booking_type !== 'overnight' ? $request->short_time_hours : null,
+                        'num_nights' => $request->booking_type === 'overnight' ? ($request->num_nights ?: 1) : null,
                         'check_in' => HotelDateTime::toDatabase($checkInTime),
                         'expected_check_out' => $pricing['expected_check_out'],
                         'status' => 'active',

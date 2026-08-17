@@ -8,12 +8,26 @@ use App\Models\RoomType;
 use App\Models\ShiftSession;
 use App\Models\Transaction;
 use App\Models\User;
+use App\Support\HotelDateTime;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class GroupBookingsTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        Carbon::setTestNow(Carbon::parse('2026-08-26 18:00:00', HotelDateTime::TIMEZONE));
+    }
+
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow();
+        parent::tearDown();
+    }
 
     public function test_group_bookings_are_returned_and_grouped()
     {

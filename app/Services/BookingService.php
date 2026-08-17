@@ -8,6 +8,7 @@ use App\Models\RoomType;
 use App\Services\AuditService;
 use App\Support\HotelDateTime;
 use DateTime;
+use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
 
 class BookingService
@@ -31,21 +32,78 @@ class BookingService
         return $dt;
     }
 
-    public static function buildOvernightExpectedCheckOut($inputDateTime, $numNights = 1): DateTime
+    public static function isOvernightArrival($checkIn): bool
     {
-        $numNights = max(1, (int)$numNights);
-        $dt = new DateTime($inputDateTime ?: 'now');
-        $isEarlyCheckIn = (int)$dt->format('H') < self::OVERNIGHT_CHECKIN_HOUR;
+        $dt = HotelDateTime::fromStay($checkIn);
+        $minutes = ((int) $dt->format('H') * 60) + (int) $dt->format('i');
 
-        $dt->modify('+' . $numNights . ' day');
+        return $minutes >= (self::OVERNIGHT_CHECKIN_HOUR * 60);
+    }
 
-        // Early overnight arrivals receive a full 24 hours per selected night.
-        // Standard arrivals from 2:00 PM onward check out at 12:00 PM.
-        if (! $isEarlyCheckIn) {
-            $dt->setTime(self::OVERNIGHT_CHECKOUT_HOUR, 0, 0);
+    public static function earlyOvernightMinNightsMessage(): string
+    {
+        return 'Early check-in Overnight requires at least 2 nights. For a one-day stay, use 24 Hours.';
+    }
+
+    public static function minimumOvernightNights($checkIn): int
+    {
+        return self::isOvernightArrival($checkIn) ? 1 : 2;
+    }
+
+    public static function stayTypeMismatchMessage($checkIn, string $bookingType, $numNights = 1): ?string
+    {
+        if ($bookingType !== 'overnight') {
+            return null;
         }
 
-        return $dt;
+        if ((int) $numNights >= self::minimumOvernightNights($checkIn)) {
+            return null;
+        }
+
+        return self::earlyOvernightMinNightsMessage();
+    }
+
+    public static function rejectInvalidStayType($checkIn, string $bookingType, $numNights = 1): void
+    {
+        $message = self::stayTypeMismatchMessage($checkIn, $bookingType, $numNights);
+        if ($message === null) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'booking_type' => $message,
+            'num_nights' => $message,
+        ]);
+    }
+
+    public static function durationLabel(string $bookingType, $numNights = 1, $shortTimeHours = null): string
+    {
+        if ($bookingType === 'overnight') {
+            $nights = max(1, (int) $numNights);
+
+            return $nights === 1 ? '1 night' : $nights.' nights';
+        }
+
+        return (int) $shortTimeHours.' hours';
+    }
+
+    public static function buildOvernightExpectedCheckOut($inputDateTime, $numNights = 1): DateTime
+    {
+        $numNights = max(1, (int) $numNights);
+        $checkIn = HotelDateTime::fromStay($inputDateTime);
+
+        if (! self::isOvernightArrival($checkIn)) {
+            $checkOut = $checkIn->copy()->addDays($numNights);
+
+            return new DateTime($checkOut->format('Y-m-d H:i:s'));
+        }
+
+        $checkOut = $checkIn->copy()
+            ->startOfDay()
+            ->addDays($numNights)
+            ->setTime(self::OVERNIGHT_CHECKOUT_HOUR, 0, 0);
+
+        return new DateTime($checkOut->format('Y-m-d H:i:s'));
     }
 
     public static function buildShortTimeExpectedCheckOut($checkInDateTime, $hours): DateTime
@@ -122,6 +180,8 @@ class BookingService
         $numNights = max(1, (int)$numNights);
         $shortTimeHours = (int)$shortTimeHours;
         $numGuests = max(1, (int)$numGuests);
+
+        self::rejectInvalidStayType($checkIn, $bookingType, $numNights);
 
         if ($bookingType === 'overnight') {
             $baseAmount = round((float)$roomType->base_rate * $numNights, 2);

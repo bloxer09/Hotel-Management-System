@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Services\BookingService;
 use Illuminate\Foundation\Http\FormRequest;
 
 class UpdateBookingRequest extends FormRequest
@@ -23,6 +24,7 @@ class UpdateBookingRequest extends FormRequest
             'guest_email'       => 'nullable|email|max:100',
             'guest_address'     => 'nullable|string',
             'num_guests'        => 'required|integer|min:1',
+            'check_in'          => 'nullable|date',
             'booking_type'      => 'required|in:overnight,short_time',
             'num_nights'        => 'nullable|integer|min:1',
             'short_time_hours'  => 'nullable|integer|in:3,6,12,24',
@@ -31,5 +33,27 @@ class UpdateBookingRequest extends FormRequest
             'promo_code'        => 'nullable|string',
             'notes'             => 'nullable|string',
         ];
+    }
+
+    public function withValidator($validator): void
+    {
+        $validator->after(function ($validator) {
+            if ($validator->errors()->isNotEmpty()) {
+                return;
+            }
+
+            $booking = $this->route('booking');
+            $checkIn = $this->input('check_in') ?: optional($booking)->getRawOriginal('check_in');
+            $message = BookingService::stayTypeMismatchMessage(
+                $checkIn,
+                (string) $this->input('booking_type'),
+                $this->input('num_nights') ?: 1
+            );
+
+            if ($message) {
+                $validator->errors()->add('booking_type', $message);
+                $validator->errors()->add('num_nights', $message);
+            }
+        });
     }
 }

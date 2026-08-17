@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Services\BookingService;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreReservationRequest extends FormRequest
@@ -45,5 +46,25 @@ class StoreReservationRequest extends FormRequest
             'notes'             => 'nullable|string',
             'transaction_notes' => 'nullable|string',
         ];
+    }
+
+    public function withValidator($validator): void
+    {
+        $validator->after(function ($validator) {
+            if ($validator->errors()->isNotEmpty()) {
+                return;
+            }
+
+            $message = BookingService::stayTypeMismatchMessage(
+                $this->input('check_in'),
+                (string) $this->input('booking_type'),
+                $this->input('num_nights') ?: 1
+            );
+
+            if ($message) {
+                $validator->errors()->add('booking_type', $message);
+                $validator->errors()->add('num_nights', $message);
+            }
+        });
     }
 }

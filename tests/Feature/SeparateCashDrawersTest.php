@@ -301,7 +301,7 @@ class SeparateCashDrawersTest extends TestCase
         // Check in room with transaction notes
         $response = $this->actingAs($user)->post(route('checkin.store'), [
             'room_ids' => [$room->id],
-            'check_in' => now()->format('Y-m-d\TH:i'),
+            'check_in' => '2026-08-26T18:00',
             'guest_name' => 'Guest Notes',
             'guest_contact' => '09123456789',
             'guest_id_type' => 'Driver License',

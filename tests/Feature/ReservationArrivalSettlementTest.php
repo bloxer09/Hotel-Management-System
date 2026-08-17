@@ -9,6 +9,8 @@ use App\Models\RoomType;
 use App\Models\ShiftSession;
 use App\Models\User;
 use App\Services\PaymentService;
+use App\Support\HotelDateTime;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -23,6 +25,8 @@ class ReservationArrivalSettlementTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        Carbon::setTestNow(Carbon::parse('2026-08-26 18:00:00', HotelDateTime::TIMEZONE));
 
         $this->frontDesk = User::create([
             'username' => 'arrival_front_desk',
@@ -51,6 +55,12 @@ class ReservationArrivalSettlementTest extends TestCase
             'room_type_id' => $type->id,
             'status' => 'vacant',
         ]);
+    }
+
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow();
+        parent::tearDown();
     }
 
     public function test_cash_balance_is_recorded_once_in_current_shift_and_guest_is_checked_in_atomically(): void
