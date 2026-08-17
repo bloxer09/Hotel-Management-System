@@ -11,6 +11,7 @@ class InventoryItem extends Model
 
     protected $fillable = [
         'item_name',
+        'normalized_name',
         'category',
         'unit',
         'current_stock',
@@ -29,15 +30,52 @@ class InventoryItem extends Model
         'is_active' => 'boolean',
     ];
 
+    protected static function booted(): void
+    {
+        static::saving(function (InventoryItem $item) {
+            $item->item_name = static::displayName((string) $item->item_name);
+            $item->normalized_name = static::normalizeName($item->item_name);
+        });
+    }
+
+    public static function displayName(?string $name): string
+    {
+        $collapsed = preg_replace('/\s+/u', ' ', trim((string) $name)) ?? '';
+
+        return $collapsed;
+    }
+
+    public static function normalizeName(?string $name): string
+    {
+        $display = static::displayName($name);
+
+        if ($display === '') {
+            return '';
+        }
+
+        return mb_strtolower($display, 'UTF-8');
+    }
+
     public function isLowStock()
     {
         $stock = $this->current_stock ?? $this->quantity ?? 0;
         $min = $this->minimum_stock ?? $this->reorder_level ?? 0;
+
         return $stock <= $min;
     }
 
     public function usages()
     {
         return $this->hasMany(InventoryUsage::class, 'item_id');
+    }
+
+    public function changeRequests()
+    {
+        return $this->hasMany(InventoryChangeRequest::class);
+    }
+
+    public function stockMovements()
+    {
+        return $this->hasMany(InventoryStockMovement::class);
     }
 }

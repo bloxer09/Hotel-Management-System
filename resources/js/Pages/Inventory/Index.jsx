@@ -23,11 +23,29 @@ import ActionModal from '@/Components/ActionModal';
 import CustomSelect from '@/Components/CustomSelect';
 import SortableHeader from '@/Components/SortableHeader';
 import Pagination from '@/Components/Pagination';
+import PendingRequestsTab from '@/Pages/Inventory/PendingRequestsTab';
+import HistoryTab from '@/Pages/Inventory/HistoryTab';
 
-export default function Index({ items, activeBookings = [], currentSearch, currentCategory, sortBy, sortDir }) {
+export default function Index({
+    items,
+    pendingRequests = { data: [] },
+    history = { data: [] },
+    historyItems = [],
+    historyUsers = [],
+    pendingCount = 0,
+    tab = 'items',
+    activeBookings = [],
+    currentSearch,
+    currentCategory,
+    sortBy,
+    sortDir,
+    historyFilters = {},
+}) {
     const { auth } = usePage().props;
     const user = auth.user;
     const isAdmin = user.role === 'admin';
+    const isFrontDesk = user.role === 'front_desk';
+    const canAddItem = isAdmin || isFrontDesk;
 
     // State modals
     const [isAddOpen, setIsAddOpen] = useState(false);
@@ -76,7 +94,7 @@ export default function Index({ items, activeBookings = [], currentSearch, curre
 
     const triggerSearch = (e) => {
         e.preventDefault();
-        router.get(route('inventory.index'), { search, category }, { preserveState: true });
+        router.get(route('inventory.index'), { tab: 'items', search, category, sort_by: sortBy, sort_dir: sortDir }, { preserveState: true });
     };
 
     const handleExport = () => {
@@ -92,7 +110,13 @@ export default function Index({ items, activeBookings = [], currentSearch, curre
 
     const handleCategoryChange = (cat) => {
         setCategory(cat);
-        router.get(route('inventory.index'), { search, category: cat }, { preserveState: true });
+        router.get(route('inventory.index'), { tab: 'items', search, category: cat, sort_by: sortBy, sort_dir: sortDir }, { preserveState: true });
+    };
+
+    const switchTab = (nextTab) => {
+        router.get(route('inventory.index'), nextTab === 'items'
+            ? { tab: nextTab, search, category, sort_by: sortBy, sort_dir: sortDir }
+            : { tab: nextTab }, { preserveState: true });
     };
 
     const openAdjustModal = (item) => {
@@ -184,7 +208,7 @@ export default function Index({ items, activeBookings = [], currentSearch, curre
                         >
                             <Download size={16} /> Export Stocks
                         </button>
-                        {isAdmin && (
+                        {canAddItem && (
                             <button
                                 onClick={() => setIsAddOpen(true)}
                                 className="flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 bg-brand-600 hover:bg-brand-500 rounded-xl text-slate-50 font-outfit font-extrabold text-xs tracking-wider shadow-lg hover:shadow-brand-600/20 transition-all w-full sm:w-auto"
@@ -195,6 +219,34 @@ export default function Index({ items, activeBookings = [], currentSearch, curre
                     </div>
                 </div>
 
+                <div className="flex flex-wrap items-center gap-1 p-1 bg-[#0f172a] rounded-xl border border-[#334155] w-full sm:w-auto">
+                    {[
+                        { id: 'items', label: 'Items' },
+                        { id: 'pending', label: 'Pending Requests' },
+                        { id: 'history', label: 'History' },
+                    ].map((entry) => (
+                        <button
+                            key={entry.id}
+                            type="button"
+                            onClick={() => switchTab(entry.id)}
+                            className={`px-4 py-2 rounded-lg text-xs font-outfit font-bold transition-all ${
+                                tab === entry.id
+                                    ? 'bg-brand-600 text-white shadow-md'
+                                    : 'text-slate-400 hover:text-slate-100'
+                            }`}
+                        >
+                            {entry.label}
+                            {entry.id === 'pending' && pendingCount > 0 && (
+                                <span className="ml-2 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-amber-500 text-[10px] text-slate-950 font-black">
+                                    {pendingCount}
+                                </span>
+                            )}
+                        </button>
+                    ))}
+                </div>
+
+                {tab === 'items' && (
+                <>
                 {/* Filter and Search Panels */}
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 justify-between">
                     {/* Category CustomSelect Dropdown */}
@@ -222,7 +274,7 @@ export default function Index({ items, activeBookings = [], currentSearch, curre
                                 className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 pl-11 pr-4 py-2.5 focus:outline-none focus:border-brand-500 text-xs"
                             />
                         </form>
-                        <button type="button" onClick={() => router.reload({ only: ['items'] })} className="p-2.5 rounded-xl border border-[#334155] bg-[#1e293b] text-slate-400 hover:text-slate-200 hover:border-brand-500/40 transition-all shrink-0 shadow-sm" title="Refresh Table">
+                        <button type="button" onClick={() => router.reload({ only: ['items', 'pendingCount'] })} className="p-2.5 rounded-xl border border-[#334155] bg-[#1e293b] text-slate-400 hover:text-slate-200 hover:border-brand-500/40 transition-all shrink-0 shadow-sm" title="Refresh Table">
                             <RefreshCw size={16} />
                         </button>
                     </div>
@@ -358,6 +410,23 @@ export default function Index({ items, activeBookings = [], currentSearch, curre
                         </div>
                     )}
                 </div>
+
+                </>
+                )}
+
+                {tab === 'pending' && (
+                    <PendingRequestsTab requests={pendingRequests} isAdmin={isAdmin} />
+                )}
+
+                {tab === 'history' && (
+                    <HistoryTab
+                        history={history}
+                        historyItems={historyItems}
+                        historyUsers={historyUsers}
+                        historyFilters={historyFilters}
+                        isAdmin={isAdmin}
+                    />
+                )}
 
                 {/* MODAL: ADD CATALOG ITEM */}
                 <AnimatePresence>
@@ -498,7 +567,9 @@ export default function Index({ items, activeBookings = [], currentSearch, curre
 
                                     <div className="pt-4 border-t border-[#334155]/60 flex flex-col-reverse sm:flex-row justify-end gap-3">
                                         <button type="button" onClick={() => setIsAddOpen(false)} className="w-full sm:w-auto px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold font-outfit">Cancel</button>
-                                        <button type="submit" disabled={createForm.processing} className="w-full sm:w-auto px-5 py-2.5 bg-brand-600 hover:bg-brand-500 text-slate-50 rounded-xl text-xs font-bold font-outfit shadow-md">Add Item</button>
+                                        <button type="submit" disabled={createForm.processing} className="w-full sm:w-auto px-5 py-2.5 bg-brand-600 hover:bg-brand-500 text-slate-50 rounded-xl text-xs font-bold font-outfit shadow-md">
+                                            {isAdmin ? 'Add Item' : 'Submit for Approval'}
+                                        </button>
                                     </div>
                                 </form>
                             </motion.div>
@@ -733,7 +804,9 @@ export default function Index({ items, activeBookings = [], currentSearch, curre
 
                                     <div className="pt-4 border-t border-[#334155]/60 flex justify-end gap-3">
                                         <button type="button" onClick={() => setIsAdjustOpen(false)} className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold font-outfit">Cancel</button>
-                                        <button type="submit" disabled={adjustForm.processing} className="px-5 py-2.5 bg-brand-600 hover:bg-brand-500 text-slate-50 rounded-xl text-xs font-bold font-outfit shadow-md">Apply Adjustment</button>
+                                        <button type="submit" disabled={adjustForm.processing} className="px-5 py-2.5 bg-brand-600 hover:bg-brand-500 text-slate-50 rounded-xl text-xs font-bold font-outfit shadow-md">
+                                            {isAdmin ? 'Apply Adjustment' : 'Submit for Approval'}
+                                        </button>
                                     </div>
                                 </form>
                             </motion.div>

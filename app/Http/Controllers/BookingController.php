@@ -7,6 +7,7 @@ use App\Http\Requests\ExtendBookingRequest;
 use App\Http\Requests\UpdateBookingRequest;
 use App\Models\Booking;
 use App\Models\InventoryItem;
+use App\Models\InventoryStockMovement;
 use App\Models\InventoryUsage;
 use App\Models\PromoCode;
 use App\Models\Room;
@@ -14,10 +15,11 @@ use App\Models\Setting;
 use App\Models\ShiftSession;
 use App\Models\Transaction;
 use App\Services\BookingService;
+use App\Services\InventoryChangeRequestService;
 use App\Services\PaymentService;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class BookingController extends Controller
@@ -209,17 +211,20 @@ class BookingController extends Controller
             return back()->with('error', 'Can only add inventory items to active bookings.');
         }
 
-        $item = InventoryItem::findOrFail($request->item_id);
-
-        if ($item->current_stock < $request->quantity) {
-            return back()->with('error', "Insufficient stock for {$item->item_name}. Current stock: {$item->current_stock}");
-        }
-
         try {
-            return DB::transaction(function () use ($booking, $item, $request, $user) {
+            return DB::transaction(function () use ($booking, $request, $user) {
+                $item = InventoryItem::query()
+                    ->whereKey($request->item_id)
+                    ->lockForUpdate()
+                    ->firstOrFail();
+
+                if ($item->current_stock < $request->quantity) {
+                    throw new \Exception("Insufficient stock for {$item->item_name}. Current stock: {$item->current_stock}");
+                }
+
                 // Deduct stock
-                $oldStock = $item->current_stock;
-                $item->current_stock -= $request->quantity;
+                $oldStock = (int) $item->current_stock;
+                $item->current_stock = $oldStock - (int) $request->quantity;
                 $item->save();
 
                 // Create usage
@@ -245,6 +250,18 @@ class BookingController extends Controller
                     $oldStock,
                     $item->current_stock,
                     "Deducted {$request->quantity} {$item->unit}(s) of {$item->item_name} for Booking Ref: {$booking->booking_ref} (Minibar/Room service usage)."
+                );
+
+                app(InventoryChangeRequestService::class)->recordExternalMovement(
+                    $item,
+                    InventoryStockMovement::TYPE_BOOKING_USAGE,
+                    -1 * (int) $request->quantity,
+                    (int) $oldStock,
+                    (int) $item->current_stock,
+                    $user->id,
+                    'booking',
+                    $booking->id,
+                    "Deducted {$request->quantity} {$item->unit}(s) of {$item->item_name} for Booking Ref: {$booking->booking_ref}."
                 );
 
                 return redirect()->route('bookings.show', $booking->id)->with('success', "Added {$request->quantity} x {$item->item_name} to bill (₱{$totalPrice}).");
@@ -347,7 +364,7 @@ class BookingController extends Controller
                     }
                     $descStr = implode(', ', $descParts);
                     $desc = "Checkout settlements ({$descStr}) for Ref: {$booking->booking_ref}";
-                    
+
                     // Checkout is completed only after the front-desk staff has
                     // accepted the settlement, so the receipt is verified here.
                     $payment = $this->payments->record([
@@ -483,27 +500,45 @@ class BookingController extends Controller
 
         $user = $request->user();
 
-        if ($booking->status !== 'active') {
-            return back()->with('error', 'Only active bookings can be cancelled.');
-        }
-
         try {
             return DB::transaction(function () use ($booking, $request, $user) {
-                $booking->status = 'cancelled';
-                $booking->notes = trim($booking->notes."\nCancellation Reason: ".$request->reason);
-                $booking->save();
+                $lockedBooking = Booking::query()
+                    ->whereKey($booking->id)
+                    ->lockForUpdate()
+                    ->first();
+
+                if (! $lockedBooking || $lockedBooking->status !== 'active') {
+                    throw new \Exception('Only active bookings can be cancelled.');
+                }
+
+                $lockedBooking->status = 'cancelled';
+                $lockedBooking->notes = trim($lockedBooking->notes."\nCancellation Reason: ".$request->reason);
+                $lockedBooking->save();
 
                 // Revert room status to vacant
-                $room = $booking->room;
+                $room = $lockedBooking->room;
                 $room->status = 'vacant';
                 $room->save();
 
                 // Inventory reversal! We should return items to stock if cancelled
-                $usages = InventoryUsage::where('booking_id', $booking->id)->get();
+                $usages = InventoryUsage::where('booking_id', $lockedBooking->id)->get();
+                $itemIds = $usages->pluck('item_id')->filter()->unique()->sort()->values()->all();
+                $lockedItems = $itemIds === []
+                    ? collect()
+                    : InventoryItem::query()
+                        ->whereIn('id', $itemIds)
+                        ->orderBy('id')
+                        ->lockForUpdate()
+                        ->get()
+                        ->keyBy('id');
+
                 foreach ($usages as $usage) {
-                    $item = $usage->item;
-                    $oldStock = $item->current_stock;
-                    $item->current_stock += $usage->quantity;
+                    $item = $lockedItems->get($usage->item_id);
+                    if (! $item) {
+                        continue;
+                    }
+                    $oldStock = (int) $item->current_stock;
+                    $item->current_stock = $oldStock + (int) $usage->quantity;
                     $item->save();
 
                     BookingService::auditLog(
@@ -513,15 +548,27 @@ class BookingController extends Controller
                         $item->id,
                         $oldStock,
                         $item->current_stock,
-                        "Reverted {$usage->quantity} x {$item->item_name} back to stock due to booking cancellation (Ref: {$booking->booking_ref})."
+                        "Reverted {$usage->quantity} x {$item->item_name} back to stock due to booking cancellation (Ref: {$lockedBooking->booking_ref})."
+                    );
+
+                    app(InventoryChangeRequestService::class)->recordExternalMovement(
+                        $item,
+                        InventoryStockMovement::TYPE_BOOKING_REVERSAL,
+                        (int) $usage->quantity,
+                        (int) $oldStock,
+                        (int) $item->current_stock,
+                        $user->id,
+                        'booking',
+                        $lockedBooking->id,
+                        "Reverted {$usage->quantity} x {$item->item_name} due to booking cancellation (Ref: {$lockedBooking->booking_ref})."
                     );
                 }
 
                 // Transaction log
                 Transaction::create([
-                    'booking_id' => $booking->id,
+                    'booking_id' => $lockedBooking->id,
                     'transaction_type' => 'adjustment',
-                    'description' => "Booking cancelled. Ref: {$booking->booking_ref}. Reason: {$request->reason}",
+                    'description' => "Booking cancelled. Ref: {$lockedBooking->booking_ref}. Reason: {$request->reason}",
                     'amount' => 0.00,
                     'payment_method' => 'na',
                     'processed_by' => $user->id,
@@ -531,13 +578,13 @@ class BookingController extends Controller
                     $user->id,
                     'BOOKING_CANCEL',
                     'bookings',
-                    $booking->id,
+                    $lockedBooking->id,
                     'active',
                     'cancelled',
-                    "Cancelled Booking {$booking->booking_ref} for Room {$room->room_number}. Reason: {$request->reason}"
+                    "Cancelled Booking {$lockedBooking->booking_ref} for Room {$room->room_number}. Reason: {$request->reason}"
                 );
 
-                return redirect()->route('rooms.index')->with('success', "Booking {$booking->booking_ref} cancelled successfully.");
+                return redirect()->route('rooms.index')->with('success', "Booking {$lockedBooking->booking_ref} cancelled successfully.");
             });
         } catch (\Exception $e) {
             return back()->with('error', $e->getMessage());

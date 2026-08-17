@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AdditionalCashController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\BookingController;
 use App\Http\Controllers\CheckInController;
@@ -7,7 +8,6 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\FrontDeskReportController;
 use App\Http\Controllers\GuestController;
-use App\Http\Controllers\AdditionalCashController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\MaintenanceController;
 use App\Http\Controllers\NotificationController;
@@ -22,6 +22,8 @@ use App\Http\Controllers\RoomController;
 use App\Http\Controllers\RoomRateController;
 use App\Http\Controllers\ShiftController;
 use App\Http\Controllers\UserController;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 
 // Home redirect
@@ -146,6 +148,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/inventory/export', [InventoryController::class, 'export'])->name('inventory.export');
         Route::patch('/inventory/{inventoryItem}', [InventoryController::class, 'update'])->name('inventory.update');
         Route::post('/inventory/{inventoryItem}/adjust', [InventoryController::class, 'adjust'])->name('inventory.adjust');
+        Route::post('/inventory/requests/{inventoryChangeRequest}/approve', [InventoryController::class, 'approve'])->name('inventory.requests.approve');
+        Route::post('/inventory/requests/{inventoryChangeRequest}/reject', [InventoryController::class, 'reject'])->name('inventory.requests.reject');
         Route::delete('/inventory/{inventoryItem}', [InventoryController::class, 'destroy'])->name('inventory.destroy');
     });
 
@@ -211,8 +215,8 @@ require __DIR__.'/auth.php';
 Route::get('/health', function () {
     return response()->json([
         'status' => 'ok',
-        'db' => \Illuminate\Support\Facades\DB::select('SELECT 1') ? 'ok' : 'fail',
-        'cache' => \Illuminate\Support\Facades\Cache::put('health_check', true, 10) ? 'ok' : 'fail',
+        'db' => DB::select('SELECT 1') ? 'ok' : 'fail',
+        'cache' => Cache::put('health_check', true, 10) ? 'ok' : 'fail',
         'timestamp' => now()->toIso8601String(),
     ]);
 })->name('health');

@@ -315,6 +315,7 @@ export default function AuthenticatedLayout({ children }) {
 
     // Derived values for the notification dropdown
     const inventoryAlerts = notifications.filter(n => n.type === 'out_of_stock' || n.type === 'low_stock' || n.type === 'inventory');
+    const inventoryRequestAlerts = notifications.filter(n => n.type === 'inventory_request');
     const checkoutAlerts = notifications.filter(n => n.type === 'checkout_overdue' || n.type === 'checkout_upcoming' || n.type === 'checkout');
     const cleaningAlerts = notifications.filter(n => n.type === 'cleaning_finished');
     const maintenanceAlerts = notifications.filter(n => n.type === 'maintenance');
@@ -764,6 +765,29 @@ export default function AuthenticatedLayout({ children }) {
                                                             <p className="text-sm font-bold text-slate-300 font-outfit">All Clear</p>
                                                             <p className="text-xs text-slate-500 mt-0.5">No active notifications.</p>
                                                         </div>
+                                                    </div>
+                                                )}
+
+                                                {/* Inventory Request Alerts */}
+                                                {inventoryRequestAlerts.length > 0 && (
+                                                    <div>
+                                                        {inventoryRequestAlerts.map(item => (
+                                                            <Link
+                                                                key={item.alert_key}
+                                                                href={route('inventory.index', { tab: 'pending' })}
+                                                                onClick={() => setIsBellOpen(false)}
+                                                                className="flex items-start gap-3 px-4 py-3 hover:bg-[#334155]/40 transition-colors border-b border-[#334155]/30 last:border-b-0"
+                                                            >
+                                                                <div className="shrink-0 mt-0.5 h-2.5 w-2.5 rounded-full bg-brand-500" />
+                                                                <div className="flex-1 min-w-0">
+                                                                    <div className="text-xs font-bold text-slate-200 truncate">{item.item_name}</div>
+                                                                    <div className="text-[11px] text-slate-400 leading-relaxed mt-0.5">{item.message}</div>
+                                                                </div>
+                                                                <span className="shrink-0 text-[9px] font-black px-1.5 py-0.5 rounded border uppercase bg-brand-950/60 border-brand-500/40 text-brand-300">
+                                                                    Request
+                                                                </span>
+                                                            </Link>
+                                                        ))}
                                                     </div>
                                                 )}
 

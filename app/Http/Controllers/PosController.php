@@ -2,10 +2,17 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Booking;
 use App\Models\InventoryItem;
+use App\Models\InventoryStockMovement;
+use App\Models\InventoryUsage;
+use App\Models\Transaction;
 use App\Services\BookingService;
+use App\Services\InventoryChangeRequestService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
+use Shuchkin\SimpleXLSXGen;
 
 class PosController extends Controller
 {
@@ -15,12 +22,12 @@ class PosController extends Controller
             ->orderBy('item_name', 'asc')
             ->get();
 
-        $activeBookings = \App\Models\Booking::with(['room'])
+        $activeBookings = Booking::with(['room'])
             ->where('status', 'active')
             ->orderBy('guest_name', 'asc')
             ->get();
 
-        $transactions = \App\Models\Transaction::with(['processedBy', 'inventoryUsages.item'])
+        $transactions = Transaction::with(['processedBy', 'inventoryUsages.item'])
             ->where('transaction_type', 'pos_sale')
             ->orderBy('created_at', 'desc')
             ->get();
@@ -53,34 +60,56 @@ class PosController extends Controller
         $consumerName = $request->consumer_name;
 
         try {
-            return \DB::transaction(function () use ($request, $user, $bookingId, $consumerName) {
+            return DB::transaction(function () use ($request, $user, $bookingId, $consumerName) {
                 $grandTotal = 0;
                 $usageCount = 0;
                 $usedItemNames = [];
 
-                $notes = $consumerName ? "Consumer: " . $consumerName : null;
+                $notes = $consumerName ? 'Consumer: '.$consumerName : null;
                 $usagesToCreate = [];
 
+                $quantitiesByItemId = [];
                 foreach ($request->items as $lineItem) {
-                    $item = InventoryItem::findOrFail($lineItem['item_id']);
-                    $qty = (int)$lineItem['quantity'];
+                    $itemId = (int) $lineItem['item_id'];
+                    $quantitiesByItemId[$itemId] = ($quantitiesByItemId[$itemId] ?? 0) + (int) $lineItem['quantity'];
+                }
+                ksort($quantitiesByItemId);
+                $itemIds = array_keys($quantitiesByItemId);
+
+                $lockedItems = InventoryItem::query()
+                    ->whereIn('id', $itemIds)
+                    ->orderBy('id')
+                    ->lockForUpdate()
+                    ->get()
+                    ->keyBy('id');
+
+                foreach ($quantitiesByItemId as $itemId => $qty) {
+                    $item = $lockedItems->get($itemId);
+                    if (! $item) {
+                        throw new \Exception('One or more inventory items could not be found.');
+                    }
 
                     if ($item->current_stock < $qty) {
                         throw new \Exception("Insufficient stock for {$item->item_name}. Current: {$item->current_stock}, requested: {$qty}");
                     }
 
-                    $oldStock = $item->current_stock;
-                    $item->current_stock -= $qty;
+                    $oldStock = (int) $item->current_stock;
+                    $item->current_stock = $oldStock - $qty;
                     $item->save();
 
                     $unitPrice = $item->selling_price;
                     $totalPrice = round($unitPrice * $qty, 2);
 
                     $usagesToCreate[] = [
+                        'item' => $item,
                         'item_id' => $item->id,
                         'qty' => $qty,
                         'unit_price' => $unitPrice,
                         'total_price' => $totalPrice,
+                        'stock_before' => $oldStock,
+                        'stock_after' => (int) $item->current_stock,
+                        'item_name' => $item->item_name,
+                        'unit' => $item->unit,
                     ];
 
                     BookingService::auditLog(
@@ -90,7 +119,7 @@ class PosController extends Controller
                         $item->id,
                         $oldStock,
                         $item->current_stock,
-                        "POS Sale: Deducted {$qty} {$item->unit}(s) of {$item->item_name}." . ($bookingId ? " Charged to Booking ID {$bookingId}." : " Direct sale to Walk-in: {$consumerName}")
+                        "POS Sale: Deducted {$qty} {$item->unit}(s) of {$item->item_name}.".($bookingId ? " Charged to Booking ID {$bookingId}." : " Direct sale to Walk-in: {$consumerName}")
                     );
 
                     $grandTotal += $totalPrice;
@@ -158,10 +187,10 @@ class PosController extends Controller
                         .' | Change given: ₱'.number_format($changeGiven, 2)
                     : null;
 
-                $transaction = \App\Models\Transaction::create([
+                $transaction = Transaction::create([
                     'booking_id' => $bookingId,
                     'transaction_type' => 'pos_sale',
-                    'description' => "POS Bulk Usage - " . implode(', ', $usedItemNames) . ($consumerName ? " (Consumer: {$consumerName})" : ""),
+                    'description' => 'POS Bulk Usage - '.implode(', ', $usedItemNames).($consumerName ? " (Consumer: {$consumerName})" : ''),
                     'amount' => $grandTotal,
                     'payment_method' => $request->payment_method,
                     'cash_amount' => $cashCollected,
@@ -173,8 +202,9 @@ class PosController extends Controller
                     'notes' => $transactionNotes,
                 ]);
 
+                $movementService = app(InventoryChangeRequestService::class);
                 foreach ($usagesToCreate as $u) {
-                    \App\Models\InventoryUsage::create([
+                    InventoryUsage::create([
                         'booking_id' => $bookingId,
                         'transaction_id' => $transaction->id,
                         'item_id' => $u['item_id'],
@@ -184,13 +214,25 @@ class PosController extends Controller
                         'recorded_by' => $user->id,
                         'notes' => $notes,
                     ]);
+
+                    $movementService->recordExternalMovement(
+                        $u['item'],
+                        InventoryStockMovement::TYPE_POS_SALE,
+                        -1 * (int) $u['qty'],
+                        (int) $u['stock_before'],
+                        (int) $u['stock_after'],
+                        $user->id,
+                        'pos_sale',
+                        $transaction->id,
+                        "POS Sale: Deducted {$u['qty']} {$u['unit']}(s) of {$u['item_name']}."
+                    );
                 }
 
-                $successMsg = "POS Sale recorded for {$usageCount} item(s)" . ($consumerName ? " for {$consumerName}" : "") . " - Total: ₱" . number_format($grandTotal, 2) . " (OR-{$transaction->or_number})";
+                $successMsg = "POS Sale recorded for {$usageCount} item(s)".($consumerName ? " for {$consumerName}" : '').' - Total: ₱'.number_format($grandTotal, 2)." (OR-{$transaction->or_number})";
 
                 return back()->with([
                     'success' => $successMsg,
-                    'new_pos_txn_id' => $transaction->id
+                    'new_pos_txn_id' => $transaction->id,
                 ]);
             });
         } catch (\Exception $e) {
@@ -201,11 +243,11 @@ class PosController extends Controller
     public function export(Request $request)
     {
         $user = $request->user();
-        if (!in_array($user->role, ['admin', 'front_desk', 'cashier'], true)) {
+        if (! in_array($user->role, ['admin', 'front_desk', 'cashier'], true)) {
             abort(403);
         }
 
-        $query = \App\Models\InventoryUsage::with(['item', 'recorder', 'transaction', 'booking.room'])
+        $query = InventoryUsage::with(['item', 'recorder', 'transaction', 'booking.room'])
             ->whereHas('transaction', function ($q) {
                 $q->where('transaction_type', 'pos_sale');
             });
@@ -221,7 +263,7 @@ class PosController extends Controller
 
         $rows = [];
         $rows[] = ['Hotel Management System — POS Sold Items Daily Report'];
-        
+
         $from = $request->input('from', 'All Time');
         $to = $request->input('to', 'All Time');
         $rows[] = ['Period:', "{$from} to {$to}"];
@@ -237,7 +279,7 @@ class PosController extends Controller
             $txn = $usage->transaction;
             $payMethod = $txn ? $txn->payment_method : 'N/A';
             $orNumber = $txn ? $txn->or_number : 'N/A';
-            
+
             $recipientDetail = 'Walk-in / Direct';
             if ($usage->booking_id) {
                 $rNum = $usage->booking && $usage->booking->room ? $usage->booking->room->room_number : '?';
@@ -255,7 +297,7 @@ class PosController extends Controller
                 strtoupper($payMethod),
                 $recipientDetail,
                 $usage->recorder ? $usage->recorder->full_name : 'Unknown',
-                $usage->notes
+                $usage->notes,
             ];
             $totalRevenue += $usage->total_price;
             $totalQty += $usage->quantity;
@@ -265,8 +307,8 @@ class PosController extends Controller
         $rows[] = ['Total Sold Items:', $totalQty];
         $rows[] = ['Total POS Sales Revenue:', $totalRevenue];
 
-        $filename = "pos_sold_items_" . date('Y-m-d_H-i-s') . ".xlsx";
-        \Shuchkin\SimpleXLSXGen::fromArray($rows)->downloadAs($filename);
+        $filename = 'pos_sold_items_'.date('Y-m-d_H-i-s').'.xlsx';
+        SimpleXLSXGen::fromArray($rows)->downloadAs($filename);
         exit;
     }
 }

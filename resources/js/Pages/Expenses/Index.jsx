@@ -3,6 +3,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, usePage, router } from '@inertiajs/react';
 import Modal from '@/Components/Modal';
 import CustomSelect from '@/Components/CustomSelect';
+import CreatableSelect from '@/Components/CreatableSelect';
 import {
     Plus,
     Download,
@@ -22,7 +23,24 @@ import SortableHeader from '@/Components/SortableHeader';
 import Pagination from '@/Components/Pagination';
 import ConfirmModal from '@/Components/ConfirmModal';
 
-export default function ExpensesIndex({ expenses, filters, summary, sortBy, sortDir }) {
+const categoryBadgeClass = (name) => {
+    const badges = {
+        Supplies: 'bg-sky-500/10 text-sky-400 border-sky-500/20',
+        Salary: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+        Maintenance: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+        Utilities: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20',
+        'Food & Beverage': 'bg-orange-500/10 text-orange-400 border-orange-500/20',
+        Laundry: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
+        Transportation: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+        Marketing: 'bg-pink-500/10 text-pink-400 border-pink-500/20',
+        Miscellaneous: 'bg-violet-500/10 text-violet-400 border-violet-500/20',
+        Uncategorized: 'bg-slate-500/10 text-slate-400 border-slate-500/20',
+    };
+
+    return badges[name] || 'bg-brand-500/10 text-brand-400 border-brand-500/20';
+};
+
+export default function ExpensesIndex({ expenses, categories = [], filters, summary, sortBy, sortDir }) {
     const { auth } = usePage().props;
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -32,23 +50,35 @@ export default function ExpensesIndex({ expenses, filters, summary, sortBy, sort
     const [searchQuery, setSearchQuery] = useState(filters.search || '');
     const [dateFrom, setDateFrom] = useState(filters.from || '');
     const [dateTo, setDateTo] = useState(filters.to || '');
+    const [categoryFilter, setCategoryFilter] = useState(filters.category ? String(filters.category) : '');
 
     // Form states
     const [expenseDate, setExpenseDate] = useState('');
     const [amount, setAmount] = useState('');
     const [cashDrawer, setCashDrawer] = useState('room');
+    const [category, setCategory] = useState('');
     const [notes, setNotes] = useState('');
     const [receipt, setReceipt] = useState(null);
 
+    const activeFilters = {
+        search: searchQuery || undefined,
+        from: dateFrom || undefined,
+        to: dateTo || undefined,
+        category: categoryFilter || undefined,
+        sort_by: sortBy || undefined,
+        sort_dir: sortDir || undefined,
+    };
+
     const handleSearch = (e) => {
         e.preventDefault();
-        router.get(route('expenses.index'), { search: searchQuery, from: dateFrom, to: dateTo }, { preserveState: true });
+        router.get(route('expenses.index'), activeFilters, { preserveState: true });
     };
 
     const handleClearFilters = () => {
         setSearchQuery('');
         setDateFrom('');
         setDateTo('');
+        setCategoryFilter('');
         router.get(route('expenses.index'), {}, { preserveState: true });
     };
 
@@ -58,6 +88,7 @@ export default function ExpensesIndex({ expenses, filters, summary, sortBy, sort
         if (dateFrom) params.append('from', dateFrom);
         if (dateTo) params.append('to', dateTo);
         if (searchQuery) params.append('search', searchQuery);
+        if (categoryFilter) params.append('category', categoryFilter);
 
         if (params.toString()) {
             url += '?' + params.toString();
@@ -69,6 +100,7 @@ export default function ExpensesIndex({ expenses, filters, summary, sortBy, sort
         setExpenseDate(new Date().toISOString().split('T')[0]);
         setAmount('');
         setCashDrawer('room');
+        setCategory('');
         setNotes('');
         setReceipt(null);
         setIsAddModalOpen(true);
@@ -79,6 +111,7 @@ export default function ExpensesIndex({ expenses, filters, summary, sortBy, sort
         setExpenseDate(exp.expense_date.split('T')[0]);
         setAmount(exp.amount);
         setCashDrawer(exp.cash_drawer || 'room');
+        setCategory(exp.category?.name || '');
         setNotes(exp.notes || '');
         setReceipt(null);
         setIsEditModalOpen(true);
@@ -97,6 +130,7 @@ export default function ExpensesIndex({ expenses, filters, summary, sortBy, sort
         formData.append('expense_date', expenseDate);
         formData.append('amount', amount);
         formData.append('cash_drawer', cashDrawer);
+        formData.append('category', category);
         formData.append('notes', notes);
         if (receipt) formData.append('receipt', receipt);
 
@@ -115,6 +149,7 @@ export default function ExpensesIndex({ expenses, filters, summary, sortBy, sort
         formData.append('expense_date', expenseDate);
         formData.append('amount', amount);
         formData.append('cash_drawer', cashDrawer);
+        formData.append('category', category);
         formData.append('notes', notes);
         if (receipt) formData.append('receipt', receipt);
 
@@ -196,10 +231,32 @@ export default function ExpensesIndex({ expenses, filters, summary, sortBy, sort
                             onChange={e => setDateTo(e.target.value)}
                             className="bg-[#0f172a] border border-[#334155] rounded-lg text-slate-100 px-2 sm:px-3 py-1.5 focus:outline-none focus:border-brand-500 text-xs flex-1 sm:flex-none min-w-[100px]"
                         />
+                        <div className="w-full sm:w-44">
+                            <CustomSelect
+                                value={categoryFilter}
+                                onChange={e => {
+                                    const next = e.target.value;
+                                    setCategoryFilter(next);
+                                    router.get(route('expenses.index'), {
+                                        search: searchQuery || undefined,
+                                        from: dateFrom || undefined,
+                                        to: dateTo || undefined,
+                                        category: next || undefined,
+                                        sort_by: sortBy || undefined,
+                                        sort_dir: sortDir || undefined,
+                                    }, { preserveState: true });
+                                }}
+                            >
+                                <option value="">All Categories</option>
+                                {categories.map((cat) => (
+                                    <option key={cat.id} value={String(cat.id)}>{cat.name}</option>
+                                ))}
+                            </CustomSelect>
+                        </div>
                         <button type="submit" className="px-3 py-1.5 bg-brand-600 hover:bg-brand-500 text-white font-bold text-xs rounded-lg transition-all ml-auto sm:ml-1">
                             Filter
                         </button>
-                        {(searchQuery || dateFrom || dateTo) && (
+                        {(searchQuery || dateFrom || dateTo || categoryFilter) && (
                             <button type="button" onClick={handleClearFilters} className="px-3 py-1.5 text-slate-400 hover:text-white transition-all text-xs font-bold">
                                 Clear
                             </button>
@@ -210,7 +267,7 @@ export default function ExpensesIndex({ expenses, filters, summary, sortBy, sort
                             <Search className="absolute left-4 top-3 text-slate-500" size={16} />
                             <input
                                 type="text"
-                                placeholder="Search notes..."
+                                placeholder="Search notes or category..."
                                 value={searchQuery}
                                 onChange={e => setSearchQuery(e.target.value)}
                                 className="w-full bg-[#0f172a] border border-[#334155] rounded-xl text-slate-100 pl-11 pr-4 py-2.5 focus:outline-none focus:border-brand-500 text-xs"
@@ -230,6 +287,7 @@ export default function ExpensesIndex({ expenses, filters, summary, sortBy, sort
                                 <tr className="border-b border-[#334155] bg-[#0f172a]/60">
                                     <SortableHeader sortKey="expense_date" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Date</SortableHeader>
                                     <SortableHeader sortKey="notes" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Notes / Description</SortableHeader>
+                                    <SortableHeader sortKey="category" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Category</SortableHeader>
                                     <SortableHeader sortKey="cash_drawer" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Drawer</SortableHeader>
                                     <SortableHeader sortKey="amount" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Amount</SortableHeader>
                                     <SortableHeader sortKey="recorded_by" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Recorded By</SortableHeader>
@@ -240,7 +298,7 @@ export default function ExpensesIndex({ expenses, filters, summary, sortBy, sort
                             <tbody>
                                 {expenses.data.length === 0 ? (
                                     <tr>
-                                        <td colSpan={7} className="px-4 py-12 text-center text-slate-500">
+                                        <td colSpan={8} className="px-4 py-12 text-center text-slate-500">
                                             No expenses found matching the criteria.
                                         </td>
                                     </tr>
@@ -253,6 +311,11 @@ export default function ExpensesIndex({ expenses, filters, summary, sortBy, sort
                                         <td className="px-4 py-3">
                                             <span className="font-semibold text-slate-200 whitespace-normal min-w-[200px] block">
                                                 {exp.notes || <span className="text-slate-500 italic font-normal">No description</span>}
+                                            </span>
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border ${categoryBadgeClass(exp.category?.name)}`}>
+                                                {exp.category?.name || 'Uncategorized'}
                                             </span>
                                         </td>
                                         <td className="px-4 py-3">
@@ -365,6 +428,17 @@ export default function ExpensesIndex({ expenses, filters, summary, sortBy, sort
                                         </CustomSelect>
                                     </div>
                                     <div className="flex flex-col gap-1">
+                                        <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Category *</label>
+                                        <CreatableSelect
+                                            required
+                                            value={category}
+                                            onChange={setCategory}
+                                            options={categories}
+                                            placeholder="Select or create a category"
+                                            className={inputCls}
+                                        />
+                                    </div>
+                                    <div className="flex flex-col gap-1">
                                         <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Notes / Description</label>
                                         <textarea
                                             value={notes}
@@ -459,6 +533,17 @@ export default function ExpensesIndex({ expenses, filters, summary, sortBy, sort
                                             <option value="room">Room Cash Drawer</option>
                                             <option value="minibar">Minibar Cash Drawer</option>
                                         </CustomSelect>
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                        <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Category *</label>
+                                        <CreatableSelect
+                                            required
+                                            value={category}
+                                            onChange={setCategory}
+                                            options={categories}
+                                            placeholder="Select or create a category"
+                                            className={inputCls}
+                                        />
                                     </div>
                                     <div className="flex flex-col gap-1">
                                         <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Notes / Description</label>

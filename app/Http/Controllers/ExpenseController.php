@@ -2,72 +2,86 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreExpenseRequest;
+use App\Models\Expense;
+use App\Models\ExpenseCategory;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+use Inertia\Inertia;
+use Shuchkin\SimpleXLSXGen;
 
 class ExpenseController extends Controller
 {
     public function index(Request $request)
     {
         $user = $request->user();
-        if (!in_array($user->role, ['admin', 'front_desk', 'cashier'], true)) {
+        if (! in_array($user->role, ['admin', 'front_desk', 'cashier'], true)) {
             abort(403, 'Unauthorized access to expenses.');
         }
+
+        ExpenseCategory::ensureDefaults();
 
         $sortBy = $request->input('sort_by', 'expense_date');
         $sortDir = $request->input('sort_dir', 'desc');
 
-        $allowedSorts = ['id', 'expense_date', 'amount', 'cash_drawer', 'notes', 'recorded_by'];
-        if (!in_array($sortBy, $allowedSorts)) $sortBy = 'expense_date';
-        if (!in_array($sortDir, ['asc', 'desc'])) $sortDir = 'desc';
-
-        $query = \App\Models\Expense::with('user:id,full_name,username')
-            ->orderBy($sortBy, $sortDir);
-            
-        if ($sortBy !== 'id') {
-            $query->orderBy('id', 'desc');
+        $allowedSorts = ['id', 'expense_date', 'amount', 'cash_drawer', 'notes', 'recorded_by', 'category'];
+        if (! in_array($sortBy, $allowedSorts)) {
+            $sortBy = 'expense_date';
+        }
+        if (! in_array($sortDir, ['asc', 'desc'])) {
+            $sortDir = 'desc';
         }
 
-        if ($request->filled('from')) {
-            $query->whereDate('expense_date', '>=', $request->from);
-        }
-        if ($request->filled('to')) {
-            $query->whereDate('expense_date', '<=', $request->to);
-        }
-        if ($request->filled('search')) {
-            $query->where('notes', 'like', '%' . $request->search . '%');
+        $filtered = $this->filteredExpensesQuery($request);
+
+        $listQuery = (clone $filtered)->with(['user:id,full_name,username', 'category:id,name']);
+
+        if ($sortBy === 'category') {
+            $listQuery->leftJoin('expense_categories', 'expense_categories.id', '=', 'expenses.expense_category_id')
+                ->orderBy('expense_categories.name', $sortDir)
+                ->orderBy('expenses.id', 'desc')
+                ->select('expenses.*');
+        } else {
+            $listQuery->orderBy($sortBy, $sortDir);
+            if ($sortBy !== 'id') {
+                $listQuery->orderBy('id', 'desc');
+            }
         }
 
-        $expenses = $query->paginate(15)->withQueryString();
+        $expenses = $listQuery->paginate(15)->withQueryString();
 
         $summary = [
-            'total_amount' => $query->sum('amount'),
-            'total_count' => $query->count()
+            'total_amount' => (clone $filtered)->sum('amount'),
+            'total_count' => (clone $filtered)->count(),
         ];
 
-        return \Inertia\Inertia::render('Expenses/Index', [
+        return Inertia::render('Expenses/Index', [
             'expenses' => $expenses,
-            'filters' => $request->only(['from', 'to', 'search']),
+            'categories' => ExpenseCategory::query()->orderBy('name')->get(['id', 'name']),
+            'filters' => $request->only(['from', 'to', 'search', 'category']),
             'summary' => $summary,
             'sortBy' => $sortBy,
             'sortDir' => $sortDir,
         ]);
     }
 
-    public function store(\App\Http\Requests\StoreExpenseRequest $request)
+    public function store(StoreExpenseRequest $request)
     {
         $user = $request->user();
         $validated = $request->validated();
+        $category = ExpenseCategory::findOrCreateFromName($validated['category']);
 
         $receiptPath = null;
         if ($request->hasFile('receipt')) {
             $receiptPath = $request->file('receipt')->store('receipts', 'public');
         }
 
-        \App\Models\Expense::create([
+        Expense::create([
             'expense_date' => $validated['expense_date'],
             'amount' => $validated['amount'],
             'cash_drawer' => $validated['cash_drawer'],
             'notes' => $validated['notes'],
+            'expense_category_id' => $category->id,
             'receipt_path' => $receiptPath,
             'recorded_by' => $user->id,
         ]);
@@ -75,14 +89,15 @@ class ExpenseController extends Controller
         return back()->with('success', 'Expense recorded successfully.');
     }
 
-    public function update(\App\Http\Requests\StoreExpenseRequest $request, \App\Models\Expense $expense)
+    public function update(StoreExpenseRequest $request, Expense $expense)
     {
         $validated = $request->validated();
+        $category = ExpenseCategory::findOrCreateFromName($validated['category']);
 
         $receiptPath = $expense->receipt_path;
         if ($request->hasFile('receipt')) {
             if ($receiptPath) {
-                \Illuminate\Support\Facades\Storage::disk('public')->delete($receiptPath);
+                Storage::disk('public')->delete($receiptPath);
             }
             $receiptPath = $request->file('receipt')->store('receipts', 'public');
         }
@@ -92,21 +107,22 @@ class ExpenseController extends Controller
             'amount' => $validated['amount'],
             'cash_drawer' => $validated['cash_drawer'],
             'notes' => $validated['notes'],
+            'expense_category_id' => $category->id,
             'receipt_path' => $receiptPath,
         ]);
 
         return back()->with('success', 'Expense updated successfully.');
     }
 
-    public function destroy(Request $request, \App\Models\Expense $expense)
+    public function destroy(Request $request, Expense $expense)
     {
         $user = $request->user();
-        if (!in_array($user->role, ['admin', 'front_desk', 'cashier'], true)) {
+        if (! in_array($user->role, ['admin', 'front_desk', 'cashier'], true)) {
             abort(403);
         }
 
         if ($expense->receipt_path) {
-            \Illuminate\Support\Facades\Storage::disk('public')->delete($expense->receipt_path);
+            Storage::disk('public')->delete($expense->receipt_path);
         }
 
         $expense->delete();
@@ -117,37 +133,43 @@ class ExpenseController extends Controller
     public function export(Request $request)
     {
         $user = $request->user();
-        if (!in_array($user->role, ['admin', 'front_desk', 'cashier'], true)) {
+        if (! in_array($user->role, ['admin', 'front_desk', 'cashier'], true)) {
             abort(403);
         }
 
-        $query = \App\Models\Expense::with('user:id,full_name')
+        $expenses = $this->filteredExpensesQuery($request)
+            ->with(['user:id,full_name', 'category:id,name'])
             ->orderByDesc('expense_date')
-            ->orderByDesc('id');
+            ->orderByDesc('id')
+            ->get();
 
-        if ($request->filled('from')) {
-            $query->whereDate('expense_date', '>=', $request->from);
-        }
-        if ($request->filled('to')) {
-            $query->whereDate('expense_date', '<=', $request->to);
-        }
-        if ($request->filled('search')) {
-            $query->where('notes', 'like', '%' . $request->search . '%');
-        }
+        $rows = $this->buildExportRows($expenses, $user, $request);
 
-        $expenses = $query->get();
+        $filename = 'expenses_report_'.date('Y-m-d_H-i-s').'.xlsx';
+        SimpleXLSXGen::fromArray($rows)->downloadAs($filename);
+        exit;
+    }
 
+    public function buildExportRows($expenses, $user, Request $request): array
+    {
         $rows = [];
         $rows[] = ['Hotel Management System — Expenses Report'];
-        
+
         $from = $request->input('from', 'All Time');
         $to = $request->input('to', 'All Time');
         $rows[] = ['Period:', "{$from} to {$to}"];
+
+        if ($request->filled('category')) {
+            $categoryName = ExpenseCategory::query()->find($request->category)?->name
+                ?? $request->input('category');
+            $rows[] = ['Category:', $categoryName];
+        }
+
         $rows[] = ['Generated:', date('Y-m-d H:i:s'), 'By:', $user->full_name];
         $rows[] = [];
 
         $rows[] = ['=== EXPENSE DETAILS ==='];
-        $rows[] = ['ID', 'Date', 'Amount', 'Cash Drawer', 'Recorded By', 'Has Receipt', 'Notes'];
+        $rows[] = ['ID', 'Date', 'Amount', 'Cash Drawer', 'Recorded By', 'Has Receipt', 'Notes', 'Category'];
 
         $total = 0;
         foreach ($expenses as $exp) {
@@ -158,7 +180,8 @@ class ExpenseController extends Controller
                 ucfirst($exp->cash_drawer),
                 $exp->user ? $exp->user->full_name : 'Unknown',
                 $exp->receipt_path ? 'Yes' : 'No',
-                $exp->notes
+                $exp->notes,
+                $exp->category?->name ?? ExpenseCategory::UNCATEGORIZED,
             ];
             $total += $exp->amount;
         }
@@ -166,8 +189,32 @@ class ExpenseController extends Controller
         $rows[] = [];
         $rows[] = ['Total Expenses:', $total];
 
-        $filename = "expenses_report_" . date('Y-m-d_H-i-s') . ".xlsx";
-        \Shuchkin\SimpleXLSXGen::fromArray($rows)->downloadAs($filename);
-        exit;
+        return $rows;
+    }
+
+    private function filteredExpensesQuery(Request $request)
+    {
+        $query = Expense::query();
+
+        if ($request->filled('from')) {
+            $query->whereDate('expense_date', '>=', $request->from);
+        }
+        if ($request->filled('to')) {
+            $query->whereDate('expense_date', '<=', $request->to);
+        }
+        if ($request->filled('category')) {
+            $query->where('expense_category_id', $request->integer('category'));
+        }
+        if ($request->filled('search')) {
+            $term = '%'.$request->search.'%';
+            $query->where(function ($inner) use ($term) {
+                $inner->where('notes', 'like', $term)
+                    ->orWhereHas('category', function ($categoryQuery) use ($term) {
+                        $categoryQuery->where('name', 'like', $term);
+                    });
+            });
+        }
+
+        return $query;
     }
 }

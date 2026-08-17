@@ -2,11 +2,12 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
-use App\Models\RoomType;
-use App\Models\Room;
-use App\Models\PeakDate;
+use App\Models\ExpenseCategory;
 use App\Models\InventoryItem;
+use App\Models\PeakDate;
+use App\Models\Room;
+use App\Models\RoomType;
+use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
@@ -212,5 +213,7 @@ class DatabaseSeeder extends Seeder
         foreach ($inventory as $item) {
             InventoryItem::create($item);
         }
+
+        ExpenseCategory::ensureDefaults();
     }
 }
