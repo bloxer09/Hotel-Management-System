@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Booking;
 use App\Models\PeakDate;
 use App\Models\Room;
 use App\Models\RoomType;
@@ -76,7 +77,7 @@ class BookingService
         ]);
     }
 
-    public static function durationLabel(string $bookingType, $numNights = 1, $shortTimeHours = null): string
+    public static function durationLabel(string $bookingType, $numNights = 1, $shortTimeHours = null, $checkIn = null, $expectedCheckOut = null): string
     {
         if ($bookingType === 'overnight') {
             $nights = max(1, (int) $numNights);
@@ -84,7 +85,210 @@ class BookingService
             return $nights === 1 ? '1 night' : $nights.' nights';
         }
 
-        return (int) $shortTimeHours.' hours';
+        $label = (int) $shortTimeHours.' hours';
+        if ($checkIn && $expectedCheckOut && self::isTruncatedShortStay($bookingType, $shortTimeHours, $checkIn, $expectedCheckOut)) {
+            return $label.' (paid package)';
+        }
+
+        return $label;
+    }
+
+    public static function truncatableShortTimeHours(): array
+    {
+        return [3, 6, 12];
+    }
+
+    public static function allowsTruncatedCheckout(string $bookingType, $shortTimeHours): bool
+    {
+        return $bookingType === 'short_time'
+            && in_array((int) $shortTimeHours, self::truncatableShortTimeHours(), true);
+    }
+
+    public static function turnoverBufferMinutes(): int
+    {
+        return max(0, (int) config('hotel.turnover_buffer_minutes', 20));
+    }
+
+    public static function isTruncatedShortStay(string $bookingType, $shortTimeHours, $checkIn, $expectedCheckOut): bool
+    {
+        if (! self::allowsTruncatedCheckout($bookingType, $shortTimeHours) || empty($checkIn) || empty($expectedCheckOut)) {
+            return false;
+        }
+
+        $standard = self::buildShortTimeExpectedCheckOut($checkIn, $shortTimeHours)->format('Y-m-d H:i:s');
+        $actual = HotelDateTime::fromStay($expectedCheckOut)->format('Y-m-d H:i:s');
+
+        return $actual < $standard;
+    }
+
+    public static function safeCheckoutCutoff(?string $nextReservedCheckIn): ?string
+    {
+        if (! $nextReservedCheckIn) {
+            return null;
+        }
+
+        $cutoff = HotelDateTime::fromStay($nextReservedCheckIn);
+        $buffer = self::turnoverBufferMinutes();
+        if ($buffer > 0) {
+            $cutoff = $cutoff->copy()->subMinutes($buffer);
+        }
+
+        return $cutoff->format('Y-m-d H:i:s');
+    }
+
+    public static function nextReservedCheckIn(int $roomId, string $afterCheckIn, ?int $excludeBookingId = null, bool $lock = false): ?string
+    {
+        $query = Booking::query()
+            ->where('room_id', $roomId)
+            ->whereIn('status', ['active', 'reserved'])
+            ->where('check_in', '>', $afterCheckIn)
+            ->orderBy('check_in');
+
+        if ($excludeBookingId) {
+            $query->where('id', '!=', $excludeBookingId);
+        }
+        if ($lock) {
+            $query->lockForUpdate();
+        }
+
+        $next = $query->first();
+
+        return $next?->getRawOriginal('check_in');
+    }
+
+    public static function occupyingStay(int $roomId, string $checkIn, ?int $excludeBookingId = null, bool $lock = false): ?Booking
+    {
+        $query = Booking::query()
+            ->where('room_id', $roomId)
+            ->whereIn('status', ['active', 'reserved'])
+            ->where('check_in', '<=', $checkIn)
+            ->where('expected_check_out', '>', $checkIn);
+
+        if ($excludeBookingId) {
+            $query->where('id', '!=', $excludeBookingId);
+        }
+        if ($lock) {
+            $query->lockForUpdate();
+        }
+
+        return $query->orderBy('check_in')->first();
+    }
+
+    public static function overlappingStay(int $roomId, string $checkIn, string $checkOut, ?int $excludeBookingId = null, bool $lock = false): ?Booking
+    {
+        $query = Booking::query()
+            ->where('room_id', $roomId)
+            ->whereIn('status', ['active', 'reserved'])
+            ->where('check_in', '<', $checkOut)
+            ->where('expected_check_out', '>', $checkIn);
+
+        if ($excludeBookingId) {
+            $query->where('id', '!=', $excludeBookingId);
+        }
+        if ($lock) {
+            $query->lockForUpdate();
+        }
+
+        return $query->orderBy('check_in')->first();
+    }
+
+    /**
+     * @return array{available: bool, temporarily_available: bool, next_reserved_check_in: ?string, safe_checkout_cutoff: ?string}
+     */
+    public static function stayAvailability(
+        int $roomId,
+        string $checkIn,
+        string $standardCheckOut,
+        bool $allowTemporaryGap,
+        ?int $excludeBookingId = null,
+        bool $lock = false
+    ): array {
+        if (self::occupyingStay($roomId, $checkIn, $excludeBookingId, $lock)) {
+            return [
+                'available' => false,
+                'temporarily_available' => false,
+                'next_reserved_check_in' => null,
+                'safe_checkout_cutoff' => null,
+            ];
+        }
+
+        $next = self::nextReservedCheckIn($roomId, $checkIn, $excludeBookingId, $lock);
+        $cutoff = self::safeCheckoutCutoff($next);
+
+        if (! $next || $standardCheckOut <= $cutoff) {
+            return [
+                'available' => true,
+                'temporarily_available' => false,
+                'next_reserved_check_in' => $next,
+                'safe_checkout_cutoff' => $cutoff,
+            ];
+        }
+
+        if (! $allowTemporaryGap || $checkIn >= $cutoff) {
+            return [
+                'available' => false,
+                'temporarily_available' => false,
+                'next_reserved_check_in' => $next,
+                'safe_checkout_cutoff' => $cutoff,
+            ];
+        }
+
+        return [
+            'available' => true,
+            'temporarily_available' => true,
+            'next_reserved_check_in' => $next,
+            'safe_checkout_cutoff' => $cutoff,
+        ];
+    }
+
+    public static function upcomingReservationConflictMessage(): string
+    {
+        return 'This room now has an upcoming reservation that conflicts with the selected checkout time. Please review the room schedule.';
+    }
+
+    public static function validateModifiedCheckout(string $checkIn, string $modifiedCheckOut, string $standardCheckOut, ?string $cutoff): void
+    {
+        if ($modifiedCheckOut <= $checkIn) {
+            throw ValidationException::withMessages([
+                'modified_check_out' => 'Modified checkout must be after the actual check-in time.',
+            ]);
+        }
+
+        if ($modifiedCheckOut > $standardCheckOut) {
+            throw ValidationException::withMessages([
+                'modified_check_out' => 'Modified checkout cannot be later than the standard package checkout.',
+            ]);
+        }
+
+        if ($cutoff !== null && $modifiedCheckOut > $cutoff) {
+            throw ValidationException::withMessages([
+                'modified_check_out' => self::upcomingReservationConflictMessage(),
+            ]);
+        }
+    }
+
+    public static function modifiedCheckoutRemark(string $nextReservedCheckIn, int $shortTimeHours): string
+    {
+        $arrival = HotelDateTime::fromStay($nextReservedCheckIn)->format('g:i A');
+
+        return "Modified checkout due to incoming reservation at {$arrival}. Charged full {$shortTimeHours}-hour package.";
+    }
+
+    public static function rejectOverlappingExtension(Booking $booking, string $newExpectedCheckOut): void
+    {
+        $overlap = self::overlappingStay(
+            (int) $booking->room_id,
+            $booking->getRawOriginal('check_in'),
+            $newExpectedCheckOut,
+            $booking->id
+        );
+
+        if ($overlap) {
+            throw ValidationException::withMessages([
+                'days' => self::upcomingReservationConflictMessage(),
+                'hours' => self::upcomingReservationConflictMessage(),
+            ]);
+        }
     }
 
     public static function buildOvernightExpectedCheckOut($inputDateTime, $numNights = 1): DateTime

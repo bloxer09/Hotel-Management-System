@@ -8,6 +8,7 @@ export default function StayTypeFields({
     numNights,
     shortTimeHours,
     expectedCheckOut,
+    expectedCheckOutLabel = 'Expected Check-Out',
     onBookingTypeChange,
     onNightsChange,
     onHoursChange,
@@ -56,7 +57,7 @@ export default function StayTypeFields({
                 </div>
             )}
             <div className="flex flex-col gap-1 sm:col-span-2">
-                <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Expected Check-Out</label>
+                <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">{expectedCheckOutLabel}</label>
                 <div className={`${inputCls} font-mono font-bold text-slate-300 bg-[#0f172a]/70`}>
                     {expectedCheckOut ? formatExpectedCheckout(expectedCheckOut) : '—'}
                 </div>

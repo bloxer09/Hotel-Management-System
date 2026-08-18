@@ -187,9 +187,20 @@ class CheckInController extends Controller
             $totals['promo_code'] = $request->promo_code;
         }
 
+        $standardCheckOut = $totals['expected_check_out'];
+        $truncated = $this->truncatedStayPreview(
+            $rooms,
+            $checkIn,
+            $request->booking_type,
+            $request->short_time_hours ?: 3,
+            $standardCheckOut ?: HotelDateTime::toDatabase()
+        );
+        $totals = array_merge($totals, $truncated);
+
         return response()->json([
             'totals' => $totals,
             'room_breakdown' => $room_breakdown,
+            ...$truncated,
         ]);
     }
 
@@ -225,6 +236,8 @@ class CheckInController extends Controller
             'reference_number' => 'nullable|string|max:50|required_if:payment_method,card,bank_transfer,maya,other_ewallet,other',
             'notes' => 'nullable|string',
             'transaction_notes' => 'nullable|string',
+            'modified_check_out' => 'nullable|date',
+            'modified_checkout_acknowledged' => 'nullable|boolean',
         ]);
 
         $checkInForStayType = $request->filled('check_in')
@@ -254,7 +267,7 @@ class CheckInController extends Controller
 
         try {
             return DB::transaction(function () use ($request, $user, $idImagePath) {
-                $rooms = Room::with('type')->whereIn('id', $request->room_ids)->get();
+                $rooms = Room::with('type')->whereIn('id', $request->room_ids)->lockForUpdate()->get();
                 $numRooms = count($rooms);
 
                 $roomGuests = [];
@@ -315,6 +328,62 @@ class CheckInController extends Controller
 
                     $totalCombinedAmount += $pricing['total_amount'];
                     $roomPricings[$room->id] = $pricing;
+                }
+
+                $checkInStr = $checkInTime->format('Y-m-d H:i:s');
+                $standardCheckOut = collect($roomPricings)->pluck('expected_check_out')->first();
+                $truncated = $this->truncatedStayPreview(
+                    $rooms,
+                    $checkInStr,
+                    $request->booking_type,
+                    $request->short_time_hours ?: 3,
+                    $standardCheckOut,
+                    true
+                );
+
+                if ($truncated['blocking_conflict']) {
+                    throw ValidationException::withMessages([
+                        'room_ids' => BookingService::upcomingReservationConflictMessage(),
+                    ]);
+                }
+
+                $operationalCheckOut = $standardCheckOut;
+                $modifiedRemark = null;
+
+                if ($truncated['requires_modified_checkout']) {
+                    if (! $request->boolean('modified_checkout_acknowledged')) {
+                        throw ValidationException::withMessages([
+                            'modified_checkout_acknowledged' => 'Guest agreed to an early checkout because this room has an incoming reservation.',
+                        ]);
+                    }
+                    if (! $request->filled('modified_check_out')) {
+                        throw ValidationException::withMessages([
+                            'modified_check_out' => 'Select a modified checkout time that finishes before the incoming reservation.',
+                        ]);
+                    }
+
+                    $modifiedCheckOut = HotelDateTime::toDatabase($request->modified_check_out);
+                    BookingService::validateModifiedCheckout(
+                        $checkInStr,
+                        $modifiedCheckOut,
+                        $standardCheckOut,
+                        $truncated['safe_checkout_cutoff']
+                    );
+
+                    $operationalCheckOut = $modifiedCheckOut;
+                    $modifiedRemark = BookingService::modifiedCheckoutRemark(
+                        $truncated['next_reserved_check_in'],
+                        (int) ($request->short_time_hours ?: 3)
+                    );
+                }
+
+                foreach ($rooms as $room) {
+                    if (BookingService::overlappingStay($room->id, $checkInStr, $operationalCheckOut, null, true)) {
+                        throw ValidationException::withMessages([
+                            'modified_check_out' => BookingService::upcomingReservationConflictMessage(),
+                            'room_ids' => BookingService::upcomingReservationConflictMessage(),
+                        ]);
+                    }
                 }
 
                 // Handle payment verification
@@ -422,7 +491,7 @@ class CheckInController extends Controller
                         'short_time_hours' => $request->booking_type !== 'overnight' ? $request->short_time_hours : null,
                         'num_nights' => $request->booking_type === 'overnight' ? ($request->num_nights ?: 1) : null,
                         'check_in' => HotelDateTime::toDatabase($checkInTime),
-                        'expected_check_out' => $pricing['expected_check_out'],
+                        'expected_check_out' => $operationalCheckOut,
                         'status' => 'active',
                         'payment_status' => 'unpaid',
                         'base_amount' => $pricing['base_amount'],
@@ -437,7 +506,7 @@ class CheckInController extends Controller
                         'gcash_amount' => 0,
                         'gcash_ref' => null,
                         'is_peak' => $pricing['is_peak'],
-                        'notes' => $request->notes ? trim($request->notes.($request->filled('promo_code') ? "\nApplied Promo Code: ".$request->promo_code : '')) : ($request->filled('promo_code') ? 'Applied Promo Code: '.$request->promo_code : null),
+                        'notes' => $this->composeCheckInNotes($request, $modifiedRemark),
                         'checked_in_by' => $user->id,
                     ]);
 
@@ -482,13 +551,75 @@ class CheckInController extends Controller
                     $createdBookingIds[0],
                     null,
                     $groupRef ?? 'SINGLE',
-                    $msg." Payment {$payment->receipt_number} verified: ₱{$totalCombinedAmount} via {$paymentMethod}."
+                    $msg." Payment {$payment->receipt_number} verified: ₱{$totalCombinedAmount} via {$paymentMethod}".($modifiedRemark ? ' '.$modifiedRemark : '').'.'
                 );
 
                 return redirect()->route('checkin.index')->with('success', $msg);
             });
+        } catch (ValidationException $e) {
+            throw $e;
         } catch (\Exception $e) {
             return back()->with('error', $e->getMessage());
         }
+    }
+
+    private function truncatedStayPreview(
+        $rooms,
+        string $checkIn,
+        string $bookingType,
+        $shortTimeHours,
+        string $standardCheckOut,
+        bool $lock = false
+    ): array {
+        $allowTemporaryGap = BookingService::allowsTruncatedCheckout($bookingType, $shortTimeHours);
+        $requiresModified = false;
+        $blockingConflict = false;
+        $nextReserved = null;
+        $cutoff = null;
+
+        foreach ($rooms as $room) {
+            $availability = BookingService::stayAvailability(
+                $room->id,
+                $checkIn,
+                $standardCheckOut,
+                $allowTemporaryGap,
+                null,
+                $lock
+            );
+
+            if (! $availability['available']) {
+                $blockingConflict = true;
+            }
+
+            if ($availability['temporarily_available']) {
+                $requiresModified = true;
+                if ($cutoff === null || $availability['safe_checkout_cutoff'] < $cutoff) {
+                    $cutoff = $availability['safe_checkout_cutoff'];
+                    $nextReserved = $availability['next_reserved_check_in'];
+                }
+            }
+        }
+
+        return [
+            'requires_modified_checkout' => $requiresModified,
+            'next_reserved_check_in' => $nextReserved,
+            'safe_checkout_cutoff' => $cutoff,
+            'standard_expected_check_out' => $standardCheckOut,
+            'blocking_conflict' => $blockingConflict,
+            'turnover_buffer_minutes' => BookingService::turnoverBufferMinutes(),
+        ];
+    }
+
+    private function composeCheckInNotes(Request $request, ?string $modifiedRemark): ?string
+    {
+        $parts = array_filter([
+            $request->notes ? trim($request->notes) : null,
+            $request->filled('promo_code') ? 'Applied Promo Code: '.$request->promo_code : null,
+            $modifiedRemark,
+        ]);
+
+        $notes = trim(implode("\n", $parts));
+
+        return $notes !== '' ? $notes : null;
     }
 }

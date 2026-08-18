@@ -20,6 +20,7 @@ use App\Services\PaymentService;
 use App\Support\HotelDateTime;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
 class BookingController extends Controller
@@ -124,19 +125,22 @@ class BookingController extends Controller
 
                 $cost = 0.00;
                 $desc = '';
-                $expectedOut = new \DateTime($booking->expected_check_out);
+                $expectedOut = HotelDateTime::fromStay($booking->getRawOriginal('expected_check_out'));
 
                 if ($request->hours) {
                     $hours = (int) $request->hours;
                     $cost = round((float) $roomType->hourly_rate * $hours, 2);
-                    $expectedOut->modify('+'.$hours.' hour');
+                    $expectedOut = $expectedOut->copy()->addHours($hours);
                     $desc = "Extended by {$hours} hour(s) @ ₱{$roomType->hourly_rate}/hr";
                 } else {
                     $days = (int) $request->days;
                     $cost = round((float) $roomType->base_rate * $days, 2);
-                    $expectedOut->modify('+'.$days.' day');
+                    $expectedOut = $expectedOut->copy()->addDays($days);
                     $desc = "Extended by {$days} night(s) @ ₱{$roomType->base_rate}/night";
                 }
+
+                $newExpectedCheckOut = $expectedOut->format('Y-m-d H:i:s');
+                BookingService::rejectOverlappingExtension($booking, $newExpectedCheckOut);
 
                 // Verify payment
                 $paymentMethod = $request->payment_method;
@@ -150,7 +154,7 @@ class BookingController extends Controller
                 $gcashAmount = $resolved['gcash_amount'];
 
                 // Update stay charges first; payment is recorded separately below.
-                $booking->expected_check_out = $expectedOut->format('Y-m-d H:i:s');
+                $booking->expected_check_out = $newExpectedCheckOut;
                 $booking->extension_fee += $cost;
                 $booking->total_amount += $cost;
                 $booking->save();
@@ -192,6 +196,8 @@ class BookingController extends Controller
                     "Booking extended. Payment {$payment->receipt_number} recorded as {$payment->status}."
                 );
             });
+        } catch (ValidationException $e) {
+            throw $e;
         } catch (\Exception $e) {
             return back()->with('error', $e->getMessage());
         }
@@ -699,7 +705,7 @@ class BookingController extends Controller
         }
 
         $cost = 0.00;
-        $expectedOut = new \DateTime($booking->expected_check_out);
+        $expectedOut = HotelDateTime::fromStay($booking->getRawOriginal('expected_check_out'));
 
         if ($request->hours) {
             $hours = (int) $request->hours;
@@ -708,14 +714,17 @@ class BookingController extends Controller
             } else {
                 $cost = round((float) $roomType->hourly_rate * $hours, 2);
             }
-            $expectedOut->modify('+'.$hours.' hour');
+            $expectedOut = $expectedOut->copy()->addHours($hours);
         } else {
             $days = (int) $request->days;
             $cost = round((float) $roomType->base_rate * $days, 2);
-            $expectedOut->modify('+'.$days.' day');
+            $expectedOut = $expectedOut->copy()->addDays($days);
         }
 
-        $peakDate = BookingService::isPeakDate($booking->expected_check_out);
+        $newExpectedCheckOut = $expectedOut->format('Y-m-d H:i:s');
+        BookingService::rejectOverlappingExtension($booking, $newExpectedCheckOut);
+
+        $peakDate = BookingService::isPeakDate($booking->getRawOriginal('expected_check_out'));
         $peakSurcharge = BookingService::calculateSurcharge($peakDate, $cost);
         $totalAmount = round($cost + $peakSurcharge, 2);
 
@@ -723,7 +732,7 @@ class BookingController extends Controller
             'base_amount' => $cost,
             'peak_surcharge' => $peakSurcharge,
             'total_amount' => $totalAmount,
-            'new_expected_check_out' => $expectedOut->format('Y-m-d H:i:s'),
+            'new_expected_check_out' => $newExpectedCheckOut,
             'new_expected_check_out_label' => $expectedOut->format('M d, Y h:i A'),
             'is_peak' => $peakDate ? true : false,
             'peak_label' => $peakDate ? $peakDate->label : null,

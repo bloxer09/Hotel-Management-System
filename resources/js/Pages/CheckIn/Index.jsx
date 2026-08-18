@@ -22,7 +22,8 @@ import {
     Eye,
     Edit,
     RefreshCw,
-    ChevronDown
+    ChevronDown,
+    CircleAlert
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import StayDetailsModal from '@/Components/StayDetailsModal';
@@ -32,10 +33,11 @@ import ActionModal from '@/Components/ActionModal';
 import CustomSelect from '@/Components/CustomSelect';
 import SortableHeader from '@/Components/SortableHeader';
 import Pagination from '@/Components/Pagination';
-import { formatHotelShort, formatHotelDateTime } from '@/Utils/datetime';
+import { formatHotelShort, formatHotelDateTime, formatHotelTime, toHotelDatetimeLocal } from '@/Utils/datetime';
 import { stayDurationLabel } from '@/Utils/stayDuration';
 import StaySchedule from '@/Components/StaySchedule';
 import StayTypeFields from '@/Components/StayTypeFields';
+import { checkInRoomAvailabilityNote } from '@/Utils/roomAvailability';
 
 const STATUS_TABS = [
     { key: 'all', label: 'All Stays', color: 'text-brand-400', dot: 'bg-brand-400' },
@@ -102,7 +104,9 @@ export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCod
         discount_type: 'none', discount_amount: 0, promo_code: '',
         payment_method: 'cash', cash_amount: 0.00, gcash_amount: 0.00, cash_received: '',
         gcash_ref: '', reference_number: '', notes: '',
-        check_in: getLocalDatetimeString()
+        check_in: getLocalDatetimeString(),
+        modified_check_out: '',
+        modified_checkout_acknowledged: false,
     });
     const checkInTotal = Number(calc.totals?.total_amount ?? calc.total_amount ?? 0);
     const checkInCashReceived = Number(data.cash_received || 0);
@@ -120,6 +124,15 @@ export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCod
                     ? 'Enter the payment reference before checking in.'
                     : '';
     const isPaymentReady = !paymentValidationMessage;
+    const truncatedStay = calc.totals || calc;
+    const requiresModifiedCheckout = Boolean(truncatedStay.requires_modified_checkout);
+    const standardPackageCheckout = truncatedStay.standard_expected_check_out || truncatedStay.expected_check_out;
+    const nextReservedCheckIn = truncatedStay.next_reserved_check_in;
+    const safeCheckoutCutoff = truncatedStay.safe_checkout_cutoff;
+    const turnoverBufferMinutes = Number(truncatedStay.turnover_buffer_minutes ?? 20);
+    const operationalCheckout = requiresModifiedCheckout && data.modified_check_out
+        ? data.modified_check_out
+        : (calc.expected_check_out || calc.totals?.expected_check_out);
 
     const [summaryView, setSummaryView] = useState('all');
 
@@ -367,6 +380,21 @@ export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCod
     }, [data.room_ids.join(','), data.booking_type, data.num_nights, data.short_time_hours, data.discount_type, data.discount_amount, data.promo_code, JSON.stringify(data.extra_pax), data.check_in]);
 
     useEffect(() => {
+        if (!requiresModifiedCheckout || !safeCheckoutCutoff) {
+            if (data.modified_check_out || data.modified_checkout_acknowledged) {
+                setData(prev => ({ ...prev, modified_check_out: '', modified_checkout_acknowledged: false }));
+            }
+            return;
+        }
+
+        const nextValue = toHotelDatetimeLocal(safeCheckoutCutoff);
+        setData(prev => {
+            if (prev.modified_check_out === nextValue) return prev;
+            return { ...prev, modified_check_out: nextValue, modified_checkout_acknowledged: false };
+        });
+    }, [requiresModifiedCheckout, safeCheckoutCutoff, data.check_in, data.booking_type, data.short_time_hours, data.room_ids.join(',')]);
+
+    useEffect(() => {
         if (showModal) {
             setIsLoadingRooms(true);
             axios.post(route('reservations.available_rooms'), {
@@ -424,6 +452,15 @@ export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCod
             return;
         }
         clearErrors('cash_received', 'gcash_ref', 'reference_number');
+        if (requiresModifiedCheckout && !data.modified_checkout_acknowledged) {
+            setError('modified_checkout_acknowledged', 'Confirm that the guest agreed to an early checkout because this room has an incoming reservation.');
+            return;
+        }
+        if (requiresModifiedCheckout && !data.modified_check_out) {
+            setError('modified_check_out', 'Select a modified checkout time that finishes before the incoming reservation.');
+            return;
+        }
+        clearErrors('modified_checkout_acknowledged', 'modified_check_out');
         setShowConfirmCheckInModal(true);
     };
 
@@ -948,12 +985,71 @@ export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCod
                                                     bookingType={data.booking_type}
                                                     numNights={data.num_nights}
                                                     shortTimeHours={data.short_time_hours}
-                                                    expectedCheckOut={calc.expected_check_out || calc.totals?.expected_check_out}
+                                                    expectedCheckOut={standardPackageCheckout || calc.expected_check_out || calc.totals?.expected_check_out}
+                                                    expectedCheckOutLabel={requiresModifiedCheckout ? 'Standard Package Checkout' : 'Expected Check-Out'}
                                                     onBookingTypeChange={e => setData('booking_type', e.target.value)}
                                                     onNightsChange={e => setData('num_nights', e.target.value)}
                                                     onHoursChange={e => setData('short_time_hours', Number(e.target.value))}
                                                     inputCls={inputCls}
                                                 />
+                                                {requiresModifiedCheckout && (
+                                                    <div className="sm:col-span-2 rounded-2xl border border-amber-500/40 bg-amber-950/20 p-4 flex flex-col gap-3">
+                                                        <div className="flex items-start gap-2 text-amber-200">
+                                                            <CircleAlert size={16} className="shrink-0 mt-0.5" />
+                                                            <p className="text-[11px] leading-relaxed">
+                                                                This room has an incoming reservation at <span className="font-bold">{formatHotelTime(nextReservedCheckIn)}</span>.
+                                                                Allow <span className="font-bold">{turnoverBufferMinutes} minutes</span> for cleaning.
+                                                                Latest safe checkout is <span className="font-bold">{formatHotelTime(safeCheckoutCutoff)}</span>.
+                                                                The guest will still be charged the full {data.short_time_hours}-hour rate.
+                                                            </p>
+                                                        </div>
+                                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                                            <div className="flex flex-col gap-1">
+                                                                <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Next Reservation</label>
+                                                                <div className={`${inputCls} font-mono font-bold text-amber-200 bg-[#0f172a]/70`}>
+                                                                    {formatHotelTime(nextReservedCheckIn)}
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex flex-col gap-1">
+                                                                <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Cleaning Time</label>
+                                                                <div className={`${inputCls} font-mono font-bold text-amber-200 bg-[#0f172a]/70`}>
+                                                                    {turnoverBufferMinutes} minutes
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex flex-col gap-1">
+                                                                <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Latest Safe Checkout</label>
+                                                                <div className={`${inputCls} font-mono font-bold text-amber-200 bg-[#0f172a]/70`}>
+                                                                    {formatHotelTime(safeCheckoutCutoff)}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div className="grid grid-cols-1 gap-3">
+                                                            <div className="flex flex-col gap-1">
+                                                                <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Modified Checkout Time</label>
+                                                                <input
+                                                                    type="datetime-local"
+                                                                    required
+                                                                    min={data.check_in}
+                                                                    max={toHotelDatetimeLocal(safeCheckoutCutoff)}
+                                                                    value={data.modified_check_out}
+                                                                    onChange={e => setData('modified_check_out', e.target.value)}
+                                                                    className={`${inputCls} font-mono font-bold`}
+                                                                />
+                                                                {errors.modified_check_out && <p className="text-[10px] text-red-400">{errors.modified_check_out}</p>}
+                                                            </div>
+                                                        </div>
+                                                        <label className="flex items-start gap-2 text-[11px] text-slate-200">
+                                                            <input
+                                                                type="checkbox"
+                                                                className="mt-0.5 rounded border-[#475569] bg-[#1e293b] text-brand-500 focus:ring-brand-500"
+                                                                checked={Boolean(data.modified_checkout_acknowledged)}
+                                                                onChange={e => setData('modified_checkout_acknowledged', e.target.checked)}
+                                                            />
+                                                            <span>Guest agreed to an early checkout because this room has an incoming reservation.</span>
+                                                        </label>
+                                                        {errors.modified_checkout_acknowledged && <p className="text-[10px] text-red-400">{errors.modified_checkout_acknowledged}</p>}
+                                                    </div>
+                                                )}
 
                                                 <div className="flex flex-col gap-1">
                                                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Discount</label>
@@ -1246,10 +1342,15 @@ export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCod
                                                     </div>
 
                                                     <div className="flex flex-col gap-1 bg-[#0f172a]/65 p-3 rounded-xl border border-[#334155] mt-1">
-                                                        <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1"><Calendar size={10} /> Expected Check-Out</span>
+                                                        <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1"><Calendar size={10} /> {requiresModifiedCheckout ? 'Modified Check-Out' : 'Expected Check-Out'}</span>
                                                         <span className="text-xs text-slate-300 font-bold font-mono">
-                                                            {calc.expected_check_out || calc.totals?.expected_check_out ? formatHotelDateTime(calc.expected_check_out || calc.totals?.expected_check_out) : '-'}
+                                                            {operationalCheckout ? formatHotelDateTime(operationalCheckout) : '-'}
                                                         </span>
+                                                        {requiresModifiedCheckout && (
+                                                            <span className="text-[10px] text-amber-300 font-medium">
+                                                                Paid package: {data.short_time_hours} hours. Standard checkout {formatHotelDateTime(standardPackageCheckout)}.
+                                                            </span>
+                                                        )}
                                                     </div>
                                                 </>
                                             ) : (
@@ -1728,6 +1829,16 @@ export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCod
                                     )}
                                 </span>
                                 <span className="text-[10px] text-slate-400 font-medium">{r.type?.type_name}</span>
+                                {(() => {
+                                    const note = checkInRoomAvailabilityNote(r);
+                                    return (
+                                        <span className={`text-[10px] font-semibold leading-snug ${note.tone === 'temporary' ? 'text-amber-300' : 'text-emerald-400'}`}>
+                                            {(note.lines || [note.text]).map((line) => (
+                                                <span key={line} className="block">{line}</span>
+                                            ))}
+                                        </span>
+                                    );
+                                })()}
                             </div>
                         </label>
                     ))}
@@ -1761,6 +1872,14 @@ export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCod
                                 <p className="text-sm text-slate-400">
                                     Are you sure you want to finalize the check in for <span className="font-bold text-slate-200">{data.guest_name || 'the guest'}</span>?
                                 </p>
+                                {requiresModifiedCheckout && (
+                                    <p className="text-[11px] text-amber-200 bg-amber-950/30 border border-amber-500/30 rounded-xl px-3 py-2">
+                                        Guest agreed to an early checkout because this room has an incoming reservation
+                                        {nextReservedCheckIn ? ` at ${formatHotelTime(nextReservedCheckIn)}` : ''}.
+                                        Cleaning time: {turnoverBufferMinutes} minutes. Latest safe checkout: {formatHotelTime(safeCheckoutCutoff)}.
+                                        Full {data.short_time_hours}-hour package will be charged. Checkout: {formatHotelDateTime(data.modified_check_out)}.
+                                    </p>
+                                )}
                                 <div className="flex gap-3 w-full mt-4">
                                     <button onClick={() => setShowConfirmCheckInModal(false)} className="flex-1 px-4 py-2.5 bg-[#0f172a] hover:bg-[#334155] border border-[#334155] text-slate-300 rounded-xl text-sm font-bold transition-colors">
                                         Cancel

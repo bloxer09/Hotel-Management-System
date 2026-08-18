@@ -102,3 +102,9 @@ export const hotelLocalNowTimestamp = () => {
     const parts = hotelLocalNowParts();
     return Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second);
 };
+
+export function toHotelDatetimeLocal(value) {
+    const parts = parseHotelLocalParts(value);
+    if (!parts) return '';
+    return `${parts.year}-${pad(parts.month)}-${pad(parts.day)}T${pad(parts.hour)}:${pad(parts.minute)}`;
+}

@@ -1,4 +1,4 @@
-import { formatHotelDateTime, formatHotelShort, parseHotelLocalParts } from '@/Utils/datetime';
+import { formatHotelDateTime, formatHotelShort, hotelLocalTimestamp, parseHotelLocalParts } from '@/Utils/datetime';
 
 export const OVERNIGHT_CHECKIN_HOUR = 14;
 
@@ -37,7 +37,23 @@ export function stayDurationLabel(booking) {
     }
 
     const hours = Number(booking.short_time_hours || 0);
+    if (isTruncatedShortStay(booking)) {
+        return `${hours} hours (paid package)`;
+    }
+
     return `${hours} hours`;
+}
+
+export function isTruncatedShortStay(booking) {
+    if (!booking || booking.booking_type !== 'short_time') return false;
+    const hours = Number(booking.short_time_hours || 0);
+    if (![3, 6, 12].includes(hours)) return false;
+
+    const checkIn = hotelLocalTimestamp(booking.check_in);
+    const checkOut = hotelLocalTimestamp(booking.expected_check_out);
+    if (!Number.isFinite(checkIn) || !Number.isFinite(checkOut)) return false;
+
+    return checkOut < checkIn + hours * 3600 * 1000;
 }
 
 export function formatStaySchedule(booking) {

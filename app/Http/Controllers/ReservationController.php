@@ -296,6 +296,16 @@ class ReservationController extends Controller
 
         $checkInStr = $checkInTime->format('Y-m-d H:i:s');
         $checkOutStr = $expectedCheckOut->format('Y-m-d H:i:s');
+        $purpose = $request->input('purpose', 'reservation');
+        $isSameDayOrPast = $checkInTime->toDateString() <= HotelDateTime::today()->toDateString();
+        $requirePhysicalReady = $purpose === 'checkin'
+            || $request->boolean('require_physical_ready')
+            || $isSameDayOrPast;
+        $allowTemporaryGap = $purpose === 'checkin'
+            && BookingService::allowsTruncatedCheckout(
+                $request->booking_type,
+                $request->short_time_hours ?: 3
+            );
 
         $query = Booking::whereIn('status', ['active', 'reserved'])
             ->where('check_in', '<', $checkOutStr)
@@ -307,22 +317,55 @@ class ReservationController extends Controller
 
         $bookedRoomIds = $query->pluck('room_id')->toArray();
 
-        $purpose = $request->input('purpose', 'reservation');
-        $isSameDayOrPast = $checkInTime->toDateString() <= HotelDateTime::today()->toDateString();
-        $requirePhysicalReady = $purpose === 'checkin'
-            || $request->boolean('require_physical_ready')
-            || $isSameDayOrPast;
-
-        $roomsQuery = Room::with('type')
-            ->whereNotIn('id', $bookedRoomIds)
-            ->orderBy('room_number', 'asc');
+        $roomsQuery = Room::with('type')->orderBy('room_number', 'asc');
 
         if ($requirePhysicalReady) {
             $roomsQuery->where('status', 'vacant');
         }
 
+        if (! $allowTemporaryGap) {
+            $roomsQuery->whereNotIn('id', $bookedRoomIds);
+        }
+
+        $excludeBookingId = $request->filled('exclude_booking_id')
+            ? (int) $request->exclude_booking_id
+            : null;
+
+        $rooms = $roomsQuery->get()
+            ->map(function (Room $room) use ($checkInStr, $checkOutStr, $allowTemporaryGap, $excludeBookingId) {
+                $availability = $allowTemporaryGap
+                    ? BookingService::stayAvailability(
+                        $room->id,
+                        $checkInStr,
+                        $checkOutStr,
+                        true,
+                        $excludeBookingId
+                    )
+                    : [
+                        'available' => true,
+                        'temporarily_available' => false,
+                        'next_reserved_check_in' => null,
+                        'safe_checkout_cutoff' => null,
+                    ];
+
+                if (! $availability['available']) {
+                    return null;
+                }
+
+                $payload = $room->toArray();
+                $payload['temporarily_available'] = (bool) $availability['temporarily_available'];
+                $payload['next_reserved_check_in'] = $availability['next_reserved_check_in'];
+                $payload['available_until'] = $availability['safe_checkout_cutoff'];
+                $payload['safe_checkout_cutoff'] = $availability['safe_checkout_cutoff'];
+                $payload['turnover_buffer_minutes'] = BookingService::turnoverBufferMinutes();
+
+                return $payload;
+            })
+            ->filter()
+            ->values();
+
         return response()->json([
-            'available_rooms' => $roomsQuery->get(),
+            'available_rooms' => $rooms,
             'expected_check_out' => $checkOutStr,
             'require_physical_ready' => $requirePhysicalReady,
         ]);

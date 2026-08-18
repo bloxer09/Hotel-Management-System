@@ -155,4 +155,28 @@ class BookingServiceOvernightCheckoutTest extends TestCase
             '2:01 PM + Overnight 1 night is valid' => ['2026-08-26 14:01:00', 'overnight', 1, true],
         ];
     }
+
+    public function test_truncated_short_stay_is_detected_from_checkout_vs_package_hours(): void
+    {
+        $this->assertTrue(BookingService::allowsTruncatedCheckout('short_time', 3));
+        $this->assertTrue(BookingService::allowsTruncatedCheckout('short_time', 12));
+        $this->assertFalse(BookingService::allowsTruncatedCheckout('short_time', 24));
+        $this->assertFalse(BookingService::allowsTruncatedCheckout('overnight', 3));
+        $this->assertTrue(BookingService::isTruncatedShortStay(
+            'short_time',
+            3,
+            '2026-08-26 15:50:00',
+            '2026-08-26 16:45:00'
+        ));
+        $this->assertFalse(BookingService::isTruncatedShortStay(
+            'short_time',
+            3,
+            '2026-08-26 15:50:00',
+            '2026-08-26 18:50:00'
+        ));
+        $this->assertSame(
+            '3 hours (paid package)',
+            BookingService::durationLabel('short_time', 1, 3, '2026-08-26 15:50:00', '2026-08-26 16:45:00')
+        );
+    }
 }
