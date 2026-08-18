@@ -227,6 +227,10 @@ export default function RoomBookingsLedgerPrint({
     const reservationCashThisShift = ct.reservation_cash ?? 0;
     const otherRoomCashThisShift = Number(ct.other_room_cash ?? 0);
     const otherCashReceipts = ct.other_cash_receipts ?? 0;
+    const shortageRecoveryReceived = Number(ct.variance_recovery_receipts ?? 0);
+    const totalCashReceivedThisShift = Number(
+        ct.total_cash_received ?? (roomSalesCash + otherCashReceipts + shortageRecoveryReceived)
+    );
     const totalCashAvailable = ct.total_cash_available ?? 0;
     const expenses = ct.expenses ?? [];
     const cashMovements = ct.cash_movements ?? [];
@@ -348,6 +352,7 @@ export default function RoomBookingsLedgerPrint({
                 .tally-table td { padding: 6px 10px; border: 1px solid #c5cfe0; }
                 .tally-table td.right { text-align: right; }
                 .tally-table tr.total-row td { background: #dce8f5; font-weight: 700; }
+                .tally-table tr.subtotal-row td { background: #edf4fa; font-weight: 700; }
                 .tally-table tr.deduct-total td { background: #fde8e8; font-weight: 700; }
                 .tally-table td.indent { padding-left: 22px; font-size: 10px; color: #333; }
                 .tally-table tr.group-label td { background: #f4f7fb; font-weight: 700; font-size: 9.5px; letter-spacing: 0.3px; color: #1a3a5c; }
@@ -744,13 +749,19 @@ export default function RoomBookingsLedgerPrint({
                                         <td className="right">{php(otherRoomCashThisShift)}</td>
                                     </tr>
                                 )}
+                                {shortageRecoveryReceived >= 0.01 && (
+                                    <tr>
+                                        <td className="indent">Shortage Recovery Received</td>
+                                        <td className="right">{php(shortageRecoveryReceived)}</td>
+                                    </tr>
+                                )}
                                 <tr>
-                                    <td>Total Room / Reservation Cash Received This Shift</td>
-                                    <td className="right">{php(roomSalesCash)}</td>
-                                </tr>
-                                <tr>
-                                    <td>Other cash receipts</td>
+                                    <td className="indent">Other Cash Receipts</td>
                                     <td className="right">{php(otherCashReceipts)}</td>
+                                </tr>
+                                <tr className="subtotal-row">
+                                    <td>TOTAL CASH RECEIVED THIS SHIFT</td>
+                                    <td className="right">{php(totalCashReceivedThisShift)}</td>
                                 </tr>
                                 <tr className="total-row">
                                     <td>TOTAL CASH AVAILABLE</td>

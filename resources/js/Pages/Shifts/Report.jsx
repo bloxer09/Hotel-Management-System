@@ -144,6 +144,17 @@ export default function Report({ shift, report }) {
     const staysRefunds = Number(stayCollections.refunds || 0);
     const staysNetCollection = Number(stayCollections.net_collections || 0);
     const dailyCash = report.daily_cash_report || {};
+    const stayCashReceived = Number(dailyCash.stay_cash ?? dailyCash.room_sales_cash ?? 0);
+    const reservationCashReceived = Number(dailyCash.reservation_cash ?? 0);
+    const otherRoomCashReceived = Number(dailyCash.other_room_cash ?? 0);
+    const shortageRecoveryReceived = Number(dailyCash.variance_recovery_receipts ?? 0);
+    const otherCashReceipts = Number(dailyCash.additional_cash ?? 0);
+    const totalCashReceivedThisShift = Number(
+        dailyCash.total_cash_received ?? (stayCashReceived + reservationCashReceived + otherRoomCashReceived + shortageRecoveryReceived + otherCashReceipts)
+    );
+    const totalCashAvailable = Number(
+        dailyCash.total_cash_available ?? (Number(shift.opening_cash || 0) + totalCashReceivedThisShift)
+    );
     const roomsReco = report.cash_reconciliation?.rooms || {};
     const minibarReco = report.cash_reconciliation?.minibar || {};
     const dailyVariance = dailyCash.variance === null || dailyCash.variance === undefined
@@ -1051,12 +1062,18 @@ export default function Report({ shift, report }) {
                                 <table className="w-full text-sm daily-cash-table text-slate-100">
                                     <tbody>
                                         <tr><th className="text-left w-2/3">Cash on Hand (Opening Balance)</th><td className="text-right font-mono font-bold">{formatCurrency(shift.opening_cash)}</td></tr>
-                                        <tr><th className="text-left">Add: Room / Reservation Cash Received</th><td className="text-right font-mono font-bold text-emerald-400">{formatCurrency(dailyCash.room_sales_cash)}</td></tr>
-                                        <tr><th className="text-left">Add: Other Cash Receipts</th><td className="text-right font-mono font-bold text-emerald-400">{formatCurrency(dailyCash.additional_cash || 0)}</td></tr>
-                                        {(Number(dailyCash.variance_recovery_receipts || 0) > 0) && (
-                                            <tr><th className="text-left">Add: Shortage Recovery Received</th><td className="text-right font-mono font-bold text-emerald-400">{formatCurrency(dailyCash.variance_recovery_receipts || 0)}</td></tr>
+                                        <tr><th colSpan={2} className="text-left text-xs uppercase tracking-wide text-slate-400 pt-2">Add: Cash Received This Shift</th></tr>
+                                        <tr><th className="text-left pl-4">Room / Stay Cash Received This Shift</th><td className="text-right font-mono font-bold text-emerald-400">{formatCurrency(stayCashReceived)}</td></tr>
+                                        <tr><th className="text-left pl-4">Reservation Cash Deposits Received This Shift</th><td className="text-right font-mono font-bold text-emerald-400">{formatCurrency(reservationCashReceived)}</td></tr>
+                                        {Math.abs(otherRoomCashReceived) >= 0.01 && (
+                                            <tr><th className="text-left pl-4">Other Room-Related Cash Received This Shift</th><td className="text-right font-mono font-bold text-emerald-400">{formatCurrency(otherRoomCashReceived)}</td></tr>
                                         )}
-                                        <tr><th className="text-left">Total Cash Available</th><td className="text-right font-mono font-bold">{formatCurrency(dailyCash.total_cash_available ?? (Number(shift.opening_cash || 0) + Number(dailyCash.room_sales_cash || 0) + Number(dailyCash.additional_cash || 0) + Number(dailyCash.variance_recovery_receipts || 0)))}</td></tr>
+                                        {shortageRecoveryReceived >= 0.01 && (
+                                            <tr><th className="text-left pl-4">Shortage Recovery Received</th><td className="text-right font-mono font-bold text-emerald-400">{formatCurrency(shortageRecoveryReceived)}</td></tr>
+                                        )}
+                                        <tr><th className="text-left pl-4">Other Cash Receipts</th><td className="text-right font-mono font-bold text-emerald-400">{formatCurrency(otherCashReceipts)}</td></tr>
+                                        <tr><th className="text-left">Total Cash Received This Shift</th><td className="text-right font-mono font-bold text-emerald-300">{formatCurrency(totalCashReceivedThisShift)}</td></tr>
+                                        <tr><th className="text-left">Total Cash Available</th><td className="text-right font-mono font-bold">{formatCurrency(totalCashAvailable)}</td></tr>
                                         <tr><th className="text-left">Less: Expenses</th><td className="text-right font-mono font-bold text-rose-400">-{formatCurrency(Number(dailyCash.room_expenses || 0))}</td></tr>
                                         <tr><th className="text-left">Less: Withdrawals</th><td className="text-right font-mono font-bold text-rose-400">-{formatCurrency(Number(dailyCash.withdrawals || 0))}</td></tr>
                                         <tr><th className="text-left">Less: Cash Transfer</th><td className="text-right font-mono font-bold text-rose-400">-{formatCurrency(dailyCash.cashier_transfers)}</td></tr>
@@ -1744,12 +1761,18 @@ export default function Report({ shift, report }) {
                     <table className="daily-cash-table mb-3">
                         <tbody>
                             <tr><th className="w-[72%] text-left">Cash on Hand (Opening Balance)</th><td className="text-right font-bold">{formatCurrency(shift.opening_cash)}</td></tr>
-                            <tr><th className="text-left">Add: Room / Reservation Cash Received</th><td className="text-right font-bold">{formatCurrency(dailyCash.room_sales_cash)}</td></tr>
-                            <tr><th className="text-left">Add: Other Cash Receipts</th><td className="text-right font-bold">{formatCurrency(dailyCash.additional_cash || 0)}</td></tr>
-                            {(Number(dailyCash.variance_recovery_receipts || 0) > 0) && (
-                                <tr><th className="text-left">Add: Shortage Recovery Received</th><td className="text-right font-bold">{formatCurrency(dailyCash.variance_recovery_receipts || 0)}</td></tr>
+                            <tr><th colSpan={2} className="text-left text-[8px] uppercase tracking-wide">Add: Cash Received This Shift</th></tr>
+                            <tr><th className="text-left pl-3">Room / Stay Cash Received This Shift</th><td className="text-right font-bold">{formatCurrency(stayCashReceived)}</td></tr>
+                            <tr><th className="text-left pl-3">Reservation Cash Deposits Received This Shift</th><td className="text-right font-bold">{formatCurrency(reservationCashReceived)}</td></tr>
+                            {Math.abs(otherRoomCashReceived) >= 0.01 && (
+                                <tr><th className="text-left pl-3">Other Room-Related Cash Received This Shift</th><td className="text-right font-bold">{formatCurrency(otherRoomCashReceived)}</td></tr>
                             )}
-                            <tr><th className="text-left">Total Cash Available</th><td className="text-right font-bold">{formatCurrency(dailyCash.total_cash_available ?? (Number(shift.opening_cash || 0) + Number(dailyCash.room_sales_cash || 0) + Number(dailyCash.additional_cash || 0) + Number(dailyCash.variance_recovery_receipts || 0)))}</td></tr>
+                            {shortageRecoveryReceived >= 0.01 && (
+                                <tr><th className="text-left pl-3">Shortage Recovery Received</th><td className="text-right font-bold">{formatCurrency(shortageRecoveryReceived)}</td></tr>
+                            )}
+                            <tr><th className="text-left pl-3">Other Cash Receipts</th><td className="text-right font-bold">{formatCurrency(otherCashReceipts)}</td></tr>
+                            <tr><th className="text-left">Total Cash Received This Shift</th><td className="text-right font-bold">{formatCurrency(totalCashReceivedThisShift)}</td></tr>
+                            <tr><th className="text-left">Total Cash Available</th><td className="text-right font-bold">{formatCurrency(totalCashAvailable)}</td></tr>
                             <tr><th className="text-left">Less: Expenses</th><td className="text-right font-bold">-{formatCurrency(Number(dailyCash.room_expenses || 0))}</td></tr>
                             <tr><th className="text-left">Less: Withdrawals</th><td className="text-right font-bold">-{formatCurrency(Number(dailyCash.withdrawals || 0))}</td></tr>
                             <tr><th className="text-left">Less: Cash Transfer</th><td className="text-right font-bold">-{formatCurrency(dailyCash.cashier_transfers)}</td></tr>

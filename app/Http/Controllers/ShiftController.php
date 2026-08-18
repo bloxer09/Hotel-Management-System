@@ -456,7 +456,15 @@ class ShiftController extends Controller
             ->get();
         $cashierTransfers = $reconciliation['rooms']['cash_transfers'];
         $withdrawals = $reconciliation['rooms']['withdrawals'];
-        $dailyRoomSalesCash = $reconciliation['rooms']['cash_collections'];
+        $reconciliationService = app(ShiftCashReconciliationService::class);
+        $stayBookingIds = $bookings->pluck('id')->map(fn ($id) => (int) $id)->all();
+        $cashReceivedDisplay = $this->dailyCashReceivedDisplay(
+            $reconciliationService,
+            $shift,
+            $reconciliation['rooms'],
+            $stayBookingIds
+        );
+        $dailyRoomSalesCash = $cashReceivedDisplay['room_sales_cash'];
         $dailyRoomExpenses = $reconciliation['rooms']['expenses'];
         $dailyExpectedCash = $reconciliation['rooms']['expected_cash'];
         $dailyActualCash = $reconciliation['rooms']['actual_cash'];
@@ -555,8 +563,12 @@ class ShiftController extends Controller
                 'stay_collections' => $stayCollections,
                 'daily_cash_report' => [
                     'room_sales_cash' => $dailyRoomSalesCash,
-                    'additional_cash' => $reconciliation['rooms']['additional_cash'],
-                    'variance_recovery_receipts' => $reconciliation['rooms']['variance_recovery_receipts'] ?? 0,
+                    'stay_cash' => $cashReceivedDisplay['stay_cash'],
+                    'reservation_cash' => $cashReceivedDisplay['reservation_cash'],
+                    'other_room_cash' => $cashReceivedDisplay['other_room_cash'],
+                    'additional_cash' => $cashReceivedDisplay['additional_cash'],
+                    'variance_recovery_receipts' => $cashReceivedDisplay['variance_recovery_receipts'],
+                    'total_cash_received' => $cashReceivedDisplay['total_cash_received'],
                     'room_expenses' => $dailyRoomExpenses,
                     'cashier_transfers' => $cashierTransfers,
                     'withdrawals' => $withdrawals,
@@ -780,6 +792,13 @@ class ShiftController extends Controller
                 'reservation_cash' => $reservationCashThisShift,
                 'other_room_cash' => $otherRoomCashThisShift,
                 'other_cash_receipts' => $roomsTally['additional_cash'],
+                'variance_recovery_receipts' => (float) ($roomsTally['variance_recovery_receipts'] ?? 0),
+                'total_cash_received' => round(
+                    $roomSalesCash
+                    + (float) ($roomsTally['additional_cash'] ?? 0)
+                    + (float) ($roomsTally['variance_recovery_receipts'] ?? 0),
+                    2
+                ),
                 'total_cash_available' => $roomsTally['total_cash_available'],
                 'incomes' => $incomes,
                 'expenses' => $roomExpenses,
@@ -1058,6 +1077,38 @@ class ShiftController extends Controller
             403,
             'Only the assigned front-desk staff or an administrator may edit this daily cash report.'
         );
+    }
+
+    /**
+     * Daily Cash Tally display split for room drawer incoming cash.
+     * Accounting remains in ShiftCashReconciliationService; this only shapes report rows.
+     */
+    private function dailyCashReceivedDisplay(
+        ShiftCashReconciliationService $service,
+        ShiftSession $shift,
+        array $roomsTally,
+        array $stayBookingIds
+    ): array {
+        $cashSplit = $service->cashCollectionsDetail(
+            (int) $shift->user_id,
+            $shift->started_at,
+            $shift->ended_at ?: now(),
+            $stayBookingIds
+        );
+
+        $collections = (float) ($roomsTally['cash_collections'] ?? 0);
+        $additional = (float) ($roomsTally['additional_cash'] ?? 0);
+        $recovery = (float) ($roomsTally['variance_recovery_receipts'] ?? 0);
+
+        return [
+            'stay_cash' => $cashSplit['stay_rooms'],
+            'reservation_cash' => $cashSplit['reservation_rooms'],
+            'other_room_cash' => $cashSplit['other_rooms'],
+            'room_sales_cash' => $collections,
+            'additional_cash' => $additional,
+            'variance_recovery_receipts' => $recovery,
+            'total_cash_received' => round($collections + $additional + $recovery, 2),
+        ];
     }
 
     /**

@@ -536,6 +536,86 @@ class ShiftVarianceResolutionTest extends TestCase
         $this->assertSame(14500.0, $live['rooms']['expected_cash']);
         $this->assertSame(0.0, $live['rooms']['variance_recovery_receipts']);
         $this->assertNull(ShiftVarianceResolution::first()->cash_received_into_shift_id);
+
+        $this->actingAs($fd2)->get(route('shifts.report', $current->id))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('report.daily_cash_report.variance_recovery_receipts', 0)
+                ->where('report.daily_cash_report.total_cash_received', 0)
+            );
+
+        $this->actingAs($fd2)->get(route('shifts.ledger-print', $current->id))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('cash_tally.variance_recovery_receipts', 0)
+                ->where('cash_tally.total_cash_received', 0)
+            );
+    }
+
+    public function test_daily_cash_tally_shows_shortage_recovery_on_report_and_ledger(): void
+    {
+        $fd1 = $this->frontDesk('p1a');
+        $fd2 = $this->frontDesk('p2a');
+        $admin = $this->admin('pa');
+        $old = $this->closeShortage($fd1);
+
+        $this->actingAs($fd2)->post(route('shifts.start'), [
+            'shift_code' => 'evening',
+            'opening_cash' => 6900,
+            'opening_denominations' => [],
+            'opening_cash_minibar' => 0,
+            'opening_denominations_minibar' => [],
+            'handover_notes' => 'Verified opening count after prior shift close.',
+        ])->assertRedirect();
+        $current = ShiftSession::active()->firstOrFail();
+
+        Transaction::create([
+            'transaction_type' => 'check_in',
+            'description' => 'Room cash',
+            'amount' => 1700,
+            'payment_method' => 'cash',
+            'cash_amount' => 1700,
+            'processed_by' => $fd2->id,
+        ]);
+
+        $this->actingAs($admin)->post(route('shifts.variances.record', $old), [
+            'drawer' => 'room',
+            'resolution_type' => 'shortage_recovery',
+            'amount' => 200,
+            'notes' => 'Cash handed to current register',
+            'recovery_destination' => 'active_drawer',
+        ])->assertRedirect();
+
+        $reconciliation = app(ShiftCashReconciliationService::class)->forShift($current->fresh());
+        $this->assertSame(200.0, $reconciliation['rooms']['variance_recovery_receipts']);
+        $this->assertSame(1700.0, $reconciliation['rooms']['cash_collections']);
+        $this->assertSame(8800.0, $reconciliation['rooms']['total_cash_available']);
+        $this->assertSame(8800.0, $reconciliation['rooms']['expected_cash']);
+
+        $old->refresh();
+        $this->assertSame(-500.0, (float) $old->variance_rooms);
+        $this->assertSame(14500.0, (float) $old->closing_cash);
+        $this->assertSame(15000.0, (float) $old->expected_cash_rooms);
+
+        $this->actingAs($fd2)->get(route('shifts.report', $current->id))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('report.daily_cash_report.room_sales_cash', 1700)
+                ->where('report.daily_cash_report.variance_recovery_receipts', 200)
+                ->where('report.daily_cash_report.total_cash_received', 1900)
+                ->where('report.daily_cash_report.total_cash_available', 8800)
+                ->where('report.daily_cash_report.expected_cash', 8800)
+            );
+
+        $this->actingAs($fd2)->get(route('shifts.ledger-print', $current->id))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('cash_tally.room_sales_cash', 1700)
+                ->where('cash_tally.variance_recovery_receipts', 200)
+                ->where('cash_tally.total_cash_received', 1900)
+                ->where('cash_tally.total_cash_available', 8800)
+                ->where('cash_tally.expected_cash', 8800)
+            );
     }
 
     public function test_legacy_shift_cannot_be_formally_resolved(): void
