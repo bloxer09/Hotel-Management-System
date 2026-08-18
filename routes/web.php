@@ -21,6 +21,7 @@ use App\Http\Controllers\ReservationController;
 use App\Http\Controllers\RoomController;
 use App\Http\Controllers\RoomRateController;
 use App\Http\Controllers\ShiftController;
+use App\Http\Controllers\ShiftVarianceController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -56,8 +57,21 @@ Route::middleware('auth')->group(function () {
     // Shift Session Controls (Admin, Front Desk)
     Route::middleware('role:admin,front_desk')->group(function () {
         Route::get('/shifts', [ShiftController::class, 'index'])->name('shifts.index');
+        Route::get('/shifts/variances', [ShiftVarianceController::class, 'index'])
+            ->middleware('role:admin')
+            ->name('shifts.variances.index');
         Route::post('/shifts/start', [ShiftController::class, 'start'])->name('shifts.start');
         Route::post('/shifts/end', [ShiftController::class, 'end'])->name('shifts.end');
+        Route::post('/shifts/{shift}/variances', [ShiftVarianceController::class, 'store'])->name('shifts.variances.store');
+        Route::post('/shifts/{shift}/variances/record', [ShiftVarianceController::class, 'record'])
+            ->middleware('role:admin')
+            ->name('shifts.variances.record');
+        Route::post('/shifts/variances/{resolution}/approve', [ShiftVarianceController::class, 'approve'])
+            ->middleware('role:admin')
+            ->name('shifts.variances.approve');
+        Route::post('/shifts/variances/{resolution}/reject', [ShiftVarianceController::class, 'reject'])
+            ->middleware('role:admin')
+            ->name('shifts.variances.reject');
         Route::get('/shifts/{id}/report', [ShiftController::class, 'report'])->name('shifts.report');
         Route::get('/shifts/{shift}/ledger-print', [ShiftController::class, 'printLedger'])->name('shifts.ledger-print');
         Route::get('/shifts/{shift}/working-copy', [ShiftController::class, 'downloadWorkingCopy'])->name('shifts.working-copy');

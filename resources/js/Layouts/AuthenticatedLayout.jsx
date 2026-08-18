@@ -36,10 +36,12 @@ import {
     CircleHelp,
     Sun,
     Moon,
-    Sparkles
+    Sparkles,
+    Banknote
 } from 'lucide-react';
 import ProfileModal from '@/Components/ProfileModal';
 import ConfirmModal from '@/Components/ConfirmModal';
+import CashVarianceBanner from '@/Components/CashVarianceBanner';
 import { useTheme } from '@/hooks/useTheme';
 import { useFlashToast } from '@/hooks/useFlashToast';
 import { useNotificationChime } from '@/hooks/useNotificationChime';
@@ -111,6 +113,30 @@ const ALERT_TOAST_STYLES = {
         iconColorClass: 'text-orange-400',
         iconBgClass: 'bg-orange-500/20',
         barColorClass: 'bg-orange-400',
+    },
+    cash_variance_pending_review: {
+        title: 'CASH VARIANCE PENDING REVIEW',
+        Icon: Banknote,
+        colorClass: 'bg-rose-950/90 border-rose-500/50 text-rose-100 shadow-rose-950/40',
+        iconColorClass: 'text-rose-400',
+        iconBgClass: 'bg-rose-500/20',
+        barColorClass: 'bg-rose-400',
+    },
+    cash_variance_pending: {
+        title: 'SHIFT CASH VARIANCE',
+        Icon: Banknote,
+        colorClass: 'bg-rose-950/90 border-rose-500/50 text-rose-100 shadow-rose-950/40',
+        iconColorClass: 'text-rose-400',
+        iconBgClass: 'bg-rose-500/20',
+        barColorClass: 'bg-rose-400',
+    },
+    cash_variance_reviewed: {
+        title: 'SHIFT CASH VARIANCE',
+        Icon: Banknote,
+        colorClass: 'bg-indigo-950/90 border-indigo-500/50 text-indigo-100 shadow-indigo-950/40',
+        iconColorClass: 'text-indigo-400',
+        iconBgClass: 'bg-indigo-500/20',
+        barColorClass: 'bg-indigo-400',
     },
 };
 
@@ -185,7 +211,8 @@ const AlertToastCard = ({ item, onDismiss }) => {
 };
 
 export default function AuthenticatedLayout({ children }) {
-    const { auth, flash, app_name } = usePage().props;
+    const page = usePage();
+    const { auth, flash, app_name, cash_variance_banner: pageVarianceBanner } = page.props;
     const nameParts = (app_name || 'Uptown Pension House').split(' ');
     const firstWord = nameParts[0] || 'Uptown';
     const remainingWords = nameParts.slice(1).join(' ');
@@ -205,9 +232,11 @@ export default function AuthenticatedLayout({ children }) {
     const { toast, setToast } = useFlashToast();
     const { playAlertChime } = useNotificationChime();
     const canSeeNotifications = ['admin', 'front_desk', 'housekeeping'].includes(user.role);
-    const { notifications, counts: notifCounts, alertToasts, dismissAlertToast } = useNotifications({
+    const { notifications, counts: notifCounts, alertToasts, dismissAlertToast, cashVarianceBanner } = useNotifications({
         enabled: canSeeNotifications,
         chime: playAlertChime,
+        cashVarianceBanner: pageVarianceBanner ?? null,
+        pageUrl: page.url,
     });
 
 
@@ -375,6 +404,11 @@ export default function AuthenticatedLayout({ children }) {
     const maintenanceAlerts = notifications.filter(n => n.type === 'maintenance');
     const inventoryRequestAlerts = notifications.filter(n => n.type === 'inventory_request');
     const inventoryAlerts = notifications.filter(n => n.type === 'out_of_stock' || n.type === 'low_stock' || n.type === 'inventory');
+    const cashVarianceAlerts = notifications.filter(n =>
+        n.type === 'cash_variance_pending_review'
+        || n.type === 'cash_variance_pending'
+        || n.type === 'cash_variance_reviewed'
+    );
     const totalAlerts = notifCounts.total || notifications.length;
 
     // Helper mapping sidebar items to active alert counts
@@ -387,6 +421,9 @@ export default function AuthenticatedLayout({ children }) {
         }
         if (itemName === 'Maintenance Tickets') {
             return maintenanceAlerts.length;
+        }
+        if (itemName === 'Shift Register') {
+            return cashVarianceAlerts.length;
         }
         return 0;
     };
@@ -956,6 +993,27 @@ export default function AuthenticatedLayout({ children }) {
                                                         </Link>
                                                     );
                                                 })}
+
+                                                {cashVarianceAlerts.map(item => (
+                                                    <Link
+                                                        key={item.alert_key}
+                                                        href={item.action_url || route('shifts.index')}
+                                                        onClick={() => setIsBellOpen(false)}
+                                                        className="flex items-start gap-3 px-4 py-3 hover:bg-[#334155]/40 transition-colors border-b border-[#334155]/30 last:border-b-0"
+                                                    >
+                                                        <div className={`shrink-0 mt-0.5 h-2.5 w-2.5 rounded-full ${item.type === 'cash_variance_reviewed' ? 'bg-indigo-400' : 'bg-rose-500'}`} />
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="text-xs font-bold text-slate-200">{item.title}</div>
+                                                            <div className="text-[11px] text-slate-400 leading-relaxed mt-0.5 whitespace-pre-line">{item.message}</div>
+                                                        </div>
+                                                        <span className={`shrink-0 text-[9px] font-black px-1.5 py-0.5 rounded border uppercase ${item.type === 'cash_variance_reviewed'
+                                                            ? 'bg-indigo-950/60 border-indigo-500/40 text-indigo-300'
+                                                            : 'bg-rose-950/60 border-rose-500/40 text-rose-300'
+                                                            }`}>
+                                                            Cash
+                                                        </span>
+                                                    </Link>
+                                                ))}
                                             </div>
                                         </motion.div>
                                     )}
@@ -998,6 +1056,7 @@ export default function AuthenticatedLayout({ children }) {
 
                 {/* Main Content */}
                 <main className="app-main flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 lg:p-8 scrollbar-thin relative print:p-0 print:overflow-visible print:bg-white print:h-auto">
+                    <CashVarianceBanner banner={cashVarianceBanner} />
                     {viewerMode && (
                         <div
                             className="mb-4 rounded-2xl border border-sky-500/40 bg-sky-950/35 px-4 py-3.5 text-sky-100 shadow-lg print:hidden"

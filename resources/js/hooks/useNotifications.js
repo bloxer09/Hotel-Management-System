@@ -28,29 +28,41 @@ function persistSeenKeys(keys) {
  * Polls /api/notifications every 30s and returns notification state along with alert toasts.
  * Time-sensitive checkout/cleaning alerts surface once per browser session on first load.
  * Stable alert_key values prevent repeat chimes on later polls.
+ * cash_variance_banner is a sibling field (not a bell item) so Front Desk layout can refresh
+ * without changing chime/toast behavior.
  */
-export function useNotifications({ enabled = true, chime }) {
+export function useNotifications({ enabled = true, chime, cashVarianceBanner: pageBanner = null, pageUrl = '' }) {
     const [notifications, setNotifications] = useState([]);
     const [counts, setCounts] = useState({ total: 0, checkout: 0, inventory: 0, overdue: 0, out_of_stock: 0 });
     const [alertToasts, setAlertToasts] = useState([]);
+    const [polledBanner, setPolledBanner] = useState(undefined);
     const seenKeysRef = useRef(null);
     const initializedRef = useRef(false);
+    const requestIdRef = useRef(0);
 
     const dismissAlertToast = useCallback((id) => {
         setAlertToasts(prev => prev.filter(t => t.id !== id));
     }, []);
 
+    useEffect(() => {
+        setPolledBanner(undefined);
+    }, [pageUrl]);
+
     const loadNotifications = useCallback(async () => {
         if (!enabled) return;
+        const requestId = ++requestIdRef.current;
         try {
             const res = await fetch('/api/notifications', { cache: 'no-store' });
-            if (!res.ok) return;
+            if (!res.ok || requestId !== requestIdRef.current) return;
             const payload = await res.json();
-            if (!payload.success) return;
+            if (!payload.success || requestId !== requestIdRef.current) return;
 
             const items = Array.isArray(payload.items) ? payload.items : [];
             setNotifications(items);
             setCounts(payload.counts || {});
+            if (Object.prototype.hasOwnProperty.call(payload, 'cash_variance_banner')) {
+                setPolledBanner(payload.cash_variance_banner ?? null);
+            }
 
             if (!seenKeysRef.current) {
                 seenKeysRef.current = readSeenKeys();
@@ -93,5 +105,7 @@ export function useNotifications({ enabled = true, chime }) {
         return () => timers.forEach(clearTimeout);
     }, [alertToasts, dismissAlertToast]);
 
-    return { notifications, counts, alertToasts, dismissAlertToast };
+    const cashVarianceBanner = polledBanner !== undefined ? polledBanner : (pageBanner ?? null);
+
+    return { notifications, counts, alertToasts, dismissAlertToast, cashVarianceBanner };
 }

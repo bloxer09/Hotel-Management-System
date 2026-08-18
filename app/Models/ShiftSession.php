@@ -24,6 +24,14 @@ class ShiftSession extends Model
         'closing_cash_minibar',
         'opening_denominations_minibar',
         'closing_denominations_minibar',
+        'expected_cash_rooms',
+        'expected_cash_minibar',
+        'variance_rooms',
+        'variance_minibar',
+        'expected_formula_version',
+        'variance_status',
+        'handover_from_shift_id',
+        'handover_notes',
         'notes',
     ];
 
@@ -38,6 +46,10 @@ class ShiftSession extends Model
         'closing_cash_minibar' => 'float',
         'opening_denominations_minibar' => 'array',
         'closing_denominations_minibar' => 'array',
+        'expected_cash_rooms' => 'float',
+        'expected_cash_minibar' => 'float',
+        'variance_rooms' => 'float',
+        'variance_minibar' => 'float',
     ];
 
     public function user()
@@ -48,6 +60,21 @@ class ShiftSession extends Model
     public function cashMovements()
     {
         return $this->hasMany(CashMovement::class);
+    }
+
+    public function handoverFromShift()
+    {
+        return $this->belongsTo(self::class, 'handover_from_shift_id');
+    }
+
+    public function varianceResolutions()
+    {
+        return $this->hasMany(ShiftVarianceResolution::class);
+    }
+
+    public function recoveryReceipts()
+    {
+        return $this->hasMany(ShiftVarianceResolution::class, 'cash_received_into_shift_id');
     }
 
     public function scopeActive($query)

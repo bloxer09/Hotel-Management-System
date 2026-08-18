@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\UserRole;
 use App\Services\NotificationService;
+use App\Services\ShiftVarianceResolutionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 
@@ -24,13 +25,14 @@ class NotificationController extends Controller
             ], 403);
         }
 
-        if (app()->environment('testing')) {
-            return response()->json($this->notifications->forUser($user));
-        }
+        $data = app()->environment('testing')
+            ? $this->notifications->forUser($user)
+            : Cache::remember('notifications.user_'.$user->id, 15, function () use ($user) {
+                return $this->notifications->forUser($user);
+            });
 
-        $data = Cache::remember('notifications.user_'.$user->id, 15, function () use ($user) {
-            return $this->notifications->forUser($user);
-        });
+        // Bell items may be cached; variance banner always follows accounting state.
+        $data['cash_variance_banner'] = app(ShiftVarianceResolutionService::class)->bannerForUser($user);
 
         return response()->json($data);
     }

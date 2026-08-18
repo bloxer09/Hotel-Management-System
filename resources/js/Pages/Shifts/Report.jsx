@@ -18,11 +18,20 @@ import {
     Trash2
 } from 'lucide-react';
 import CustomSelect from '@/Components/CustomSelect';
-import { formatHotelDate, formatHotelTime } from '@/Utils/datetime';
+import { formatHotelDate, formatHotelTime, formatUtcToManila } from '@/Utils/datetime';
 
 export default function Report({ shift, report }) {
-    const { app_name } = usePage().props;
-    const [activeTab, setActiveTab] = useState('overview');
+    const { app_name, auth } = usePage().props;
+    const userRole = auth?.user?.role;
+    const review = report.cash_variance_review || {};
+    const [activeTab, setActiveTab] = useState(() => {
+        if (typeof window === 'undefined') {
+            return 'overview';
+        }
+        return new URLSearchParams(window.location.search).get('tab') === 'variance'
+            ? 'variance'
+            : 'overview';
+    });
     // The official PDF logbook is the supported print/export output.
     // These defaults keep the browser's native print fallback intact.
     const printMode = 'all';
@@ -34,6 +43,24 @@ export default function Report({ shift, report }) {
         description: '',
         moved_at: '',
     });
+    const submitVarianceForm = useForm({
+        drawer: 'room',
+        resolution_type: 'shortage_recovery',
+        amount: '',
+        notes: '',
+        transaction_reference: '',
+    });
+    const recordVarianceForm = useForm({
+        drawer: 'room',
+        resolution_type: 'shortage_recovery',
+        amount: '',
+        notes: '',
+        transaction_reference: '',
+        review_notes: '',
+        recovery_destination: 'office_safe',
+    });
+    const [reviewNotes, setReviewNotes] = useState('');
+    const [recoveryDestination, setRecoveryDestination] = useState('office_safe');
 
     const formatCurrency = (val) => {
         const num = Number(val);
@@ -54,9 +81,49 @@ export default function Report({ shift, report }) {
         return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     };
 
+    const resolutionTypeLabel = (type) => ({
+        shortage_recovery: 'Shortage Recovery',
+        transaction_correction: 'Transaction Correction',
+        admin_adjustment: 'Admin Adjustment',
+        other: 'Other',
+        identified_overage: 'Identified Overage',
+        approved_unidentified_overage: 'Approved Unidentified Overage',
+    }[type] || type);
+
+    const typesForDrawer = (drawerKey, isAdmin) => {
+        const drawer = drawerKey === 'minibar' ? review.minibar : review.rooms;
+        const list = (drawer?.variance_type === 'overage' ? review.overage_types : review.shortage_types) || [];
+        if (isAdmin) return list;
+        return list.filter((type) => !(review.admin_only_types || []).includes(type));
+    };
+
+    const submitVariance = (e) => {
+        e.preventDefault();
+        submitVarianceForm.post(route('shifts.variances.store', shift.id));
+    };
+
+    const recordVariance = (e) => {
+        e.preventDefault();
+        recordVarianceForm.post(route('shifts.variances.record', shift.id));
+    };
+
+    const approveResolution = (id, type) => {
+        router.post(route('shifts.variances.approve', id), {
+            review_notes: reviewNotes,
+            recovery_destination: type === 'shortage_recovery' ? recoveryDestination : 'office_safe',
+        });
+    };
+
+    const rejectResolution = (id) => {
+        router.post(route('shifts.variances.reject', id), {
+            review_notes: reviewNotes,
+        });
+    };
+
     // --- Tab definitions with count badges ---
     const tabItems = [
         { id: 'overview', label: 'Overview & Cash', icon: Info, count: null },
+        { id: 'variance', label: 'Cash Variance', icon: AlertTriangle, count: null },
         { id: 'bookings', label: 'Bookings Ledger', icon: BookOpen, count: report.bookings?.length || 0 },
         { id: 'daily-cash', label: 'Daily Cash Report', icon: Banknote, count: null },
         { id: 'minibar', label: 'Minibar & POS', icon: Coffee, count: (report.transactions?.filter(t => t.transaction_type === 'pos_sale').length || 0) + (report.inventory_usage_details?.filter(u => u.booking_id !== null).length || 0) },
@@ -77,12 +144,15 @@ export default function Report({ shift, report }) {
     const staysRefunds = Number(stayCollections.refunds || 0);
     const staysNetCollection = Number(stayCollections.net_collections || 0);
     const dailyCash = report.daily_cash_report || {};
+    const roomsReco = report.cash_reconciliation?.rooms || {};
+    const minibarReco = report.cash_reconciliation?.minibar || {};
     const dailyVariance = dailyCash.variance === null || dailyCash.variance === undefined
         ? null
         : Number(dailyCash.variance);
-    const dailyCashStatus = dailyVariance === null
-        ? 'PENDING TALLY'
-        : dailyVariance === 0 ? 'BALANCED' : dailyVariance > 0 ? 'SHORT' : 'OVER';
+    const dailyCashStatus = dailyCash.variance_label
+        || (dailyVariance === null
+            ? 'PENDING TALLY'
+            : dailyVariance === 0 ? 'BALANCED' : dailyVariance < 0 ? 'SHORT' : 'OVER');
     const dailyCashStatusClass = dailyCashStatus === 'BALANCED'
         ? 'text-emerald-600 bg-emerald-50 border-emerald-300'
         : dailyCashStatus === 'SHORT'
@@ -384,7 +454,7 @@ export default function Report({ shift, report }) {
                             </span>
                         </h1>
                         <p className="text-xs text-slate-400">
-                            Shift Operator: <strong className="text-slate-200">{shift.user?.name}</strong> &bull; Period: {new Date(shift.started_at).toLocaleString()} - {shift.ended_at ? new Date(shift.ended_at).toLocaleString() : 'Active'}
+                            Shift Operator: <strong className="text-slate-200">{shift.user?.name}</strong> &bull; Period: {formatUtcToManila(shift.started_at)} - {shift.ended_at ? formatUtcToManila(shift.ended_at) : 'Active'}
                         </p>
                     </div>
 
@@ -528,7 +598,7 @@ export default function Report({ shift, report }) {
                                             <tr>
                                                 <td className="p-2 text-left font-bold text-slate-300 font-sans">Rooms Drawer</td>
                                                 <td className="p-2">{formatCurrency(shift.opening_cash)}</td>
-                                                <td className="p-2 text-emerald-400">{formatCurrency(report.sales.rooms_cash)}</td>
+                                                <td className="p-2 text-emerald-400">{formatCurrency(roomsReco.cash_collections ?? report.sales.rooms_cash)}</td>
                                                 <td className="p-2">{formatCurrency(report.sales.rooms_gcash)}</td>
                                                 <td className="p-2 text-emerald-400">{formatCurrency(report.incomes.filter(i => i.cash_drawer === 'room').reduce((sum, i) => sum + Number(i.amount), 0))}</td>
                                                 <td className="p-2 text-red-400">-{formatCurrency(report.expenses.filter(e => e.cash_drawer === 'room').reduce((sum, e) => sum + Number(e.amount), 0))}</td>
@@ -541,7 +611,7 @@ export default function Report({ shift, report }) {
                                             <tr>
                                                 <td className="p-2 text-left font-bold text-slate-300 font-sans">Minibar Drawer</td>
                                                 <td className="p-2">{formatCurrency(shift.opening_cash_minibar)}</td>
-                                                <td className="p-2 text-emerald-400">{formatCurrency(report.sales.minibar_cash)}</td>
+                                                <td className="p-2 text-emerald-400">{formatCurrency(minibarReco.cash_collections ?? report.sales.minibar_cash)}</td>
                                                 <td className="p-2">{formatCurrency(report.sales.minibar_gcash)}</td>
                                                 <td className="p-2 text-emerald-400">{formatCurrency(report.incomes.filter(i => i.cash_drawer === 'minibar').reduce((sum, i) => sum + Number(i.amount), 0))}</td>
                                                 <td className="p-2 text-red-400">-{formatCurrency(report.expenses.filter(e => e.cash_drawer === 'minibar').reduce((sum, e) => sum + Number(e.amount), 0))}</td>
@@ -554,7 +624,7 @@ export default function Report({ shift, report }) {
                                             <tr className="bg-slate-750 font-bold font-sans">
                                                 <td className="p-2 text-left font-bold">Grand Total</td>
                                                 <td className="p-2 font-mono">{formatCurrency(shift.opening_cash + shift.opening_cash_minibar)}</td>
-                                                <td className="p-2 font-mono text-emerald-400">{formatCurrency(report.sales.rooms_cash + report.sales.minibar_cash)}</td>
+                                                <td className="p-2 font-mono text-emerald-400">{formatCurrency((roomsReco.cash_collections ?? 0) + (minibarReco.cash_collections ?? 0))}</td>
                                                 <td className="p-2 font-mono">{formatCurrency(report.sales.rooms_gcash + report.sales.minibar_gcash)}</td>
                                                 <td className="p-2 font-mono text-emerald-400">{formatCurrency(report.incomes_sum)}</td>
                                                 <td className="p-2 font-mono text-red-400">-{formatCurrency(report.expenses_sum)}</td>
@@ -574,6 +644,294 @@ export default function Report({ shift, report }) {
                                     </p>
                                 </div>
                             </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'variance' && (
+                        <div className="flex flex-col gap-6">
+                            <div>
+                                <h3 className="text-sm font-bold text-slate-100 uppercase font-mono">Cash Variance & Reconciliation</h3>
+                                <p className="mt-1 text-xs text-slate-400">
+                                    Original expected, actual, and variance are immutable close-time facts. Resolutions only change remaining unresolved amount.
+                                </p>
+                            </div>
+
+                            <div className="rounded-xl border border-slate-700 bg-slate-900/60 p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+                                <div>
+                                    <div className="text-slate-400 uppercase text-[10px] tracking-wider">Front Desk / Shift Operator</div>
+                                    <div className="mt-0.5 font-bold text-slate-100">{shift.user?.name || '—'}</div>
+                                </div>
+                                <div>
+                                    <div className="text-slate-400 uppercase text-[10px] tracking-wider">Shift</div>
+                                    <div className="mt-0.5 font-bold text-slate-100">
+                                        #{shift.id}
+                                        {shift.shift_code ? ` • ${String(shift.shift_code).toUpperCase()}` : ''}
+                                    </div>
+                                </div>
+                                <div>
+                                    <div className="text-slate-400 uppercase text-[10px] tracking-wider">Status</div>
+                                    <div className="mt-0.5 font-bold uppercase tracking-wide text-amber-200">
+                                        {(review.overall_status || '').replaceAll('_', ' ') || '—'}
+                                    </div>
+                                </div>
+                                <div className="sm:col-span-2 lg:col-span-1">
+                                    <div className="text-slate-400 uppercase text-[10px] tracking-wider">Closing Explanation</div>
+                                    <div className="mt-0.5 text-slate-200 leading-relaxed">
+                                        {shift.notes || 'No closing explanation recorded.'}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {review.is_legacy && (
+                                <div className="rounded-xl border border-amber-500/40 bg-amber-950/30 px-4 py-3 text-sm text-amber-100">
+                                    {review.legacy_message}
+                                </div>
+                            )}
+
+                            {!shift.ended_at && (
+                                <div className="rounded-xl border border-slate-600 bg-slate-800 px-4 py-3 text-sm text-slate-300">
+                                    Variance review starts after this shift is closed.
+                                </div>
+                            )}
+
+                            {['rooms', 'minibar'].map((key) => {
+                                const drawer = review[key];
+                                if (!drawer) return null;
+                                return (
+                                    <div key={key} className="rounded-xl border border-slate-700 bg-slate-800 p-4">
+                                        <div className="flex items-center justify-between gap-2 mb-3">
+                                            <h4 className="text-sm font-bold text-slate-100">{drawer.label} Drawer</h4>
+                                            <span className="text-[10px] font-black uppercase tracking-wider text-slate-300 border border-slate-600 rounded px-2 py-0.5">
+                                                {(drawer.status || '').replaceAll('_', ' ')}
+                                            </span>
+                                        </div>
+                                        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-xs">
+                                            <div>
+                                                <div className="text-slate-400 uppercase text-[10px]">Original Expected</div>
+                                                <div className="font-mono font-bold text-slate-100">{formatCurrency(drawer.original_expected)}</div>
+                                            </div>
+                                            <div>
+                                                <div className="text-slate-400 uppercase text-[10px]">Original Actual</div>
+                                                <div className="font-mono font-bold text-slate-100">{formatCurrency(drawer.original_actual)}</div>
+                                            </div>
+                                            <div>
+                                                <div className="text-slate-400 uppercase text-[10px]">Original Variance</div>
+                                                <div className={`font-mono font-bold ${drawer.original_variance < 0 ? 'text-rose-400' : drawer.original_variance > 0 ? 'text-sky-400' : 'text-emerald-400'}`}>
+                                                    {drawer.original_variance > 0 ? '+' : ''}{formatCurrency(drawer.original_variance)} {drawer.original_label}
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <div className="text-slate-400 uppercase text-[10px]">Resolved Amount</div>
+                                                <div className="font-mono font-bold text-slate-100">{formatCurrency(drawer.resolved_amount)}</div>
+                                            </div>
+                                            <div>
+                                                <div className="text-slate-400 uppercase text-[10px]">Remaining Variance</div>
+                                                <div className="font-mono font-bold text-amber-300">
+                                                    {formatCurrency(drawer.remaining)} {drawer.remaining > 0 ? drawer.remaining_label : ''}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+
+                            <div>
+                                <h4 className="text-sm font-bold text-slate-100 uppercase font-mono mb-3">Front Desk Submission / Resolution History</h4>
+                                <div className="overflow-x-auto rounded-xl border border-slate-700">
+                                    <table className="w-full text-xs text-slate-200">
+                                        <thead>
+                                            <tr className="bg-slate-900 text-slate-400 uppercase">
+                                                <th className="p-2 text-left">Date</th>
+                                                <th className="p-2 text-left">Type</th>
+                                                <th className="p-2 text-right">Amount</th>
+                                                <th className="p-2 text-left">Submitted By</th>
+                                                <th className="p-2 text-left">Status</th>
+                                                <th className="p-2 text-left">Reviewed By</th>
+                                                <th className="p-2 text-left">Notes</th>
+                                                {review.can_review && <th className="p-2 text-right">Actions</th>}
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {(review.resolutions || []).length === 0 && (
+                                                <tr>
+                                                    <td colSpan={review.can_review ? 8 : 7} className="p-4 text-center text-slate-400">
+                                                        <div className="font-semibold text-slate-300">No resolution submitted yet.</div>
+                                                        {review.can_review && (
+                                                            <div className="mt-1 text-[11px] text-slate-500">
+                                                                Wait for Front Desk to submit, or use Record Admin Resolution below.
+                                                            </div>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            )}
+                                            {(review.resolutions || []).map((row) => (
+                                                <tr key={row.id} className={`border-t border-slate-700/60 ${row.status === 'submitted' ? 'bg-amber-950/25' : ''}`}>
+                                                    <td className="p-2">{row.created_at_display || (row.created_at ? formatUtcToManila(row.created_at) : '—')}</td>
+                                                    <td className="p-2">
+                                                        {resolutionTypeLabel(row.resolution_type)}
+                                                        <div className="text-[10px] text-slate-500 uppercase">{row.drawer} · {row.variance_type}</div>
+                                                    </td>
+                                                    <td className="p-2 text-right font-mono">{formatCurrency(row.amount)}</td>
+                                                    <td className="p-2">{row.submitted_by_name || '—'}</td>
+                                                    <td className="p-2 uppercase font-bold">
+                                                        {row.status === 'submitted' ? 'Awaiting Admin Review' : row.status}
+                                                    </td>
+                                                    <td className="p-2">{row.reviewed_by_name || '—'}</td>
+                                                    <td className="p-2">
+                                                        <div>{row.notes || '—'}</div>
+                                                        {row.review_notes && <div className="text-slate-500 mt-1">Review: {row.review_notes}</div>}
+                                                        {row.cash_received_into_shift_id && (
+                                                            <div className="text-emerald-400 mt-1">
+                                                                Received into {row.cash_received_into_shift_label || `shift #${row.cash_received_into_shift_id}`}
+                                                            </div>
+                                                        )}
+                                                        {row.reviewed_at_display && (
+                                                            <div className="text-slate-500 mt-1">Reviewed: {row.reviewed_at_display}</div>
+                                                        )}
+                                                    </td>
+                                                    {review.can_review && (
+                                                        <td className="p-2 text-right">
+                                                            {row.status === 'submitted' && (
+                                                                <div className="flex justify-end gap-2">
+                                                                    <button type="button" onClick={() => approveResolution(row.id, row.resolution_type)} className="px-3 py-1.5 rounded bg-emerald-700 hover:bg-emerald-600 text-[11px] font-bold">Approve</button>
+                                                                    <button type="button" onClick={() => rejectResolution(row.id)} className="px-3 py-1.5 rounded bg-rose-700 hover:bg-rose-600 text-[11px] font-bold">Reject</button>
+                                                                </div>
+                                                            )}
+                                                        </td>
+                                                    )}
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            {review.can_review && (review.resolutions || []).some((row) => row.status === 'submitted') && (
+                                <div className="rounded-xl border border-slate-700 bg-slate-800 p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="text-[10px] uppercase text-slate-400 font-bold">Review notes (required to reject)</label>
+                                        <textarea value={reviewNotes} onChange={(e) => setReviewNotes(e.target.value)} rows="3" className="mt-1 w-full rounded bg-slate-900 border border-slate-600 px-3 py-2 text-sm" />
+                                    </div>
+                                    {(review.resolutions || []).some((row) => row.status === 'submitted' && row.resolution_type === 'shortage_recovery') && (
+                                        <div>
+                                            <div className="text-[10px] uppercase text-slate-400 font-bold">Recovery Destination</div>
+                                            <p className="mt-1 text-xs font-semibold text-amber-200">
+                                                Choose Office / Safe or Active Front Desk Drawer before clicking Approve.
+                                            </p>
+                                            <p className="mt-1 text-[11px] text-slate-400">Used only when approving Shortage Recovery. Accounting types never move drawer cash.</p>
+                                            <div className="mt-2 flex flex-col gap-2 text-xs text-slate-200">
+                                                <label className="flex items-start gap-2">
+                                                    <input type="radio" name="approve_recovery_destination" value="office_safe" checked={recoveryDestination === 'office_safe'} onChange={() => setRecoveryDestination('office_safe')} />
+                                                    <span>
+                                                        <span className="font-bold">Office / Safe</span>
+                                                        <span className="block text-slate-400">Does not change any Front Desk expected cash.</span>
+                                                    </span>
+                                                </label>
+                                                <label className={`flex items-start gap-2 ${review.active_register ? '' : 'opacity-60'}`}>
+                                                    <input type="radio" name="approve_recovery_destination" value="active_drawer" checked={recoveryDestination === 'active_drawer'} onChange={() => setRecoveryDestination('active_drawer')} disabled={!review.active_register} />
+                                                    <span>
+                                                        <span className="font-bold">Active Front Desk Drawer</span>
+                                                        {review.active_register ? (
+                                                            <span className="block text-emerald-300">
+                                                                {review.active_register.user_name || 'Front Desk'} • {String(review.active_register.shift_code || '').toUpperCase()} shift #{review.active_register.id} receives this cash in the matching drawer.
+                                                            </span>
+                                                        ) : (
+                                                            <span className="block text-amber-300">No active Front Desk register is open to receive cash.</span>
+                                                        )}
+                                                    </span>
+                                                </label>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {review.can_submit && review.can_resolve && (
+                                <form onSubmit={submitVariance} className="rounded-xl border border-slate-700 bg-slate-800 p-4 grid grid-cols-1 md:grid-cols-5 gap-3">
+                                    <div className="md:col-span-5 text-xs font-bold uppercase text-slate-300">Add Explanation / Submit Resolution</div>
+                                    <select value={submitVarianceForm.data.drawer} onChange={(e) => submitVarianceForm.setData('drawer', e.target.value)} className="rounded bg-slate-900 border border-slate-600 px-3 py-2 text-sm">
+                                        <option value="room">Rooms</option>
+                                        <option value="minibar">Minibar</option>
+                                    </select>
+                                    <select value={submitVarianceForm.data.resolution_type} onChange={(e) => submitVarianceForm.setData('resolution_type', e.target.value)} className="rounded bg-slate-900 border border-slate-600 px-3 py-2 text-sm">
+                                        {typesForDrawer(submitVarianceForm.data.drawer, userRole === 'admin').map((type) => (
+                                            <option key={type} value={type}>{resolutionTypeLabel(type)}</option>
+                                        ))}
+                                    </select>
+                                    <input type="number" min="0.01" step="0.01" placeholder="Amount" value={submitVarianceForm.data.amount} onChange={(e) => submitVarianceForm.setData('amount', e.target.value)} className="rounded bg-slate-900 border border-slate-600 px-3 py-2 text-sm" />
+                                    <input type="text" placeholder="Notes / justification" value={submitVarianceForm.data.notes} onChange={(e) => submitVarianceForm.setData('notes', e.target.value)} className="rounded bg-slate-900 border border-slate-600 px-3 py-2 text-sm" required={submitVarianceForm.data.resolution_type !== 'transaction_correction'} />
+                                    {submitVarianceForm.data.resolution_type === 'transaction_correction' && (
+                                        <input type="text" placeholder="Transaction reference" value={submitVarianceForm.data.transaction_reference} onChange={(e) => submitVarianceForm.setData('transaction_reference', e.target.value)} className="rounded bg-slate-900 border border-slate-600 px-3 py-2 text-sm md:col-span-4" />
+                                    )}
+                                    <button type="submit" disabled={submitVarianceForm.processing} className="rounded bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold px-3 py-2">Submit</button>
+                                </form>
+                            )}
+
+                            {review.can_review && review.can_resolve && (
+                                <form onSubmit={recordVariance} className="rounded-xl border border-indigo-500/30 bg-indigo-950/20 p-4 grid grid-cols-1 md:grid-cols-6 gap-3">
+                                    <div className="md:col-span-6 text-xs font-bold uppercase text-indigo-200">Record Admin Resolution</div>
+                                    <select value={recordVarianceForm.data.drawer} onChange={(e) => recordVarianceForm.setData('drawer', e.target.value)} className="rounded bg-slate-900 border border-slate-600 px-3 py-2 text-sm">
+                                        <option value="room">Rooms</option>
+                                        <option value="minibar">Minibar</option>
+                                    </select>
+                                    <select value={recordVarianceForm.data.resolution_type} onChange={(e) => {
+                                        recordVarianceForm.setData('resolution_type', e.target.value);
+                                        if (e.target.value !== 'shortage_recovery') {
+                                            recordVarianceForm.setData('recovery_destination', 'office_safe');
+                                        }
+                                    }} className="rounded bg-slate-900 border border-slate-600 px-3 py-2 text-sm">
+                                        {typesForDrawer(recordVarianceForm.data.drawer, true).map((type) => (
+                                            <option key={type} value={type}>{resolutionTypeLabel(type)}</option>
+                                        ))}
+                                    </select>
+                                    <input type="number" min="0.01" step="0.01" placeholder="Amount" value={recordVarianceForm.data.amount} onChange={(e) => recordVarianceForm.setData('amount', e.target.value)} className="rounded bg-slate-900 border border-slate-600 px-3 py-2 text-sm" />
+                                    <input type="text" placeholder="Notes / justification" value={recordVarianceForm.data.notes} onChange={(e) => recordVarianceForm.setData('notes', e.target.value)} className="rounded bg-slate-900 border border-slate-600 px-3 py-2 text-sm" required={recordVarianceForm.data.resolution_type !== 'transaction_correction'} />
+                                    {recordVarianceForm.data.resolution_type === 'transaction_correction' && (
+                                        <input type="text" placeholder="Transaction reference" value={recordVarianceForm.data.transaction_reference} onChange={(e) => recordVarianceForm.setData('transaction_reference', e.target.value)} className="rounded bg-slate-900 border border-slate-600 px-3 py-2 text-sm md:col-span-2" />
+                                    )}
+                                    {recordVarianceForm.data.resolution_type === 'shortage_recovery' && (
+                                        <div className="md:col-span-6 rounded-lg border border-indigo-500/20 bg-[#0f172a]/50 p-3">
+                                            <div className="text-[10px] uppercase font-bold text-indigo-200">Recovery Destination</div>
+                                            <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-slate-200">
+                                                <label className="flex items-start gap-2 rounded-lg border border-slate-700 p-2">
+                                                    <input
+                                                        type="radio"
+                                                        name="record_recovery_destination"
+                                                        value="office_safe"
+                                                        checked={recordVarianceForm.data.recovery_destination === 'office_safe'}
+                                                        onChange={() => recordVarianceForm.setData('recovery_destination', 'office_safe')}
+                                                    />
+                                                    <span>
+                                                        <span className="font-bold">Office / Safe</span>
+                                                        <span className="block text-slate-400">Does not change any Front Desk expected cash.</span>
+                                                    </span>
+                                                </label>
+                                                <label className={`flex items-start gap-2 rounded-lg border border-slate-700 p-2 ${review.active_register ? '' : 'opacity-60'}`}>
+                                                    <input
+                                                        type="radio"
+                                                        name="record_recovery_destination"
+                                                        value="active_drawer"
+                                                        checked={recordVarianceForm.data.recovery_destination === 'active_drawer'}
+                                                        onChange={() => recordVarianceForm.setData('recovery_destination', 'active_drawer')}
+                                                        disabled={!review.active_register}
+                                                    />
+                                                    <span>
+                                                        <span className="font-bold">Active Front Desk Drawer</span>
+                                                        {review.active_register ? (
+                                                            <span className="block text-emerald-300">
+                                                                {review.active_register.user_name || 'Front Desk'} • {String(review.active_register.shift_code || '').toUpperCase()} shift #{review.active_register.id} receives {recordVarianceForm.data.drawer === 'minibar' ? 'Minibar' : 'Rooms'} cash.
+                                                            </span>
+                                                        ) : (
+                                                            <span className="block text-amber-300">No active Front Desk register is open to receive cash.</span>
+                                                        )}
+                                                    </span>
+                                                </label>
+                                            </div>
+                                        </div>
+                                    )}
+                                    <button type="submit" disabled={recordVarianceForm.processing} className="rounded bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-3 py-2 md:col-span-6 sm:w-auto">Record Resolution</button>
+                                </form>
+                            )}
                         </div>
                     )}
 
@@ -693,12 +1051,18 @@ export default function Report({ shift, report }) {
                                 <table className="w-full text-sm daily-cash-table text-slate-100">
                                     <tbody>
                                         <tr><th className="text-left w-2/3">Cash on Hand (Opening Balance)</th><td className="text-right font-mono font-bold">{formatCurrency(shift.opening_cash)}</td></tr>
-                                        <tr><th className="text-left">Add: Total Cash Check-In / Room Sales</th><td className="text-right font-mono font-bold text-emerald-400">{formatCurrency(dailyCash.room_sales_cash)}</td></tr>
-                                        <tr><th className="text-left">Total Cash Available</th><td className="text-right font-mono font-bold">{formatCurrency(Number(shift.opening_cash || 0) + Number(dailyCash.room_sales_cash || 0))}</td></tr>
-                                        <tr><th className="text-left">Less: Expenses / Withdrawals</th><td className="text-right font-mono font-bold text-rose-400">-{formatCurrency(Number(dailyCash.room_expenses || 0) + Number(dailyCash.withdrawals || 0))}</td></tr>
+                                        <tr><th className="text-left">Add: Room / Reservation Cash Received</th><td className="text-right font-mono font-bold text-emerald-400">{formatCurrency(dailyCash.room_sales_cash)}</td></tr>
+                                        <tr><th className="text-left">Add: Other Cash Receipts</th><td className="text-right font-mono font-bold text-emerald-400">{formatCurrency(dailyCash.additional_cash || 0)}</td></tr>
+                                        {(Number(dailyCash.variance_recovery_receipts || 0) > 0) && (
+                                            <tr><th className="text-left">Add: Shortage Recovery Received</th><td className="text-right font-mono font-bold text-emerald-400">{formatCurrency(dailyCash.variance_recovery_receipts || 0)}</td></tr>
+                                        )}
+                                        <tr><th className="text-left">Total Cash Available</th><td className="text-right font-mono font-bold">{formatCurrency(dailyCash.total_cash_available ?? (Number(shift.opening_cash || 0) + Number(dailyCash.room_sales_cash || 0) + Number(dailyCash.additional_cash || 0) + Number(dailyCash.variance_recovery_receipts || 0)))}</td></tr>
+                                        <tr><th className="text-left">Less: Expenses</th><td className="text-right font-mono font-bold text-rose-400">-{formatCurrency(Number(dailyCash.room_expenses || 0))}</td></tr>
+                                        <tr><th className="text-left">Less: Withdrawals</th><td className="text-right font-mono font-bold text-rose-400">-{formatCurrency(Number(dailyCash.withdrawals || 0))}</td></tr>
                                         <tr><th className="text-left">Less: Cash Transfer</th><td className="text-right font-mono font-bold text-rose-400">-{formatCurrency(dailyCash.cashier_transfers)}</td></tr>
                                         <tr><th className="text-left">Expected Cash in Drawer</th><td className="text-right font-mono font-bold text-amber-300">{formatCurrency(dailyCash.expected_cash)}</td></tr>
                                         <tr><th className="text-left">Actual Cash Tally</th><td className="text-right font-mono font-bold">{dailyCash.actual_cash === null ? 'Shift still open' : formatCurrency(dailyCash.actual_cash)}</td></tr>
+                                        <tr><th className="text-left">Variance (Actual − Expected)</th><td className="text-right font-mono font-bold">{dailyVariance === null ? 'Shift still open' : `${dailyVariance > 0 ? '+' : ''}${formatCurrency(dailyVariance)}`}</td></tr>
                                     </tbody>
                                 </table>
                             </div>
@@ -1140,7 +1504,7 @@ export default function Report({ shift, report }) {
                                 <tr className="font-bold">
                                     <td className="text-left">Rooms Drawer</td>
                                     <td>{formatCurrency(shift.opening_cash)}</td>
-                                    <td>{formatCurrency(report.sales.rooms_cash)}</td>
+                                    <td>{formatCurrency(roomsReco.cash_collections ?? report.sales.rooms_cash)}</td>
                                     <td>{formatCurrency(report.sales.rooms_gcash)}</td>
                                     <td>{formatCurrency(report.incomes.filter(i => i.cash_drawer === 'room').reduce((sum, i) => sum + Number(i.amount), 0))}</td>
                                     <td className="text-red-700">-{formatCurrency(report.expenses.filter(e => e.cash_drawer === 'room').reduce((sum, e) => sum + Number(e.amount), 0))}</td>
@@ -1153,7 +1517,7 @@ export default function Report({ shift, report }) {
                                 <tr className="font-bold">
                                     <td className="text-left">Minibar Drawer</td>
                                     <td>{formatCurrency(shift.opening_cash_minibar)}</td>
-                                    <td>{formatCurrency(report.sales.minibar_cash)}</td>
+                                    <td>{formatCurrency(minibarReco.cash_collections ?? report.sales.minibar_cash)}</td>
                                     <td>{formatCurrency(report.sales.minibar_gcash)}</td>
                                     <td>{formatCurrency(report.incomes.filter(i => i.cash_drawer === 'minibar').reduce((sum, i) => sum + Number(i.amount), 0))}</td>
                                     <td className="text-red-700">-{formatCurrency(report.expenses.filter(e => e.cash_drawer === 'minibar').reduce((sum, e) => sum + Number(e.amount), 0))}</td>
@@ -1166,7 +1530,7 @@ export default function Report({ shift, report }) {
                                 <tr className="font-bold bg-gray-100">
                                     <td className="text-left">Grand Totals</td>
                                     <td>{formatCurrency(shift.opening_cash + shift.opening_cash_minibar)}</td>
-                                    <td>{formatCurrency(report.sales.rooms_cash + report.sales.minibar_cash)}</td>
+                                    <td>{formatCurrency((roomsReco.cash_collections ?? 0) + (minibarReco.cash_collections ?? 0))}</td>
                                     <td>{formatCurrency(report.sales.rooms_gcash + report.sales.minibar_gcash)}</td>
                                     <td>{formatCurrency(report.incomes_sum)}</td>
                                     <td className="text-red-700">-{formatCurrency(report.expenses_sum)}</td>
@@ -1380,13 +1744,18 @@ export default function Report({ shift, report }) {
                     <table className="daily-cash-table mb-3">
                         <tbody>
                             <tr><th className="w-[72%] text-left">Cash on Hand (Opening Balance)</th><td className="text-right font-bold">{formatCurrency(shift.opening_cash)}</td></tr>
-                            <tr><th className="text-left">Add: Total Cash Check-In / Room Sales</th><td className="text-right font-bold">{formatCurrency(dailyCash.room_sales_cash)}</td></tr>
-                            <tr><th className="text-left">Total Cash Available</th><td className="text-right font-bold">{formatCurrency(Number(shift.opening_cash || 0) + Number(dailyCash.room_sales_cash || 0))}</td></tr>
-                            <tr><th className="text-left">Less: Expenses / Withdrawals</th><td className="text-right font-bold">-{formatCurrency(Number(dailyCash.room_expenses || 0) + Number(dailyCash.withdrawals || 0))}</td></tr>
+                            <tr><th className="text-left">Add: Room / Reservation Cash Received</th><td className="text-right font-bold">{formatCurrency(dailyCash.room_sales_cash)}</td></tr>
+                            <tr><th className="text-left">Add: Other Cash Receipts</th><td className="text-right font-bold">{formatCurrency(dailyCash.additional_cash || 0)}</td></tr>
+                            {(Number(dailyCash.variance_recovery_receipts || 0) > 0) && (
+                                <tr><th className="text-left">Add: Shortage Recovery Received</th><td className="text-right font-bold">{formatCurrency(dailyCash.variance_recovery_receipts || 0)}</td></tr>
+                            )}
+                            <tr><th className="text-left">Total Cash Available</th><td className="text-right font-bold">{formatCurrency(dailyCash.total_cash_available ?? (Number(shift.opening_cash || 0) + Number(dailyCash.room_sales_cash || 0) + Number(dailyCash.additional_cash || 0) + Number(dailyCash.variance_recovery_receipts || 0)))}</td></tr>
+                            <tr><th className="text-left">Less: Expenses</th><td className="text-right font-bold">-{formatCurrency(Number(dailyCash.room_expenses || 0))}</td></tr>
+                            <tr><th className="text-left">Less: Withdrawals</th><td className="text-right font-bold">-{formatCurrency(Number(dailyCash.withdrawals || 0))}</td></tr>
                             <tr><th className="text-left">Less: Cash Transfer</th><td className="text-right font-bold">-{formatCurrency(dailyCash.cashier_transfers)}</td></tr>
                             <tr><th className="text-left">Expected Cash in Drawer</th><td className="text-right font-bold">{formatCurrency(dailyCash.expected_cash)}</td></tr>
                             <tr><th className="text-left">Actual Cash Tally</th><td className="text-right font-bold">{dailyCash.actual_cash === null ? 'PENDING' : formatCurrency(dailyCash.actual_cash)}</td></tr>
-                            <tr><th className="text-left">Variance (Expected - Actual)</th><td className="text-right font-bold">{dailyVariance === null ? 'PENDING' : formatCurrency(dailyVariance)}</td></tr>
+                            <tr><th className="text-left">Variance (Actual − Expected)</th><td className="text-right font-bold">{dailyVariance === null ? 'PENDING' : `${dailyVariance > 0 ? '+' : ''}${formatCurrency(dailyVariance)}`}</td></tr>
                         </tbody>
                     </table>
                     <div className={`border px-3 py-1.5 text-center text-[9px] font-bold mb-3 ${dailyCashStatusClass}`}>CASH STATUS: {dailyCashStatus}{dailyVariance !== null ? ` (${formatCurrency(Math.abs(dailyVariance))})` : ''}</div>

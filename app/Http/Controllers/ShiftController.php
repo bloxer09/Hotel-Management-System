@@ -14,7 +14,9 @@ use App\Models\Room;
 use App\Models\ShiftSession;
 use App\Models\Transaction;
 use App\Services\BookingService;
+use App\Services\ShiftCashReconciliationService;
 use App\Services\ShiftService;
+use App\Services\ShiftVarianceResolutionService;
 use App\Support\HotelDateTime;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Database\QueryException;
@@ -59,41 +61,29 @@ class ShiftController extends Controller
             $suggestedShift = 'night';
         }
 
-        // 3. Get last closed shift's closing cash to suggest as opening cash
-        $lastShift = ShiftSession::whereNotNull('ended_at')
-            ->orderBy('id', 'desc')
-            ->first();
+        // 3. Last closed shift's physical count is the suggested opening cash.
+        $lastShift = $this->latestClosedShift();
         $suggestedOpeningCash = $lastShift ? $lastShift->closing_cash : 0.00;
         $suggestedOpeningDenominations = $lastShift ? $lastShift->closing_denominations : null;
         $suggestedOpeningCashMinibar = $lastShift ? $lastShift->closing_cash_minibar : 0.00;
         $suggestedOpeningDenominationsMinibar = $lastShift ? $lastShift->closing_denominations_minibar : null;
 
-        // 4. Calculate live drawer cash if shift is active
+        // 4. Live drawer cash uses the official reconciliation formula.
         $liveSummary = null;
         if ($activeShift) {
             $liveStart = $activeShift->started_at;
             $liveEnd = now();
-
             $salesStats = $this->getShiftSalesSummary($user->id, $liveStart, $liveEnd);
-
-            $expensesSum = (float) Expense::where('recorded_by', $user->id)
-                ->whereBetween('created_at', [$liveStart, $liveEnd])
-                ->sum('amount');
-
-            $incomesSum = (float) AdditionalCash::where('recorded_by', $user->id)
-                ->whereBetween('created_at', [$liveStart, $liveEnd])
-                ->sum('amount');
-
-            $expectedDrawerCash = $activeShift->opening_cash + $salesStats['rooms_cash'];
-            $expectedDrawerCashMinibar = $activeShift->opening_cash_minibar + $salesStats['minibar_cash'];
+            $reconciliation = app(ShiftCashReconciliationService::class)->forShift($activeShift);
 
             $liveSummary = [
                 'sales' => $salesStats,
-                'expected_drawer_cash' => $expectedDrawerCash,
-                'expected_drawer_cash_minibar' => $expectedDrawerCashMinibar,
+                'reconciliation' => $reconciliation,
+                'expected_drawer_cash' => $reconciliation['rooms']['expected_cash'],
+                'expected_drawer_cash_minibar' => $reconciliation['minibar']['expected_cash'],
                 'live_end' => $liveEnd->format('Y-m-d H:i:s'),
-                'expenses_sum' => $expensesSum,
-                'incomes_sum' => $incomesSum,
+                'expenses_sum' => $reconciliation['rooms']['expenses'] + $reconciliation['minibar']['expenses'],
+                'incomes_sum' => $reconciliation['rooms']['additional_cash'] + $reconciliation['minibar']['additional_cash'],
             ];
         }
 
@@ -118,8 +108,18 @@ class ShiftController extends Controller
             'suggestedOpeningDenominations' => $suggestedOpeningDenominations,
             'suggestedOpeningCashMinibar' => $suggestedOpeningCashMinibar,
             'suggestedOpeningDenominationsMinibar' => $suggestedOpeningDenominationsMinibar,
+            'previousClosedShift' => $lastShift ? [
+                'id' => $lastShift->id,
+                'shift_code' => $lastShift->shift_code,
+                'user_name' => $lastShift->user?->full_name,
+                'ended_at' => $lastShift->ended_at?->toDateTimeString(),
+                'closing_cash' => (float) $lastShift->closing_cash,
+                'closing_cash_minibar' => (float) $lastShift->closing_cash_minibar,
+            ] : null,
             'liveSummary' => $liveSummary,
             'recentShifts' => $recentShifts,
+            'pendingVariances' => app(ShiftVarianceResolutionService::class)->pendingSummariesForUser($user),
+            'canReviewVariances' => $user->role === 'admin',
         ]);
     }
 
@@ -134,6 +134,7 @@ class ShiftController extends Controller
             'opening_denominations_minibar' => 'nullable|array',
             'opening_denominations_minibar.*' => 'integer|min:0',
             'notes' => 'nullable|string',
+            'handover_notes' => 'nullable|string',
         ]);
 
         $user = $request->user();
@@ -160,10 +161,20 @@ class ShiftController extends Controller
             ? $this->calculateDenominationTotal($openingDenominationsMinibar)
             : (float) $request->opening_cash_minibar;
 
-        $previousShift = ShiftSession::with('user')
-            ->whereNotNull('ended_at')
-            ->latest('ended_at')
-            ->first();
+        $previousShift = $this->latestClosedShift();
+        $reconciliation = app(ShiftCashReconciliationService::class);
+        $roomsDifference = 0.0;
+        $minibarDifference = 0.0;
+        if ($previousShift) {
+            $roomsDifference = $reconciliation->variance($openingCash, (float) $previousShift->closing_cash);
+            $minibarDifference = $reconciliation->variance($openingCashMinibar, (float) $previousShift->closing_cash_minibar);
+            if ($reconciliation->hasVariance($roomsDifference, $minibarDifference)
+                && blank($request->handover_notes)) {
+                return back()->withErrors([
+                    'handover_notes' => 'A handover explanation is required when the opening count differs from the previous shift closing count.',
+                ])->withInput();
+            }
+        }
 
         try {
             $shift = ShiftSession::create([
@@ -176,6 +187,8 @@ class ShiftController extends Controller
                 'opening_denominations_minibar' => $openingDenominationsMinibar,
                 'started_at' => now(),
                 'notes' => $request->notes,
+                'handover_from_shift_id' => $previousShift?->id,
+                'handover_notes' => $previousShift ? $request->handover_notes : null,
             ]);
         } catch (QueryException $exception) {
             if (($exception->errorInfo[0] ?? null) === '23000'
@@ -188,18 +201,37 @@ class ShiftController extends Controller
 
         BookingService::auditLog($user->id, 'SHIFT_START', 'shift_sessions', $shift->id, null, $request->shift_code, 'Shift started. Rooms opening cash: '.$openingCash.', Minibar opening cash: '.$openingCashMinibar);
 
-        if ($previousShift && $previousShift->user_id !== $user->id) {
+        if ($previousShift) {
             BookingService::auditLog(
                 $user->id,
                 'SHIFT_HANDOVER',
                 'shift_sessions',
                 $shift->id,
-                ['previous_shift_id' => $previousShift->id, 'previous_user_id' => $previousShift->user_id],
-                ['new_shift_id' => $shift->id, 'new_user_id' => $user->id],
+                [
+                    'previous_shift_id' => $previousShift->id,
+                    'previous_user_id' => $previousShift->user_id,
+                    'previous_closing_cash' => (float) $previousShift->closing_cash,
+                    'previous_closing_cash_minibar' => (float) $previousShift->closing_cash_minibar,
+                ],
+                [
+                    'new_shift_id' => $shift->id,
+                    'new_user_id' => $user->id,
+                    'opening_cash' => $openingCash,
+                    'opening_cash_minibar' => $openingCashMinibar,
+                    'rooms_difference' => $roomsDifference,
+                    'minibar_difference' => $minibarDifference,
+                    'handover_notes' => $request->handover_notes,
+                ],
                 sprintf(
-                    'Register handover from %s to %s.',
+                    'Register handover from %s to %s. Rooms %s → %s (diff %s). Minibar %s → %s (diff %s).',
                     $previousShift->user?->full_name ?? 'previous operator',
-                    $user->full_name
+                    $user->full_name,
+                    number_format((float) $previousShift->closing_cash, 2, '.', ''),
+                    number_format($openingCash, 2, '.', ''),
+                    number_format($roomsDifference, 2, '.', ''),
+                    number_format((float) $previousShift->closing_cash_minibar, 2, '.', ''),
+                    number_format($openingCashMinibar, 2, '.', ''),
+                    number_format($minibarDifference, 2, '.', '')
                 )
             );
         }
@@ -238,18 +270,57 @@ class ShiftController extends Controller
             ? $this->calculateDenominationTotal($closingDenominationsMinibar)
             : (float) $request->closing_cash_minibar;
 
+        $reconciliation = app(ShiftCashReconciliationService::class);
+        $snapshot = $reconciliation->snapshotAtClose($activeShift, $closingCash, $closingCashMinibar);
+
+        if ($reconciliation->hasVariance($snapshot['variance_rooms'], $snapshot['variance_minibar'])
+            && blank($request->notes)) {
+            return back()->withErrors([
+                'notes' => 'Please explain the cash variance (shortage or overage) before ending the shift.',
+            ])->withInput();
+        }
+
         $activeShift->ended_at = now();
         $activeShift->active_register_key = null;
         $activeShift->closing_cash = $closingCash;
         $activeShift->closing_denominations = $closingDenominations;
         $activeShift->closing_cash_minibar = $closingCashMinibar;
         $activeShift->closing_denominations_minibar = $closingDenominationsMinibar;
+        $activeShift->expected_cash_rooms = $snapshot['expected_cash_rooms'];
+        $activeShift->expected_cash_minibar = $snapshot['expected_cash_minibar'];
+        $activeShift->variance_rooms = $snapshot['variance_rooms'];
+        $activeShift->variance_minibar = $snapshot['variance_minibar'];
+        $activeShift->expected_formula_version = $snapshot['expected_formula_version'];
+        $activeShift->variance_status = $snapshot['variance_status'];
         if ($request->notes) {
             $activeShift->notes = trim($activeShift->notes."\nClosing Notes: ".$request->notes);
         }
         $activeShift->save();
 
-        BookingService::auditLog($user->id, 'SHIFT_END', 'shift_sessions', $activeShift->id, null, null, 'Shift ended. Rooms closing cash: '.$closingCash.', Minibar closing cash: '.$closingCashMinibar);
+        BookingService::auditLog(
+            $user->id,
+            'SHIFT_END',
+            'shift_sessions',
+            $activeShift->id,
+            null,
+            [
+                'formula_version' => $snapshot['expected_formula_version'],
+                'variance_status' => $snapshot['variance_status'],
+                'rooms' => [
+                    'opening' => (float) $activeShift->opening_cash,
+                    'expected' => $snapshot['expected_cash_rooms'],
+                    'actual' => $closingCash,
+                    'variance' => $snapshot['variance_rooms'],
+                ],
+                'minibar' => [
+                    'opening' => (float) $activeShift->opening_cash_minibar,
+                    'expected' => $snapshot['expected_cash_minibar'],
+                    'actual' => $closingCashMinibar,
+                    'variance' => $snapshot['variance_minibar'],
+                ],
+            ],
+            'Shift ended. Rooms closing cash: '.$closingCash.', Minibar closing cash: '.$closingCashMinibar
+        );
 
         return redirect()->route('shifts.report', $activeShift->id)->with('success', 'Shift ended. Here is your Shift Report.');
     }
@@ -283,17 +354,11 @@ class ShiftController extends Controller
         $expensesSum = (float) $expenses->sum('amount');
         $incomesSum = (float) $incomes->sum('amount');
 
-        $expectedDrawerCash = $shift->opening_cash + $sales['rooms_cash'];
-        $cashVariance = null;
-        if ($shift->ended_at !== null) {
-            $cashVariance = round($shift->closing_cash - $expectedDrawerCash, 2);
-        }
-
-        $expectedDrawerCashMinibar = $shift->opening_cash_minibar + $sales['minibar_cash'];
-        $cashVarianceMinibar = null;
-        if ($shift->ended_at !== null) {
-            $cashVarianceMinibar = round($shift->closing_cash_minibar - $expectedDrawerCashMinibar, 2);
-        }
+        $reconciliation = app(ShiftCashReconciliationService::class)->forShift($shift);
+        $expectedDrawerCash = $reconciliation['rooms']['expected_cash'];
+        $cashVariance = $reconciliation['rooms']['variance'];
+        $expectedDrawerCashMinibar = $reconciliation['minibar']['expected_cash'];
+        $cashVarianceMinibar = $reconciliation['minibar']['variance'];
 
         // 2. Count bookings checked in/out during shift
         $checkinCount = Transaction::where('processed_by', $shiftUserId)
@@ -381,31 +446,21 @@ class ShiftController extends Controller
             $end
         );
 
-        // The daily cash report is intentionally room-drawer only.  Its room
-        // sales source is the verified payment ledger, so minibar/POS charges,
-        // GCash, and future reservation deposits cannot inflate drawer cash.
+        // Daily Cash Report uses the official ShiftCashReconciliationService
+        // (current-shift cash collections + additional cash - expenses - transfers).
         $roomExpenses = $expenses->where('cash_drawer', 'room')->values();
         $cashMovements = CashMovement::with('recorder:id,full_name')
             ->where('shift_session_id', $shift->id)
             ->where('cash_drawer', 'room')
             ->orderBy('moved_at')
             ->get();
-        $cashierTransfers = (float) $cashMovements
-            ->where('movement_type', 'cashier_transfer')
-            ->sum('amount');
-        $withdrawals = (float) $cashMovements
-            ->where('movement_type', 'withdrawal')
-            ->sum('amount');
-        $dailyRoomSalesCash = (float) ($stayCollections['cash'] ?? 0);
-        $dailyRoomExpenses = (float) $roomExpenses->sum('amount');
-        $dailyExpectedCash = round(
-            (float) $shift->opening_cash + $dailyRoomSalesCash - $dailyRoomExpenses - $cashierTransfers - $withdrawals,
-            2
-        );
-        $dailyActualCash = $shift->ended_at ? (float) $shift->closing_cash : null;
-        $dailyVariance = $dailyActualCash === null
-            ? null
-            : round($dailyExpectedCash - $dailyActualCash, 2);
+        $cashierTransfers = $reconciliation['rooms']['cash_transfers'];
+        $withdrawals = $reconciliation['rooms']['withdrawals'];
+        $dailyRoomSalesCash = $reconciliation['rooms']['cash_collections'];
+        $dailyRoomExpenses = $reconciliation['rooms']['expenses'];
+        $dailyExpectedCash = $reconciliation['rooms']['expected_cash'];
+        $dailyActualCash = $reconciliation['rooms']['actual_cash'];
+        $dailyVariance = $reconciliation['rooms']['variance'];
 
         // 6c. Detailed inventory usages list
         $inventoryUsageDetails = InventoryUsage::with(['item', 'booking.room', 'recorder'])
@@ -500,15 +555,22 @@ class ShiftController extends Controller
                 'stay_collections' => $stayCollections,
                 'daily_cash_report' => [
                     'room_sales_cash' => $dailyRoomSalesCash,
+                    'additional_cash' => $reconciliation['rooms']['additional_cash'],
+                    'variance_recovery_receipts' => $reconciliation['rooms']['variance_recovery_receipts'] ?? 0,
                     'room_expenses' => $dailyRoomExpenses,
                     'cashier_transfers' => $cashierTransfers,
                     'withdrawals' => $withdrawals,
                     'expected_cash' => $dailyExpectedCash,
                     'actual_cash' => $dailyActualCash,
                     'variance' => $dailyVariance,
+                    'variance_label' => $reconciliation['rooms']['variance_label'],
+                    'total_cash_available' => $reconciliation['rooms']['total_cash_available'],
+                    'formula_version' => $reconciliation['formula_version'],
+                    'uses_snapshot' => $reconciliation['uses_snapshot'],
                     'expense_details' => $roomExpenses,
                     'cash_movements' => $cashMovements,
                 ],
+                'cash_reconciliation' => $reconciliation,
                 'can_manage_daily_cash' => $shift->ended_at === null
                     && ($user->role === 'admin' || $shift->user_id === $user->id),
                 'inventory_usage_details' => $inventoryUsageDetails,
@@ -533,6 +595,7 @@ class ShiftController extends Controller
                 'cash_out' => $cashOut,
                 'net_cash' => $netCash,
                 'grand_cash_collection' => $grandCashCollection,
+                'cash_variance_review' => app(ShiftVarianceResolutionService::class)->reviewPayload($shift, $user),
             ],
         ]);
     }
@@ -615,16 +678,11 @@ class ShiftController extends Controller
             ->orderBy('moved_at')
             ->get();
 
-        $cashierTransfers = (float) $cashMovements->where('movement_type', 'cashier_transfer')->sum('amount');
-        $withdrawals = (float) $cashMovements->where('movement_type', 'withdrawal')->sum('amount');
-
         // Other cash receipts (incomes from room drawer)
         $incomes = AdditionalCash::where('recorded_by', $shiftUserId)
             ->whereBetween('created_at', [$start, $end])
             ->where('cash_drawer', 'room')
             ->get();
-        $otherCashReceipts = (float) $incomes->sum('amount');
-        $totalExpenses = (float) $roomExpenses->sum('amount');
 
         $minibarExpenses = Expense::where('recorded_by', $shiftUserId)
             ->whereBetween('created_at', [$start, $end])
@@ -639,36 +697,27 @@ class ShiftController extends Controller
             ->where('cash_drawer', 'minibar')
             ->orderBy('moved_at')
             ->get();
-        $minibarCashierTransfers = (float) $minibarCashMovements->where('movement_type', 'cashier_transfer')->sum('amount');
-        $minibarWithdrawals = (float) $minibarCashMovements->where('movement_type', 'withdrawal')->sum('amount');
-        $minibarOtherCashReceipts = (float) $minibarIncomes->sum('amount');
-        $minibarTotalExpenses = (float) $minibarExpenses->sum('amount');
-        $drawerSummary = $this->getShiftSalesSummary($shiftUserId, $start, $end);
-        // Same current-shift Transaction source as the live Shift UI. rooms_cash
-        // already includes AdditionalCash and deducts Expenses, so peel those
-        // out because this tally lists them on separate lines. This includes
-        // future-reservation cash deposits without summing booking-transaction
-        // totals, which would double-count overlapping stays.
-        $roomSalesCash = round(
-            (float) ($drawerSummary['rooms_cash'] ?? 0)
-                - $otherCashReceipts
-                + $totalExpenses,
-            2
+        $reconciliationService = app(ShiftCashReconciliationService::class);
+        $reconciliation = $reconciliationService->forShift($shift);
+        $roomsTally = $reconciliation['rooms'];
+        $minibarTally = $reconciliation['minibar'];
+        $stayBookingIds = $bookings->pluck('id')->map(fn ($id) => (int) $id)->all();
+        $cashSplit = $reconciliationService->cashCollectionsDetail(
+            (int) $shiftUserId,
+            $start,
+            $end,
+            $stayBookingIds
         );
-        $minibarSalesCash = round(
-            (float) ($drawerSummary['minibar_cash'] ?? 0)
-                - $minibarOtherCashReceipts
-                + $minibarTotalExpenses,
-            2
-        );
-        $minibarTotalMovements = $minibarCashierTransfers + $minibarWithdrawals;
-        $minibarOpeningCash = (float) $shift->opening_cash_minibar;
-        $minibarExpectedCash = round(
-            $minibarOpeningCash + $minibarSalesCash + $minibarOtherCashReceipts - $minibarTotalExpenses - $minibarTotalMovements,
-            2
-        );
-        $minibarActualCash = $shift->ended_at ? (float) $shift->closing_cash_minibar : null;
-        $minibarVariance = $minibarActualCash !== null ? round($minibarActualCash - $minibarExpectedCash, 2) : null;
+        $roomSalesCash = $roomsTally['cash_collections'];
+        $stayCashThisShift = $cashSplit['stay_rooms'];
+        $reservationCashThisShift = $cashSplit['reservation_rooms'];
+        $otherRoomCashThisShift = $cashSplit['other_rooms'];
+        $minibarSalesCash = $minibarTally['cash_collections'];
+        $minibarTotalMovements = $minibarTally['cash_transfers'] + $minibarTally['withdrawals'];
+        $minibarOpeningCash = $minibarTally['opening_cash'];
+        $minibarExpectedCash = $minibarTally['expected_cash'];
+        $minibarActualCash = $minibarTally['actual_cash'];
+        $minibarVariance = $minibarTally['variance'];
 
         // Digital payments (non-cash)
         $digitalTotal = (float) (
@@ -686,12 +735,12 @@ class ShiftController extends Controller
         // Total room sales = sum of total_amount for all bookings in shift
         $totalRoomSales = (float) $bookings->sum('total_amount');
 
-        $totalMovements = $cashierTransfers + $withdrawals;
-        $openingCash = (float) $shift->opening_cash;
+        $totalMovements = $roomsTally['cash_transfers'] + $roomsTally['withdrawals'];
+        $openingCash = $roomsTally['opening_cash'];
 
-        $expectedCash = round($openingCash + $roomSalesCash + $otherCashReceipts - $totalExpenses - $totalMovements, 2);
-        $actualCash = $shift->ended_at ? (float) $shift->closing_cash : null;
-        $variance = $actualCash !== null ? round($actualCash - $expectedCash, 2) : null;
+        $expectedCash = $roomsTally['expected_cash'];
+        $actualCash = $roomsTally['actual_cash'];
+        $variance = $roomsTally['variance'];
 
         // Denomination tables (opening and closing)
         $openingDenominations = $shift->opening_denominations;
@@ -699,6 +748,22 @@ class ShiftController extends Controller
 
         $totalDpCash = (float) $bookings->sum(fn ($b) => (float) collect($b->dp_methods ?? [])->get('cash', 0));
         $totalDpDigital = (float) $bookings->sum(fn ($b) => collect($b->dp_methods ?? [])->except('cash')->sum());
+
+        $reservationCashAudit = 0.00;
+        $reservationDigitalAudit = 0.00;
+        $reservationVerified = 0.00;
+        $reservationOutstanding = 0.00;
+        $reservationBookedValue = 0.00;
+        foreach ($bookingTransactions as $booking) {
+            $methods = collect($booking->shift_collection_methods ?? []);
+            $cash = (float) $methods->get('cash', 0);
+            $received = (float) ($booking->shift_collection_amount ?? 0);
+            $reservationCashAudit += $cash;
+            $reservationDigitalAudit += max(0, $received - $cash);
+            $reservationVerified += $received;
+            $reservationOutstanding += max(0, (float) ($booking->balance_amount ?? 0));
+            $reservationBookedValue += (float) ($booking->total_amount ?? 0);
+        }
 
         return Inertia::render('Reports/RoomBookingsLedgerPrint', [
             'shift' => $shift,
@@ -710,16 +775,23 @@ class ShiftController extends Controller
             'cash_tally' => [
                 'opening_cash' => $openingCash,
                 'room_sales_cash' => $roomSalesCash,
-                'other_cash_receipts' => $otherCashReceipts,
-                'total_cash_available' => round($openingCash + $roomSalesCash + $otherCashReceipts, 2),
+                'sales_cash' => $roomSalesCash,
+                'stay_cash' => $stayCashThisShift,
+                'reservation_cash' => $reservationCashThisShift,
+                'other_room_cash' => $otherRoomCashThisShift,
+                'other_cash_receipts' => $roomsTally['additional_cash'],
+                'total_cash_available' => $roomsTally['total_cash_available'],
                 'incomes' => $incomes,
                 'expenses' => $roomExpenses,
                 'cash_movements' => $cashMovements,
-                'total_expenses' => $totalExpenses,
+                'total_expenses' => $roomsTally['expenses'],
                 'total_movements' => $totalMovements,
                 'expected_cash' => $expectedCash,
                 'actual_cash' => $actualCash,
                 'variance' => $variance,
+                'variance_label' => $roomsTally['variance_label'],
+                'formula_version' => $reconciliation['formula_version'],
+                'uses_snapshot' => $reconciliation['uses_snapshot'],
                 'opening_denominations' => $openingDenominations,
                 'closing_denominations' => $closingDenominations,
             ],
@@ -730,24 +802,35 @@ class ShiftController extends Controller
                 'cash_tally' => [
                     'opening_cash' => $minibarOpeningCash,
                     'sales_cash' => $minibarSalesCash,
-                    'other_cash_receipts' => $minibarOtherCashReceipts,
-                    'total_cash_available' => round($minibarOpeningCash + $minibarSalesCash + $minibarOtherCashReceipts, 2),
+                    'other_cash_receipts' => $minibarTally['additional_cash'],
+                    'total_cash_available' => $minibarTally['total_cash_available'],
                     'expenses' => $minibarExpenses,
                     'cash_movements' => $minibarCashMovements,
                     'incomes' => $minibarIncomes,
-                    'total_expenses' => $minibarTotalExpenses,
+                    'total_expenses' => $minibarTally['expenses'],
                     'total_movements' => $minibarTotalMovements,
                     'expected_cash' => $minibarExpectedCash,
                     'actual_cash' => $minibarActualCash,
                     'variance' => $minibarVariance,
+                    'variance_label' => $minibarTally['variance_label'],
                     'closing_denominations' => $shift->closing_denominations_minibar,
                 ],
+            ],
+            'booking_transaction_totals' => [
+                'reservations_made' => $bookingTransactions->count(),
+                'total_booked_value' => round($reservationBookedValue, 2),
+                'cash' => round($reservationCashAudit, 2),
+                'digital' => round($reservationDigitalAudit, 2),
+                'verified_total' => round($reservationVerified, 2),
+                'outstanding' => round($reservationOutstanding, 2),
             ],
             // Page 1 footer totals (stay logbook only; do not mix in
             // future-reservation cash that belongs on the Daily Cash Tally).
             'totals' => [
                 'total_room_sales' => $totalRoomSales,
                 'cash_collection' => (float) ($stayCollections['cash'] ?? 0) + $totalDpCash,
+                'prior_cash_downpayments' => round($totalDpCash, 2),
+                'cash_received_this_shift' => $stayCashThisShift,
                 'digital_payment' => $digitalTotal + $totalDpDigital,
                 'outstanding_balance' => $outstandingBalance,
             ],
@@ -1066,6 +1149,15 @@ class ShiftController extends Controller
             'rooms_gcash' => round($roomsGcash, 2),
             'minibar_gcash' => round($minibarGcash, 2),
         ];
+    }
+
+    private function latestClosedShift(): ?ShiftSession
+    {
+        return ShiftSession::with('user')
+            ->whereNotNull('ended_at')
+            ->orderByDesc('ended_at')
+            ->orderByDesc('id')
+            ->first();
     }
 
     private function sanitizeDenominations(?array $denominations): ?array

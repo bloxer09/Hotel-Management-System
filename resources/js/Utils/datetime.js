@@ -103,6 +103,54 @@ export const hotelLocalNowTimestamp = () => {
     return Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second);
 };
 
+/**
+ * ShiftSession started_at/ended_at and other system/audit timestamps are
+ * true UTC instants. Naive "YYYY-MM-DD HH:mm:ss" values must be treated as
+ * UTC, then converted to Asia/Manila for display. Do not use formatHotelDate
+ * (stay-field helper) for these.
+ */
+export function parseUtcInstant(value) {
+    if (value == null || value === '') return null;
+
+    const str = String(value).trim();
+    if (!str) return null;
+
+    if (/[zZ]$|[+\-]\d{2}:?\d{2}$/.test(str)) {
+        const parsed = new Date(str);
+        return Number.isNaN(parsed.getTime()) ? null : parsed;
+    }
+
+    const naive = str
+        .replace('T', ' ')
+        .replace(/\.\d+/, '')
+        .trim();
+    const match = naive.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ ](\d{2}):(\d{2})(?::(\d{2}))?)?/);
+    if (!match) {
+        const fallback = new Date(str);
+        return Number.isNaN(fallback.getTime()) ? null : fallback;
+    }
+
+    const iso = `${match[1]}-${match[2]}-${match[3]}T${match[4] ?? '00'}:${match[5] ?? '00'}:${match[6] ?? '00'}Z`;
+    const parsed = new Date(iso);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+export const formatUtcToManila = (value) => {
+    const date = parseUtcInstant(value);
+    if (!date) return '—';
+
+    return new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Asia/Manila',
+        year: 'numeric',
+        month: 'numeric',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true,
+    }).format(date);
+};
+
 export function toHotelDatetimeLocal(value) {
     const parts = parseHotelLocalParts(value);
     if (!parts) return '';

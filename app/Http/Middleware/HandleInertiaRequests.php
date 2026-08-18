@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Enums\UserRole;
 use App\Services\ShiftService;
+use App\Services\ShiftVarianceResolutionService;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -54,7 +55,9 @@ class HandleInertiaRequests extends Middleware
                 'warning' => $request->session()->get('warning'),
                 'error' => $request->session()->get('error'),
             ],
-
+            'cash_variance_banner' => $user
+                ? app(ShiftVarianceResolutionService::class)->bannerForUser($user)
+                : null,
         ];
     }
 }

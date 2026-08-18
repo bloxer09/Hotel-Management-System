@@ -31,11 +31,22 @@ class EnforceRegisterOperator
         'promo_codes.validate',
     ];
 
+    /**
+     * Closed-shift accountability actions. Front Desk must be able to submit
+     * a variance resolution after logging off the register.
+     */
+    private const ACCOUNTABILITY_ROUTE_PATTERNS = [
+        'shifts.variances.store',
+        'shifts.variances.record',
+        'shifts.variances.approve',
+        'shifts.variances.reject',
+    ];
+
     public function handle(Request $request, Closure $next): Response
     {
         $user = $request->user();
 
-        if (! $user || $request->isMethodSafe() || $this->isPersonalRoute($request)) {
+        if (! $user || $request->isMethodSafe() || $this->isPersonalRoute($request) || $this->isAccountabilityRoute($request)) {
             return $next($request);
         }
 
@@ -91,6 +102,11 @@ class EnforceRegisterOperator
         }
 
         return back(fallback: route('shifts.index'))->with('warning', $message);
+    }
+
+    private function isAccountabilityRoute(Request $request): bool
+    {
+        return $request->routeIs(...self::ACCOUNTABILITY_ROUTE_PATTERNS);
     }
 
     private function isPersonalRoute(Request $request): bool

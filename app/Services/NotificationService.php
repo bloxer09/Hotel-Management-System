@@ -8,6 +8,8 @@ use App\Models\InventoryChangeRequest;
 use App\Models\InventoryItem;
 use App\Models\MaintenanceTicket;
 use App\Models\Room;
+use App\Models\ShiftSession;
+use App\Models\ShiftVarianceResolution;
 use App\Models\User;
 use App\Support\HotelDateTime;
 use Illuminate\Support\Facades\DB;
@@ -47,6 +49,8 @@ class NotificationService
         $overdue = array_values(array_filter($checkout['items'], fn (array $item) => $item['type'] === 'checkout_overdue'));
         $upcoming = array_values(array_filter($checkout['items'], fn (array $item) => $item['type'] === 'checkout_upcoming'));
 
+        $cashVariance = $housekeeping ? [] : $this->cashVarianceAlerts($user);
+
         if ($housekeeping) {
             $items = array_merge($overdue, $upcoming, $cleaningRequired, $maintenance, $cleaningFinished);
         } else {
@@ -57,7 +61,8 @@ class NotificationService
                 $cleaningFinished,
                 $maintenance,
                 $inventoryRequests,
-                $inventory
+                $inventory,
+                $cashVariance
             );
         }
 
@@ -79,10 +84,12 @@ class NotificationService
                 'maintenance' => count($maintenance),
                 'critical_maintenance' => count(array_filter($maintenance, fn (array $item) => ($item['priority'] ?? '') === 'critical')),
                 'inventory_requests' => $inventoryRequestCount,
+                'cash_variance' => count($cashVariance),
             ],
             'items' => $items,
             'role' => $role,
             'operational' => $operational,
+            'cash_variance_banner' => $this->cashVarianceBanner($user, $housekeeping),
         ];
     }
 
@@ -467,5 +474,131 @@ class NotificationService
         }
 
         return $hourLabel.' '.($remain === 1 ? '1 minute' : "{$remain} minutes");
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function cashVarianceAlerts(User $user): array
+    {
+        $service = app(ShiftVarianceResolutionService::class);
+        $isAdmin = $user->role === UserRole::Admin->value;
+        $items = [];
+
+        $pendingQuery = ShiftSession::with('user:id,full_name')
+            ->whereNotNull('ended_at')
+            ->whereNotNull('expected_formula_version')
+            ->whereIn('variance_status', [
+                ShiftVarianceResolutionService::STATUS_PENDING_REVIEW,
+                ShiftVarianceResolutionService::STATUS_PARTIALLY_RESOLVED,
+            ])
+            ->orderByDesc('ended_at');
+
+        if (! $isAdmin) {
+            $pendingQuery->where('user_id', $user->id);
+        }
+
+        foreach ($pendingQuery->limit(20)->get() as $shift) {
+            $rooms = $service->drawerReview($shift, ShiftVarianceResolution::DRAWER_ROOM);
+            $minibar = $service->drawerReview($shift, ShiftVarianceResolution::DRAWER_MINIBAR);
+            $lines = $this->varianceDrawerLines($rooms, $minibar);
+            if ($lines === []) {
+                continue;
+            }
+
+            if ($isAdmin) {
+                $items[] = [
+                    'type' => 'cash_variance_pending_review',
+                    'alert_key' => 'cash-variance-admin-'.$shift->id,
+                    'shift_id' => (int) $shift->id,
+                    'title' => 'CASH VARIANCE PENDING REVIEW',
+                    'message' => 'Shift #'.$shift->id.' • '.($shift->user?->full_name ?? 'Front Desk')."\n".implode("\n", $lines),
+                    'action_label' => 'Review Variance',
+                    'action_url' => route('shifts.report', $shift->id),
+                ];
+            } else {
+                $items[] = [
+                    'type' => 'cash_variance_pending',
+                    'alert_key' => 'cash-variance-fd-'.$shift->id,
+                    'shift_id' => (int) $shift->id,
+                    'title' => 'SHIFT CASH VARIANCE',
+                    'message' => 'Shift #'.$shift->id."\n".implode("\n", $lines)."\nPending Admin Review",
+                    'action_label' => 'View Details',
+                    'action_url' => route('shifts.report', $shift->id),
+                ];
+            }
+        }
+
+        if ($isAdmin) {
+            return $items;
+        }
+
+        $reviews = ShiftVarianceResolution::query()
+            ->with('shift:id,user_id')
+            ->whereIn('status', [
+                ShiftVarianceResolution::STATUS_APPROVED,
+                ShiftVarianceResolution::STATUS_REJECTED,
+            ])
+            ->whereHas('shift', fn ($query) => $query->where('user_id', $user->id))
+            ->whereNotNull('reviewed_at')
+            ->where('reviewed_at', '>=', now()->subHours(48))
+            ->orderByDesc('reviewed_at')
+            ->limit(20)
+            ->get();
+
+        foreach ($reviews as $resolution) {
+            $statusLabel = $resolution->status === ShiftVarianceResolution::STATUS_APPROVED
+                ? 'Approved'
+                : 'Rejected';
+            $drawer = $resolution->drawer === ShiftVarianceResolution::DRAWER_MINIBAR ? 'Minibar' : 'Rooms';
+            $items[] = [
+                'type' => 'cash_variance_reviewed',
+                'alert_key' => 'cash-variance-review-'.$resolution->id.'-'.$resolution->status,
+                'shift_id' => (int) $resolution->shift_session_id,
+                'resolution_id' => (int) $resolution->id,
+                'title' => 'SHIFT CASH VARIANCE '.$statusLabel,
+                'message' => 'Shift #'.$resolution->shift_session_id."\n{$drawer} "
+                    .ucfirst($resolution->variance_type)
+                    .' ₱'.number_format((float) $resolution->amount, 2)
+                    ."\n{$statusLabel} by Admin",
+                'action_label' => 'View Details',
+                'action_url' => route('shifts.report', $resolution->shift_session_id),
+            ];
+        }
+
+        return $items;
+    }
+
+    /**
+     * @param  array<string, mixed>  $rooms
+     * @param  array<string, mixed>  $minibar
+     * @return list<string>
+     */
+    private function varianceDrawerLines(array $rooms, array $minibar): array
+    {
+        $lines = [];
+        foreach ([$rooms, $minibar] as $drawer) {
+            if (($drawer['remaining'] ?? 0) < ShiftCashReconciliationService::TOLERANCE) {
+                continue;
+            }
+            $kind = ($drawer['variance_type'] ?? '') === ShiftVarianceResolution::VARIANCE_OVERAGE ? 'over' : 'short';
+            $lines[] = ($drawer['label'] ?? 'Drawer').' '.$kind.' ₱'.number_format((float) $drawer['remaining'], 2);
+        }
+
+        return $lines;
+    }
+
+    /**
+     * Front Desk persistent banner payload. Never included in bell items.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function cashVarianceBanner(User $user, bool $housekeeping): ?array
+    {
+        if ($housekeeping) {
+            return null;
+        }
+
+        return app(ShiftVarianceResolutionService::class)->bannerForUser($user);
     }
 }

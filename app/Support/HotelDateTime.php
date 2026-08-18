@@ -187,4 +187,68 @@ class HotelDateTime
 
         return static::parseLocal($raw);
     }
+
+    /**
+     * Format a true UTC system/audit instant (shift started_at/ended_at,
+     * created_at) for Asia/Manila display. Does not rewrite stored digits.
+     */
+    public static function formatUtcForDisplay(mixed $value): ?string
+    {
+        $dt = static::asUtcInstant($value);
+        if ($dt === null) {
+            return null;
+        }
+
+        return $dt->timezone(self::TIMEZONE)->format('n/j/Y, g:i:s A');
+    }
+
+    /**
+     * UTC ISO-8601 instant with Z, for frontend conversion.
+     */
+    public static function utcIso(mixed $value): ?string
+    {
+        $dt = static::asUtcInstant($value);
+        if ($dt === null) {
+            return null;
+        }
+
+        return $dt->utc()->format('Y-m-d\TH:i:s\Z');
+    }
+
+    /**
+     * Interpret a system timestamp as a UTC instant. Naive "Y-m-d H:i:s"
+     * strings are UTC (app timezone), not hotel-local stay fields.
+     */
+    public static function asUtcInstant(mixed $value): ?Carbon
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if ($value instanceof DateTimeInterface) {
+            return Carbon::instance(\DateTimeImmutable::createFromInterface($value))->utc();
+        }
+
+        $raw = trim((string) $value);
+        if ($raw === '') {
+            return null;
+        }
+
+        if (preg_match('/(Z|[+\-]\d{2}:?\d{2})$/i', $raw) === 1) {
+            return Carbon::parse($raw)->utc();
+        }
+
+        $normalized = str_replace('T', ' ', $raw);
+
+        try {
+            $parsed = Carbon::createFromFormat('Y-m-d H:i:s', $normalized, 'UTC');
+            if ($parsed instanceof Carbon) {
+                return $parsed->utc();
+            }
+        } catch (Throwable) {
+            // Fall through to generic parse.
+        }
+
+        return Carbon::parse($normalized, 'UTC')->utc();
+    }
 }

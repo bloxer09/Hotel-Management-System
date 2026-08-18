@@ -116,7 +116,7 @@ function DrawerTallyPage({ title, salesLabel, shiftPeriod, shiftCode, cashierNam
                         <tbody>
                             <tr><td>Expected cash on hand</td><td className="right">{php(tally.expected_cash)}</td></tr>
                             <tr><td>Actual cash count</td><td className="right">{tally.actual_cash !== null ? php(actualCashCount || tally.actual_cash) : '(shift not yet closed)'}</td></tr>
-                            <tr className="variance-row" style={{ backgroundColor: variance !== null ? varianceColor : '' }}><td>VARIANCE (SHORT / OVER)</td><td className="right">{variance !== null ? (variance === 0 ? php(0) : (variance > 0 ? '+' : '') + php(variance)) : '—'}</td></tr>
+                            <tr className="variance-row" style={{ backgroundColor: variance !== null ? varianceColor : '' }}><td>VARIANCE (SHORT / OVER)</td><td className="right">{variance !== null ? `${tally.variance_label && tally.variance_label !== 'BALANCED' ? tally.variance_label + ' ' : ''}${variance === 0 ? php(0) : (variance > 0 ? '+' : '') + php(variance)}` : '—'}</td></tr>
                         </tbody>
                     </table>
                     <div className="sig-row" style={{ padding: '0', marginTop: 20 }}>
@@ -201,6 +201,7 @@ export default function RoomBookingsLedgerPrint({
     cash_tally,
     totals,
     minibar,
+    booking_transaction_totals,
 }) {
     useEffect(() => { window.print(); }, []);
 
@@ -213,6 +214,8 @@ export default function RoomBookingsLedgerPrint({
     // Page 1 footer totals
     const totalRoomSales = totals?.total_room_sales ?? 0;
     const cashCollection = totals?.cash_collection ?? 0;
+    const priorCashDownpayments = totals?.prior_cash_downpayments ?? 0;
+    const cashReceivedThisShift = totals?.cash_received_this_shift ?? 0;
     const digitalPayment = totals?.digital_payment ?? 0;
     const outstandingBalance = totals?.outstanding_balance ?? 0;
 
@@ -220,6 +223,9 @@ export default function RoomBookingsLedgerPrint({
     const ct = cash_tally || {};
     const openingCash = ct.opening_cash ?? 0;
     const roomSalesCash = ct.room_sales_cash ?? 0;
+    const stayCashThisShift = ct.stay_cash ?? 0;
+    const reservationCashThisShift = ct.reservation_cash ?? 0;
+    const otherRoomCashThisShift = Number(ct.other_room_cash ?? 0);
     const otherCashReceipts = ct.other_cash_receipts ?? 0;
     const totalCashAvailable = ct.total_cash_available ?? 0;
     const expenses = ct.expenses ?? [];
@@ -236,10 +242,13 @@ export default function RoomBookingsLedgerPrint({
     const minibarStayCharges = minibarData.stay_charges || [];
     const lowStock = minibarData.low_stock || [];
     const bookingTransactions = Array.isArray(booking_transactions) ? booking_transactions : [];
-    const reservationsMade = bookingTransactions.length;
-    const totalBookedValue = bookingTransactions.reduce((sum, booking) => sum + Number(booking.total_amount || 0), 0);
-    const verifiedBookingPayments = bookingTransactions.reduce((sum, booking) => sum + Number(booking.shift_collection_amount || 0), 0);
-    const outstandingReservationBalance = bookingTransactions.reduce((sum, booking) => sum + Math.max(0, Number(booking.balance_amount || 0)), 0);
+    const bt = booking_transaction_totals || {};
+    const reservationsMade = bt.reservations_made ?? bookingTransactions.length;
+    const totalBookedValue = bt.total_booked_value ?? bookingTransactions.reduce((sum, booking) => sum + Number(booking.total_amount || 0), 0);
+    const cashReservationPayments = bt.cash ?? bookingTransactions.reduce((sum, booking) => sum + Number(booking.shift_collection_methods?.cash || 0), 0);
+    const digitalReservationPayments = bt.digital ?? 0;
+    const verifiedBookingPayments = bt.verified_total ?? bookingTransactions.reduce((sum, booking) => sum + Number(booking.shift_collection_amount || 0), 0);
+    const outstandingReservationBalance = bt.outstanding ?? bookingTransactions.reduce((sum, booking) => sum + Math.max(0, Number(booking.balance_amount || 0)), 0);
 
     // Compute actual cash count from closing denominations
     const denomRows = DENOMINATIONS.map(d => ({
@@ -274,8 +283,8 @@ export default function RoomBookingsLedgerPrint({
                     .page-break { page-break-before: always; }
                     .tally-page .page2-banner { padding: 8px 16px; margin-bottom: 6px; }
                     .tally-page .subheader-row { margin-bottom: 6px; }
-                    .tally-page .tally-table { margin-bottom: 8px; }
-                    .tally-page .tally-table td { padding: 4px 10px; }
+                    .tally-page .tally-table { margin-bottom: 6px; }
+                    .tally-page .tally-table td { padding: 3px 8px; }
                     .tally-page .expected-box { padding: 8px 16px; margin-bottom: 8px; }
                     .tally-page .recon-table { margin-bottom: 8px; }
                     .tally-page .recon-table td { padding: 4px 10px; }
@@ -308,7 +317,19 @@ export default function RoomBookingsLedgerPrint({
                 .footer-box.highlight .label { color: #a8c4e0; }
                 .footer-box.highlight .value { color: #ffffff; }
 
-                .sig-row { display: flex; justify-content: space-between; margin-top: 16px; padding: 0 20px; }
+                .recon-grid { display: grid; grid-template-columns: 1fr 1fr; border: 2px solid #1a3a5c; margin-top: 4px; }
+                .recon-grid .col { border-right: 1px solid #1a3a5c; }
+                .recon-grid .col:last-child { border-right: none; }
+                .recon-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 4px 10px; border-bottom: 1px solid #c5cfe0; }
+                .recon-row:last-child { border-bottom: none; }
+                .recon-row .label { flex: 1; min-width: 0; font-size: 8.5px; font-weight: 700; color: #1a3a5c; text-transform: uppercase; letter-spacing: 0.3px; line-height: 1.25; }
+                .recon-row .value { flex-shrink: 0; font-size: 13px; font-weight: 800; color: #1a3a5c; white-space: nowrap; }
+                .recon-row.emphasis { background: #eef4fb; }
+                .recon-row.highlight { background: #1a3a5c; }
+                .recon-row.highlight .label, .recon-row.highlight .value { color: #ffffff; }
+                .footer-note { font-size: 8px; color: #555; font-style: italic; margin-top: 4px; line-height: 1.35; }
+
+                .sig-row { display: flex; justify-content: space-between; margin-top: 10px; padding: 0 20px; }
                 .sig-box { text-align: center; width: 180px; }
                 .sig-line { border-bottom: 1px solid #555; margin-bottom: 3px; height: 28px; }
                 .sig-label { font-size: 9px; color: #555; }
@@ -328,6 +349,8 @@ export default function RoomBookingsLedgerPrint({
                 .tally-table td.right { text-align: right; }
                 .tally-table tr.total-row td { background: #dce8f5; font-weight: 700; }
                 .tally-table tr.deduct-total td { background: #fde8e8; font-weight: 700; }
+                .tally-table td.indent { padding-left: 22px; font-size: 10px; color: #333; }
+                .tally-table tr.group-label td { background: #f4f7fb; font-weight: 700; font-size: 9.5px; letter-spacing: 0.3px; color: #1a3a5c; }
 
                 .expected-box { background: #1a3a5c; color: white; display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; margin-bottom: 12px; }
                 .expected-box .exp-label { font-size: 13px; font-weight: 700; letter-spacing: 0.5px; }
@@ -511,26 +534,39 @@ export default function RoomBookingsLedgerPrint({
                 </table>
 
                 {/* Footer Totals Bar */}
-                <div className="footer-totals">
-                    <div className="footer-box">
-                        <div className="label">Total Room Sales</div>
-                        <div className="value">{php(totalRoomSales)}</div>
+                <div className="recon-grid">
+                    <div className="col">
+                        <div className="recon-row">
+                            <span className="label">Total Room Sales</span>
+                            <span className="value">{php(totalRoomSales)}</span>
+                        </div>
+                        <div className="recon-row">
+                            <span className="label">Digital Payments</span>
+                            <span className="value">{php(digitalPayment)}</span>
+                        </div>
+                        <div className="recon-row highlight">
+                            <span className="label">Outstanding Balance</span>
+                            <span className="value">{php(outstandingBalance)}</span>
+                        </div>
                     </div>
-                    <div className="footer-box">
-                        <div className="label">Total Cash Payments on Reported Stays</div>
-                        <div className="value">{php(cashCollection)}</div>
-                    </div>
-                    <div className="footer-box">
-                        <div className="label">Digital Payment</div>
-                        <div className="value">{php(digitalPayment)}</div>
-                    </div>
-                    <div className="footer-box highlight">
-                        <div className="label">Outstanding Balance</div>
-                        <div className="value">{php(outstandingBalance)}</div>
+                    <div className="col">
+                        <div className="recon-row">
+                            <span className="label">Total Cash Payments on Reported Stays</span>
+                            <span className="value">{php(cashCollection)}</span>
+                        </div>
+                        <div className="recon-row">
+                            <span className="label">Less: Cash Downpayments Received Before This Shift</span>
+                            <span className="value">{php(priorCashDownpayments)}</span>
+                        </div>
+                        <div className="recon-row emphasis">
+                            <span className="label">Cash Received This Shift on Reported Stays</span>
+                            <span className="value">{php(cashReceivedThisShift)}</span>
+                        </div>
                     </div>
                 </div>
-                <div style={{ fontSize: 8.5, color: '#555', fontStyle: 'italic', marginTop: 6 }}>
-                    Includes prior cash downpayments. See Daily Cash Tally for cash physically received during this shift.
+                <div className="footer-note">
+                    Total Cash Payments on Reported Stays includes cash downpayments received before this shift.
+                    {' '}'Cash Received This Shift on Reported Stays' is physical cash collected during the current shift only.
                 </div>
 
                 {/* Signature Lines */}
@@ -611,27 +647,40 @@ export default function RoomBookingsLedgerPrint({
                         })}
                     </tbody>
                 </table>
-                <div className="footer-totals">
-                    <div className="footer-box">
-                        <div className="label">Reservations Made</div>
-                        <div className="value">{reservationsMade}</div>
+                <div className="recon-grid" style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>
+                    <div className="col">
+                        <div className="recon-row">
+                            <span className="label">Reservations Made</span>
+                            <span className="value">{reservationsMade}</span>
+                        </div>
+                        <div className="recon-row">
+                            <span className="label">Total Booked Value</span>
+                            <span className="value">{php(totalBookedValue)}</span>
+                        </div>
                     </div>
-                    <div className="footer-box">
-                        <div className="label">Total Booked Value</div>
-                        <div className="value">{php(totalBookedValue)}</div>
+                    <div className="col">
+                        <div className="recon-row">
+                            <span className="label">Cash Reservation Payments This Shift</span>
+                            <span className="value">{php(cashReservationPayments)}</span>
+                        </div>
+                        <div className="recon-row">
+                            <span className="label">Digital Reservation Payments This Shift</span>
+                            <span className="value">{php(digitalReservationPayments)}</span>
+                        </div>
                     </div>
-                    <div className="footer-box">
-                        <div className="label">Verified Payments Collected During Shift</div>
-                        <div className="value">{php(verifiedBookingPayments)}</div>
-                    </div>
-                    <div className="footer-box highlight">
-                        <div className="label">Outstanding Reservation Balance</div>
-                        <div className="value">{php(outstandingReservationBalance)}</div>
+                    <div className="col">
+                        <div className="recon-row emphasis">
+                            <span className="label">Total Verified Reservation Payments</span>
+                            <span className="value">{php(verifiedBookingPayments)}</span>
+                        </div>
+                        <div className="recon-row highlight">
+                            <span className="label">Outstanding Reservation Balance</span>
+                            <span className="value">{php(outstandingReservationBalance)}</span>
+                        </div>
                     </div>
                 </div>
-                <div style={{ fontSize: 8.5, color: '#555', fontStyle: 'italic', marginTop: 6 }}>
-                    Booking value is informational only and is not included in Total Room Sales, Cash Collection, Digital Payment, or Daily Cash Tally.
-                    {' '}Booking transaction records are for audit purposes and may also appear in the Room Sales Logbook after check-in. Do not add these totals to Room Sales.
+                <div className="footer-note">
+                    Booking value is informational and must not be added to Room Sales. Verified cash reservation payments received during this shift are included in the Daily Cash Tally. Digital payments are excluded from physical drawer cash. Booking rows may also appear in Room Sales after check-in; do not add these totals to Room Sales.
                 </div>
                 <div className="sig-row">
                     <div className="sig-box">
@@ -678,8 +727,25 @@ export default function RoomBookingsLedgerPrint({
                                     <td>Beginning cash on hand</td>
                                     <td className="right">{php(openingCash)}</td>
                                 </tr>
+                                <tr className="group-label">
+                                    <td colSpan={2}>ADD: CASH RECEIVED THIS SHIFT</td>
+                                </tr>
                                 <tr>
-                                    <td>CASH ROOM / RESERVATION PAYMENTS RECEIVED THIS SHIFT</td>
+                                    <td className="indent">Room / Stay Cash Received This Shift</td>
+                                    <td className="right">{php(stayCashThisShift)}</td>
+                                </tr>
+                                <tr>
+                                    <td className="indent">Reservation Cash Deposits Received This Shift</td>
+                                    <td className="right">{php(reservationCashThisShift)}</td>
+                                </tr>
+                                {Math.abs(otherRoomCashThisShift) >= 0.01 && (
+                                    <tr>
+                                        <td className="indent">Other Room-Related Cash Received This Shift</td>
+                                        <td className="right">{php(otherRoomCashThisShift)}</td>
+                                    </tr>
+                                )}
+                                <tr>
+                                    <td>Total Room / Reservation Cash Received This Shift</td>
                                     <td className="right">{php(roomSalesCash)}</td>
                                 </tr>
                                 <tr>
@@ -782,7 +848,7 @@ export default function RoomBookingsLedgerPrint({
                                     <td>VARIANCE (SHORT / OVER)</td>
                                     <td className="right">
                                         {variance !== null
-                                            ? (variance === 0 ? php(0) : (variance > 0 ? '+' : '') + php(variance))
+                                            ? `${ct.variance_label && ct.variance_label !== 'BALANCED' ? ct.variance_label + ' ' : ''}${variance === 0 ? php(0) : (variance > 0 ? '+' : '') + php(variance)}`
                                             : '—'}
                                     </td>
                                 </tr>

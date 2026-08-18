@@ -74,6 +74,7 @@ class ShiftDenominationCalculationTest extends TestCase
                 '20' => 1,
                 '100' => 2,
             ],
+            'notes' => 'Test count differs from expected drawer cash.',
         ]);
 
         $response->assertRedirect(route('shifts.report', $shift->id));

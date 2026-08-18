@@ -17,8 +17,9 @@ import {
 import { motion } from 'framer-motion';
 import ConfirmModal from '@/Components/ConfirmModal';
 import CustomSelect from '@/Components/CustomSelect';
+import { formatUtcToManila } from '@/Utils/datetime';
 
-export default function Index({ activeShift, registerShift, isRegisterOperator, viewerMode, suggestedShift, suggestedOpeningCash, suggestedOpeningDenominations, suggestedOpeningCashMinibar, suggestedOpeningDenominationsMinibar, liveSummary, recentShifts }) {
+export default function Index({ activeShift, registerShift, isRegisterOperator, viewerMode, suggestedShift, suggestedOpeningCash, suggestedOpeningDenominations, suggestedOpeningCashMinibar, suggestedOpeningDenominationsMinibar, previousClosedShift, liveSummary, recentShifts, pendingVariances = [], canReviewVariances = false }) {
     const [showShutdownConfirm, setShowShutdownConfirm] = useState(false);
 
     const COINS = [0.01, 0.05, 0.25, 1, 5, 10];
@@ -40,7 +41,8 @@ export default function Index({ activeShift, registerShift, isRegisterOperator, 
         opening_denominations: suggestedOpeningDenominations || {},
         opening_cash_minibar: suggestedOpeningCashMinibar || 0.00,
         opening_denominations_minibar: suggestedOpeningDenominationsMinibar || {},
-        notes: ''
+        notes: '',
+        handover_notes: ''
     });
 
     // End shift form
@@ -96,6 +98,16 @@ export default function Index({ activeShift, registerShift, isRegisterOperator, 
         startForm.post(route('shifts.start'));
     };
 
+    const previousRoomsClosing = Number(previousClosedShift?.closing_cash || 0);
+    const previousMinibarClosing = Number(previousClosedShift?.closing_cash_minibar || 0);
+    const roomsHandoverDifference = Number(startForm.data.opening_cash || 0) - previousRoomsClosing;
+    const minibarHandoverDifference = Number(startForm.data.opening_cash_minibar || 0) - previousMinibarClosing;
+    const hasHandoverDifference = !!previousClosedShift && (
+        Math.abs(roomsHandoverDifference) >= 0.01 || Math.abs(minibarHandoverDifference) >= 0.01
+    );
+    const roomsReconciliation = liveSummary?.reconciliation?.rooms;
+    const minibarReconciliation = liveSummary?.reconciliation?.minibar;
+
     const handleEndShift = (e) => {
         e.preventDefault();
         setShowShutdownConfirm(true);
@@ -112,13 +124,67 @@ export default function Index({ activeShift, registerShift, isRegisterOperator, 
 
             <div className="flex flex-col gap-8">
 
-                {/* Header title */}
-                <div>
-                    <h1 className="text-3xl font-outfit font-extrabold tracking-tight text-slate-100">
-                        Shift & Register Control Desk
-                    </h1>
-                    <p className="text-sm text-slate-400 font-medium mt-1">Monitor cash drawer operations, log work session intervals, and reconcile register balance reports.</p>
+                <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+                    <div>
+                        <h1 className="text-3xl font-outfit font-extrabold tracking-tight text-slate-100">
+                            Shift & Register Control Desk
+                        </h1>
+                        <p className="text-sm text-slate-400 font-medium mt-1">Monitor cash drawer operations, log work session intervals, and reconcile register balance reports.</p>
+                    </div>
+                    {canReviewVariances && (
+                        <Link
+                            href={route('shifts.variances.index')}
+                            className="inline-flex items-center gap-2 rounded-xl border border-rose-500/40 bg-rose-950/30 px-4 py-2 text-xs font-bold text-rose-200 hover:border-rose-400"
+                        >
+                            <AlertTriangle size={14} /> Cash Variance Queue
+                        </Link>
+                    )}
                 </div>
+
+                {pendingVariances.length > 0 && (
+                    <div className="rounded-2xl border border-rose-500/40 bg-rose-950/25 p-5 shadow-xl" data-testid="pending-cash-variance">
+                        <h2 className="text-sm font-outfit font-extrabold uppercase tracking-wider text-rose-200">Pending Cash Variance</h2>
+                        <div className="mt-4 grid gap-3">
+                            {pendingVariances.map((item) => (
+                                <div key={item.shift_id} className="rounded-xl border border-rose-500/20 bg-[#0f172a]/50 p-4">
+                                    <div className="flex flex-wrap items-start justify-between gap-3">
+                                        <div>
+                                            <div className="text-sm font-bold text-slate-100">Shift #{item.shift_id}</div>
+                                            <div className="text-xs text-slate-400">
+                                                Closed: {item.closed_at_display || (item.closed_at ? formatUtcToManila(item.closed_at) : '—')}
+                                            </div>
+                                        </div>
+                                        <span className="text-[10px] font-black uppercase tracking-wider text-rose-300 border border-rose-500/30 rounded px-2 py-0.5">
+                                            {(item.overall_status || '').replace('_', ' ')}
+                                        </span>
+                                    </div>
+                                    {[item.rooms, item.minibar].filter((drawer) => Math.abs(Number(drawer?.original_variance || 0)) >= 0.01).map((drawer) => (
+                                        <div key={drawer.drawer} className="mt-3 text-xs text-slate-300">
+                                            <span className="font-bold text-slate-100">{drawer.label} {drawer.original_label === 'OVER' ? 'Overage' : 'Shortage'}:</span>
+                                            {' '}₱{Number(Math.abs(drawer.original_variance)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                            <span className="text-slate-500"> · Resolved ₱{Number(drawer.resolved_amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                            <span className="text-rose-300 font-bold"> · Remaining ₱{Number(drawer.remaining).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                        </div>
+                                    ))}
+                                    <div className="mt-3 flex flex-wrap gap-2">
+                                        <Link
+                                            href={`${route('shifts.report', item.shift_id)}?tab=variance`}
+                                            className="inline-flex items-center rounded-lg border border-[#334155] bg-[#1e293b] px-3 py-1.5 text-[11px] font-bold text-slate-200 hover:border-brand-500"
+                                        >
+                                            View Details
+                                        </Link>
+                                        <Link
+                                            href={`${route('shifts.report', item.shift_id)}?tab=variance`}
+                                            className="inline-flex items-center rounded-lg border border-rose-500/40 bg-rose-900/30 px-3 py-1.5 text-[11px] font-bold text-rose-100 hover:border-rose-400"
+                                        >
+                                            {canReviewVariances ? 'Review Variance' : 'Add Explanation / Submit Resolution'}
+                                        </Link>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
 
                 {/* Main Shift Action Interface */}
                 <div>
@@ -326,6 +392,63 @@ export default function Index({ activeShift, registerShift, isRegisterOperator, 
                                         </div>
                                     </div>
 
+                                    {/* Previous shift physical handover */}
+                                    {previousClosedShift && (
+                                        <div className="p-4 rounded-2xl bg-[#0f172a]/40 border border-[#334155] space-y-3">
+                                            <div>
+                                                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">Previous Shift Closing Count</h3>
+                                                <p className="text-[10px] text-slate-500 mt-0.5">
+                                                    Physical cash presented for handover{previousClosedShift.user_name ? ` by ${previousClosedShift.user_name}` : ''}. Incoming opening cash is your own count, not the previous expected cash.
+                                                </p>
+                                            </div>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                                                <div className="flex justify-between p-3 rounded-xl bg-[#1e293b] border border-[#334155]">
+                                                    <span className="text-slate-400">Rooms</span>
+                                                    <span className="font-mono font-bold text-slate-100">₱{previousRoomsClosing.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                                </div>
+                                                <div className="flex justify-between p-3 rounded-xl bg-[#1e293b] border border-[#334155]">
+                                                    <span className="text-slate-400">Minibar</span>
+                                                    <span className="font-mono font-bold text-slate-100">₱{previousMinibarClosing.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">Opening Count Received</h3>
+                                                <p className="text-[10px] text-slate-500 mt-0.5">Count the drawer physically. Do not open from the previous expected amount.</p>
+                                            </div>
+                                            {hasHandoverDifference && (
+                                                <div className="p-3 rounded-xl bg-amber-950/30 border border-amber-500/30 space-y-1 text-xs">
+                                                    <div className="font-extrabold uppercase tracking-wider text-amber-300">Handover Difference</div>
+                                                    <div className="flex justify-between font-mono text-amber-100">
+                                                        <span>Rooms</span>
+                                                        <span>{roomsHandoverDifference > 0 ? '+' : ''}₱{roomsHandoverDifference.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                                    </div>
+                                                    <div className="flex justify-between font-mono text-amber-100">
+                                                        <span>Minibar</span>
+                                                        <span>{minibarHandoverDifference > 0 ? '+' : ''}₱{minibarHandoverDifference.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                                    </div>
+                                                    <p className="text-[10px] text-amber-200/80">This difference is recorded for later admin review. It is not assigned as a shortage resolution.</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {hasHandoverDifference && (
+                                        <div className="flex flex-col gap-2">
+                                            <label className="text-xs font-semibold text-rose-300 uppercase tracking-wider">Handover Explanation (Required)</label>
+                                            <textarea
+                                                value={startForm.data.handover_notes}
+                                                onChange={e => startForm.setData('handover_notes', e.target.value)}
+                                                placeholder="Explain why the opening count differs from the previous closing count..."
+                                                rows="3"
+                                                required
+                                                className="w-full bg-[#0f172a] border border-rose-500/50 rounded-xl text-slate-100 p-4 focus:outline-none focus:border-rose-400 text-sm"
+                                            />
+                                            {startForm.errors.handover_notes && (
+                                                <span className="text-[10px] text-rose-400 font-semibold">{startForm.errors.handover_notes}</span>
+                                            )}
+                                        </div>
+                                    )}
+
                                     {/* Shift Opening Notes */}
                                     <div className="flex flex-col gap-2">
                                         <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Shift Opening Notes</label>
@@ -400,7 +523,7 @@ export default function Index({ activeShift, registerShift, isRegisterOperator, 
                                                         </div>
                                                         <div className="flex flex-col">
                                                             <span className="text-[9px] text-slate-500 font-semibold uppercase">Cash Collected</span>
-                                                            <span className="font-mono font-bold text-brand-300">+₱{liveSummary.sales.rooms_cash.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                                            <span className="font-mono font-bold text-brand-300">+₱{(roomsReconciliation?.cash_collections ?? liveSummary.sales.rooms_cash).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                                         </div>
                                                         <div className="flex flex-col">
                                                             <span className="text-[9px] text-emerald-500 font-bold uppercase">Expected Cash</span>
@@ -426,7 +549,7 @@ export default function Index({ activeShift, registerShift, isRegisterOperator, 
                                                         </div>
                                                         <div className="flex flex-col">
                                                             <span className="text-[9px] text-slate-500 font-semibold uppercase">Cash Collected</span>
-                                                            <span className="font-mono font-bold text-brand-300">+₱{liveSummary.sales.minibar_cash.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                                            <span className="font-mono font-bold text-brand-300">+₱{(minibarReconciliation?.cash_collections ?? liveSummary.sales.minibar_cash).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                                         </div>
                                                         <div className="flex flex-col">
                                                             <span className="text-[9px] text-emerald-500 font-bold uppercase">Expected Cash</span>
