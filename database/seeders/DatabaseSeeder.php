@@ -42,16 +42,6 @@ class DatabaseSeeder extends Seeder
         ]);
 
         User::create([
-            'username' => 'cashier1',
-            'password' => $hashedPassword,
-            'full_name' => 'Juan Dela Cruz',
-            'role' => 'cashier',
-            'email' => 'juan@hotel.com',
-            'phone' => '09173456789',
-            'is_active' => true,
-        ]);
-
-        User::create([
             'username' => 'housekeeping1',
             'password' => $hashedPassword,
             'full_name' => 'Ana Housekeeping',

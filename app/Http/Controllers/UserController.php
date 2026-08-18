@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\UserRole;
 use App\Models\User;
 use App\Services\BookingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
 class UserController extends Controller
@@ -63,7 +65,7 @@ class UserController extends Controller
             'name' => 'required|string|max:255',
             'username' => 'required|string|max:50|unique:users,username',
             'password' => 'required|string|min:6',
-            'role' => 'required|in:admin,front_desk,cashier,housekeeping',
+            'role' => ['required', Rule::in(UserRole::values())],
             'is_active' => 'required|boolean',
             'photo' => 'nullable|image|max:4096',
         ]);
@@ -104,7 +106,7 @@ class UserController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255',
-            'role' => 'required|in:admin,front_desk,cashier,housekeeping',
+            'role' => ['required', Rule::in(UserRole::values())],
             'is_active' => 'required|boolean',
             'password' => 'nullable|string|min:6',
             'photo' => 'nullable|image|max:4096',

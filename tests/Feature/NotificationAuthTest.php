@@ -30,4 +30,14 @@ class NotificationAuthTest extends TestCase
                 'items',
             ]);
     }
+
+    public function test_housekeeping_can_fetch_notifications(): void
+    {
+        $user = User::factory()->create(['role' => 'housekeeping']);
+
+        $this->actingAs($user)->getJson(route('api.notifications'))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('role', 'housekeeping');
+    }
 }

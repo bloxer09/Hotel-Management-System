@@ -306,7 +306,6 @@ export default function Users({ users, filters = {}, sortBy, sortDir }) {
                                         >
                                             <option value="admin">Administrator (Admin)</option>
                                             <option value="front_desk">Front Desk Agent</option>
-                                            <option value="cashier">Drawer Cashier</option>
                                             <option value="housekeeping">Room Housekeeping</option>
                                         </CustomSelect>
                                     </div>
@@ -388,7 +387,6 @@ export default function Users({ users, filters = {}, sortBy, sortDir }) {
                                         >
                                             <option value="admin">Administrator (Admin)</option>
                                             <option value="front_desk">Front Desk Agent</option>
-                                            <option value="cashier">Drawer Cashier</option>
                                             <option value="housekeeping">Room Housekeeping</option>
                                         </CustomSelect>
                                     </div>

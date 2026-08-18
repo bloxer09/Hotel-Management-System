@@ -1,13 +1,39 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 
+const SEEN_STORAGE_KEY = 'hotel.notification.seen';
+const TIME_SENSITIVE_TYPES = new Set([
+    'checkout_upcoming',
+    'checkout_overdue',
+    'cleaning_required',
+]);
+
+function readSeenKeys() {
+    try {
+        const parsed = JSON.parse(sessionStorage.getItem(SEEN_STORAGE_KEY) || '[]');
+        return new Set(Array.isArray(parsed) ? parsed : []);
+    } catch {
+        return new Set();
+    }
+}
+
+function persistSeenKeys(keys) {
+    try {
+        sessionStorage.setItem(SEEN_STORAGE_KEY, JSON.stringify([...keys]));
+    } catch {
+        // Ignore quota / private-mode failures.
+    }
+}
+
 /**
  * Polls /api/notifications every 30s and returns notification state along with alert toasts.
+ * Time-sensitive checkout/cleaning alerts surface once per browser session on first load.
+ * Stable alert_key values prevent repeat chimes on later polls.
  */
 export function useNotifications({ enabled = true, chime }) {
     const [notifications, setNotifications] = useState([]);
     const [counts, setCounts] = useState({ total: 0, checkout: 0, inventory: 0, overdue: 0, out_of_stock: 0 });
     const [alertToasts, setAlertToasts] = useState([]);
-    const seenKeysRef = useRef(new Set());
+    const seenKeysRef = useRef(null);
     const initializedRef = useRef(false);
 
     const dismissAlertToast = useCallback((id) => {
@@ -26,13 +52,24 @@ export function useNotifications({ enabled = true, chime }) {
             setNotifications(items);
             setCounts(payload.counts || {});
 
-            const newItems = items.filter(item => !seenKeysRef.current.has(item.alert_key));
-            newItems.forEach(item => seenKeysRef.current.add(item.alert_key));
+            if (!seenKeysRef.current) {
+                seenKeysRef.current = readSeenKeys();
+            }
 
-            if (initializedRef.current && newItems.length > 0) {
+            const newItems = items.filter(item => item.alert_key && !seenKeysRef.current.has(item.alert_key));
+            newItems.forEach(item => seenKeysRef.current.add(item.alert_key));
+            if (newItems.length > 0) {
+                persistSeenKeys(seenKeysRef.current);
+            }
+
+            const toastables = initializedRef.current
+                ? newItems
+                : newItems.filter(item => TIME_SENSITIVE_TYPES.has(item.type) || item.type === 'checkout');
+
+            if (toastables.length > 0) {
                 chime?.();
                 setAlertToasts(prev => {
-                    const incoming = newItems.slice(0, 3).map((item, i) => ({ ...item, id: Date.now() + i }));
+                    const incoming = toastables.slice(0, 3).map((item, i) => ({ ...item, id: Date.now() + i }));
                     return [...prev, ...incoming].slice(-5);
                 });
             }

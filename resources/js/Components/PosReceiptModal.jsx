@@ -216,7 +216,7 @@ export default function PosReceiptModal({ isOpen, transaction, onClose }) {
 
                                     {/* Footer Signature */}
                                     <div className="mt-12 text-center text-xs text-slate-500 print-text-black">
-                                        <p>Processed by: {transaction.processed_by?.name || 'Cashier'}</p>
+                                        <p>Processed by: {transaction.processed_by?.name || 'Front Desk'}</p>
                                         <p className="mt-1">Thank you for your purchase!</p>
                                     </div>
                                 </div>

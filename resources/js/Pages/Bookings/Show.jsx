@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReceiptModal from '@/Components/ReceiptModal';
+import CustomSelect from '@/Components/CustomSelect';
 import { formatHotelDateTime } from '@/Utils/datetime';
 
 export default function Show({ booking, vacantRooms = [], inventoryUsages, inventoryItems, calculations }) {

@@ -2,13 +2,14 @@
 
 namespace App\Http\Requests;
 
+use App\Enums\UserRole;
 use Illuminate\Foundation\Http\FormRequest;
 
 class CheckoutBookingRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return in_array($this->user()?->role, ['admin', 'front_desk', 'cashier'], true);
+        return UserRole::allowsOperational($this->user()?->role);
     }
 
     public function rules(): array

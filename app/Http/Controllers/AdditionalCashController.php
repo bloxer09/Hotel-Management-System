@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\UserRole;
 use App\Http\Requests\StoreAdditionalCashRequest;
 use App\Models\AdditionalCash;
 use Illuminate\Http\Request;
@@ -14,7 +15,7 @@ class AdditionalCashController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
-        if (!in_array($user->role, ['admin', 'front_desk', 'cashier'], true)) {
+        if (!UserRole::allowsOperational($user->role)) {
             abort(403, 'Unauthorized access to additional cash.');
         }
 
@@ -106,7 +107,7 @@ class AdditionalCashController extends Controller
     public function destroy(Request $request, AdditionalCash $income)
     {
         $user = $request->user();
-        if (!in_array($user->role, ['admin', 'front_desk', 'cashier'], true)) {
+        if (!UserRole::allowsOperational($user->role)) {
             abort(403);
         }
 
@@ -122,7 +123,7 @@ class AdditionalCashController extends Controller
     public function export(Request $request)
     {
         $user = $request->user();
-        if (!in_array($user->role, ['admin', 'front_desk', 'cashier'], true)) {
+        if (!UserRole::allowsOperational($user->role)) {
             abort(403);
         }
 

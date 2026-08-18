@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\UserRole;
 use App\Models\Booking;
 use App\Models\CashMovement;
 use App\Models\Expense;
@@ -109,7 +110,7 @@ class ShiftController extends Controller
             'activeShift' => $activeShift,
             'registerShift' => $registerShift,
             'isRegisterOperator' => $isRegisterOperator,
-            'viewerMode' => in_array($user->role, ['front_desk', 'cashier'], true)
+            'viewerMode' => UserRole::isDeskStaff($user->role)
                 && $registerShift !== null
                 && ! $isRegisterOperator,
             'suggestedShift' => $suggestedShift,

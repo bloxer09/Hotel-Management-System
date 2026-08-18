@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Enums\UserRole;
 use App\Services\ShiftService;
 use Closure;
 use Illuminate\Http\Request;
@@ -18,7 +19,7 @@ class ActiveShiftMiddleware
     {
         $user = $request->user();
 
-        if ($user && in_array($user->role, ['front_desk', 'cashier'])) {
+        if ($user && UserRole::isDeskStaff($user->role)) {
             // Viewer accounts may inspect operational pages. Mutations still
             // require ownership of the hotel's single front-desk register.
             if ($request->isMethodSafe()) {

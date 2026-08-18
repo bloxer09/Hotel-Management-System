@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\UserRole;
 use App\Models\Room;
 use App\Models\Booking;
 use App\Models\Transaction;
@@ -84,7 +85,7 @@ class DashboardController extends Controller
 
         // Check if there is an active shift for desk staff
         $activeShift = null;
-        if (in_array($request->user()->role, ['front_desk', 'cashier'])) {
+        if (UserRole::isDeskStaff($request->user()->role)) {
             $activeShift = \App\Models\ShiftSession::where('user_id', $request->user()->id)
                 ->whereNull('ended_at')
                 ->first();

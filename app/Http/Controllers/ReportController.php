@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\UserRole;
 use App\Models\Booking;
 use App\Models\InventoryUsage;
 use App\Models\MaintenanceTicket;
@@ -20,7 +21,7 @@ class ReportController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
-        if (! in_array($user->role, ['admin', 'front_desk', 'cashier'], true)) {
+        if (! UserRole::allowsOperational($user->role)) {
             abort(403, 'Unauthorized access to financial reports.');
         }
 
@@ -200,7 +201,7 @@ class ReportController extends Controller
     public function export(Request $request)
     {
         $user = $request->user();
-        if (! in_array($user->role, ['admin', 'front_desk', 'cashier'], true)) {
+        if (! UserRole::allowsOperational($user->role)) {
             abort(403);
         }
 

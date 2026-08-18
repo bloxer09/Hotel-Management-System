@@ -51,7 +51,7 @@ function DrawerTallyPage({ title, salesLabel, shiftPeriod, shiftCode, cashierNam
     const deductionRows = [
         ...expenses.map(expense => ({ label: expense.notes || expense.category || 'Expense', amount: expense.amount, remark: expense.description || '' })),
         ...movements.map(movement => ({
-            label: movement.movement_type === 'cashier_transfer' ? 'Cashier Transfer' : 'Cash Withdrawal',
+            label: movement.movement_type === 'cashier_transfer' ? 'Cash Transfer' : 'Cash Withdrawal',
             amount: movement.amount,
             remark: movement.description || '',
         })),
@@ -74,7 +74,7 @@ function DrawerTallyPage({ title, salesLabel, shiftPeriod, shiftCode, cashierNam
             </div>
             <div className="subheader-row">
                 <span style={{ fontWeight: 700, fontSize: 11 }}>PENSION HOUSE DAILY OPERATIONS REPORT</span>
-                <span>Shift Period: {shiftPeriod} &nbsp;|&nbsp; Shift: {shiftCode} &nbsp;|&nbsp; Cashier: {cashierName}</span>
+                <span>Shift Period: {shiftPeriod} &nbsp;|&nbsp; Shift: {shiftCode} &nbsp;|&nbsp; Shift Operator: {cashierName}</span>
             </div>
             <div className="p2-layout">
                 <div>
@@ -253,7 +253,7 @@ export default function RoomBookingsLedgerPrint({
     // All expense + movement rows for the deductions table
     const deductionRows = [
         ...expenses.map(e => ({ label: e.notes || e.category || 'Expense', amount: e.amount, remark: e.description || '' })),
-        ...cashMovements.map(m => ({ label: m.movement_type === 'cashier_transfer' ? 'Cashier Transfer' : 'Cash Withdrawal', amount: m.amount, remark: m.description || '' })),
+        ...cashMovements.map(m => ({ label: m.movement_type === 'cashier_transfer' ? 'Cash Transfer' : 'Cash Withdrawal', amount: m.amount, remark: m.description || '' })),
     ];
     const totalDeductions = deductionRows.reduce((s, r) => s + Number(r.amount), 0);
 
@@ -363,7 +363,7 @@ export default function RoomBookingsLedgerPrint({
                 {/* Sub-header */}
                 <div className="subheader-row">
                     <span style={{ fontWeight: 700, fontSize: 11 }}>PENSION HOUSE DAILY OPERATIONS REPORT</span>
-                    <span>Shift Period: {shiftPeriod} &nbsp;|&nbsp; Shift: {shiftCode} &nbsp;|&nbsp; Cashier: {cashierName}</span>
+                    <span>Shift Period: {shiftPeriod} &nbsp;|&nbsp; Shift: {shiftCode} &nbsp;|&nbsp; Shift Operator: {cashierName}</span>
                 </div>
 
                 {/* Main Logbook Table */}
@@ -560,7 +560,7 @@ export default function RoomBookingsLedgerPrint({
                 </div>
                 <div className="subheader-row">
                     <span style={{ fontWeight: 700, fontSize: 11 }}>PENSION HOUSE DAILY OPERATIONS REPORT</span>
-                    <span>Shift Period: {shiftPeriod} &nbsp;|&nbsp; Shift: {shiftCode} &nbsp;|&nbsp; Cashier: {cashierName}</span>
+                    <span>Shift Period: {shiftPeriod} &nbsp;|&nbsp; Shift: {shiftCode} &nbsp;|&nbsp; Shift Operator: {cashierName}</span>
                 </div>
                 <table className="ledger-table" style={{ fontSize: 10 }}>
                     <thead>
@@ -659,7 +659,7 @@ export default function RoomBookingsLedgerPrint({
                 {/* Sub-header */}
                 <div className="subheader-row">
                     <span style={{ fontWeight: 700, fontSize: 11 }}>PENSION HOUSE DAILY OPERATIONS REPORT</span>
-                    <span>Shift Period: {shiftPeriod} &nbsp;|&nbsp; Shift: {shiftCode} &nbsp;|&nbsp; Cashier: {cashierName}</span>
+                    <span>Shift Period: {shiftPeriod} &nbsp;|&nbsp; Shift: {shiftCode} &nbsp;|&nbsp; Shift Operator: {cashierName}</span>
                 </div>
 
                 <div className="p2-layout">
@@ -852,7 +852,7 @@ export default function RoomBookingsLedgerPrint({
                 </div>
                 <div className="subheader-row">
                     <span style={{ fontWeight: 700, fontSize: 11 }}>PENSION HOUSE DAILY OPERATIONS REPORT</span>
-                    <span>Shift Period: {shiftPeriod} &nbsp;|&nbsp; Shift: {shiftCode} &nbsp;|&nbsp; Cashier: {cashierName}</span>
+                    <span>Shift Period: {shiftPeriod} &nbsp;|&nbsp; Shift: {shiftCode} &nbsp;|&nbsp; Shift Operator: {cashierName}</span>
                 </div>
                 <div style={{ marginBottom: 14 }}>
                     <div className="section-title">WALK-IN MINI BAR / POS SALES</div>
@@ -918,7 +918,7 @@ export default function RoomBookingsLedgerPrint({
                 </div>
                 <div className="subheader-row">
                     <span style={{ fontWeight: 700, fontSize: 11 }}>PENSION HOUSE DAILY OPERATIONS REPORT</span>
-                    <span>Shift Period: {shiftPeriod} &nbsp;|&nbsp; Shift: {shiftCode} &nbsp;|&nbsp; Cashier: {cashierName}</span>
+                    <span>Shift Period: {shiftPeriod} &nbsp;|&nbsp; Shift: {shiftCode} &nbsp;|&nbsp; Shift Operator: {cashierName}</span>
                 </div>
                 <table className="tally-table" style={{ fontSize: 11 }}>
                     <thead><tr><th>ITEM NAME</th><th className="right" style={{ width: 120 }}>LIMIT</th><th className="right" style={{ width: 120 }}>CURRENT</th><th style={{ width: 160 }}>STATUS</th></tr></thead>

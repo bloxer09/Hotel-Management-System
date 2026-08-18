@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Enums\UserRole;
 use App\Services\ShiftService;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -34,7 +35,7 @@ class HandleInertiaRequests extends Middleware
         $registerShift = $user ? ShiftService::activeRegister() : null;
         $ownsRegister = $user && $registerShift && $registerShift->user_id === $user->id;
         $viewerMode = $user
-            && in_array($user->role, ['front_desk', 'cashier'], true)
+            && UserRole::isDeskStaff($user->role)
             && $registerShift
             && ! $ownsRegister;
 

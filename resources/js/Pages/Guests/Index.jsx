@@ -509,7 +509,7 @@ export default function Index({ guests, currentSearch, currentVip, stats, sortBy
                                             </div>
 
                                             {/* Quick Check-in launcher */}
-                                            {user.role !== 'cashier' && user.role !== 'housekeeping' && (
+                                            {user.role !== 'housekeeping' && (
                                                 <div className="p-5 rounded-xl bg-gradient-to-br from-brand-950/40 to-[#0f172a]/20 border border-brand-900/30 flex flex-col gap-2.5 shadow">
                                                     <h3 className="font-outfit font-extrabold text-slate-100 text-xs uppercase tracking-wider">Check-In Guest</h3>
                                                     <p className="text-[10px] text-slate-400 leading-relaxed">

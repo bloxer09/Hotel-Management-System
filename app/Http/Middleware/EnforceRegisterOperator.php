@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Enums\UserRole;
 use App\Models\AuditLog;
 use App\Services\ShiftService;
 use Closure;
@@ -38,7 +39,7 @@ class EnforceRegisterOperator
             return $next($request);
         }
 
-        if (! in_array($user->role, ['admin', 'front_desk', 'cashier'], true)) {
+        if (! UserRole::allowsOperational($user->role)) {
             return $next($request);
         }
 

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\UserRole;
 use App\Models\Booking;
 use App\Models\Payment;
 use App\Models\User;
@@ -98,7 +99,7 @@ class FrontDeskReportController extends Controller
             ],
             'advanceBookings' => $advanceRows,
             'pendingPayments' => $pending,
-            'staff' => User::whereIn('role', ['admin', 'front_desk', 'cashier'])
+            'staff' => User::whereIn('role', UserRole::operational())
                 ->orderBy('full_name')
                 ->get(['id', 'full_name']),
             'methods' => ['cash', 'gcash', 'bank_transfer', 'card', 'maya', 'other_ewallet', 'other', 'split'],

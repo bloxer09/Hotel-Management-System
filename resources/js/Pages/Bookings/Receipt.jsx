@@ -376,7 +376,7 @@ export default function Receipt({ booking, transactions, settings }) {
                                     </div>
                                 )}
                                 <div className="flex justify-between items-center pt-2 border-t border-slate-800/60 print:border-slate-200">
-                                    <span className="text-xs text-slate-500 font-bold">Cashier</span>
+                                    <span className="text-xs text-slate-500 font-bold">Front Desk Officer</span>
                                     <span className="text-xs text-slate-300 print:text-black font-bold">
                                         {booking.checkout_staff?.name || booking.checkin_staff?.name || 'Front Desk Staff'}
                                     </span>
@@ -585,7 +585,7 @@ export default function Receipt({ booking, transactions, settings }) {
 
                 <div className="flex justify-between text-[8px] mt-8 pt-4">
                     <div className="text-center w-24">
-                        <div className="border-t border-black pt-1">Cashier</div>
+                        <div className="border-t border-black pt-1">Front Desk Officer</div>
                         <div>{booking.checkout_staff?.name || booking.checkin_staff?.name || 'Staff'}</div>
                     </div>
                     <div className="text-center w-24">

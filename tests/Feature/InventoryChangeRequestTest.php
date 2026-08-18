@@ -131,7 +131,7 @@ class InventoryChangeRequestTest extends TestCase
                 ->missing('items.data.0.item_name')
             );
 
-        $cashier = User::factory()->create(['role' => 'cashier']);
+        $cashier = User::factory()->create(['role' => 'front_desk']);
         ShiftSession::create([
             'user_id' => $cashier->id,
             'shift_code' => 'morning',
@@ -407,7 +407,7 @@ class InventoryChangeRequestTest extends TestCase
 
     public function test_pos_sale_creates_a_stock_movement(): void
     {
-        $cashier = User::factory()->create(['role' => 'cashier']);
+        $cashier = User::factory()->create(['role' => 'front_desk']);
         ShiftSession::create([
             'user_id' => $cashier->id,
             'shift_code' => 'morning',

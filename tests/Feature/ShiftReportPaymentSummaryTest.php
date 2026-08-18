@@ -875,7 +875,7 @@ class ShiftReportPaymentSummaryTest extends TestCase
             'username' => 'shift_report_' . uniqid(),
             'password' => bcrypt('password'),
             'full_name' => 'Shift Report Cashier',
-            'role' => 'cashier',
+            'role' => 'front_desk',
             'is_active' => true,
         ]);
     }

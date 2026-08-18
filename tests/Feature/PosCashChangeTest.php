@@ -20,7 +20,7 @@ class PosCashChangeTest extends TestCase
             'username' => 'pos_cashier',
             'password' => bcrypt('password'),
             'full_name' => 'POS Cashier',
-            'role' => 'cashier',
+            'role' => 'front_desk',
             'is_active' => true,
         ]);
         $shift = ShiftSession::create([

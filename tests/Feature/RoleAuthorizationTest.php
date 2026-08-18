@@ -18,6 +18,14 @@ class RoleAuthorizationTest extends TestCase
         $response->assertStatus(403);
     }
 
+    public function test_housekeeping_cannot_access_financial_booking_details(): void
+    {
+        $housekeeper = User::factory()->create(['role' => 'housekeeping']);
+
+        $this->actingAs($housekeeper)->get(route('reports.index'))->assertStatus(403);
+        $this->actingAs($housekeeper)->get(route('pos.index'))->assertStatus(403);
+    }
+
     public function test_admin_can_access_audit_logs(): void
     {
         $admin = User::factory()->create(['role' => 'admin']);

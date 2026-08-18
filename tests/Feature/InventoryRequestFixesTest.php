@@ -50,7 +50,7 @@ class InventoryRequestFixesTest extends TestCase
 
     private function cashier(): User
     {
-        $user = User::factory()->create(['role' => 'cashier', 'full_name' => 'POS Cashier']);
+        $user = User::factory()->create(['role' => 'front_desk', 'full_name' => 'POS Cashier']);
         ShiftSession::create([
             'user_id' => $user->id,
             'shift_code' => 'morning',

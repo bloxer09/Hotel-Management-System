@@ -263,11 +263,11 @@ export default function Index({ dateFrom, dateTo, summary, byCashier, byRoomType
                 {/* Cashier Remittance + Room Type */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
 
-                    {/* Cashier Remittance */}
+                    {/* Shift Remittance */}
                     <div className="rounded-2xl bg-[#1e293b] border border-[#334155] overflow-hidden shadow-xl flex flex-col gap-4">
                         <div className="px-6 py-4 border-b border-[#334155]">
                             <h2 className="text-sm font-outfit font-black uppercase tracking-wider text-slate-300 flex items-center gap-2">
-                                <Users size={15} className="text-brand-400" /> Cashier Remittance Summary
+                                <Users size={15} className="text-brand-400" /> Shift Remittance Summary
                             </h2>
                         </div>
                         {byCashier.length > 0 ? (
@@ -368,7 +368,7 @@ export default function Index({ dateFrom, dateTo, summary, byCashier, byRoomType
                                     <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Discount</th>
                                     <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Total</th>
                                     <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Payment</th>
-                                    <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Cashier</th>
+                                    <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Shift Operator</th>
                                     <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Status</th>
                                 </tr>
                             </thead>
@@ -470,7 +470,7 @@ export default function Index({ dateFrom, dateTo, summary, byCashier, byRoomType
 
                                     {byCashier.length > 0 && (
                                         <div className="mt-3 border-t border-[#334155] pt-4">
-                                            <div className="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-3">Cashier Remittances</div>
+                                            <div className="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-3">Shift Remittances</div>
                                             {byCashier.map((c, i) => (
                                                 <div key={i} className="flex items-center justify-between py-1.5 border-b border-[#334155]/40">
                                                     <div>

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\UserRole;
 use App\Http\Requests\StoreExpenseRequest;
 use App\Models\Expense;
 use App\Models\ExpenseCategory;
@@ -15,7 +16,7 @@ class ExpenseController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
-        if (! in_array($user->role, ['admin', 'front_desk', 'cashier'], true)) {
+        if (! UserRole::allowsOperational($user->role)) {
             abort(403, 'Unauthorized access to expenses.');
         }
 
@@ -117,7 +118,7 @@ class ExpenseController extends Controller
     public function destroy(Request $request, Expense $expense)
     {
         $user = $request->user();
-        if (! in_array($user->role, ['admin', 'front_desk', 'cashier'], true)) {
+        if (! UserRole::allowsOperational($user->role)) {
             abort(403);
         }
 
@@ -133,7 +134,7 @@ class ExpenseController extends Controller
     public function export(Request $request)
     {
         $user = $request->user();
-        if (! in_array($user->role, ['admin', 'front_desk', 'cashier'], true)) {
+        if (! UserRole::allowsOperational($user->role)) {
             abort(403);
         }
 

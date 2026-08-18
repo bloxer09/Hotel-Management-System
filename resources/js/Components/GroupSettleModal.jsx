@@ -3,6 +3,7 @@ import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/re
 import { useForm } from '@inertiajs/react';
 import { X, ShieldAlert, Coins, BedDouble, CalendarDays, Receipt } from 'lucide-react';
 import axios from 'axios';
+import CustomSelect from '@/Components/CustomSelect';
 
 export default function GroupSettleModal({ isOpen, groupRef, onClose, onSuccess }) {
     const [loading, setLoading] = useState(true);
@@ -306,7 +307,7 @@ export default function GroupSettleModal({ isOpen, groupRef, onClose, onSuccess 
                                         {/* Payments Form */}
                                         <div className="p-5 rounded-2xl bg-[#1e293b] border border-[#334155]/70 flex flex-col gap-4">
                                             <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-1 flex items-center gap-2">
-                                                <Coins size={14} className="text-emerald-400" /> Cashier Payment Drawer
+                                                <Coins size={14} className="text-emerald-400" /> Payment Drawer
                                             </h4>
 
                                             {activeData.totals.balance > 0 ? (

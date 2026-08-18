@@ -18,7 +18,7 @@ class SingleActiveRegisterTest extends TestCase
     public function test_only_one_staff_member_can_open_the_front_desk_register(): void
     {
         $operator = User::factory()->create(['role' => 'front_desk', 'full_name' => 'Front Desk A']);
-        $viewer = User::factory()->create(['role' => 'cashier', 'full_name' => 'Front Desk B']);
+        $viewer = User::factory()->create(['role' => 'front_desk', 'full_name' => 'Front Desk B']);
 
         $this->actingAs($operator)
             ->post(route('shifts.start'), $this->shiftPayload())
@@ -37,7 +37,7 @@ class SingleActiveRegisterTest extends TestCase
     public function test_other_front_desk_staff_can_view_pages_and_receive_viewer_mode_props(): void
     {
         $operator = User::factory()->create(['role' => 'front_desk', 'full_name' => 'Front Desk A']);
-        $viewer = User::factory()->create(['role' => 'cashier', 'full_name' => 'Front Desk B']);
+        $viewer = User::factory()->create(['role' => 'front_desk', 'full_name' => 'Front Desk B']);
         $shift = $this->activeShiftFor($operator);
 
         $this->actingAs($viewer)
@@ -74,7 +74,7 @@ class SingleActiveRegisterTest extends TestCase
     public function test_viewer_cannot_create_financial_records(): void
     {
         $operator = User::factory()->create(['role' => 'front_desk']);
-        $viewer = User::factory()->create(['role' => 'cashier']);
+        $viewer = User::factory()->create(['role' => 'front_desk']);
         $this->activeShiftFor($operator);
 
         $response = $this->actingAs($viewer)
@@ -181,7 +181,7 @@ class SingleActiveRegisterTest extends TestCase
     public function test_other_staff_cannot_download_another_operators_working_copy(): void
     {
         $operator = User::factory()->create(['role' => 'front_desk']);
-        $viewer = User::factory()->create(['role' => 'cashier']);
+        $viewer = User::factory()->create(['role' => 'front_desk']);
         $shift = $this->activeShiftFor($operator);
 
         $this->actingAs($viewer)

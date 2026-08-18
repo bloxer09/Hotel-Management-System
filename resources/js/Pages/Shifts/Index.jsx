@@ -117,7 +117,7 @@ export default function Index({ activeShift, registerShift, isRegisterOperator, 
                     <h1 className="text-3xl font-outfit font-extrabold tracking-tight text-slate-100">
                         Shift & Register Control Desk
                     </h1>
-                    <p className="text-sm text-slate-400 font-medium mt-1">Monitor cashier drawer operations, log work session intervals, and reconcile register balance reports.</p>
+                    <p className="text-sm text-slate-400 font-medium mt-1">Monitor cash drawer operations, log work session intervals, and reconcile register balance reports.</p>
                 </div>
 
                 {/* Main Shift Action Interface */}

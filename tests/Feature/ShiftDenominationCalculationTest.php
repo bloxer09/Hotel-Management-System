@@ -109,7 +109,7 @@ class ShiftDenominationCalculationTest extends TestCase
             'username' => 'shift_counter_' . uniqid(),
             'password' => bcrypt('password'),
             'full_name' => 'Shift Counter Test',
-            'role' => 'cashier',
+            'role' => 'front_desk',
             'is_active' => true,
         ]);
     }

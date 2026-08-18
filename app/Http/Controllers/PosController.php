@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\UserRole;
 use App\Models\Booking;
 use App\Models\InventoryItem;
 use App\Models\InventoryStockMovement;
@@ -243,7 +244,7 @@ class PosController extends Controller
     public function export(Request $request)
     {
         $user = $request->user();
-        if (! in_array($user->role, ['admin', 'front_desk', 'cashier'], true)) {
+        if (! UserRole::allowsOperational($user->role)) {
             abort(403);
         }
 

@@ -103,7 +103,7 @@ export default function Report({ shift, report }) {
             time: movement.moved_at,
             particulars: movement.description,
             amount: Number(movement.amount || 0),
-            kind: movement.movement_type === 'cashier_transfer' ? 'Transfer to Cashier' : 'Withdrawal',
+            kind: movement.movement_type === 'cashier_transfer' ? 'Cash Transfer' : 'Withdrawal',
             movement,
         })),
     ].sort((a, b) => new Date(a.time) - new Date(b.time));
@@ -119,7 +119,7 @@ export default function Report({ shift, report }) {
     };
 
     const deleteCashMovement = (movement) => {
-        if (!window.confirm(`Remove this ${movement.movement_type === 'cashier_transfer' ? 'cashier transfer' : 'withdrawal'} record?`)) return;
+        if (!window.confirm(`Remove this ${movement.movement_type === 'cashier_transfer' ? 'cash transfer' : 'withdrawal'} record?`)) return;
         router.delete(route('shifts.cash_movements.destroy', [shift.id, movement.id]), { preserveScroll: true });
     };
 
@@ -200,7 +200,7 @@ export default function Report({ shift, report }) {
             <div className="text-right text-[9px] font-mono leading-tight">
                 <div><strong>Date:</strong> {new Date(report.end).toLocaleDateString()}</div>
                 <div><strong>Shift:</strong> <span className="uppercase font-bold">{shift.shift_code}</span></div>
-                <div><strong>Cashier:</strong> {shift.user?.name}</div>
+                <div><strong>Shift Operator:</strong> {shift.user?.name}</div>
                 <div><strong>Prepared By:</strong> {shift.user?.name}</div>
                 {printMode === 'all' && <div><strong>Sheet:</strong> {pageNum}</div>}
             </div>
@@ -384,7 +384,7 @@ export default function Report({ shift, report }) {
                             </span>
                         </h1>
                         <p className="text-xs text-slate-400">
-                            Cashier: <strong className="text-slate-200">{shift.user?.name}</strong> &bull; Period: {new Date(shift.started_at).toLocaleString()} - {shift.ended_at ? new Date(shift.ended_at).toLocaleString() : 'Active'}
+                            Shift Operator: <strong className="text-slate-200">{shift.user?.name}</strong> &bull; Period: {new Date(shift.started_at).toLocaleString()} - {shift.ended_at ? new Date(shift.ended_at).toLocaleString() : 'Active'}
                         </p>
                     </div>
 
@@ -696,7 +696,7 @@ export default function Report({ shift, report }) {
                                         <tr><th className="text-left">Add: Total Cash Check-In / Room Sales</th><td className="text-right font-mono font-bold text-emerald-400">{formatCurrency(dailyCash.room_sales_cash)}</td></tr>
                                         <tr><th className="text-left">Total Cash Available</th><td className="text-right font-mono font-bold">{formatCurrency(Number(shift.opening_cash || 0) + Number(dailyCash.room_sales_cash || 0))}</td></tr>
                                         <tr><th className="text-left">Less: Expenses / Withdrawals</th><td className="text-right font-mono font-bold text-rose-400">-{formatCurrency(Number(dailyCash.room_expenses || 0) + Number(dailyCash.withdrawals || 0))}</td></tr>
-                                        <tr><th className="text-left">Less: Transfer to Cashier</th><td className="text-right font-mono font-bold text-rose-400">-{formatCurrency(dailyCash.cashier_transfers)}</td></tr>
+                                        <tr><th className="text-left">Less: Cash Transfer</th><td className="text-right font-mono font-bold text-rose-400">-{formatCurrency(dailyCash.cashier_transfers)}</td></tr>
                                         <tr><th className="text-left">Expected Cash in Drawer</th><td className="text-right font-mono font-bold text-amber-300">{formatCurrency(dailyCash.expected_cash)}</td></tr>
                                         <tr><th className="text-left">Actual Cash Tally</th><td className="text-right font-mono font-bold">{dailyCash.actual_cash === null ? 'Shift still open' : formatCurrency(dailyCash.actual_cash)}</td></tr>
                                     </tbody>
@@ -706,7 +706,7 @@ export default function Report({ shift, report }) {
                             {report.can_manage_daily_cash && (
                                 <form onSubmit={submitCashMovement} className="rounded-lg border border-slate-700 bg-slate-800 p-4 grid grid-cols-1 md:grid-cols-5 gap-3">
                                     <select value={cashMovementForm.data.movement_type} onChange={e => cashMovementForm.setData('movement_type', e.target.value)} className="rounded bg-slate-900 border border-slate-600 px-3 py-2 text-sm">
-                                        <option value="cashier_transfer">Transfer to Cashier</option>
+                                        <option value="cashier_transfer">Cash Transfer</option>
                                         <option value="withdrawal">Cash Withdrawal</option>
                                     </select>
                                     <select value={cashMovementForm.data.cash_drawer} onChange={e => cashMovementForm.setData('cash_drawer', e.target.value)} className="rounded bg-slate-900 border border-slate-600 px-3 py-2 text-sm">
@@ -724,7 +724,7 @@ export default function Report({ shift, report }) {
                             <div className="overflow-x-auto rounded-lg border border-slate-700">
                                 <table className="w-full text-left text-xs text-slate-100">
                                     <thead className="bg-slate-750 text-slate-300"><tr><th className="p-3">Time</th><th className="p-3">Particulars / Description</th><th className="p-3 text-right">Amount</th>{report.can_manage_daily_cash && <th className="p-3" />}</tr></thead>
-                                    <tbody>{dailyCashDetails.length ? dailyCashDetails.map(detail => <tr key={detail.id} className="border-t border-slate-700"><td className="p-3">{formatTime(detail.time)}</td><td className="p-3"><span className="font-bold">{detail.kind}:</span> {detail.particulars}</td><td className="p-3 text-right font-mono text-rose-300">-{formatCurrency(detail.amount)}</td>{report.can_manage_daily_cash && <td className="p-2 text-right">{detail.movement && <button type="button" onClick={() => deleteCashMovement(detail.movement)} className="p-1 text-rose-400 hover:text-rose-300" title="Remove cash movement"><Trash2 size={14} /></button>}</td>}</tr>) : <tr><td colSpan={report.can_manage_daily_cash ? 4 : 3} className="p-5 text-center text-slate-500">No room drawer expenses, withdrawals, or cashier transfers recorded.</td></tr>}</tbody>
+                                    <tbody>{dailyCashDetails.length ? dailyCashDetails.map(detail => <tr key={detail.id} className="border-t border-slate-700"><td className="p-3">{formatTime(detail.time)}</td><td className="p-3"><span className="font-bold">{detail.kind}:</span> {detail.particulars}</td><td className="p-3 text-right font-mono text-rose-300">-{formatCurrency(detail.amount)}</td>{report.can_manage_daily_cash && <td className="p-2 text-right">{detail.movement && <button type="button" onClick={() => deleteCashMovement(detail.movement)} className="p-1 text-rose-400 hover:text-rose-300" title="Remove cash movement"><Trash2 size={14} /></button>}</td>}</tr>) : <tr><td colSpan={report.can_manage_daily_cash ? 4 : 3} className="p-5 text-center text-slate-500">No room drawer expenses, withdrawals, or cash transfers recorded.</td></tr>}</tbody>
                                 </table>
                             </div>
                         </div>
@@ -1208,11 +1208,11 @@ export default function Report({ shift, report }) {
                         <div className="grid grid-cols-4 gap-4 text-center">
                             <div>
                                 <div className="border-b border-black h-8 flex items-end justify-center font-bold">{shift.user?.name}</div>
-                                <span className="text-[8px] uppercase font-bold mt-1 block">Prepared By (Cashier)</span>
+                                <span className="text-[8px] uppercase font-bold mt-1 block">Prepared By (Shift Operator)</span>
                             </div>
                             <div>
                                 <div className="border-b border-black h-8"></div>
-                                <span className="text-[8px] uppercase font-bold mt-1 block">Received By (Next Cashier)</span>
+                                <span className="text-[8px] uppercase font-bold mt-1 block">Received By (Next Operator)</span>
                             </div>
                             <div>
                                 <div className="border-b border-black h-8"></div>
@@ -1243,7 +1243,7 @@ export default function Report({ shift, report }) {
                         <div className="text-right text-[9px] leading-tight">
                             <div><span className="font-semibold">Date:</span> {new Date(report.end).toLocaleDateString()}</div>
                             <div><span className="font-semibold">Shift:</span> {(shift.shift_code || '-').toUpperCase()}</div>
-                            <div><span className="font-semibold">Cashier:</span> {shift.user?.name}</div>
+                            <div><span className="font-semibold">Shift Operator:</span> {shift.user?.name}</div>
                             <div><span className="font-semibold">Prepared By:</span> {shift.user?.name}</div>
                             <div><span className="font-semibold">Sheet:</span> 2</div>
                         </div>
@@ -1383,7 +1383,7 @@ export default function Report({ shift, report }) {
                             <tr><th className="text-left">Add: Total Cash Check-In / Room Sales</th><td className="text-right font-bold">{formatCurrency(dailyCash.room_sales_cash)}</td></tr>
                             <tr><th className="text-left">Total Cash Available</th><td className="text-right font-bold">{formatCurrency(Number(shift.opening_cash || 0) + Number(dailyCash.room_sales_cash || 0))}</td></tr>
                             <tr><th className="text-left">Less: Expenses / Withdrawals</th><td className="text-right font-bold">-{formatCurrency(Number(dailyCash.room_expenses || 0) + Number(dailyCash.withdrawals || 0))}</td></tr>
-                            <tr><th className="text-left">Less: Transfer to Cashier</th><td className="text-right font-bold">-{formatCurrency(dailyCash.cashier_transfers)}</td></tr>
+                            <tr><th className="text-left">Less: Cash Transfer</th><td className="text-right font-bold">-{formatCurrency(dailyCash.cashier_transfers)}</td></tr>
                             <tr><th className="text-left">Expected Cash in Drawer</th><td className="text-right font-bold">{formatCurrency(dailyCash.expected_cash)}</td></tr>
                             <tr><th className="text-left">Actual Cash Tally</th><td className="text-right font-bold">{dailyCash.actual_cash === null ? 'PENDING' : formatCurrency(dailyCash.actual_cash)}</td></tr>
                             <tr><th className="text-left">Variance (Expected - Actual)</th><td className="text-right font-bold">{dailyVariance === null ? 'PENDING' : formatCurrency(dailyVariance)}</td></tr>
@@ -1395,7 +1395,7 @@ export default function Report({ shift, report }) {
                     <table className="daily-cash-table mb-3 daily-cash-details">
                         <thead><tr><th className="w-[16%] text-center">TIME</th><th className="text-left">PARTICULARS / DESCRIPTION</th><th className="w-[20%] text-right">AMOUNT</th></tr></thead>
                         <tbody>
-                            {dailyCashDetails.length ? dailyCashDetails.map(detail => <tr key={detail.id}><td className="text-center">{formatTime(detail.time)}</td><td>{detail.kind}: {detail.particulars}</td><td className="text-right">{formatCurrency(detail.amount)}</td></tr>) : <tr><td colSpan="3" className="text-center italic">No room drawer expenses, withdrawals, or cashier transfers.</td></tr>}
+                            {dailyCashDetails.length ? dailyCashDetails.map(detail => <tr key={detail.id}><td className="text-center">{formatTime(detail.time)}</td><td>{detail.kind}: {detail.particulars}</td><td className="text-right">{formatCurrency(detail.amount)}</td></tr>) : <tr><td colSpan="3" className="text-center italic">No room drawer expenses, withdrawals, or cash transfers.</td></tr>}
                             <tr><th colSpan="2" className="text-right">TOTAL EXPENSES / WITHDRAWALS</th><th className="text-right">{formatCurrency(Number(dailyCash.room_expenses || 0) + Number(dailyCash.withdrawals || 0) + Number(dailyCash.cashier_transfers || 0))}</th></tr>
                         </tbody>
                     </table>
@@ -1413,7 +1413,7 @@ export default function Report({ shift, report }) {
                     </table>
                     <div className="grid grid-cols-2 gap-12 mt-7 text-[8px] text-center">
                         <div><div className="border-b border-black h-5" /><strong>Prepared by: Front Desk Staff</strong></div>
-                        <div><div className="border-b border-black h-5" /><strong>Checked by: Cashier / Supervisor</strong></div>
+                        <div><div className="border-b border-black h-5" /><strong>Checked by: Shift Operator / Supervisor</strong></div>
                     </div>
                 </div>
 

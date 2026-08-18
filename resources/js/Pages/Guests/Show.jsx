@@ -283,7 +283,7 @@ export default function Show({ guest, bookings }) {
                         </div>
 
                         {/* Quick Check-in Launcher */}
-                        {user.role !== 'cashier' && user.role !== 'housekeeping' && (
+                        {user.role !== 'housekeeping' && (
                             <div className="p-6 rounded-2xl bg-gradient-to-br from-brand-900/60 to-[#1e293b] border border-brand-800/40 shadow-xl flex flex-col gap-3">
                                 <h3 className="font-outfit font-extrabold text-slate-100 text-sm">Need to Check-In guest?</h3>
                                 <p className="text-xs text-slate-400 leading-relaxed">

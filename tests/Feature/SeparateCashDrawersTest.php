@@ -25,7 +25,7 @@ class SeparateCashDrawersTest extends TestCase
             'username' => 'cashier_test',
             'password' => bcrypt('password'),
             'full_name' => 'Test Cashier',
-            'role' => 'cashier',
+            'role' => 'front_desk',
             'is_active' => true,
         ]);
 
@@ -228,7 +228,7 @@ class SeparateCashDrawersTest extends TestCase
             'username' => 'cashier_ops_test',
             'password' => bcrypt('password'),
             'full_name' => 'Ops Cashier',
-            'role' => 'cashier',
+            'role' => 'front_desk',
             'is_active' => true,
         ]);
 

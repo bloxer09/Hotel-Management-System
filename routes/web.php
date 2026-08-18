@@ -53,8 +53,8 @@ Route::middleware('auth')->group(function () {
         Route::delete('/rooms/{room}', [RoomController::class, 'destroy'])->name('rooms.destroy');
     });
 
-    // Shift Session Controls (Available to Admin, Front Desk, Cashier)
-    Route::middleware('role:admin,front_desk,cashier')->group(function () {
+    // Shift Session Controls (Admin, Front Desk)
+    Route::middleware('role:admin,front_desk')->group(function () {
         Route::get('/shifts', [ShiftController::class, 'index'])->name('shifts.index');
         Route::post('/shifts/start', [ShiftController::class, 'start'])->name('shifts.start');
         Route::post('/shifts/end', [ShiftController::class, 'end'])->name('shifts.end');
@@ -77,8 +77,8 @@ Route::middleware('auth')->group(function () {
             Route::put('/bookings/{booking}', [BookingController::class, 'update'])->name('bookings.update');
         });
 
-        // Reservations / Future Bookings (Admin, Front Desk, Cashier)
-        Route::middleware('role:admin,front_desk,cashier')->group(function () {
+        // Reservations / Future Bookings (Admin, Front Desk)
+        Route::middleware('role:admin,front_desk')->group(function () {
             Route::get('/reservations', [ReservationController::class, 'index'])->name('reservations.index');
 
             // POS (requiring active shift)
@@ -116,8 +116,8 @@ Route::middleware('auth')->group(function () {
             Route::post('/reservations/{booking}/reschedule', [ReservationController::class, 'reschedule'])->name('reservations.reschedule');
         });
 
-        // Bookings Operations (Admin, Front Desk, Cashier)
-        Route::middleware('role:admin,front_desk,cashier')->group(function () {
+        // Bookings Operations (Admin, Front Desk)
+        Route::middleware('role:admin,front_desk')->group(function () {
             Route::get('/bookings/{booking}', [BookingController::class, 'show'])->name('bookings.show');
             Route::post('/bookings/{booking}/checkout', [BookingController::class, 'checkout'])->name('bookings.checkout');
             Route::post('/bookings/group-checkout/{groupRef}', [ReservationController::class, 'groupCheckout'])->name('reservations.group_checkout');
@@ -131,8 +131,8 @@ Route::middleware('auth')->group(function () {
         });
     });
 
-    // Guest Directory (Admin, Front Desk, Cashier)
-    Route::middleware('role:admin,front_desk,cashier')->group(function () {
+    // Guest Directory (Admin, Front Desk)
+    Route::middleware('role:admin,front_desk')->group(function () {
         Route::get('/guests', [GuestController::class, 'index'])->name('guests.index');
         Route::get('/guests/search', [GuestController::class, 'search'])->name('guests.search');
         Route::get('/guests/{guest}', [GuestController::class, 'show'])->name('guests.show');
@@ -153,8 +153,8 @@ Route::middleware('auth')->group(function () {
         Route::delete('/inventory/{inventoryItem}', [InventoryController::class, 'destroy'])->name('inventory.destroy');
     });
 
-    // Sales & Remittances Dashboard (Admin, Front Desk, Cashier)
-    Route::middleware('role:admin,front_desk,cashier')->group(function () {
+    // Sales & Remittances Dashboard (Admin, Front Desk)
+    Route::middleware('role:admin,front_desk')->group(function () {
         Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
         Route::get('/reports/export', [ReportController::class, 'export'])->name('reports.export');
         Route::get('/reports/analytics', [ReportController::class, 'analytics'])->name('reports.analytics');

@@ -131,7 +131,6 @@ export default function Login({ status, canResetPassword }) {
                             {[
                                 { label: 'Admin', username: 'admin' },
                                 { label: 'Front Desk', username: 'frontdesk1' },
-                                { label: 'Cashier', username: 'cashier1' },
                                 { label: 'Housekeeper', username: 'housekeeping1' },
                             ].map(({ label, username }) => (
                                 <button

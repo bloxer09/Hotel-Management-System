@@ -106,7 +106,7 @@ class AdditionalCashTest extends TestCase
 
     public function test_cashier_without_active_shift_can_view_additional_cash_in_read_only_mode()
     {
-        $cashier = User::factory()->create(['role' => 'cashier']);
+        $cashier = User::factory()->create(['role' => 'front_desk']);
 
         $response = $this->actingAs($cashier)->get('/additional-cash');
         $response->assertStatus(200);
@@ -114,7 +114,7 @@ class AdditionalCashTest extends TestCase
 
     public function test_cashier_with_active_shift_can_view_additional_cash()
     {
-        $cashier = User::factory()->create(['role' => 'cashier']);
+        $cashier = User::factory()->create(['role' => 'front_desk']);
 
         ShiftSession::create([
             'user_id' => $cashier->id,
