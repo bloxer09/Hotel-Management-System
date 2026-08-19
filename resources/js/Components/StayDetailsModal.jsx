@@ -367,6 +367,7 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
                                                                     <th className="pb-1">Quantity</th>
                                                                     <th className="pb-1">Unit Cost</th>
                                                                     <th className="pb-1">Subtotal</th>
+                                                                    <th className="pb-1">Settlement</th>
                                                                     <th className="pb-1 text-right">Notes</th>
                                                                 </tr>
                                                             </thead>
@@ -378,12 +379,24 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
                                                                             <td className="py-2 font-mono">{usage.quantity} {usage.item?.unit}</td>
                                                                             <td className="py-2 font-mono">₱{usage.unit_price}</td>
                                                                             <td className="py-2 font-mono font-bold text-brand-400">₱{usage.total_price.toLocaleString()}</td>
+                                                                            <td className="py-2">
+                                                                                <div className="flex flex-col gap-0.5">
+                                                                                    <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide w-fit ${usage.is_settled ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30' : 'bg-amber-500/15 text-amber-300 border border-amber-500/30'}`}>
+                                                                                        {usage.is_settled ? 'Already settled' : 'Due at checkout'}
+                                                                                    </span>
+                                                                                    {usage.origin_transaction_type === 'pos_sale' && (
+                                                                                        <span className="text-[9px] text-slate-500 font-mono">
+                                                                                            POS {usage.origin_or_number || `#${usage.origin_transaction_id}`}
+                                                                                        </span>
+                                                                                    )}
+                                                                                </div>
+                                                                            </td>
                                                                             <td className="py-2 text-right text-slate-500 italic max-w-xs truncate">{usage.notes || 'None'}</td>
                                                                         </tr>
                                                                     ))
                                                                 ) : (
                                                                     <tr>
-                                                                        <td colSpan="5" className="py-4 text-center text-slate-550 italic">
+                                                                        <td colSpan="6" className="py-4 text-center text-slate-550 italic">
                                                                             No pantry replenishment or service orders logged under this stay.
                                                                         </td>
                                                                     </tr>
@@ -484,6 +497,19 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
                                                         <div className="h-px bg-[#334155]/50 my-1" />
 
                                                         <div className="flex justify-between">
+                                                            <span className="text-slate-400 font-medium">Inventory Charges</span>
+                                                            <span className="font-mono text-slate-200 font-bold">₱{Number(calculations.inventory_charges || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                                        </div>
+                                                        <div className="flex justify-between">
+                                                            <span className="text-slate-400 font-medium">Already Settled</span>
+                                                            <span className="font-mono text-emerald-400 font-bold">₱{Number(calculations.settled_inventory || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                                        </div>
+                                                        <div className="flex justify-between">
+                                                            <span className="text-slate-400 font-medium">Due at Checkout</span>
+                                                            <span className="font-mono text-brand-300 font-bold">₱{Number(calculations.unpaid_inventory || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                                        </div>
+
+                                                        <div className="flex justify-between">
                                                             <span className="text-slate-400 font-medium">Booking Total</span>
                                                             <span className="font-mono text-slate-200 font-bold">₱{Number(booking.total_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                                         </div>
@@ -513,7 +539,7 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
                                                                 )}
                                                                 {calculations.unpaid_inventory > 0 && (
                                                                     <div className="flex justify-between text-brand-300">
-                                                                        <span>Minibar unpaid usages:</span>
+                                                                        <span>Due at checkout:</span>
                                                                         <span className="font-mono font-bold">+ ₱{calculations.unpaid_inventory.toLocaleString()}</span>
                                                                     </div>
                                                                 )}

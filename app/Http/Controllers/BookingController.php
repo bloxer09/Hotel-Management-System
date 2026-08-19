@@ -16,6 +16,7 @@ use App\Models\ShiftSession;
 use App\Models\Transaction;
 use App\Services\BookingService;
 use App\Services\InventoryChangeRequestService;
+use App\Services\InventoryUsageSettlementService;
 use App\Services\PaymentService;
 use App\Support\HotelDateTime;
 use Illuminate\Http\Request;
@@ -26,7 +27,8 @@ use Inertia\Inertia;
 class BookingController extends Controller
 {
     public function __construct(
-        private readonly PaymentService $payments
+        private readonly PaymentService $payments,
+        private readonly InventoryUsageSettlementService $inventorySettlement
     ) {}
 
     public function show(Booking $booking, Request $request)
@@ -41,9 +43,8 @@ class BookingController extends Controller
             'payments.verifier',
         ]);
 
-        $inventoryUsages = InventoryUsage::with('item')
-            ->where('booking_id', $booking->id)
-            ->get();
+        $inventoryUsages = $this->inventorySettlement->usagesForBooking($booking->id)
+            ->each(fn (InventoryUsage $usage) => $this->inventorySettlement->decorateStayUsage($usage));
 
         $inventoryItems = InventoryItem::where('is_active', true)
             ->where('current_stock', '>', 0)
@@ -54,7 +55,11 @@ class BookingController extends Controller
         $lateHours = BookingService::calculateLateCheckoutHours($booking->expected_check_out, $now);
         $lateFee = BookingService::calculateLateCheckoutFee($booking->expected_check_out, $now);
 
-        $unpaidInventorySum = (float) $inventoryUsages->sum('total_price');
+        $inventoryCharges = $this->inventorySettlement->chargesTotal($booking->id);
+        $settledInventorySum = $this->inventorySettlement->settledTotal($booking->id);
+        $unpaidInventorySum = $booking->status === 'active'
+            ? $this->inventorySettlement->unsettledTotal($booking->id)
+            : 0.0;
 
         $additionalDue = $lateFee + $unpaidInventorySum;
         $totalEstimatedBill = $booking->total_amount + $additionalDue;
@@ -81,6 +86,8 @@ class BookingController extends Controller
                 'current_time' => $now->format('Y-m-d H:i:s'),
                 'late_hours' => $lateHours,
                 'late_fee' => $lateFee,
+                'inventory_charges' => $inventoryCharges,
+                'settled_inventory' => $settledInventorySum,
                 'unpaid_inventory' => $unpaidInventorySum,
                 'additional_due' => $additionalDue,
                 'total_estimated' => $totalEstimatedBill,
@@ -313,9 +320,7 @@ class BookingController extends Controller
                 $originalLateFee = BookingService::calculateLateCheckoutFee($booking->expected_check_out, $stayNow);
                 $lateFee = $waiveLateFee ? 0.00 : $originalLateFee;
 
-                // Fetch inventory totals
-                $inventoryUsages = InventoryUsage::where('booking_id', $booking->id)->get();
-                $inventorySum = (float) $inventoryUsages->sum('total_price');
+                $inventorySum = $this->inventorySettlement->unsettledTotal($booking->id);
 
                 $extraCharge = (float) ($request->extra_charge_amount ?? 0);
                 $separateExtraChargePayment = $extraCharge > 0
@@ -403,9 +408,12 @@ class BookingController extends Controller
                     $checkoutTx = Transaction::where('payment_id', $payment->id)
                         ->where('booking_id', $booking->id)
                         ->first();
-                    InventoryUsage::where('booking_id', $booking->id)
-                        ->whereNull('transaction_id')
-                        ->when($checkoutTx, fn ($q) => $q->update(['transaction_id' => $checkoutTx->id]));
+                    if ($checkoutTx) {
+                        $this->inventorySettlement->attachUnsettledToCheckoutTransaction(
+                            $booking->id,
+                            (int) $checkoutTx->id
+                        );
+                    }
 
                     // Update guest profile total spent
                     if ($booking->guestProfile) {
@@ -413,7 +421,8 @@ class BookingController extends Controller
                         $booking->guestProfile->save();
                     }
                 } else {
-                    // Log 0 transaction anyway to track checkout
+                    // Operational checkout trace only — not a collection.
+                    // payment_id stays null, amount is 0, method is na.
                     Transaction::create([
                         'booking_id' => $booking->id,
                         'transaction_type' => 'check_out',

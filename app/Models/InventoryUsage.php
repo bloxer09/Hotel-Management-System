@@ -11,6 +11,7 @@ class InventoryUsage extends Model
     protected $fillable = [
         'booking_id',
         'transaction_id',
+        'origin_transaction_id',
         'item_id',
         'quantity',
         'unit_price',
@@ -46,6 +47,11 @@ class InventoryUsage extends Model
         return $this->belongsTo(Transaction::class);
     }
 
+    public function originTransaction()
+    {
+        return $this->belongsTo(Transaction::class, 'origin_transaction_id');
+    }
+
     public function booking()
     {
         return $this->belongsTo(Booking::class);
@@ -64,5 +70,22 @@ class InventoryUsage extends Model
     public function shift()
     {
         return $this->belongsTo(ShiftSession::class, 'shift_id');
+    }
+
+    /**
+     * Commercial usages on a stay that still belong in checkout inventory due.
+     *
+     * @return \Illuminate\Support\Collection<int, self>
+     */
+    public static function unsettledForCheckout(int $bookingId)
+    {
+        return app(\App\Services\InventoryUsageSettlementService::class)
+            ->unsettledForCheckout($bookingId);
+    }
+
+    public function isSettled(): bool
+    {
+        return app(\App\Services\InventoryUsageSettlementService::class)
+            ->isSettled($this);
     }
 }

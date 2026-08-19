@@ -346,6 +346,7 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
                                             <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Quantity</th>
                                             <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Unit Cost</th>
                                             <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Subtotal</th>
+                                            <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Settlement</th>
                                             <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-right">Notes</th>
                                         </tr>
                                     </thead>
@@ -359,12 +360,24 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
                                                     <td className="px-4 py-3 font-mono">{usage.quantity} {usage.item?.unit}</td>
                                                     <td className="px-4 py-3 font-mono">₱{usage.unit_price}</td>
                                                     <td className="px-4 py-3 font-mono font-bold text-brand-300">₱{usage.total_price.toLocaleString()}</td>
+                                                    <td className="px-4 py-3">
+                                                        <div className="flex flex-col gap-0.5">
+                                                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide w-fit ${usage.is_settled ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30' : 'bg-amber-500/15 text-amber-300 border border-amber-500/30'}`}>
+                                                                {usage.is_settled ? 'Already settled' : 'Due at checkout'}
+                                                            </span>
+                                                            {usage.origin_transaction_type === 'pos_sale' && (
+                                                                <span className="text-[10px] text-slate-500 font-mono">
+                                                                    POS {usage.origin_or_number || `#${usage.origin_transaction_id}`}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </td>
                                                     <td className="px-4 py-3 text-right text-slate-400 italic max-w-xs truncate">{usage.notes || 'None'}</td>
                                                 </tr>
                                             ))
                                         ) : (
                                             <tr>
-                                                <td colSpan="5" className="px-4 py-6 text-center text-slate-500">
+                                                <td colSpan="6" className="px-4 py-6 text-center text-slate-500">
                                                     No minibar or pantry service orders logged.
                                                 </td>
                                             </tr>
@@ -462,6 +475,19 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
                                 <div className="h-px bg-[#334155] my-2" />
 
                                 <div className="flex justify-between">
+                                    <span className="text-slate-400 font-medium">Inventory Charges</span>
+                                    <span className="font-mono text-slate-200 font-bold">₱{Number(calculations.inventory_charges || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-slate-400 font-medium">Already Settled</span>
+                                    <span className="font-mono text-emerald-400 font-bold">₱{Number(calculations.settled_inventory || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-slate-400 font-medium">Due at Checkout</span>
+                                    <span className="font-mono text-brand-300 font-bold">₱{Number(calculations.unpaid_inventory || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                </div>
+
+                                <div className="flex justify-between">
                                     <span className="text-slate-400 font-medium">Booking Total</span>
                                     <span className="font-mono text-slate-100 font-bold">₱{Number(booking.total_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                 </div>
@@ -491,7 +517,7 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
                                         )}
                                         {calculations.unpaid_inventory > 0 && (
                                             <div className="flex justify-between text-brand-300">
-                                                <span>Minibar Orders sum:</span>
+                                                <span>Due at checkout:</span>
                                                 <span className="font-mono font-bold">+ ₱{calculations.unpaid_inventory.toLocaleString()}</span>
                                             </div>
                                         )}

@@ -92,4 +92,9 @@ class Transaction extends Model
     {
         return $this->hasMany(InventoryUsage::class);
     }
+
+    public function originUsages()
+    {
+        return $this->hasMany(InventoryUsage::class, 'origin_transaction_id');
+    }
 }

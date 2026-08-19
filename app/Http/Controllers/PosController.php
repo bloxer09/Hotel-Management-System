@@ -131,18 +131,25 @@ class PosController extends Controller
                 $cashTendered = round((float) ($request->cash_amount ?: 0), 2);
                 $gcashTendered = round((float) ($request->gcash_amount ?: 0), 2);
                 $bankTendered = round((float) ($request->bank_amount ?: 0), 2);
-                $cashCollected = $cashTendered;
-                $gcashCollected = $gcashTendered;
-                $bankCollected = $bankTendered;
+                $tenderedTotal = round($cashTendered + $gcashTendered + $bankTendered, 2);
+                $chargeToRoom = (bool) $bookingId && $tenderedTotal <= 0.01;
+                $cashCollected = 0.00;
+                $gcashCollected = 0.00;
+                $bankCollected = 0.00;
                 $changeGiven = 0.00;
 
-                // A walk-in POS payment must record the sale amount that remains
-                // in the drawer, never the cash tendered before change is given.
-                // Room charges retain their existing deferred-payment behavior.
-                if (! $bookingId) {
+                // Walk-in sales always require a collection-bearing tender.
+                // Room-linked POS may record ₱0 tender as a charge-to-room folio
+                // line. Partial tender is rejected so an unpaid remainder cannot
+                // disappear and cannot be silently double-billed later.
+                if (! $chargeToRoom) {
                     if ($request->payment_method === 'cash') {
                         if ($cashTendered + 0.01 < $grandTotal) {
-                            throw new \InvalidArgumentException('Cash received is insufficient for this sale.');
+                            throw new \InvalidArgumentException(
+                                $bookingId
+                                    ? 'Partial POS tender is not supported. Collect the full sale amount now, or record ₱0 to charge the stay and settle at checkout.'
+                                    : 'Cash received is insufficient for this sale.'
+                            );
                         }
 
                         $cashCollected = $grandTotal;
@@ -151,7 +158,11 @@ class PosController extends Controller
                         $changeGiven = round($cashTendered - $cashCollected, 2);
                     } elseif ($request->payment_method === 'gcash') {
                         if (abs($gcashTendered - $grandTotal) > 0.01) {
-                            throw new \InvalidArgumentException('GCash payment must equal the POS sale total.');
+                            throw new \InvalidArgumentException(
+                                $bookingId
+                                    ? 'Partial POS tender is not supported. Collect the full sale amount now, or record ₱0 to charge the stay and settle at checkout.'
+                                    : 'GCash payment must equal the POS sale total.'
+                            );
                         }
 
                         $cashCollected = 0.00;
@@ -159,7 +170,11 @@ class PosController extends Controller
                         $bankCollected = 0.00;
                     } elseif ($request->payment_method === 'bank_transfer') {
                         if (abs($bankTendered - $grandTotal) > 0.01) {
-                            throw new \InvalidArgumentException('Bank transfer payment must equal the POS sale total.');
+                            throw new \InvalidArgumentException(
+                                $bookingId
+                                    ? 'Partial POS tender is not supported. Collect the full sale amount now, or record ₱0 to charge the stay and settle at checkout.'
+                                    : 'Bank transfer payment must equal the POS sale total.'
+                            );
                         }
 
                         $cashCollected = 0.00;
@@ -173,7 +188,11 @@ class PosController extends Controller
 
                         $cashDue = round($grandTotal - $electronicTotal, 2);
                         if ($cashTendered + 0.01 < $cashDue) {
-                            throw new \InvalidArgumentException('Cash received is insufficient for this split payment.');
+                            throw new \InvalidArgumentException(
+                                $bookingId
+                                    ? 'Partial POS tender is not supported. Collect the full sale amount now, or record ₱0 to charge the stay and settle at checkout.'
+                                    : 'Cash received is insufficient for this split payment.'
+                            );
                         }
 
                         $cashCollected = $cashDue;
@@ -208,6 +227,7 @@ class PosController extends Controller
                     InventoryUsage::create([
                         'booking_id' => $bookingId,
                         'transaction_id' => $transaction->id,
+                        'origin_transaction_id' => $transaction->id,
                         'item_id' => $u['item_id'],
                         'quantity' => $u['qty'],
                         'unit_price' => $u['unit_price'],

@@ -5,13 +5,13 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreReservationRequest;
 use App\Models\Booking;
 use App\Models\GuestProfile;
-use App\Models\InventoryUsage;
 use App\Models\PromoCode;
 use App\Models\Room;
 use App\Models\RoomType;
 use App\Models\ShiftSession;
 use App\Models\Transaction;
 use App\Services\BookingService;
+use App\Services\InventoryUsageSettlementService;
 use App\Services\PaymentService;
 use App\Services\ShiftService;
 use App\Support\HotelDateTime;
@@ -23,7 +23,8 @@ use Inertia\Inertia;
 class ReservationController extends Controller
 {
     public function __construct(
-        private readonly PaymentService $payments
+        private readonly PaymentService $payments,
+        private readonly InventoryUsageSettlementService $inventorySettlement
     ) {}
 
     public function index(Request $request)
@@ -1160,7 +1161,7 @@ class ReservationController extends Controller
         foreach ($bookings as $b) {
             $lateHours = BookingService::calculateLateCheckoutHours($b->expected_check_out);
             $lateFee = $waiveLateFee ? 0.00 : BookingService::calculateLateCheckoutFee($b->expected_check_out);
-            $inventoryTotal = InventoryUsage::where('booking_id', $b->id)->sum('total_price');
+            $inventoryTotal = $this->inventorySettlement->unsettledTotal((int) $b->id);
             $balance = ($b->total_amount + $lateFee + $b->extension_fee + $inventoryTotal) - $b->amount_paid;
 
             if ($balance > 0) {
@@ -1190,7 +1191,7 @@ class ReservationController extends Controller
                 }
                 $booking->save();
 
-                // Create transaction trace for bookkeeping and shift log compliance
+                // Operational group checkout trace only — not a collection.
                 Transaction::create([
                     'booking_id' => $booking->id,
                     'transaction_type' => 'check_out',
@@ -1256,7 +1257,7 @@ class ReservationController extends Controller
         foreach ($bookings as $b) {
             $lateHours = BookingService::calculateLateCheckoutHours($b->expected_check_out);
             $lateFee = $waiveLateFee ? 0.00 : BookingService::calculateLateCheckoutFee($b->expected_check_out);
-            $inventoryTotal = (float) InventoryUsage::where('booking_id', $b->id)->sum('total_price');
+            $inventoryTotal = $this->inventorySettlement->unsettledTotal((int) $b->id);
 
             $roomTotal = (float) $b->total_amount + $lateFee + $inventoryTotal;
             $balance = $roomTotal - (float) $b->amount_paid;
@@ -1411,9 +1412,10 @@ class ReservationController extends Controller
                         ->where('booking_id', $allocation->booking_id)
                         ->value('id');
                     if ($transactionId) {
-                        InventoryUsage::where('booking_id', $allocation->booking_id)
-                            ->whereNull('transaction_id')
-                            ->update(['transaction_id' => $transactionId]);
+                        $this->inventorySettlement->attachUnsettledToCheckoutTransaction(
+                            (int) $allocation->booking_id,
+                            (int) $transactionId
+                        );
                     }
                 }
             }
@@ -1455,7 +1457,7 @@ class ReservationController extends Controller
         foreach ($bookings as $b) {
             $lateHours = BookingService::calculateLateCheckoutHours($b->expected_check_out, $now);
             $lateFee = BookingService::calculateLateCheckoutFee($b->expected_check_out, $now);
-            $inventoryTotal = (float) InventoryUsage::where('booking_id', $b->id)->sum('total_price');
+            $inventoryTotal = $this->inventorySettlement->unsettledTotal((int) $b->id);
 
             $roomTotal = (float) $b->total_amount + $lateFee + $inventoryTotal;
             $balance = max(0.00, $roomTotal - (float) $b->amount_paid);
