@@ -32,6 +32,10 @@ class ShiftCashReconciliationService
      * expected = opening + cash collections + additional cash
      *          - expenses - cash transfers - withdrawals
      *
+     * Expenses counted here are POSTED only, attributed by posted_shift_session_id.
+     * Additional Cash counted here is POSTED only, attributed by shift_session_id.
+     * Legacy rows without shift FKs still use recorded_by + created_at.
+     *
      * Live current-shift only: approved shortage-recovery cash that physically
      * entered this drawer is added once as variance_recovery_receipts. That
      * term is never written back onto a prior closed shift snapshot.
@@ -89,18 +93,8 @@ class ShiftCashReconciliationService
         $userId = (int) $shift->user_id;
 
         $collections = $this->cashCollections($userId, $start, $end);
-        $additional = $this->sumByDrawer(
-            AdditionalCash::query()
-                ->where('recorded_by', $userId)
-                ->whereBetween('created_at', [$start, $end])
-                ->get(['amount', 'cash_drawer'])
-        );
-        $expenses = $this->sumByDrawer(
-            Expense::query()
-                ->where('recorded_by', $userId)
-                ->whereBetween('created_at', [$start, $end])
-                ->get(['amount', 'cash_drawer'])
-        );
+        $additional = $this->sumByDrawer($this->postedAdditionalCashForShift($shift));
+        $expenses = $this->sumByDrawer($this->postedExpensesForShift($shift));
         $movements = CashMovement::query()
             ->where('shift_session_id', $shift->id)
             ->get(['amount', 'cash_drawer', 'movement_type']);
@@ -366,6 +360,81 @@ class ShiftCashReconciliationService
             'actual_cash' => $actual === null ? null : round($actual, 2),
             'variance' => $variance,
             'variance_label' => $this->varianceLabel($variance),
+        ];
+    }
+
+    /**
+     * POSTED expenses whose physical disbursement belongs to this shift.
+     * Linked rows use posted_shift_session_id. Legacy rows (no shift FKs)
+     * keep the historical recorded_by + created_at window so they are not
+     * double-counted against the new linkage.
+     *
+     * @return \Illuminate\Support\Collection<int, Expense>
+     */
+    public function postedExpensesForShift(ShiftSession $shift)
+    {
+        $start = $shift->started_at;
+        $end = $shift->ended_at ?: now();
+
+        $linked = Expense::query()
+            ->where('status', Expense::STATUS_POSTED)
+            ->where('posted_shift_session_id', $shift->id)
+            ->get();
+
+        $legacy = Expense::query()
+            ->where('status', Expense::STATUS_POSTED)
+            ->whereNull('posted_shift_session_id')
+            ->where('recorded_by', $shift->user_id)
+            ->whereBetween('created_at', [$start, $end])
+            ->get();
+
+        return $linked->concat($legacy)->unique('id')->values();
+    }
+
+    /**
+     * POSTED additional cash whose physical receipt belongs to this shift.
+     *
+     * @return \Illuminate\Support\Collection<int, AdditionalCash>
+     */
+    public function postedAdditionalCashForShift(ShiftSession $shift)
+    {
+        $start = $shift->started_at;
+        $end = $shift->ended_at ?: now();
+
+        $linked = AdditionalCash::query()
+            ->where('status', AdditionalCash::STATUS_POSTED)
+            ->where('shift_session_id', $shift->id)
+            ->get();
+
+        $legacy = AdditionalCash::query()
+            ->where('status', AdditionalCash::STATUS_POSTED)
+            ->whereNull('shift_session_id')
+            ->where('recorded_by', $shift->user_id)
+            ->whereBetween('created_at', [$start, $end])
+            ->get();
+
+        return $linked->concat($legacy)->unique('id')->values();
+    }
+
+    /**
+     * Unresolved (not yet physically paid) expense requests originated on a shift.
+     *
+     * @return array{pending: int, approved_unpaid: int}
+     */
+    public function unresolvedExpenseCounts(ShiftSession $shift): array
+    {
+        $pending = Expense::query()
+            ->where('shift_session_id', $shift->id)
+            ->where('status', Expense::STATUS_PENDING_APPROVAL)
+            ->count();
+        $approved = Expense::query()
+            ->where('shift_session_id', $shift->id)
+            ->where('status', Expense::STATUS_APPROVED)
+            ->count();
+
+        return [
+            'pending' => $pending,
+            'approved_unpaid' => $approved,
         ];
     }
 

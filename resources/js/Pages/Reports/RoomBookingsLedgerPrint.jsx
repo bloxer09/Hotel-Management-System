@@ -829,6 +829,12 @@ export default function RoomBookingsLedgerPrint({
                             </tbody>
                         </table>
 
+                        {(ct.unresolved_expenses?.pending || ct.unresolved_expenses?.approved_unpaid) ? (
+                            <p className="text-[11px] italic" style={{ color: '#92400e', margin: '8px 0' }}>
+                                Pending Expense Requests: {ct.unresolved_expenses.pending || 0}. Approved Awaiting Payment: {ct.unresolved_expenses.approved_unpaid || 0}. These are not included in expected cash.
+                            </p>
+                        ) : null}
+
                         {/* Expected Cash on Hand */}
                         <div className="expected-box">
                             <span className="exp-label">EXPECTED CASH ON HAND</span>

@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Http\Controllers\ExpenseController;
 use App\Models\Expense;
 use App\Models\ExpenseCategory;
+use App\Models\ShiftSession;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
@@ -18,6 +19,18 @@ class ExpenseCategoryFeatureTest extends TestCase
     private function admin(): User
     {
         return User::factory()->create(['role' => 'admin']);
+    }
+
+    private function openRegister(User $user): ShiftSession
+    {
+        return ShiftSession::create([
+            'user_id' => $user->id,
+            'active_register_key' => ShiftSession::MAIN_REGISTER_KEY,
+            'shift_code' => 'morning',
+            'started_at' => now(),
+            'opening_cash' => 5000,
+            'opening_cash_minibar' => 0,
+        ]);
     }
 
     private function createExpense(User $user, array $overrides = []): Expense
@@ -71,6 +84,7 @@ class ExpenseCategoryFeatureTest extends TestCase
     public function test_store_uses_an_existing_category(): void
     {
         $admin = $this->admin();
+        $this->openRegister($admin);
         $salary = ExpenseCategory::findOrCreateFromName('Salary');
 
         $response = $this->actingAs($admin)->post(route('expenses.store'), [
@@ -92,6 +106,7 @@ class ExpenseCategoryFeatureTest extends TestCase
     public function test_store_creates_a_new_category_from_typed_name(): void
     {
         $admin = $this->admin();
+        $this->openRegister($admin);
 
         $response = $this->actingAs($admin)->post(route('expenses.store'), [
             'expense_date' => '2026-08-16',
@@ -115,6 +130,7 @@ class ExpenseCategoryFeatureTest extends TestCase
     public function test_duplicate_category_names_are_reused_regardless_of_case_or_spacing(): void
     {
         $admin = $this->admin();
+        $this->openRegister($admin);
 
         $this->actingAs($admin)->post(route('expenses.store'), [
             'expense_date' => '2026-08-16',
@@ -147,8 +163,11 @@ class ExpenseCategoryFeatureTest extends TestCase
     public function test_update_changes_the_expense_category(): void
     {
         $admin = $this->admin();
+        $this->openRegister($admin);
         $expense = $this->createExpense($admin, [
             'category' => ExpenseCategory::findOrCreateFromName('Supplies'),
+            'amount' => 1500,
+            'status' => Expense::STATUS_PENDING_APPROVAL,
         ]);
 
         $response = $this->actingAs($admin)->post(route('expenses.update', $expense), [
@@ -248,7 +267,7 @@ class ExpenseCategoryFeatureTest extends TestCase
             ->where('expense_category_id', $salary->id)
             ->get();
 
-        $rows = (new ExpenseController)->buildExportRows($expenses, $admin, $request);
+        $rows = app(ExpenseController::class)->buildExportRows($expenses, $admin, $request);
 
         $this->assertContains(['Category:', 'Salary'], $rows);
         $this->assertContains(['Period:', '2026-08-01 to 2026-08-31'], $rows);

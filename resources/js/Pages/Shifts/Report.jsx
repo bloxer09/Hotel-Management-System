@@ -1075,6 +1075,13 @@ export default function Report({ shift, report }) {
                                         <tr><th className="text-left">Total Cash Received This Shift</th><td className="text-right font-mono font-bold text-emerald-300">{formatCurrency(totalCashReceivedThisShift)}</td></tr>
                                         <tr><th className="text-left">Total Cash Available</th><td className="text-right font-mono font-bold">{formatCurrency(totalCashAvailable)}</td></tr>
                                         <tr><th className="text-left">Less: Expenses</th><td className="text-right font-mono font-bold text-rose-400">-{formatCurrency(Number(dailyCash.room_expenses || 0))}</td></tr>
+                                        {((report.unresolved_expenses?.pending || 0) + (report.unresolved_expenses?.approved_unpaid || 0)) > 0 && (
+                                            <tr>
+                                                <th className="text-left text-amber-300 font-normal text-xs" colSpan={2}>
+                                                    Pending Expense Requests: {report.unresolved_expenses.pending || 0} • Approved Awaiting Payment: {report.unresolved_expenses.approved_unpaid || 0} (not included in cash)
+                                                </th>
+                                            </tr>
+                                        )}
                                         <tr><th className="text-left">Less: Withdrawals</th><td className="text-right font-mono font-bold text-rose-400">-{formatCurrency(Number(dailyCash.withdrawals || 0))}</td></tr>
                                         <tr><th className="text-left">Less: Cash Transfer</th><td className="text-right font-mono font-bold text-rose-400">-{formatCurrency(dailyCash.cashier_transfers)}</td></tr>
                                         <tr><th className="text-left">Expected Cash in Drawer</th><td className="text-right font-mono font-bold text-amber-300">{formatCurrency(dailyCash.expected_cash)}</td></tr>

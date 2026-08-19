@@ -19,7 +19,7 @@ import ConfirmModal from '@/Components/ConfirmModal';
 import CustomSelect from '@/Components/CustomSelect';
 import { formatUtcToManila } from '@/Utils/datetime';
 
-export default function Index({ activeShift, registerShift, isRegisterOperator, viewerMode, suggestedShift, suggestedOpeningCash, suggestedOpeningDenominations, suggestedOpeningCashMinibar, suggestedOpeningDenominationsMinibar, previousClosedShift, liveSummary, recentShifts, pendingVariances = [], canReviewVariances = false }) {
+export default function Index({ activeShift, registerShift, isRegisterOperator, viewerMode, suggestedShift, suggestedOpeningCash, suggestedOpeningDenominations, suggestedOpeningCashMinibar, suggestedOpeningDenominationsMinibar, previousClosedShift, liveSummary, recentShifts, pendingVariances = [], canReviewVariances = false, unresolvedExpenses = { pending: 0, approved_unpaid: 0 } }) {
     const [showShutdownConfirm, setShowShutdownConfirm] = useState(false);
 
     const COINS = [0.01, 0.05, 0.25, 1, 5, 10];
@@ -816,6 +816,13 @@ export default function Index({ activeShift, registerShift, isRegisterOperator, 
                                                 </div>
                                             );
                                         })()}
+
+                                        {((unresolvedExpenses?.pending || 0) + (unresolvedExpenses?.approved_unpaid || 0)) > 0 && (
+                                            <div className="rounded-xl border border-amber-500/40 bg-amber-950/40 p-4 text-xs text-amber-100">
+                                                {(unresolvedExpenses.pending + unresolvedExpenses.approved_unpaid)} expense request{(unresolvedExpenses.pending + unresolvedExpenses.approved_unpaid) === 1 ? '' : 's'} from this shift {(unresolvedExpenses.pending + unresolvedExpenses.approved_unpaid) === 1 ? 'is' : 'are'} still unresolved.
+                                                They will remain in the approval/disbursement workflow after this shift closes and will not affect this shift's cash unless already POSTED.
+                                            </div>
+                                        )}
 
                                         {/* Button */}
                                         <button

@@ -130,6 +130,38 @@ const ALERT_TOAST_STYLES = {
         iconBgClass: 'bg-indigo-500/20',
         barColorClass: 'bg-indigo-400',
     },
+    expense_approval_required: {
+        title: 'EXPENSE APPROVAL REQUIRED',
+        Icon: Receipt,
+        colorClass: 'bg-amber-950/90 border-amber-500/50 text-amber-100 shadow-amber-950/40',
+        iconColorClass: 'text-amber-400',
+        iconBgClass: 'bg-amber-500/20',
+        barColorClass: 'bg-amber-400',
+    },
+    expense_awaiting_approval: {
+        title: 'EXPENSE AWAITING APPROVAL',
+        Icon: Receipt,
+        colorClass: 'bg-sky-950/90 border-sky-500/50 text-sky-100 shadow-sky-950/40',
+        iconColorClass: 'text-sky-400',
+        iconBgClass: 'bg-sky-500/20',
+        barColorClass: 'bg-sky-400',
+    },
+    expense_approved: {
+        title: 'EXPENSE APPROVED',
+        Icon: Receipt,
+        colorClass: 'bg-emerald-950/90 border-emerald-500/50 text-emerald-100 shadow-emerald-950/40',
+        iconColorClass: 'text-emerald-400',
+        iconBgClass: 'bg-emerald-500/20',
+        barColorClass: 'bg-emerald-400',
+    },
+    expense_rejected: {
+        title: 'EXPENSE REJECTED',
+        Icon: Receipt,
+        colorClass: 'bg-rose-950/90 border-rose-500/50 text-rose-100 shadow-rose-950/40',
+        iconColorClass: 'text-rose-400',
+        iconBgClass: 'bg-rose-500/20',
+        barColorClass: 'bg-rose-400',
+    },
 };
 
 const AlertToastCard = ({ item, onDismiss }) => {
@@ -329,7 +361,14 @@ export default function AuthenticatedLayout({ children }) {
             icon: Receipt,
             href: route('expenses.index'),
             roles: ['admin', 'front_desk'],
-            current: route().current('expenses.*')
+            current: route().current('expenses.index') || route().current('expenses.export')
+        },
+        {
+            name: 'Expense Approvals',
+            icon: Receipt,
+            href: route('expenses.approvals'),
+            roles: ['admin'],
+            current: route().current('expenses.approvals') || route().current('expenses.review')
         },
         {
             name: 'Additional Cash',
@@ -337,6 +376,13 @@ export default function AuthenticatedLayout({ children }) {
             href: route('additional-cash.index'),
             roles: ['admin', 'front_desk'],
             current: route().current('additional-cash.*')
+        },
+        {
+            name: 'Cash Activity History',
+            icon: SearchCode,
+            href: route('cash-activity.index'),
+            roles: ['admin'],
+            current: route().current('cash-activity.*')
         },
         {
             name: 'Maintenance Tickets',
@@ -400,6 +446,12 @@ export default function AuthenticatedLayout({ children }) {
         || n.type === 'cash_variance_pending'
         || n.type === 'cash_variance_reviewed'
     );
+    const expenseAlerts = notifications.filter(n =>
+        n.type === 'expense_approval_required'
+        || n.type === 'expense_awaiting_approval'
+        || n.type === 'expense_approved'
+        || n.type === 'expense_rejected'
+    );
     const totalAlerts = notifCounts.total || notifications.length;
 
     // Helper mapping sidebar items to active alert counts
@@ -423,6 +475,9 @@ export default function AuthenticatedLayout({ children }) {
         }
         if (itemName === 'Shift Register') {
             return cashVarianceAlerts.length;
+        }
+        if (itemName === 'Expense Approvals' || itemName === 'Expenses') {
+            return expenseAlerts.length;
         }
         return 0;
     };
@@ -991,6 +1046,24 @@ export default function AuthenticatedLayout({ children }) {
                                                             : 'bg-rose-950/60 border-rose-500/40 text-rose-300'
                                                             }`}>
                                                             Cash
+                                                        </span>
+                                                    </Link>
+                                                ))}
+
+                                                {expenseAlerts.map(item => (
+                                                    <Link
+                                                        key={item.alert_key}
+                                                        href={item.action_url || route('expenses.index')}
+                                                        onClick={() => setIsBellOpen(false)}
+                                                        className="flex items-start gap-3 px-4 py-3 hover:bg-[#334155]/40 transition-colors border-b border-[#334155]/30 last:border-b-0"
+                                                    >
+                                                        <div className={`shrink-0 mt-0.5 h-2.5 w-2.5 rounded-full ${item.type === 'expense_approved' ? 'bg-emerald-400' : item.type === 'expense_rejected' ? 'bg-rose-500' : 'bg-amber-400'}`} />
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="text-xs font-bold text-slate-200">{item.title}</div>
+                                                            <div className="text-[11px] text-slate-400 leading-relaxed mt-0.5 whitespace-pre-line">{item.message}</div>
+                                                        </div>
+                                                        <span className="shrink-0 text-[9px] font-black px-1.5 py-0.5 rounded border uppercase bg-amber-950/60 border-amber-500/40 text-amber-300">
+                                                            Expense
                                                         </span>
                                                     </Link>
                                                 ))}

@@ -22,6 +22,7 @@ import ActionModal from '@/Components/ActionModal';
 import SortableHeader from '@/Components/SortableHeader';
 import Pagination from '@/Components/Pagination';
 import ConfirmModal from '@/Components/ConfirmModal';
+import VoidPostedCashForm, { ClosedPostedCashNotice } from '@/Components/PostedCashVoid';
 
 const categoryBadgeClass = (name) => {
     const badges = {
@@ -40,13 +41,15 @@ const categoryBadgeClass = (name) => {
     return badges[name] || 'bg-brand-500/10 text-brand-400 border-brand-500/20';
 };
 
-export default function ExpensesIndex({ expenses, categories = [], filters, summary, sortBy, sortDir }) {
+export default function ExpensesIndex({ expenses, categories = [], filters, summary, sortBy, sortDir, approval_threshold = 1000, can_operate_register = false, is_admin = false }) {
     const { auth } = usePage().props;
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [selectedExpense, setSelectedExpense] = useState(null);
     const [actionModalExpense, setActionModalExpense] = useState(null);
     const [confirmDeleteExpense, setConfirmDeleteExpense] = useState(null);
+    const [confirmPayExpense, setConfirmPayExpense] = useState(null);
+    const [voidExpense, setVoidExpense] = useState(null);
     const [searchQuery, setSearchQuery] = useState(filters.search || '');
     const [dateFrom, setDateFrom] = useState(filters.from || '');
     const [dateTo, setDateTo] = useState(filters.to || '');
@@ -68,6 +71,8 @@ export default function ExpensesIndex({ expenses, categories = [], filters, summ
         sort_by: sortBy || undefined,
         sort_dir: sortDir || undefined,
     };
+
+    const needsApproval = Number(amount) > Number(approval_threshold);
 
     const handleSearch = (e) => {
         e.preventDefault();
@@ -285,11 +290,14 @@ export default function ExpensesIndex({ expenses, categories = [], filters, summ
                         <table className="w-full text-xs table-fixed">
                             <thead>
                                 <tr className="border-b border-[#334155] bg-[#0f172a]/60">
-                                    <SortableHeader sortKey="expense_date" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Date</SortableHeader>
+                                    <SortableHeader sortKey="reference" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Reference</SortableHeader>
+                                    <SortableHeader sortKey="created_at" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Date / Time</SortableHeader>
+                                    <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Shift</th>
                                     <SortableHeader sortKey="notes" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Notes / Description</SortableHeader>
                                     <SortableHeader sortKey="category" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Category</SortableHeader>
                                     <SortableHeader sortKey="cash_drawer" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Drawer</SortableHeader>
                                     <SortableHeader sortKey="amount" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Amount</SortableHeader>
+                                    <SortableHeader sortKey="status" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Status</SortableHeader>
                                     <SortableHeader sortKey="recorded_by" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Recorded By</SortableHeader>
                                     <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-center">Receipt</th>
                                     <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-right">Actions</th>
@@ -298,19 +306,21 @@ export default function ExpensesIndex({ expenses, categories = [], filters, summ
                             <tbody>
                                 {expenses.data.length === 0 ? (
                                     <tr>
-                                        <td colSpan={8} className="px-4 py-12 text-center text-slate-500">
+                                        <td colSpan={11} className="px-4 py-12 text-center text-slate-500">
                                             No expenses found matching the criteria.
                                         </td>
                                     </tr>
                                 ) : expenses.data.map((exp, i) => (
                                     <motion.tr key={exp.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}
                                         className="border-b border-[#334155]/50 hover:bg-[#0f172a]/40 transition-colors">
+                                        <td className="px-4 py-3 font-mono text-brand-400 font-bold">{exp.reference || `#${exp.id}`}</td>
                                         <td className="px-4 py-3">
-                                            <span className="font-mono text-brand-400 font-bold block">{new Date(exp.expense_date).toLocaleDateString()}</span>
+                                            <span className="font-mono text-slate-200 font-bold block">{exp.created_at_display || exp.expense_date}</span>
                                         </td>
+                                        <td className="px-4 py-3 text-slate-300">{exp.origin_shift_id ? `#${exp.origin_shift_id}` : 'Legacy'}</td>
                                         <td className="px-4 py-3">
                                             <span className="font-semibold text-slate-200 whitespace-normal min-w-[200px] block">
-                                                {exp.notes || <span className="text-slate-500 italic font-normal">No description</span>}
+                                                {exp.notes || exp.reason || <span className="text-slate-500 italic font-normal">No description</span>}
                                             </span>
                                         </td>
                                         <td className="px-4 py-3">
@@ -323,7 +333,7 @@ export default function ExpensesIndex({ expenses, categories = [], filters, summ
                                                 ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
                                                 : 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'
                                                 }`}>
-                                                {exp.cash_drawer === 'minibar' ? 'Minibar' : 'Room'}
+                                                {exp.cash_drawer === 'minibar' ? 'Minibar' : 'Rooms'}
                                             </span>
                                         </td>
                                         <td className="px-4 py-3">
@@ -332,7 +342,10 @@ export default function ExpensesIndex({ expenses, categories = [], filters, summ
                                             </span>
                                         </td>
                                         <td className="px-4 py-3">
-                                            <span className="text-slate-400 text-[11px]">{exp.user?.full_name || 'Unknown'}</span>
+                                            <span className="px-2 py-0.5 rounded border text-[10px] font-bold text-slate-200 border-[#334155]">{exp.status_label || exp.status}</span>
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            <span className="text-slate-400 text-[11px]">{exp.user?.full_name || exp.recorded_by_name || 'Unknown'}</span>
                                         </td>
                                         <td className="px-4 py-3 text-center">
                                             {exp.receipt_path ? (
@@ -439,15 +452,21 @@ export default function ExpensesIndex({ expenses, categories = [], filters, summ
                                         />
                                     </div>
                                     <div className="flex flex-col gap-1">
-                                        <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Notes / Description</label>
+                                        <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Reason / Description *</label>
                                         <textarea
+                                            required
                                             value={notes}
                                             onChange={e => setNotes(e.target.value)}
                                             rows="3"
                                             className={inputCls}
-                                            placeholder="E.g., Meralco Bill, Office Supplies..."
+                                            placeholder="E.g., Emergency plumbing, office supplies..."
                                         ></textarea>
                                     </div>
+                                    {needsApproval && (
+                                        <div className="rounded-xl border border-amber-500/40 bg-amber-950/40 p-3 text-[11px] text-amber-200">
+                                            This expense requires Admin approval because it exceeds ₱{Number(approval_threshold).toLocaleString()}. No drawer cash will be deducted until it is approved and marked paid.
+                                        </div>
+                                    )}
                                     <div className="flex flex-col gap-1">
                                         <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Receipt (Optional)</label>
                                         <input
@@ -546,8 +565,9 @@ export default function ExpensesIndex({ expenses, categories = [], filters, summ
                                         />
                                     </div>
                                     <div className="flex flex-col gap-1">
-                                        <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Notes / Description</label>
+                                        <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Notes / Description *</label>
                                         <textarea
+                                            required
                                             value={notes}
                                             onChange={e => setNotes(e.target.value)}
                                             rows="3"
@@ -590,18 +610,51 @@ export default function ExpensesIndex({ expenses, categories = [], filters, summ
             >
                 {actionModalExpense && (
                     <>
-                        <button
-                            onClick={() => { setActionModalExpense(null); openEditModal(actionModalExpense); }}
-                            className="w-full flex items-center gap-2 px-4 py-3 bg-[#1e293b] hover:bg-amber-600/20 border border-[#334155] hover:border-amber-500/40 rounded-xl text-xs font-bold text-amber-400 transition-colors uppercase"
-                        >
-                            <Edit size={16} /> Edit Expense
-                        </button>
-                        <button
-                            onClick={() => { setActionModalExpense(null); setConfirmDeleteExpense(actionModalExpense); }}
-                            className="w-full flex items-center gap-2 px-4 py-3 bg-[#1e293b] hover:bg-rose-900/30 border border-[#334155] hover:border-rose-500/40 rounded-xl text-xs font-bold text-rose-400 transition-colors uppercase"
-                        >
-                            <Trash2 size={16} /> Delete Expense
-                        </button>
+                        {actionModalExpense.status === 'APPROVED' && can_operate_register && (
+                            <button
+                                onClick={() => { setActionModalExpense(null); setConfirmPayExpense(actionModalExpense); }}
+                                className="w-full flex items-center gap-2 px-4 py-3 bg-[#1e293b] hover:bg-emerald-600/20 border border-[#334155] rounded-xl text-xs font-bold text-emerald-400 uppercase"
+                            >
+                                Mark Paid / Disbursed
+                            </button>
+                        )}
+                        {actionModalExpense.can_edit && (
+                            <button
+                                onClick={() => { setActionModalExpense(null); openEditModal(actionModalExpense); }}
+                                className="w-full flex items-center gap-2 px-4 py-3 bg-[#1e293b] hover:bg-amber-600/20 border border-[#334155] hover:border-amber-500/40 rounded-xl text-xs font-bold text-amber-400 transition-colors uppercase"
+                            >
+                                <Edit size={16} /> Edit Pending Expense
+                            </button>
+                        )}
+                        {actionModalExpense.can_cancel && (
+                            <button
+                                onClick={() => { setActionModalExpense(null); setConfirmDeleteExpense(actionModalExpense); }}
+                                className="w-full flex items-center gap-2 px-4 py-3 bg-[#1e293b] hover:bg-rose-900/30 border border-[#334155] hover:border-rose-500/40 rounded-xl text-xs font-bold text-rose-400 transition-colors uppercase"
+                            >
+                                <Trash2 size={16} /> Cancel Request
+                            </button>
+                        )}
+                        {actionModalExpense.can_void && is_admin && (
+                            <button
+                                onClick={() => { setActionModalExpense(null); setVoidExpense(actionModalExpense); }}
+                                className="w-full flex items-center gap-2 px-4 py-3 bg-[#1e293b] border border-[#334155] rounded-xl text-xs font-bold text-rose-300 uppercase"
+                            >
+                                Void erroneous posting
+                            </button>
+                        )}
+                        {actionModalExpense.status === 'POSTED' && (actionModalExpense.posted_shift_closed || (is_admin && !actionModalExpense.can_void)) && (
+                            <ClosedPostedCashNotice postedShiftId={actionModalExpense.posted_shift_id} />
+                        )}
+                        {actionModalExpense.status === 'APPROVED' && (
+                            <p className="text-[11px] text-slate-400 px-1">
+                                {actionModalExpense.reference} • ₱{Number(actionModalExpense.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                <br />Admin approved by: {actionModalExpense.reviewer_name || 'Administrator'}
+                                <br />Approved at: {actionModalExpense.reviewed_at_display || '—'}
+                            </p>
+                        )}
+                        {actionModalExpense.status === 'POSTED' && !is_admin && (
+                            <p className="text-[11px] text-slate-400">Posted expenses cannot be edited or deleted.</p>
+                        )}
                     </>
                 )}
             </ActionModal>
@@ -610,11 +663,36 @@ export default function ExpensesIndex({ expenses, categories = [], filters, summ
                 isOpen={!!confirmDeleteExpense}
                 onClose={() => setConfirmDeleteExpense(null)}
                 onConfirm={handleDelete}
-                title="Delete Expense"
-                message="Are you sure you want to delete this expense?"
-                confirmText="Delete"
+                title="Cancel pending expense"
+                message="Cancel this pending expense request? It will be marked rejected and will not affect drawer cash."
+                confirmText="Cancel request"
                 isDanger={true}
             />
+            <ConfirmModal
+                isOpen={!!confirmPayExpense}
+                onClose={() => setConfirmPayExpense(null)}
+                onConfirm={() => {
+                    if (confirmPayExpense) {
+                        router.post(route('expenses.pay', confirmPayExpense.id), {}, { preserveScroll: true });
+                        setConfirmPayExpense(null);
+                    }
+                }}
+                title="Mark paid / disbursed"
+                message="This will reduce expected cash on the current active register. Continue only if the cash has physically left that drawer."
+                confirmText="Mark paid"
+            />
+            {voidExpense && (
+                <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 px-4">
+                    <div className="w-full max-w-md rounded-2xl bg-[#0f172a] border border-[#334155] p-5">
+                        <VoidPostedCashForm
+                            action={route('expenses.void', voidExpense.id)}
+                            reference={voidExpense.reference}
+                            onCancel={() => setVoidExpense(null)}
+                            onSuccess={() => setVoidExpense(null)}
+                        />
+                    </div>
+                </div>
+            )}
         </AuthenticatedLayout>
     );
 }

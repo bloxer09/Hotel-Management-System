@@ -29,6 +29,14 @@ class AdditionalCashTest extends TestCase
     public function test_authorized_users_can_store_additional_cash()
     {
         $admin = User::factory()->create(['role' => 'admin']);
+        ShiftSession::create([
+            'user_id' => $admin->id,
+            'active_register_key' => ShiftSession::MAIN_REGISTER_KEY,
+            'shift_code' => 'morning',
+            'started_at' => now(),
+            'opening_cash' => 1000,
+            'opening_cash_minibar' => 0,
+        ]);
 
         $response = $this->actingAs($admin)->post('/additional-cash', [
             'income_date' => '2026-06-29',
@@ -59,48 +67,37 @@ class AdditionalCashTest extends TestCase
         $response->assertSessionHasErrors(['income_date', 'amount', 'cash_drawer']);
     }
 
-    public function test_authorized_users_can_update_additional_cash()
+    public function test_posted_additional_cash_cannot_be_updated_or_deleted()
     {
         $admin = User::factory()->create(['role' => 'admin']);
-        $income = AdditionalCash::create([
+        ShiftSession::create([
+            'user_id' => $admin->id,
+            'active_register_key' => ShiftSession::MAIN_REGISTER_KEY,
+            'shift_code' => 'morning',
+            'started_at' => now(),
+            'opening_cash' => 1000,
+            'opening_cash_minibar' => 0,
+        ]);
+        $this->actingAs($admin)->post('/additional-cash', [
             'income_date' => '2026-06-29',
             'amount' => 1200.00,
             'cash_drawer' => 'room',
             'notes' => 'Initial Cash Notes',
-            'recorded_by' => $admin->id,
-        ]);
+        ])->assertRedirect();
+        $income = AdditionalCash::first();
 
-        $response = $this->actingAs($admin)->post("/additional-cash/{$income->id}", [
+        $this->actingAs($admin)->post("/additional-cash/{$income->id}", [
             'income_date' => '2026-06-30',
             'amount' => 1500.00,
             'cash_drawer' => 'minibar',
             'notes' => 'Updated Cash Notes',
-        ]);
+        ])->assertForbidden();
 
-        $response->assertRedirect();
+        $this->actingAs($admin)->delete("/additional-cash/{$income->id}")->assertForbidden();
         $this->assertDatabaseHas('additional_cash', [
             'id' => $income->id,
-            'amount' => 1500.00,
-            'cash_drawer' => 'minibar',
-            'notes' => 'Updated Cash Notes',
-        ]);
-    }
-
-    public function test_authorized_users_can_delete_additional_cash()
-    {
-        $admin = User::factory()->create(['role' => 'admin']);
-        $income = AdditionalCash::create([
-            'income_date' => '2026-06-29',
             'amount' => 1200.00,
-            'notes' => 'To be deleted',
-            'recorded_by' => $admin->id,
-        ]);
-
-        $response = $this->actingAs($admin)->delete("/additional-cash/{$income->id}");
-
-        $response->assertRedirect();
-        $this->assertDatabaseMissing('additional_cash', [
-            'id' => $income->id,
+            'status' => AdditionalCash::STATUS_POSTED,
         ]);
     }
 

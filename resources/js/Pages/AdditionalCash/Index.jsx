@@ -17,10 +17,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import ActionModal from '@/Components/ActionModal';
 import SortableHeader from '@/Components/SortableHeader';
 import Pagination from '@/Components/Pagination';
-import ConfirmModal from '@/Components/ConfirmModal';
+import VoidPostedCashForm, { ClosedPostedCashNotice } from '@/Components/PostedCashVoid';
 import CustomSelect from '@/Components/CustomSelect';
 
-export default function AdditionalCashIndex({ incomes, filters, summary, sortBy, sortDir }) {
+export default function AdditionalCashIndex({ incomes, filters, summary, sortBy, sortDir, is_admin = false }) {
     const { auth } = usePage().props;
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -80,13 +80,6 @@ export default function AdditionalCashIndex({ incomes, filters, summary, sortBy,
         setNotes(inc.notes || '');
         setReceipt(null);
         setIsEditModalOpen(true);
-    };
-
-    const handleDelete = () => {
-        if (confirmDeleteIncome) {
-            router.delete(route('additional-cash.destroy', confirmDeleteIncome.id), { preserveScroll: true });
-            setConfirmDeleteIncome(null);
-        }
     };
 
     const submitAdd = (e) => {
@@ -226,11 +219,14 @@ export default function AdditionalCashIndex({ incomes, filters, summary, sortBy,
                         <table className="w-full text-xs min-w-[850px]">
                             <thead>
                                 <tr className="border-b border-[#334155] bg-[#0f172a]/60">
-                                    <SortableHeader sortKey="income_date" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Date</SortableHeader>
-                                    <SortableHeader sortKey="notes" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Notes / Description</SortableHeader>
+                                    <SortableHeader sortKey="reference" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Reference</SortableHeader>
+                                    <SortableHeader sortKey="created_at" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Date / Time</SortableHeader>
+                                    <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Shift</th>
+                                    <SortableHeader sortKey="notes" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Source / Reason</SortableHeader>
                                     <SortableHeader sortKey="cash_drawer" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Drawer</SortableHeader>
                                     <SortableHeader sortKey="amount" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Amount</SortableHeader>
                                     <SortableHeader sortKey="recorded_by" currentSortBy={sortBy} currentSortDir={sortDir} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Recorded By</SortableHeader>
+                                    <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Status</th>
                                     <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-center">Receipt</th>
                                     <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-right">Actions</th>
                                 </tr>
@@ -238,19 +234,21 @@ export default function AdditionalCashIndex({ incomes, filters, summary, sortBy,
                             <tbody>
                                 {incomes.data.length === 0 ? (
                                     <tr>
-                                        <td colSpan={7} className="px-4 py-12 text-center text-slate-500">
+                                        <td colSpan={10} className="px-4 py-12 text-center text-slate-500">
                                             No additional cash records found matching the criteria.
                                         </td>
                                     </tr>
                                 ) : incomes.data.map((inc, i) => (
                                     <motion.tr key={inc.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}
                                         className="border-b border-[#334155]/50 hover:bg-[#0f172a]/40 transition-colors">
+                                        <td className="px-4 py-3 font-mono text-brand-400 font-bold">{inc.reference || `#${inc.id}`}</td>
                                         <td className="px-4 py-3">
-                                            <span className="font-mono text-brand-400 font-bold block">{new Date(inc.income_date).toLocaleDateString()}</span>
+                                            <span className="font-mono text-brand-400 font-bold block">{inc.created_at_display || inc.income_date}</span>
                                         </td>
+                                        <td className="px-4 py-3">{inc.origin_shift_id ? `#${inc.origin_shift_id}` : 'Legacy'}</td>
                                         <td className="px-4 py-3">
                                             <span className="font-semibold text-slate-200 whitespace-normal min-w-[200px] block">
-                                                {inc.notes || <span className="text-slate-500 italic font-normal">No description</span>}
+                                                {inc.notes || inc.reason || <span className="text-slate-500 italic font-normal">No description</span>}
                                             </span>
                                         </td>
                                         <td className="px-4 py-3">
@@ -267,8 +265,9 @@ export default function AdditionalCashIndex({ incomes, filters, summary, sortBy,
                                             </span>
                                         </td>
                                         <td className="px-4 py-3">
-                                            <span className="text-slate-400 text-[11px]">{inc.user?.full_name || 'Unknown'}</span>
+                                            <span className="text-slate-400 text-[11px]">{inc.user?.full_name || inc.recorded_by_name || 'Unknown'}</span>
                                         </td>
+                                        <td className="px-4 py-3">{inc.status_label || inc.status || 'POSTED'}</td>
                                         <td className="px-4 py-3 text-center">
                                             {inc.receipt_path ? (
                                                 <a href={`/storage/${inc.receipt_path}`} target="_blank" rel="noreferrer"
@@ -363,13 +362,14 @@ export default function AdditionalCashIndex({ incomes, filters, summary, sortBy,
                                         </CustomSelect>
                                     </div>
                                     <div className="flex flex-col gap-1">
-                                        <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Notes / Description</label>
+                                        <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Source / Reason *</label>
                                         <textarea
+                                            required
                                             value={notes}
                                             onChange={e => setNotes(e.target.value)}
                                             rows="3"
                                             className={inputCls}
-                                            placeholder="E.g., Additional Cash Float, Mini-store Cash Injection..."
+                                            placeholder="Admin drawer replenishment, change fund added, recovered operational cash..."
                                         ></textarea>
                                     </div>
                                     <div className="flex flex-col gap-1">
@@ -503,31 +503,34 @@ export default function AdditionalCashIndex({ incomes, filters, summary, sortBy,
             >
                 {actionModalIncome && (
                     <>
-                        <button
-                            onClick={() => { setActionModalIncome(null); openEditModal(actionModalIncome); }}
-                            className="w-full flex items-center gap-2 px-4 py-3 bg-[#1e293b] hover:bg-amber-600/20 border border-[#334155] hover:border-amber-500/40 rounded-xl text-xs font-bold text-amber-400 transition-colors uppercase"
-                        >
-                            <Edit size={16} /> Edit Cash
-                        </button>
-                        <button
-                            onClick={() => { setActionModalIncome(null); setConfirmDeleteIncome(actionModalIncome); }}
-                            className="w-full flex items-center gap-2 px-4 py-3 bg-[#1e293b] hover:bg-rose-900/30 border border-[#334155] hover:border-rose-500/40 rounded-xl text-xs font-bold text-rose-400 transition-colors uppercase"
-                        >
-                            <Trash2 size={16} /> Delete Cash
-                        </button>
+                        <p className="text-[11px] text-slate-400">Posted additional cash cannot be edited or deleted.</p>
+                        {actionModalIncome.can_void && (
+                            <button
+                                onClick={() => { setActionModalIncome(null); setConfirmDeleteIncome(actionModalIncome); }}
+                                className="w-full flex items-center gap-2 px-4 py-3 bg-[#1e293b] border border-[#334155] rounded-xl text-xs font-bold text-rose-400 uppercase"
+                            >
+                                Void erroneous posting
+                            </button>
+                        )}
+                        {actionModalIncome.status === 'POSTED' && (actionModalIncome.posted_shift_closed || (is_admin && !actionModalIncome.can_void)) && (
+                            <ClosedPostedCashNotice postedShiftId={actionModalIncome.posted_shift_id} />
+                        )}
                     </>
                 )}
             </ActionModal>
 
-            <ConfirmModal
-                isOpen={!!confirmDeleteIncome}
-                onClose={() => setConfirmDeleteIncome(null)}
-                onConfirm={handleDelete}
-                title="Delete Cash"
-                message="Are you sure you want to delete this additional cash entry?"
-                confirmText="Delete"
-                isDanger={true}
-            />
+            {confirmDeleteIncome && (
+                <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 px-4">
+                    <div className="w-full max-w-md rounded-2xl bg-[#0f172a] border border-[#334155] p-5">
+                        <VoidPostedCashForm
+                            action={route('additional-cash.void', confirmDeleteIncome.id)}
+                            reference={confirmDeleteIncome.reference}
+                            onCancel={() => setConfirmDeleteIncome(null)}
+                            onSuccess={() => setConfirmDeleteIncome(null)}
+                        />
+                    </div>
+                </div>
+            )}
         </AuthenticatedLayout>
     );
 }

@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\UserRole;
 use App\Models\Booking;
+use App\Models\Expense;
 use App\Models\InventoryChangeRequest;
 use App\Models\InventoryItem;
 use App\Models\MaintenanceTicket;
@@ -48,6 +49,7 @@ class NotificationService
         $upcoming = array_values(array_filter($checkout['items'], fn (array $item) => $item['type'] === 'checkout_upcoming'));
 
         $cashVariance = $housekeeping ? [] : $this->cashVarianceAlerts($user);
+        $expenseAlerts = $housekeeping ? [] : $this->expenseAlerts($user);
 
         // Room Ready / cleaning-finished is not a bell item. Vacant rooms
         // already appear on the Rooms board.
@@ -61,7 +63,8 @@ class NotificationService
                 $maintenance,
                 $inventoryRequests,
                 $inventory,
-                $cashVariance
+                $cashVariance,
+                $expenseAlerts
             );
         }
 
@@ -87,6 +90,7 @@ class NotificationService
                 'critical_maintenance' => count(array_filter($maintenance, fn (array $item) => ($item['priority'] ?? '') === 'critical')),
                 'inventory_requests' => $inventoryRequestCount,
                 'cash_variance' => count($cashVariance),
+                'expense_approvals' => count($expenseAlerts),
             ],
             'items' => $items,
             'role' => $role,
@@ -546,6 +550,107 @@ class NotificationService
                 'action_label' => 'View Details',
                 'action_url' => route('shifts.report', $resolution->shift_session_id),
             ];
+        }
+
+        return $items;
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function expenseAlerts(User $user): array
+    {
+        if (! in_array($user->role, [UserRole::Admin->value, UserRole::FrontDesk->value], true)) {
+            return [];
+        }
+
+        $items = [];
+        $isAdmin = $user->role === UserRole::Admin->value;
+
+        if ($isAdmin) {
+            $pending = Expense::query()
+                ->with(['user:id,full_name', 'category:id,name', 'originShift:id'])
+                ->where('status', Expense::STATUS_PENDING_APPROVAL)
+                ->orderByDesc('created_at')
+                ->limit(20)
+                ->get();
+
+            foreach ($pending as $expense) {
+                $items[] = [
+                    'type' => 'expense_approval_required',
+                    'alert_key' => 'expense-approval-'.$expense->id,
+                    'expense_id' => (int) $expense->id,
+                    'title' => 'EXPENSE APPROVAL REQUIRED',
+                    'message' => 'Reference: '.$expense->reference
+                        ."\nFront Desk: ".($expense->user?->full_name ?? 'Staff')
+                        ."\nAmount: ₱".number_format((float) $expense->amount, 2)
+                        ."\nCategory: ".($expense->category?->name ?? 'Uncategorized')
+                        ."\nShift: #".($expense->shift_session_id ?? '—'),
+                    'action_label' => 'Review Expense',
+                    'action_url' => route('expenses.review', $expense),
+                ];
+            }
+
+            return $items;
+        }
+
+        $pending = Expense::query()
+            ->with(['category:id,name'])
+            ->where('recorded_by', $user->id)
+            ->where('status', Expense::STATUS_PENDING_APPROVAL)
+            ->orderByDesc('created_at')
+            ->limit(10)
+            ->get();
+
+        foreach ($pending as $expense) {
+            $items[] = [
+                'type' => 'expense_awaiting_approval',
+                'alert_key' => 'expense-awaiting-'.$expense->id,
+                'expense_id' => (int) $expense->id,
+                'title' => 'EXPENSE AWAITING APPROVAL',
+                'message' => $expense->reference.' • ₱'.number_format((float) $expense->amount, 2)
+                    ."\nWaiting for Admin approval. Drawer cash is unchanged.",
+                'action_label' => 'View Expense',
+                'action_url' => route('expenses.index'),
+            ];
+        }
+
+        $reviewed = Expense::query()
+            ->with(['reviewer:id,full_name'])
+            ->where('recorded_by', $user->id)
+            ->whereIn('status', [Expense::STATUS_APPROVED, Expense::STATUS_REJECTED, Expense::STATUS_POSTED])
+            ->whereNotNull('reviewed_at')
+            ->where('reviewed_at', '>=', now()->subHours(48))
+            ->orderByDesc('reviewed_at')
+            ->limit(20)
+            ->get();
+
+        foreach ($reviewed as $expense) {
+            if ($expense->status === Expense::STATUS_APPROVED) {
+                $items[] = [
+                    'type' => 'expense_approved',
+                    'alert_key' => 'expense-approved-'.$expense->id,
+                    'expense_id' => (int) $expense->id,
+                    'title' => 'EXPENSE APPROVED',
+                    'message' => $expense->reference.' • ₱'.number_format((float) $expense->amount, 2)
+                        ."\nApproved by ".($expense->reviewer?->full_name ?? 'Admin')
+                        ."\nStill needs MARK PAID / DISBURSED before drawer cash changes.",
+                    'action_label' => 'Mark Paid',
+                    'action_url' => route('expenses.index'),
+                ];
+            } elseif ($expense->status === Expense::STATUS_REJECTED) {
+                $items[] = [
+                    'type' => 'expense_rejected',
+                    'alert_key' => 'expense-rejected-'.$expense->id,
+                    'expense_id' => (int) $expense->id,
+                    'title' => 'EXPENSE REJECTED',
+                    'message' => $expense->reference.' • ₱'.number_format((float) $expense->amount, 2)
+                        ."\nRejected by ".($expense->reviewer?->full_name ?? 'Admin')
+                        .($expense->review_notes ? "\nReason: ".$expense->review_notes : ''),
+                    'action_label' => 'View Expense',
+                    'action_url' => route('expenses.index'),
+                ];
+            }
         }
 
         return $items;

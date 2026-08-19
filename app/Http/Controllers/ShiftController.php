@@ -120,6 +120,9 @@ class ShiftController extends Controller
             'recentShifts' => $recentShifts,
             'pendingVariances' => app(ShiftVarianceResolutionService::class)->pendingSummariesForUser($user),
             'canReviewVariances' => $user->role === 'admin',
+            'unresolvedExpenses' => $activeShift
+                ? app(ShiftCashReconciliationService::class)->unresolvedExpenseCounts($activeShift)
+                : ['pending' => 0, 'approved_unpaid' => 0],
         ]);
     }
 
@@ -343,18 +346,15 @@ class ShiftController extends Controller
         // 1. Transaction lists and summary
         $sales = $this->getShiftSalesSummary($shiftUserId, $start, $end);
 
-        $expenses = Expense::with('user')->where('recorded_by', $shiftUserId)
-            ->whereBetween('created_at', [$start, $end])
-            ->get();
-
-        $incomes = AdditionalCash::with('user')->where('recorded_by', $shiftUserId)
-            ->whereBetween('created_at', [$start, $end])
-            ->get();
+        $reconciliationService = app(ShiftCashReconciliationService::class);
+        $expenses = $reconciliationService->postedExpensesForShift($shift)->load('user');
+        $incomes = $reconciliationService->postedAdditionalCashForShift($shift)->load('user');
+        $unresolvedExpenses = $reconciliationService->unresolvedExpenseCounts($shift);
 
         $expensesSum = (float) $expenses->sum('amount');
         $incomesSum = (float) $incomes->sum('amount');
 
-        $reconciliation = app(ShiftCashReconciliationService::class)->forShift($shift);
+        $reconciliation = $reconciliationService->forShift($shift);
         $expectedDrawerCash = $reconciliation['rooms']['expected_cash'];
         $cashVariance = $reconciliation['rooms']['variance'];
         $expectedDrawerCashMinibar = $reconciliation['minibar']['expected_cash'];
@@ -581,6 +581,7 @@ class ShiftController extends Controller
                     'uses_snapshot' => $reconciliation['uses_snapshot'],
                     'expense_details' => $roomExpenses,
                     'cash_movements' => $cashMovements,
+                    'unresolved_expenses' => $unresolvedExpenses,
                 ],
                 'cash_reconciliation' => $reconciliation,
                 'can_manage_daily_cash' => $shift->ended_at === null
@@ -608,6 +609,7 @@ class ShiftController extends Controller
                 'net_cash' => $netCash,
                 'grand_cash_collection' => $grandCashCollection,
                 'cash_variance_review' => app(ShiftVarianceResolutionService::class)->reviewPayload($shift, $user),
+                'unresolved_expenses' => $unresolvedExpenses,
             ],
         ]);
     }
@@ -677,11 +679,12 @@ class ShiftController extends Controller
 
         // --- Page 2: Daily Cash Tally data ---
 
+        $reconciliationService = app(ShiftCashReconciliationService::class);
+
         // Expenses from room drawer only (for deductions)
-        $roomExpenses = Expense::where('recorded_by', $shiftUserId)
-            ->whereBetween('created_at', [$start, $end])
+        $roomExpenses = $reconciliationService->postedExpensesForShift($shift)
             ->where('cash_drawer', 'room')
-            ->get();
+            ->values();
 
         // Cash movements (withdrawals, cashier transfers) for the room drawer
         $cashMovements = CashMovement::with('recorder:id,full_name')
@@ -691,25 +694,21 @@ class ShiftController extends Controller
             ->get();
 
         // Other cash receipts (incomes from room drawer)
-        $incomes = AdditionalCash::where('recorded_by', $shiftUserId)
-            ->whereBetween('created_at', [$start, $end])
+        $incomes = $reconciliationService->postedAdditionalCashForShift($shift)
             ->where('cash_drawer', 'room')
-            ->get();
+            ->values();
 
-        $minibarExpenses = Expense::where('recorded_by', $shiftUserId)
-            ->whereBetween('created_at', [$start, $end])
+        $minibarExpenses = $reconciliationService->postedExpensesForShift($shift)
             ->where('cash_drawer', 'minibar')
-            ->get();
-        $minibarIncomes = AdditionalCash::where('recorded_by', $shiftUserId)
-            ->whereBetween('created_at', [$start, $end])
+            ->values();
+        $minibarIncomes = $reconciliationService->postedAdditionalCashForShift($shift)
             ->where('cash_drawer', 'minibar')
-            ->get();
+            ->values();
         $minibarCashMovements = CashMovement::with('recorder:id,full_name')
             ->where('shift_session_id', $shift->id)
             ->where('cash_drawer', 'minibar')
             ->orderBy('moved_at')
             ->get();
-        $reconciliationService = app(ShiftCashReconciliationService::class);
         $reconciliation = $reconciliationService->forShift($shift);
         $roomsTally = $reconciliation['rooms'];
         $minibarTally = $reconciliation['minibar'];
@@ -811,6 +810,7 @@ class ShiftController extends Controller
                 'variance_label' => $roomsTally['variance_label'],
                 'formula_version' => $reconciliation['formula_version'],
                 'uses_snapshot' => $reconciliation['uses_snapshot'],
+                'unresolved_expenses' => $reconciliationService->unresolvedExpenseCounts($shift),
                 'opening_denominations' => $openingDenominations,
                 'closing_denominations' => $closingDenominations,
             ],
@@ -892,15 +892,9 @@ class ShiftController extends Controller
             ->orderBy('moved_at')
             ->get();
 
-        $expenses = Expense::where('recorded_by', $shiftUserId)
-            ->whereBetween('created_at', [$start, $end])
-            ->orderBy('created_at')
-            ->get();
-
-        $incomes = AdditionalCash::where('recorded_by', $shiftUserId)
-            ->whereBetween('created_at', [$start, $end])
-            ->orderBy('created_at')
-            ->get();
+        $recon = app(ShiftCashReconciliationService::class);
+        $expenses = $recon->postedExpensesForShift($shift)->sortBy('created_at')->values();
+        $incomes = $recon->postedAdditionalCashForShift($shift)->sortBy('created_at')->values();
 
         $minibarUsage = InventoryUsage::with(['item', 'booking.room'])
             ->where('recorded_by', $shiftUserId)
@@ -1158,13 +1152,27 @@ class ShiftController extends Controller
             }
         }
 
-        $incomes = AdditionalCash::where('recorded_by', $userId)
-            ->whereBetween('created_at', [$start, $end])
-            ->get();
+        $shift = ShiftSession::query()
+            ->where('user_id', $userId)
+            ->where('started_at', '<=', $start)
+            ->where(fn ($q) => $q->whereNull('ended_at')->orWhere('ended_at', '>=', $end))
+            ->orderByDesc('started_at')
+            ->first();
 
-        $expenses = Expense::where('recorded_by', $userId)
-            ->whereBetween('created_at', [$start, $end])
-            ->get();
+        if ($shift) {
+            $recon = app(ShiftCashReconciliationService::class);
+            $incomes = $recon->postedAdditionalCashForShift($shift);
+            $expenses = $recon->postedExpensesForShift($shift);
+        } else {
+            $incomes = AdditionalCash::where('status', AdditionalCash::STATUS_POSTED)
+                ->where('recorded_by', $userId)
+                ->whereBetween('created_at', [$start, $end])
+                ->get();
+            $expenses = Expense::where('status', Expense::STATUS_POSTED)
+                ->where('recorded_by', $userId)
+                ->whereBetween('created_at', [$start, $end])
+                ->get();
+        }
 
         foreach ($incomes as $inc) {
             if ($inc->cash_drawer === 'minibar') {

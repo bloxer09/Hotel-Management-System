@@ -3,6 +3,7 @@
 use App\Http\Controllers\AdditionalCashController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\BookingController;
+use App\Http\Controllers\CashActivityController;
 use App\Http\Controllers\CheckInController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ExpenseController;
@@ -79,6 +80,18 @@ Route::middleware('auth')->group(function () {
         Route::delete('/shifts/{id}/cash-movements/{cashMovement}', [ShiftController::class, 'destroyCashMovement'])->name('shifts.cash_movements.destroy');
     });
 
+    Route::middleware('role:admin')->group(function () {
+        Route::get('/expenses/approvals', [ExpenseController::class, 'approvals'])->name('expenses.approvals');
+        Route::get('/expenses/{expense}/review', [ExpenseController::class, 'show'])->name('expenses.review');
+        Route::post('/expenses/{expense}/approve', [ExpenseController::class, 'approve'])->name('expenses.approve');
+        Route::post('/expenses/{expense}/reject', [ExpenseController::class, 'reject'])->name('expenses.reject');
+        Route::post('/expenses/{expense}/audit-note', [ExpenseController::class, 'annotateClosed'])->name('expenses.audit-note');
+        Route::post('/additional-cash/{income}/audit-note', [AdditionalCashController::class, 'annotateClosed'])->name('additional-cash.audit-note');
+        Route::get('/cash-activity', [CashActivityController::class, 'index'])->name('cash-activity.index');
+        Route::get('/cash-activity/expenses/{expense}', [CashActivityController::class, 'showExpense'])->name('cash-activity.expenses.show');
+        Route::get('/cash-activity/additional-cash/{income}', [CashActivityController::class, 'showAdditionalCash'])->name('cash-activity.additional-cash.show');
+    });
+
     // Operations requiring active shifts
     Route::middleware('active_shift')->group(function () {
 
@@ -105,6 +118,8 @@ Route::middleware('auth')->group(function () {
             Route::post('/expenses', [ExpenseController::class, 'store'])->name('expenses.store');
             Route::post('/expenses/{expense}', [ExpenseController::class, 'update'])->name('expenses.update');
             Route::delete('/expenses/{expense}', [ExpenseController::class, 'destroy'])->name('expenses.destroy');
+            Route::post('/expenses/{expense}/pay', [ExpenseController::class, 'markPaid'])->name('expenses.pay');
+            Route::post('/expenses/{expense}/void', [ExpenseController::class, 'void'])->name('expenses.void');
             Route::get('/expenses-export', [ExpenseController::class, 'export'])->name('expenses.export');
 
             // Additional Cash (requiring active shift)
@@ -112,6 +127,7 @@ Route::middleware('auth')->group(function () {
             Route::post('/additional-cash', [AdditionalCashController::class, 'store'])->name('additional-cash.store');
             Route::post('/additional-cash/{income}', [AdditionalCashController::class, 'update'])->name('additional-cash.update');
             Route::delete('/additional-cash/{income}', [AdditionalCashController::class, 'destroy'])->name('additional-cash.destroy');
+            Route::post('/additional-cash/{income}/void', [AdditionalCashController::class, 'void'])->name('additional-cash.void');
             Route::get('/additional-cash-export', [AdditionalCashController::class, 'export'])->name('additional-cash.export');
         });
 
