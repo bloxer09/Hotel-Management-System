@@ -177,7 +177,7 @@ class RoleBasedNotificationTest extends TestCase
         $this->assertStringContainsString('turnover cleaning', $alert['message']);
     }
 
-    public function test_room_ready_after_cleaning_notifies_front_desk_and_admin(): void
+    public function test_room_ready_after_cleaning_does_not_appear_in_the_bell(): void
     {
         $room = $this->makeRoom(['status' => 'vacant', 'room_number' => '05']);
         AuditLog::create([
@@ -190,12 +190,26 @@ class RoleBasedNotificationTest extends TestCase
             'reason' => 'Room 05 cleaned',
         ]);
 
-        foreach (['admin', 'front_desk'] as $role) {
-            $alert = $this->firstType($this->notifyAs($role), 'cleaning_finished');
-            $this->assertNotNull($alert);
-            $this->assertSame('Room Ready', $alert['title']);
-            $this->assertStringContainsString('ready for check-in', $alert['message']);
+        foreach (['admin', 'front_desk', 'housekeeping'] as $role) {
+            $payload = $this->actingAs($this->user($role))
+                ->getJson(route('api.notifications'))
+                ->assertOk()
+                ->json();
+            $this->assertNull($this->firstType($payload['items'], 'cleaning_finished'));
+            $this->assertSame(0, $payload['counts']['cleaning_finished']);
+            $this->assertSame(0, $payload['counts']['rooms_attention']);
+            $encoded = json_encode($payload['items']);
+            $this->assertStringNotContainsString('Room Ready', $encoded);
+            $this->assertStringNotContainsString('ready for check-in', $encoded);
+            $this->assertStringNotContainsString('Cleaning Completed', $encoded);
         }
+
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'ROOM_STATUS_CHANGE',
+            'record_id' => $room->id,
+            'old_value' => 'cleaning',
+            'new_value' => 'vacant',
+        ]);
     }
 
     public function test_alert_keys_stay_stable_across_polls_and_upcoming_transitions_once_to_overdue(): void

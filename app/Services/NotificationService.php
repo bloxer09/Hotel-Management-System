@@ -12,7 +12,6 @@ use App\Models\ShiftSession;
 use App\Models\ShiftVarianceResolution;
 use App\Models\User;
 use App\Support\HotelDateTime;
-use Illuminate\Support\Facades\DB;
 
 class NotificationService
 {
@@ -37,7 +36,6 @@ class NotificationService
 
         $checkout = $this->checkoutAlerts($now, $minutesAhead, $housekeeping);
         $cleaningRequired = $this->cleaningRequiredAlerts($housekeeping);
-        $cleaningFinished = $this->cleaningFinishedAlerts($housekeeping);
         $maintenance = $this->maintenanceAlerts();
         $inventory = $housekeeping ? [] : $this->inventoryAlerts();
         $inventoryRequestResult = $housekeeping
@@ -51,20 +49,23 @@ class NotificationService
 
         $cashVariance = $housekeeping ? [] : $this->cashVarianceAlerts($user);
 
+        // Room Ready / cleaning-finished is not a bell item. Vacant rooms
+        // already appear on the Rooms board.
         if ($housekeeping) {
-            $items = array_merge($overdue, $upcoming, $cleaningRequired, $maintenance, $cleaningFinished);
+            $items = array_merge($overdue, $upcoming, $cleaningRequired, $maintenance);
         } else {
             $items = array_merge(
                 $overdue,
                 $upcoming,
                 $cleaningRequired,
-                $cleaningFinished,
                 $maintenance,
                 $inventoryRequests,
                 $inventory,
                 $cashVariance
             );
         }
+
+        $roomsAttentionCount = $this->uniqueAttentionRoomCount($overdue, $upcoming, $cleaningRequired);
 
         $outOfStockCount = count(array_filter($inventory, fn (array $item) => $item['type'] === 'out_of_stock'));
 
@@ -80,7 +81,8 @@ class NotificationService
                 'inventory' => count($inventory),
                 'out_of_stock' => $outOfStockCount,
                 'cleaning_required' => count($cleaningRequired),
-                'cleaning_finished' => count($cleaningFinished),
+                'cleaning_finished' => 0,
+                'rooms_attention' => $roomsAttentionCount,
                 'maintenance' => count($maintenance),
                 'critical_maintenance' => count(array_filter($maintenance, fn (array $item) => ($item['priority'] ?? '') === 'critical')),
                 'inventory_requests' => $inventoryRequestCount,
@@ -304,45 +306,25 @@ class NotificationService
     }
 
     /**
-     * @return list<array<string, mixed>>
+     * Unique rooms that currently need operational attention.
+     * Cleaning, upcoming checkout, and overdue checkout each count a room once.
+     * Maintenance is excluded (it has its own sidebar badge).
+     *
+     * @param  list<array<string, mixed>>  $overdue
+     * @param  list<array<string, mixed>>  $upcoming
+     * @param  list<array<string, mixed>>  $cleaningRequired
      */
-    private function cleaningFinishedAlerts(bool $housekeeping): array
+    private function uniqueAttentionRoomCount(array $overdue, array $upcoming, array $cleaningRequired): int
     {
-        $logs = DB::table('audit_logs')
-            ->where('action', 'ROOM_STATUS_CHANGE')
-            ->where('created_at', '>=', now()->subHours(24))
-            ->where('old_value', 'cleaning')
-            ->where('new_value', 'vacant')
-            ->orderByDesc('id')
-            ->limit(10)
-            ->get();
-
-        $roomIds = $logs->pluck('record_id')->filter()->unique()->all();
-        $rooms = $roomIds === []
-            ? collect()
-            : Room::query()->whereIn('id', $roomIds)->get(['id', 'room_number'])->keyBy('id');
-
-        $items = [];
-        foreach ($logs as $log) {
-            $room = $rooms->get($log->record_id);
-            $roomNumber = $room?->room_number ?? '?';
-            $items[] = [
-                'type' => 'cleaning_finished',
-                'alert_key' => 'cleaning-'.$log->id,
-                'log_id' => (int) $log->id,
-                'room_id' => $log->record_id ? (int) $log->record_id : null,
-                'room_number' => $roomNumber,
-                'title' => $housekeeping ? 'Cleaning Completed' : 'Room Ready',
-                'message' => $housekeeping
-                    ? "Room {$roomNumber} cleaning is complete."
-                    : "Room {$roomNumber} is ready for check-in.",
-                'cleaned_at' => $log->created_at,
-                'action_label' => 'View Rooms',
-                'action_url' => route('rooms.index'),
-            ];
+        $roomIds = [];
+        foreach (array_merge($overdue, $upcoming, $cleaningRequired) as $item) {
+            $roomId = (int) ($item['room_id'] ?? 0);
+            if ($roomId > 0) {
+                $roomIds[$roomId] = true;
+            }
         }
 
-        return $items;
+        return count($roomIds);
     }
 
     /**

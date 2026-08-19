@@ -74,14 +74,6 @@ const ALERT_TOAST_STYLES = {
         iconBgClass: 'bg-sky-500/20',
         barColorClass: 'bg-sky-400',
     },
-    cleaning_finished: {
-        title: 'Room Ready',
-        Icon: CheckCircle2,
-        colorClass: 'bg-emerald-950/90 border-emerald-500/50 text-emerald-100 shadow-emerald-950/40',
-        iconColorClass: 'text-emerald-400',
-        iconBgClass: 'bg-emerald-500/20',
-        barColorClass: 'bg-emerald-400',
-    },
     out_of_stock: {
         title: 'Out of Stock',
         Icon: ShoppingCart,
@@ -400,7 +392,6 @@ export default function AuthenticatedLayout({ children }) {
     const upcomingCheckoutAlerts = notifications.filter(n => n.type === 'checkout_upcoming' || (n.type === 'checkout' && n.state !== 'overdue'));
     const checkoutAlerts = [...overdueCheckoutAlerts, ...upcomingCheckoutAlerts];
     const cleaningRequiredAlerts = notifications.filter(n => n.type === 'cleaning_required');
-    const cleaningAlerts = notifications.filter(n => n.type === 'cleaning_finished');
     const maintenanceAlerts = notifications.filter(n => n.type === 'maintenance');
     const inventoryRequestAlerts = notifications.filter(n => n.type === 'inventory_request');
     const inventoryAlerts = notifications.filter(n => n.type === 'out_of_stock' || n.type === 'low_stock' || n.type === 'inventory');
@@ -414,7 +405,15 @@ export default function AuthenticatedLayout({ children }) {
     // Helper mapping sidebar items to active alert counts
     const getSidebarBadgeCount = (itemName) => {
         if (itemName === 'Rooms') {
-            return checkoutAlerts.length + cleaningRequiredAlerts.length + cleaningAlerts.length;
+            if (typeof notifCounts.rooms_attention === 'number') {
+                return notifCounts.rooms_attention;
+            }
+            const uniqueRoomIds = new Set(
+                [...checkoutAlerts, ...cleaningRequiredAlerts]
+                    .map(item => item.room_id)
+                    .filter(Boolean)
+            );
+            return uniqueRoomIds.size;
         }
         if (itemName === 'Inventory') {
             return inventoryAlerts.length;
@@ -903,25 +902,6 @@ export default function AuthenticatedLayout({ children }) {
                                                         </div>
                                                         <span className="shrink-0 text-[9px] font-black px-1.5 py-0.5 rounded border uppercase bg-sky-950/60 border-sky-500/40 text-sky-300">
                                                             Clean
-                                                        </span>
-                                                    </Link>
-                                                ))}
-
-                                                {/* Room ready / cleaning complete */}
-                                                {cleaningAlerts.map(item => (
-                                                    <Link
-                                                        key={item.alert_key}
-                                                        href={item.action_url || route('rooms.index')}
-                                                        onClick={() => setIsBellOpen(false)}
-                                                        className="flex items-start gap-3 px-4 py-3 hover:bg-[#334155]/40 transition-colors border-b border-[#334155]/30 last:border-b-0"
-                                                    >
-                                                        <div className="shrink-0 mt-0.5 h-2.5 w-2.5 rounded-full bg-emerald-500" />
-                                                        <div className="flex-1 min-w-0">
-                                                            <div className="text-xs font-bold text-slate-200">{item.title || `Room ${item.room_number} Ready`}</div>
-                                                            <div className="text-[11px] text-slate-400 leading-relaxed mt-0.5">{item.message}</div>
-                                                        </div>
-                                                        <span className="shrink-0 text-[9px] font-black px-1.5 py-0.5 rounded border uppercase bg-emerald-950/60 border-emerald-500/40 text-emerald-300">
-                                                            Ready
                                                         </span>
                                                     </Link>
                                                 ))}

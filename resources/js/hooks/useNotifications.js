@@ -33,7 +33,7 @@ function persistSeenKeys(keys) {
  */
 export function useNotifications({ enabled = true, chime, cashVarianceBanner: pageBanner = null, pageUrl = '' }) {
     const [notifications, setNotifications] = useState([]);
-    const [counts, setCounts] = useState({ total: 0, checkout: 0, inventory: 0, overdue: 0, out_of_stock: 0 });
+    const [counts, setCounts] = useState({ total: 0, checkout: 0, inventory: 0, overdue: 0, out_of_stock: 0, rooms_attention: 0 });
     const [alertToasts, setAlertToasts] = useState([]);
     const [polledBanner, setPolledBanner] = useState(undefined);
     const seenKeysRef = useRef(null);
@@ -74,9 +74,10 @@ export function useNotifications({ enabled = true, chime, cashVarianceBanner: pa
                 persistSeenKeys(seenKeysRef.current);
             }
 
-            const toastables = initializedRef.current
+            const toastables = (initializedRef.current
                 ? newItems
-                : newItems.filter(item => TIME_SENSITIVE_TYPES.has(item.type) || item.type === 'checkout');
+                : newItems.filter(item => TIME_SENSITIVE_TYPES.has(item.type) || item.type === 'checkout')
+            ).filter(item => item.type !== 'cleaning_finished');
 
             if (toastables.length > 0) {
                 chime?.();
