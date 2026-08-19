@@ -104,7 +104,7 @@ class BackfillPaymentLedger extends Command
             [[$commit ? 'COMMIT' : 'DRY RUN', count($rows), $created, $skipped]]
         );
         $this->line($commit
-            ? 'Backfill completed. Review pending payments in Front Desk Payments before verification.'
+            ? 'Backfill completed. Review pending payments in Payments & Verification before verification.'
             : 'No records were changed. Re-run with --commit only after reviewing the output and taking a database backup.');
 
         return self::SUCCESS;

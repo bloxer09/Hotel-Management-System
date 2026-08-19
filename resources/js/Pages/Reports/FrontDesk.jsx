@@ -2,19 +2,15 @@ import React, { useState } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { BadgeCheck, Banknote, CalendarDays, Clock3, FileCheck2, RotateCcw } from 'lucide-react';
+import { PaymentVerificationModals, paymentMethodLabel, formatPaymentMoney } from '@/Components/PaymentVerificationActions';
 
-const money = (value) => `₱${Number(value || 0).toLocaleString('en-PH', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-})}`;
+const money = formatPaymentMoney;
 
 const dateTime = (value) => value
     ? new Date(value).toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' })
     : '—';
 
-const methodLabel = (value) => String(value || '')
-    .replaceAll('_', ' ')
-    .replace(/\b\w/g, char => char.toUpperCase());
+const methodLabel = paymentMethodLabel;
 
 export default function FrontDesk({
     filters,
@@ -30,25 +26,13 @@ export default function FrontDesk({
     const canVerify = ['admin', 'front_desk'].includes(auth?.user?.role);
     const [activeTab, setActiveTab] = useState('collections');
     const [form, setForm] = useState(filters);
+    const [verifyPayment, setVerifyPayment] = useState(null);
+    const [rejectPayment, setRejectPayment] = useState(null);
 
     const applyFilters = () => {
         router.get(route('reports.front_desk'), form, { preserveState: true, preserveScroll: true });
     };
 
-    const verify = payment => {
-        let reference = payment.reference_number;
-        if (!reference) {
-            reference = window.prompt(`Reference number required for ${payment.receipt_number}:`);
-            if (!reference?.trim()) return;
-        }
-        router.post(route('payments.verify', payment.id), { reference_number: reference }, { preserveScroll: true });
-    };
-    const reject = payment => {
-        const reason = window.prompt(`Reason for rejecting ${payment.receipt_number}:`);
-        if (reason?.trim()) {
-            router.post(route('payments.reject', payment.id), { reason }, { preserveScroll: true });
-        }
-    };
     const refund = payment => {
         const amount = window.prompt(`Refund amount for ${payment.receipt_number}:`, payment.amount);
         if (!amount) return;
@@ -62,14 +46,15 @@ export default function FrontDesk({
 
     return (
         <AuthenticatedLayout>
-            <Head title="Front Desk Payments" />
+            <Head title="Payments & Verification" />
 
             <div className="space-y-5 p-4 sm:p-6">
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                     <div>
-                        <h1 className="font-outfit text-2xl font-extrabold text-slate-100">Front Desk Payments</h1>
+                        <h1 className="font-outfit text-2xl font-extrabold text-slate-100">Payments & Verification</h1>
                         <p className="mt-1 text-xs text-slate-400">
-                            Collections are dated by actual payment receipt, never by guest check-in.
+                            Centralized payment ledger, collections monitoring, and pending digital verification queue.
+                            Verify individual payments from Booking / Stay Details, or process several here.
                         </p>
                     </div>
                     <Link href={route('reports.index')} className="text-xs font-bold text-brand-400 hover:text-brand-300">
@@ -259,12 +244,22 @@ export default function FrontDesk({
                                     <div className="text-slate-300">{payment.payer_name}<div className="capitalize text-slate-500">{methodLabel(payment.payment_method)} · {payment.reference_number || 'No reference'}</div></div>
                                     <div className="font-mono font-bold text-amber-400">{money(payment.amount)}<div className="font-sans font-normal text-slate-500">Recorded by {payment.recorded_by}</div></div>
                                 </div>
-                                {canVerify && (
-                                    <div className="flex gap-2">
-                                        <button type="button" onClick={() => verify(payment)} className="rounded-lg bg-emerald-600 px-3 py-2 text-[10px] font-bold text-white">Verify</button>
-                                        <button type="button" onClick={() => reject(payment)} className="rounded-lg bg-rose-600 px-3 py-2 text-[10px] font-bold text-white">Reject</button>
-                                    </div>
-                                )}
+                                <div className="flex flex-wrap gap-2">
+                                    {payment.first_booking_id && (
+                                        <Link
+                                            href={route('bookings.show', payment.first_booking_id)}
+                                            className="rounded-lg border border-[#334155] bg-[#0f172a] px-3 py-2 text-[10px] font-bold text-slate-200 hover:border-brand-400 hover:text-brand-300"
+                                        >
+                                            View Booking
+                                        </Link>
+                                    )}
+                                    {canVerify && (
+                                        <>
+                                            <button type="button" onClick={() => setVerifyPayment(payment)} className="rounded-lg bg-emerald-600 px-3 py-2 text-[10px] font-bold text-white">Verify</button>
+                                            <button type="button" onClick={() => setRejectPayment(payment)} className="rounded-lg bg-rose-600 px-3 py-2 text-[10px] font-bold text-white">Reject</button>
+                                        </>
+                                    )}
+                                </div>
                             </div>
                         ))}
                         {!pendingPayments.length && (
@@ -275,6 +270,18 @@ export default function FrontDesk({
                     </div>
                 )}
             </div>
+            <PaymentVerificationModals
+                verifyPayment={verifyPayment}
+                rejectPayment={rejectPayment}
+                booking={verifyPayment || rejectPayment ? {
+                    booking_ref: (verifyPayment || rejectPayment)?.booking_refs,
+                    guest_name: (verifyPayment || rejectPayment)?.guest_names,
+                } : null}
+                onClose={() => {
+                    setVerifyPayment(null);
+                    setRejectPayment(null);
+                }}
+            />
         </AuthenticatedLayout>
     );
 }

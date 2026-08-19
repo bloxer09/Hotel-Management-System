@@ -1488,7 +1488,7 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
                                                 )}
                                                 {data.payment_method !== 'cash' && (
                                                     <div className="sm:col-span-2 rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-2.5 text-[10px] text-amber-300">
-                                                        Digital payments remain pending until verified in Front Desk Payments.
+                                                        Digital payment recorded as pending. Verify it from this booking or the Verification Queue.
                                                     </div>
                                                 )}
                                             </div>
@@ -1698,8 +1698,8 @@ export default function Index({ reservations, groupBookings = {}, currentFilter,
                                         <div>
                                             <span className="font-bold text-amber-400 block font-outfit uppercase text-[10px] tracking-wide">Payment Pending Verification</span>
                                             A payment of ₱{selectedPendingPayment.toLocaleString(undefined, { minimumFractionDigits: 2 })} is already pending.
-                                            Verify or reject it in Front Desk Payments before checking in.
-                                            <Link href={route('reports.front_desk')} className="mt-2 block font-bold text-brand-400 hover:text-brand-300">Open verification queue →</Link>
+                                            Pending digital payment must be verified before check-in can continue.
+                                            <Link href={route('bookings.show', selectedCheckInRes.id)} className="mt-2 block font-bold text-brand-400 hover:text-brand-300">Review this booking →</Link>
                                         </div>
                                     </div>
                                 )}

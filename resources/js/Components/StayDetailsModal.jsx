@@ -14,6 +14,7 @@ import ReceiptModal from '@/Components/ReceiptModal';
 import CustomSelect from '@/Components/CustomSelect';
 import axios from 'axios';
 import { formatHotelDateTime } from '@/Utils/datetime';
+import PaymentLedgerPanel from '@/Components/PaymentVerificationActions';
 
 export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode = 'checkin' }) {
     const { auth } = usePage().props;
@@ -392,6 +393,16 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
                                                     </div>
                                                 </div>
 
+                                                {/* Card: Payment Ledger */}
+                                                <div className="p-5 rounded-xl bg-[#0f172a]/20 border border-[#334155]/60 shadow">
+                                                    <h3 className="text-sm font-outfit font-black text-slate-200 border-b border-[#334155]/50 pb-2 mb-3">Payment Ledger</h3>
+                                                    <PaymentLedgerPanel
+                                                        booking={booking}
+                                                        compact
+                                                        onSuccess={() => loadDetails()}
+                                                    />
+                                                </div>
+
                                                 {/* Card: Payment History timeline */}
                                                 <div className="p-5 rounded-xl bg-[#0f172a]/20 border border-[#334155]/60 shadow">
                                                     <h3 className="text-sm font-outfit font-black text-slate-200 border-b border-[#334155]/50 pb-2 mb-3">Audited Transactions Logs</h3>
@@ -473,8 +484,20 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
                                                         <div className="h-px bg-[#334155]/50 my-1" />
 
                                                         <div className="flex justify-between">
-                                                            <span className="text-slate-400 font-medium">Deposit / Initial Payments:</span>
+                                                            <span className="text-slate-400 font-medium">Booking Total</span>
+                                                            <span className="font-mono text-slate-200 font-bold">₱{Number(booking.total_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                                        </div>
+                                                        <div className="flex justify-between">
+                                                            <span className="text-slate-400 font-medium">Verified Payments</span>
                                                             <span className="font-mono text-emerald-400 font-bold">₱{booking.amount_paid.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                                        </div>
+                                                        <div className="flex justify-between">
+                                                            <span className="text-slate-400 font-medium">Pending Verification</span>
+                                                            <span className="font-mono text-amber-300 font-bold">₱{Number(booking.pending_payment_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                                        </div>
+                                                        <div className="flex justify-between">
+                                                            <span className="text-slate-400 font-medium">Outstanding Verified Balance</span>
+                                                            <span className="font-mono text-rose-300 font-bold">₱{Number(booking.outstanding_verified_balance ?? Math.max(0, Number(booking.total_amount || 0) - Number(booking.amount_paid || 0))).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                                         </div>
 
                                                         {/* Active Checkout Balances - ONLY rendered if in active check-in operational viewMode */}

@@ -196,6 +196,8 @@ class FrontDeskReportController extends Controller
 
         return [
             'id' => $payment->id,
+            'booking_ids' => $bookings->pluck('id')->values(),
+            'first_booking_id' => $first?->id,
             'received_at' => $payment->received_at,
             'date_booked' => $bookings->min('created_at'),
             'receipt_number' => $payment->receipt_number,
@@ -210,6 +212,7 @@ class FrontDeskReportController extends Controller
             'num_nights' => $first?->num_nights,
             'rooms' => $bookings->map(fn ($b) => trim(($b->room?->type?->type_name ?: '').' '.($b->room?->room_number ?: '')))->join(', '),
             'payment_method' => $payment->payment_method_code,
+            'payment_method_code' => $payment->payment_method_code,
             'components' => $payment->components,
             'reference_number' => $payment->reference_number,
             'payment_type' => $payment->payment_type,

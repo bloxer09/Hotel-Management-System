@@ -28,6 +28,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import ReceiptModal from '@/Components/ReceiptModal';
 import CustomSelect from '@/Components/CustomSelect';
 import { formatHotelDateTime } from '@/Utils/datetime';
+import PaymentLedgerPanel from '@/Components/PaymentVerificationActions';
 
 export default function Show({ booking, vacantRooms = [], inventoryUsages, inventoryItems, calculations }) {
     const { auth } = usePage().props;
@@ -376,7 +377,7 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
                         {/* Payment Details */}
                         <div className="p-6 rounded-2xl bg-[#1e293b] border border-[#334155] shadow-xl">
                             <div className="mb-5 flex items-center justify-between border-b border-[#334155] pb-3">
-                                <h2 className="text-lg font-outfit font-bold text-slate-200">Payment Details</h2>
+                                <h2 className="text-lg font-outfit font-bold text-slate-200">Payment Ledger</h2>
                                 {!['cancelled', 'no_show', 'checked_out'].includes(booking.status) && (
                                     <button type="button" onClick={() => setActiveModal('payment')}
                                         className="rounded-lg bg-brand-600 px-3 py-2 text-[10px] font-bold uppercase text-white hover:bg-brand-500">
@@ -385,24 +386,10 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
                                 )}
                             </div>
 
-                            {booking.payments?.length > 0 && (
-                                <div className="mb-4 grid gap-2">
-                                    {booking.payments.map(payment => (
-                                        <div key={payment.id} className="flex flex-col justify-between gap-2 rounded-xl border border-[#334155] bg-[#0f172a]/50 p-3 text-xs sm:flex-row sm:items-center">
-                                            <div>
-                                                <div className="font-mono font-bold text-brand-400">{payment.receipt_number}</div>
-                                                <div className="capitalize text-slate-500">{payment.payment_type} · {String(payment.payment_method_code).replaceAll('_', ' ')}</div>
-                                            </div>
-                                            <div className="text-right">
-                                                <div className="font-mono font-bold text-slate-200">₱{Number(payment.pivot?.allocated_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
-                                                <div className={`text-[10px] font-bold uppercase ${payment.status === 'verified' ? 'text-emerald-400' : 'text-amber-400'}`}>{payment.status}</div>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
+                            <PaymentLedgerPanel booking={booking} />
 
-                            <div className="space-y-4">
+                            <div className="mt-5 space-y-4 border-t border-[#334155] pt-4">
+                                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">Audited Transaction Logs</h3>
                                 {booking.transactions && booking.transactions.length > 0 ? (
                                     booking.transactions.map((txn, idx) => (
                                         <div key={txn.id} className="p-4 rounded-xl bg-[#0f172a]/25 border border-[#334155] text-xs flex gap-4">
@@ -475,8 +462,20 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
                                 <div className="h-px bg-[#334155] my-2" />
 
                                 <div className="flex justify-between">
-                                    <span className="text-slate-400 font-medium">Initial Paid Collections:</span>
+                                    <span className="text-slate-400 font-medium">Booking Total</span>
+                                    <span className="font-mono text-slate-100 font-bold">₱{Number(booking.total_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-slate-400 font-medium">Verified Payments</span>
                                     <span className="font-mono text-emerald-400 font-bold">₱{booking.amount_paid.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-slate-400 font-medium">Pending Verification</span>
+                                    <span className="font-mono text-amber-300 font-bold">₱{Number(booking.pending_payment_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-slate-400 font-medium">Outstanding Verified Balance</span>
+                                    <span className="font-mono text-rose-300 font-bold">₱{Number(booking.outstanding_verified_balance ?? Math.max(0, Number(booking.total_amount || 0) - Number(booking.amount_paid || 0))).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                 </div>
 
                                 {/* Active checkout due calculations */}
@@ -782,7 +781,7 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
                         <div className="mb-5 flex items-center justify-between border-b border-[#334155] pb-3">
                             <div>
                                 <h3 className="font-outfit font-extrabold">Record Additional Payment</h3>
-                                <p className="text-[10px] text-slate-500">Electronic payments remain pending until verified.</p>
+                                <p className="text-[10px] text-slate-500">Digital payment recorded as pending. Verify it from this booking or the Verification Queue.</p>
                             </div>
                             <button type="button" onClick={() => setActiveModal(null)} className="rounded bg-[#0f172a] p-1 text-slate-400"><X size={14} /></button>
                         </div>

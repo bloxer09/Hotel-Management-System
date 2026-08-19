@@ -326,7 +326,7 @@ export default function AuthenticatedLayout({ children }) {
             current: route().current('reports.index')
         },
         {
-            name: 'Front Desk Payments',
+            name: 'Payments & Verification',
             icon: Coins,
             href: route('reports.front_desk'),
             roles: ['admin', 'front_desk'],

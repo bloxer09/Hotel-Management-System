@@ -58,6 +58,14 @@ class BookingController extends Controller
 
         $additionalDue = $lateFee + $unpaidInventorySum;
         $totalEstimatedBill = $booking->total_amount + $additionalDue;
+        $pendingPaymentAmount = round((float) $booking->payments
+            ->where('status', 'pending')
+            ->sum(fn ($payment) => (float) ($payment->pivot->allocated_amount ?? $payment->amount)), 2);
+        $booking->setAttribute('pending_payment_amount', $pendingPaymentAmount);
+        $booking->setAttribute(
+            'outstanding_verified_balance',
+            round(max(0, (float) $booking->total_amount - (float) $booking->amount_paid), 2)
+        );
 
         $vacantRooms = Room::with('type')
             ->where('status', 'vacant')

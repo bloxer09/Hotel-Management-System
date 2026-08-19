@@ -814,7 +814,7 @@ class ReservationController extends Controller
 
             return redirect()->route('reservations.index')->with(
                 'warning',
-                "Payment {$result['payment']->receipt_number} is pending verification. Verify it in Front Desk Payments, then check in the guest."
+                "Payment {$result['payment']->receipt_number} is pending verification. Verify it from this booking or the Verification Queue."
             );
         } catch (\Throwable $e) {
             return back()->with('error', $e->getMessage());

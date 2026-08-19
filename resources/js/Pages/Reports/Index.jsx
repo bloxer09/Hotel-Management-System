@@ -191,7 +191,7 @@ export default function Index({ dateFrom, dateTo, summary, byCashier, byRoomType
                             <p className="mt-1 text-[10px] text-slate-500">Collections use payment-received date. Revenue uses the stay/check-in period.</p>
                         </div>
                         <button type="button" onClick={() => router.visit(route('reports.front_desk'))} className="text-xs font-bold text-brand-400 hover:text-brand-300">
-                            Open Front Desk Payment Report
+                            Open Payments & Verification
                         </button>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:grid-cols-5">
