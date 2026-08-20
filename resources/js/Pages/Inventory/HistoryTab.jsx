@@ -13,6 +13,7 @@ const typeOptions = [
     { id: 'pos_sale', name: 'POS Sale' },
     { id: 'booking_usage', name: 'Booking Usage' },
     { id: 'booking_reversal', name: 'Booking Reversal' },
+    { id: 'complimentary_amenity', name: 'Complimentary Amenity' },
 ];
 
 const statusBadge = (status) => {
@@ -38,6 +39,7 @@ const typeLabel = (type) => ({
     pos_sale: 'POS Sale',
     booking_usage: 'Booking Usage',
     booking_reversal: 'Booking Reversal',
+    complimentary_amenity: 'Complimentary Amenity',
 }[type] || type);
 
 const quantityClass = (row) => {
@@ -147,10 +149,12 @@ export default function HistoryTab({ history, historyItems, historyUsers, histor
                                 <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase">Date / Time</th>
                                 <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase">Item</th>
                                 <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase">Type</th>
+                                <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase">Context</th>
                                 <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase">Qty Change</th>
                                 <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase">Before</th>
                                 <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase">After</th>
                                 <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase">Status</th>
+                                <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase">Reference / Room / Stay</th>
                                 <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase">Reason</th>
                                 <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase">Requested By</th>
                                 <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase">Reviewed / Performed</th>
@@ -164,6 +168,7 @@ export default function HistoryTab({ history, historyItems, historyUsers, histor
                                     <td className="px-4 py-3 text-[11px] font-mono text-brand-400 font-bold whitespace-nowrap">{row.occurred_at_manila}</td>
                                     <td className="px-4 py-3 text-xs font-bold text-slate-100">{row.item_name}</td>
                                     <td className="px-4 py-3 text-[11px] text-slate-300">{typeLabel(row.type_key)}</td>
+                                    <td className="px-4 py-3 text-[11px] text-slate-400 whitespace-nowrap">{row.issue_context_label || '—'}</td>
                                     <td className={`px-4 py-3 font-mono text-xs font-bold ${quantityClass(row)}`}>
                                         {quantityLabel(row)}
                                     </td>
@@ -174,6 +179,15 @@ export default function HistoryTab({ history, historyItems, historyUsers, histor
                                             {row.request_status}
                                         </span>
                                     </td>
+                                    <td className="px-4 py-3 text-[11px] text-slate-400">
+                                        {row.issue_reference || row.room_number || row.booking_ref ? (
+                                            <div className="flex flex-col gap-0.5">
+                                                {row.issue_reference && <span className="font-mono text-emerald-300">{row.issue_reference}</span>}
+                                                {row.room_number && <span>Room {row.room_number}</span>}
+                                                {row.booking_ref && <span className="font-mono">{row.booking_ref}</span>}
+                                            </div>
+                                        ) : '—'}
+                                    </td>
                                     <td className="px-4 py-3 text-[11px] text-slate-400 max-w-[180px]">{row.reason || '—'}</td>
                                     <td className="px-4 py-3 text-[11px] text-slate-400">{row.requested_by_name || '—'}</td>
                                     <td className="px-4 py-3 text-[11px] text-slate-400">{row.actor_name || row.performed_by_name || '—'}</td>
@@ -182,7 +196,7 @@ export default function HistoryTab({ history, historyItems, historyUsers, histor
                                 </tr>
                             )) : (
                                 <tr>
-                                    <td colSpan={12} className="py-16 text-center text-slate-500">
+                                    <td colSpan={14} className="py-16 text-center text-slate-500">
                                         <div className="flex flex-col items-center gap-3">
                                             <HistoryIcon size={32} className="opacity-20" />
                                             <span>No inventory history found.</span>

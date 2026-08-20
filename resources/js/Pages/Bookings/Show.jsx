@@ -22,7 +22,8 @@ import {
     X,
     ClipboardCheck,
     Shuffle,
-    TrendingUp
+    TrendingUp,
+    Sparkles
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReceiptModal from '@/Components/ReceiptModal';
@@ -30,7 +31,7 @@ import CustomSelect from '@/Components/CustomSelect';
 import { formatHotelDateTime } from '@/Utils/datetime';
 import PaymentLedgerPanel from '@/Components/PaymentVerificationActions';
 
-export default function Show({ booking, vacantRooms = [], inventoryUsages, inventoryItems, calculations }) {
+export default function Show({ booking, vacantRooms = [], inventoryUsages, inventoryItems, calculations, amenityIssuance = { stay_key: null, policies: [], initial_issued_item_ids: [], issues: [] } }) {
     const { auth } = usePage().props;
     const user = auth.user;
 
@@ -53,6 +54,25 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
         quantity: 1,
         notes: ''
     });
+
+    const amenityForm = useForm({
+        issue_context: 'initial',
+        items: [],
+        idempotency_key: '',
+        notes: '',
+    });
+    const remainingInitialPolicies = (amenityIssuance.policies || []).filter(
+        (policy) => !(amenityIssuance.initial_issued_item_ids || []).includes(policy.inventory_item_id)
+    );
+    const [amenityContext, setAmenityContext] = useState(remainingInitialPolicies.length > 0 ? 'initial' : 'refill');
+    const [amenityChecked, setAmenityChecked] = useState(() => {
+        const next = {};
+        (remainingInitialPolicies.length > 0 ? remainingInitialPolicies : (amenityIssuance.policies || [])).forEach((policy) => {
+            next[policy.inventory_item_id] = remainingInitialPolicies.length > 0;
+        });
+        return next;
+    });
+    const amenityActionPolicies = amenityContext === 'initial' ? remainingInitialPolicies : (amenityIssuance.policies || []);
 
     // Form: Checkout
     const checkoutForm = useForm({
@@ -323,6 +343,79 @@ export default function Show({ booking, vacantRooms = [], inventoryUsages, inven
                                 </div>
                             </div>
                         </div>
+
+                        {(amenityIssuance.stay_key || (amenityIssuance.issues || []).length > 0) && (
+                            <div className="p-6 rounded-2xl bg-[#1e293b] border border-emerald-500/20 shadow-xl">
+                                <h2 className="text-lg font-outfit font-bold text-slate-200 mb-2 flex items-center gap-2">
+                                    <Sparkles size={16} className="text-emerald-400" /> Complimentary Amenities
+                                </h2>
+                                <p className="text-[11px] text-slate-500 mb-4">
+                                    Complimentary stock-out is not billed. Use Add Minibar Item to charge the guest.
+                                </p>
+                                <div className="space-y-3 mb-4">
+                                    {(amenityIssuance.issues || []).length > 0 ? amenityIssuance.issues.map((issue) => (
+                                        <div key={issue.id} className="rounded-xl border border-[#334155] bg-[#0f172a]/40 p-3 text-xs text-slate-300">
+                                            <div className="font-mono text-emerald-300">{issue.issued_at_display}</div>
+                                            <div className="font-black uppercase mt-1">{issue.issue_context_label}</div>
+                                            {(issue.items || []).map((line) => (
+                                                <div key={`${issue.id}-${line.inventory_item_id}`}>{line.item_name} x{line.quantity}</div>
+                                            ))}
+                                            <div className="text-slate-500 mt-1">Issued by {issue.issued_by_name || 'Staff'} · {issue.register_label} · {issue.reference}</div>
+                                        </div>
+                                    )) : (
+                                        <p className="text-xs text-slate-500 italic">No complimentary amenities have been issued for this stay.</p>
+                                    )}
+                                </div>
+                                {booking.status === 'active' && (amenityIssuance.policies || []).length > 0 && (
+                                    <div className="rounded-xl border border-[#334155] p-4 flex flex-col gap-2">
+                                        <div className="flex gap-2">
+                                            {remainingInitialPolicies.length > 0 && (
+                                                <button type="button" onClick={() => setAmenityContext('initial')} className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase ${amenityContext === 'initial' ? 'bg-emerald-700 text-white' : 'bg-[#0f172a] text-slate-400 border border-[#334155]'}`}>
+                                                    Issue Amenities
+                                                </button>
+                                            )}
+                                            <button type="button" onClick={() => setAmenityContext('refill')} className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase ${amenityContext === 'refill' ? 'bg-emerald-700 text-white' : 'bg-[#0f172a] text-slate-400 border border-[#334155]'}`}>
+                                                Issue Refill
+                                            </button>
+                                        </div>
+                                        {amenityActionPolicies.map((policy) => (
+                                            <label key={policy.inventory_item_id} className="flex items-center justify-between text-xs text-slate-200">
+                                                <span className="flex items-center gap-2">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={Boolean(amenityChecked[policy.inventory_item_id])}
+                                                        onChange={(e) => setAmenityChecked((prev) => ({ ...prev, [policy.inventory_item_id]: e.target.checked }))}
+                                                        className="rounded border-[#334155] bg-[#0f172a] text-emerald-500"
+                                                    />
+                                                    {policy.item_name}
+                                                </span>
+                                                <span className="font-mono text-slate-400">Qty {policy.default_quantity}</span>
+                                            </label>
+                                        ))}
+                                        <button
+                                            type="button"
+                                            disabled={amenityForm.processing}
+                                            onClick={() => {
+                                                const selected = amenityActionPolicies
+                                                    .filter((policy) => amenityChecked[policy.inventory_item_id])
+                                                    .map((policy) => ({ inventory_item_id: policy.inventory_item_id, quantity: policy.default_quantity || 1 }));
+                                                if (selected.length === 0) return;
+                                                amenityForm.transform(() => ({
+                                                    issue_context: amenityContext,
+                                                    items: selected,
+                                                    idempotency_key: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `amenity-${Date.now()}`,
+                                                    notes: amenityContext === 'refill' ? 'Complimentary refill' : 'Complimentary initial issue',
+                                                }));
+                                                amenityForm.post(route('bookings.amenities.issue', booking.id), { preserveScroll: true });
+                                            }}
+                                            className="mt-2 px-3 py-2 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold"
+                                        >
+                                            {amenityContext === 'refill' ? 'Issue Refill' : 'Issue Complimentary'}
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        )}
 
                         {/* Section 2: Minibar Usages */}
                         <div className="p-6 rounded-2xl bg-[#1e293b] border border-[#334155] shadow-xl">

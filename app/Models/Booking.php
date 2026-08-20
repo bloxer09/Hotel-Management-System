@@ -140,6 +140,11 @@ class Booking extends Model
         return $this->hasMany(InventoryUsage::class);
     }
 
+    public function amenityIssues()
+    {
+        return $this->hasMany(InventoryAmenityIssue::class);
+    }
+
     public function checkinStaff()
     {
         return $this->belongsTo(User::class, 'checked_in_by');

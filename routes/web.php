@@ -23,6 +23,7 @@ use App\Http\Controllers\RoomController;
 use App\Http\Controllers\RoomRateController;
 use App\Http\Controllers\ShiftController;
 use App\Http\Controllers\ShiftVarianceController;
+use App\Http\Controllers\StayAmenityPolicyController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -156,6 +157,7 @@ Route::middleware('auth')->group(function () {
             Route::post('/bookings/{booking}/extend', [BookingController::class, 'extend'])->name('bookings.extend');
             Route::post('/bookings/{booking}/preview-extend', [BookingController::class, 'previewExtend'])->name('bookings.preview_extend');
             Route::post('/bookings/{booking}/items', [BookingController::class, 'addItems'])->name('bookings.items');
+            Route::post('/bookings/{booking}/amenities/issue', [BookingController::class, 'issueAmenities'])->name('bookings.amenities.issue');
             Route::post('/bookings/{booking}/cancel', [BookingController::class, 'cancel'])->name('bookings.cancel');
             Route::post('/payments', [PaymentController::class, 'store'])->name('payments.store');
         });
@@ -230,6 +232,11 @@ Route::middleware('auth')->group(function () {
         Route::post('/promo-codes', [PromoCodeController::class, 'store'])->name('promo_codes.store');
         Route::put('/promo-codes/{promoCode}', [PromoCodeController::class, 'update'])->name('promo_codes.update');
         Route::delete('/promo-codes/{promoCode}', [PromoCodeController::class, 'destroy'])->name('promo_codes.destroy');
+
+        Route::get('/amenity-policies', [StayAmenityPolicyController::class, 'index'])->name('amenity_policies.index');
+        Route::post('/amenity-policies', [StayAmenityPolicyController::class, 'store'])->name('amenity_policies.store');
+        Route::put('/amenity-policies/{stayAmenityPolicy}', [StayAmenityPolicyController::class, 'update'])->name('amenity_policies.update');
+        Route::delete('/amenity-policies/{stayAmenityPolicy}', [StayAmenityPolicyController::class, 'destroy'])->name('amenity_policies.destroy');
     });
 
     // Real-time Notifications API

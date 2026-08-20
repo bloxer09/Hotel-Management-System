@@ -450,6 +450,12 @@ class InventoryController extends Controller
             ->leftJoin('users as performer', 'performer.id', '=', 'm.performed_by')
             ->leftJoin('users as reviewer', 'reviewer.id', '=', 'r.reviewed_by')
             ->leftJoin('shift_sessions as ss', 'ss.id', '=', 'm.shift_session_id')
+            ->leftJoin('inventory_amenity_issues as iai', function ($join) {
+                $join->on('iai.id', '=', 'm.source_id')
+                    ->where('m.source_type', '=', 'amenity_issue');
+            })
+            ->leftJoin('bookings as ab', 'ab.id', '=', 'iai.booking_id')
+            ->leftJoin('rooms as ar', 'ar.id', '=', 'iai.room_id')
             ->selectRaw("
                 'movement' as row_kind,
                 m.id as row_id,
@@ -470,7 +476,11 @@ class InventoryController extends Controller
                 COALESCE(reviewer.full_name, performer.full_name) as actor_name,
                 performer.full_name as performed_by_name,
                 m.shift_session_id as shift_session_id,
-                ss.shift_code as shift_code
+                ss.shift_code as shift_code,
+                iai.reference as issue_reference,
+                iai.issue_context as issue_context,
+                ar.room_number as room_number,
+                ab.booking_ref as booking_ref
             ");
 
         $rejected = DB::table('inventory_change_requests as r')
@@ -498,7 +508,11 @@ class InventoryController extends Controller
                 reviewer.full_name as actor_name,
                 NULL as performed_by_name,
                 NULL as shift_session_id,
-                NULL as shift_code
+                NULL as shift_code,
+                NULL as issue_reference,
+                NULL as issue_context,
+                NULL as room_number,
+                NULL as booking_ref
             ");
 
         if ($user->role !== 'admin') {
@@ -541,7 +555,10 @@ class InventoryController extends Controller
             $search = '%'.$request->input('history_search').'%';
             $movements->where(function ($query) use ($search) {
                 $query->where('i.item_name', 'like', $search)
-                    ->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(r.request_payload, '$.item_name')) LIKE ?", [$search]);
+                    ->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(r.request_payload, '$.item_name')) LIKE ?", [$search])
+                    ->orWhere('iai.reference', 'like', $search)
+                    ->orWhere('ar.room_number', 'like', $search)
+                    ->orWhere('ab.booking_ref', 'like', $search);
             });
             $rejected->where(function ($query) use ($search) {
                 $query->where('i.item_name', 'like', $search)
@@ -595,6 +612,9 @@ class InventoryController extends Controller
                 $row->register_label = $row->shift_session_id
                     ? 'Shift #'.$row->shift_session_id
                     : 'No register';
+                $row->issue_context_label = $row->issue_context === 'initial'
+                    ? 'Initial'
+                    : ($row->issue_context === 'refill' ? 'Refill' : null);
 
                 return $row;
             });
@@ -633,6 +653,10 @@ class InventoryController extends Controller
             ],
             'booking_reversal' => [
                 'movement' => [InventoryStockMovement::TYPE_BOOKING_REVERSAL],
+                'request' => [],
+            ],
+            'complimentary_amenity' => [
+                'movement' => [InventoryStockMovement::TYPE_COMPLIMENTARY_AMENITY],
                 'request' => [],
             ],
         ];

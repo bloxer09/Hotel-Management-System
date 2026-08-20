@@ -6,7 +6,9 @@ export function useFlashToast() {
     const [toast, setToast] = useState(null);
 
     useEffect(() => {
-        if (flash.success) {
+        if (flash.success && flash.warning) {
+            setToast({ type: 'warning', message: `${flash.success} ${flash.warning}` });
+        } else if (flash.success) {
             setToast({ type: 'success', message: flash.success });
         } else if (flash.warning) {
             setToast({ type: 'warning', message: flash.warning });

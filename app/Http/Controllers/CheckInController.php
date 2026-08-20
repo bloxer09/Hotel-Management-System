@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\AmenityIssuanceException;
 use App\Models\Booking;
 use App\Models\GuestProfile;
 use App\Models\PromoCode;
 use App\Models\Room;
 use App\Models\RoomType;
+use App\Services\AmenityIssuanceService;
 use App\Services\BookingService;
 use App\Services\PaymentService;
 use App\Services\ShiftService;
@@ -20,7 +22,8 @@ use Inertia\Inertia;
 class CheckInController extends Controller
 {
     public function __construct(
-        private readonly PaymentService $payments
+        private readonly PaymentService $payments,
+        private readonly AmenityIssuanceService $amenities
     ) {}
 
     public function index(Request $request)
@@ -86,6 +89,7 @@ class CheckInController extends Controller
             'showGroupsOnly' => $showGroupsOnly,
             'sortBy' => $sortBy,
             'sortDir' => $sortDir,
+            'amenityPolicies' => $this->amenities->groupedActivePolicies(),
         ]);
     }
 
@@ -238,6 +242,10 @@ class CheckInController extends Controller
             'transaction_notes' => 'nullable|string',
             'modified_check_out' => 'nullable|date',
             'modified_checkout_acknowledged' => 'nullable|boolean',
+            'issue_amenities' => 'sometimes|boolean',
+            'amenity_items' => 'sometimes|array',
+            'amenity_items.*.inventory_item_id' => 'required_with:amenity_items|integer|exists:inventory_items,id',
+            'amenity_items.*.quantity' => 'required_with:amenity_items|integer|min:1',
         ]);
 
         $checkInForStayType = $request->filled('check_in')
@@ -266,7 +274,10 @@ class CheckInController extends Controller
         }
 
         try {
-            return DB::transaction(function () use ($request, $user, $idImagePath) {
+            $createdBookingIds = [];
+            $msg = '';
+
+            DB::transaction(function () use ($request, $user, $idImagePath, &$createdBookingIds, &$msg) {
                 $rooms = Room::with('type')->whereIn('id', $request->room_ids)->lockForUpdate()->get();
                 $numRooms = count($rooms);
 
@@ -553,14 +564,57 @@ class CheckInController extends Controller
                     $groupRef ?? 'SINGLE',
                     $msg." Payment {$payment->receipt_number} verified: ₱{$totalCombinedAmount} via {$paymentMethod}".($modifiedRemark ? ' '.$modifiedRemark : '').'.'
                 );
-
-                return redirect()->route('checkin.index')->with('success', $msg);
             });
+
+            $warning = $this->maybeIssueCheckInAmenities($request, $user, $createdBookingIds);
+            $redirect = redirect()->route('checkin.index')->with('success', $msg);
+            if ($warning) {
+                $redirect->with('warning', $warning);
+            }
+
+            return $redirect;
         } catch (ValidationException $e) {
             throw $e;
         } catch (\Exception $e) {
             return back()->with('error', $e->getMessage());
         }
+    }
+
+    private function maybeIssueCheckInAmenities(Request $request, $user, array $bookingIds): ?string
+    {
+        if (! $request->boolean('issue_amenities') || $bookingIds === []) {
+            return null;
+        }
+
+        $lines = collect($request->input('amenity_items', []))
+            ->map(fn ($row) => [
+                'inventory_item_id' => (int) ($row['inventory_item_id'] ?? 0),
+                'quantity' => (int) ($row['quantity'] ?? 0),
+            ])
+            ->filter(fn ($row) => $row['inventory_item_id'] > 0 && $row['quantity'] > 0)
+            ->values()
+            ->all();
+
+        if ($lines === []) {
+            return null;
+        }
+
+        foreach ($bookingIds as $bookingId) {
+            $booking = Booking::find($bookingId);
+            if (! $booking) {
+                continue;
+            }
+
+            try {
+                $this->amenities->issueAfterCheckIn($user, $booking, $lines);
+            } catch (AmenityIssuanceException $e) {
+                return $e->getMessage();
+            } catch (\Throwable $e) {
+                return $e->getMessage();
+            }
+        }
+
+        return null;
     }
 
     private function truncatedStayPreview(

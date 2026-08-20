@@ -4,7 +4,7 @@ import { useForm, router, usePage, Link } from '@inertiajs/react';
 import {
     Calendar, Clock, Coins, User, Plus, DollarSign, Timer,
     PowerOff, Printer, FileText, AlertTriangle, X, ClipboardCheck,
-    Shuffle, TrendingUp, RefreshCw, MessageSquare
+    Shuffle, TrendingUp, RefreshCw, MessageSquare, Sparkles
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import ConfirmModal from '@/Components/ConfirmModal';
@@ -29,6 +29,15 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
     const [inventoryUsages, setInventoryUsages] = useState([]);
     const [vacantRooms, setVacantRooms] = useState([]);
     const [calculations, setCalculations] = useState({});
+    const [amenityIssuance, setAmenityIssuance] = useState({
+        stay_key: null,
+        policies: [],
+        initial_issued_item_ids: [],
+        issues: [],
+    });
+    const [amenityChecked, setAmenityChecked] = useState({});
+    const [amenityContext, setAmenityContext] = useState('initial');
+    const [amenityIdempotencyKey, setAmenityIdempotencyKey] = useState('');
     const [activeSubModal, setActiveSubModal] = useState(null); // 'extend', 'checkout', 'cancel', 'move', 'pos_receipt'
     const [extendCashReceived, setExtendCashReceived] = useState('');
     const [checkoutCashReceived, setCheckoutCashReceived] = useState('');
@@ -75,6 +84,43 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
         reason: ''
     });
 
+    const amenityForm = useForm({
+        issue_context: 'initial',
+        items: [],
+        idempotency_key: '',
+        notes: '',
+    });
+
+    const remainingInitialPolicies = (amenityIssuance.policies || []).filter(
+        (policy) => !(amenityIssuance.initial_issued_item_ids || []).includes(policy.inventory_item_id)
+    );
+    const refillPolicies = amenityIssuance.policies || [];
+    const amenityActionPolicies = amenityContext === 'initial' ? remainingInitialPolicies : refillPolicies;
+
+    const submitAmenityIssue = (context) => {
+        const selected = amenityActionPolicies
+            .filter((policy) => amenityChecked[policy.inventory_item_id])
+            .map((policy) => ({
+                inventory_item_id: policy.inventory_item_id,
+                quantity: policy.default_quantity || 1,
+            }));
+        if (selected.length === 0) {
+            return;
+        }
+        amenityForm.transform(() => ({
+            issue_context: context,
+            items: selected,
+            idempotency_key: amenityIdempotencyKey,
+            notes: context === 'refill' ? 'Complimentary refill' : 'Complimentary initial issue',
+        }));
+        amenityForm.post(route('bookings.amenities.issue', bookingId), {
+            preserveScroll: true,
+            onSuccess: () => {
+                loadDetails();
+            },
+        });
+    };
+
     // Fetch Details on Open
     const loadDetails = async () => {
         if (!isOpen || !bookingId) return;
@@ -85,6 +131,27 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
             setInventoryUsages(res.data.inventoryUsages || []);
             setVacantRooms(res.data.vacantRooms || []);
             setCalculations(res.data.calculations || {});
+            setAmenityIssuance(res.data.amenityIssuance || {
+                stay_key: null,
+                policies: [],
+                initial_issued_item_ids: [],
+                issues: [],
+            });
+            const payload = res.data.amenityIssuance || {};
+            const initialIds = payload.initial_issued_item_ids || [];
+            const remaining = (payload.policies || []).filter((policy) => !initialIds.includes(policy.inventory_item_id));
+            const nextContext = remaining.length > 0 ? 'initial' : 'refill';
+            const nextChecked = {};
+            (nextContext === 'initial' ? remaining : (payload.policies || [])).forEach((policy) => {
+                nextChecked[policy.inventory_item_id] = nextContext === 'initial';
+            });
+            setAmenityContext(nextContext);
+            setAmenityChecked(nextChecked);
+            setAmenityIdempotencyKey(
+                (typeof crypto !== 'undefined' && crypto.randomUUID)
+                    ? crypto.randomUUID()
+                    : `amenity-${Date.now()}`
+            );
 
             // Set checkout defaults
             checkoutForm.setData({
@@ -352,6 +419,94 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
                                                         </div>
                                                     </div>
                                                 </div>
+
+                                                {/* Card: Complimentary Amenities */}
+                                                {(amenityIssuance.stay_key || (amenityIssuance.issues || []).length > 0) && (
+                                                    <div className="p-5 rounded-xl bg-[#0f172a]/20 border border-emerald-500/20 shadow">
+                                                        <div className="flex justify-between items-center mb-3 border-b border-[#334155]/50 pb-2">
+                                                            <h3 className="text-sm font-outfit font-black text-slate-200 flex items-center gap-2">
+                                                                <Sparkles size={14} className="text-emerald-400" />
+                                                                Complimentary Amenities
+                                                            </h3>
+                                                        </div>
+                                                        <p className="text-[10px] text-slate-500 mb-3">
+                                                            Free issued stock is not billed. Use Charge to Guest / Add Item for paid minibar.
+                                                        </p>
+                                                        <div className="space-y-3 mb-4">
+                                                            {(amenityIssuance.issues || []).length > 0 ? amenityIssuance.issues.map((issue) => (
+                                                                <div key={issue.id} className="rounded-xl border border-[#334155]/70 bg-[#0f172a]/40 p-3 text-[11px] text-slate-300">
+                                                                    <div className="font-mono text-emerald-300">{issue.issued_at_display}</div>
+                                                                    <div className="font-black uppercase tracking-wide text-slate-200 mt-1">{issue.issue_context_label}</div>
+                                                                    <div className="mt-1">
+                                                                        {(issue.items || []).map((line) => (
+                                                                            <div key={`${issue.id}-${line.inventory_item_id}`}>{line.item_name} x{line.quantity}</div>
+                                                                        ))}
+                                                                    </div>
+                                                                    <div className="text-slate-500 mt-1">Issued by {issue.issued_by_name || 'Staff'} · {issue.register_label} · {issue.reference}</div>
+                                                                </div>
+                                                            )) : (
+                                                                <p className="text-[11px] text-slate-500 italic">No complimentary amenities have been issued for this stay.</p>
+                                                            )}
+                                                        </div>
+                                                        {booking.status === 'active' && (amenityIssuance.policies || []).length > 0 && (
+                                                            <div className="rounded-xl border border-[#334155]/60 p-3 flex flex-col gap-2">
+                                                                <div className="flex gap-2">
+                                                                    {remainingInitialPolicies.length > 0 && (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => {
+                                                                                setAmenityContext('initial');
+                                                                                const next = {};
+                                                                                remainingInitialPolicies.forEach((policy) => { next[policy.inventory_item_id] = true; });
+                                                                                setAmenityChecked(next);
+                                                                            }}
+                                                                            className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase ${amenityContext === 'initial' ? 'bg-emerald-700 text-white' : 'bg-[#0f172a] text-slate-400 border border-[#334155]'}`}
+                                                                        >
+                                                                            Issue Amenities
+                                                                        </button>
+                                                                    )}
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            setAmenityContext('refill');
+                                                                            const next = {};
+                                                                            refillPolicies.forEach((policy) => { next[policy.inventory_item_id] = false; });
+                                                                            setAmenityChecked(next);
+                                                                        }}
+                                                                        className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase ${amenityContext === 'refill' ? 'bg-emerald-700 text-white' : 'bg-[#0f172a] text-slate-400 border border-[#334155]'}`}
+                                                                    >
+                                                                        Issue Refill
+                                                                    </button>
+                                                                </div>
+                                                                {amenityActionPolicies.map((policy) => (
+                                                                    <label key={policy.inventory_item_id} className="flex items-center justify-between text-[11px] text-slate-200">
+                                                                        <span className="flex items-center gap-2">
+                                                                            <input
+                                                                                type="checkbox"
+                                                                                checked={Boolean(amenityChecked[policy.inventory_item_id])}
+                                                                                onChange={(e) => setAmenityChecked((prev) => ({
+                                                                                    ...prev,
+                                                                                    [policy.inventory_item_id]: e.target.checked,
+                                                                                }))}
+                                                                                className="rounded border-[#334155] bg-[#0f172a] text-emerald-500"
+                                                                            />
+                                                                            {policy.item_name}
+                                                                        </span>
+                                                                        <span className="font-mono text-slate-400">Qty {policy.default_quantity}</span>
+                                                                    </label>
+                                                                ))}
+                                                                <button
+                                                                    type="button"
+                                                                    disabled={amenityForm.processing || amenityActionPolicies.filter((policy) => amenityChecked[policy.inventory_item_id]).length === 0}
+                                                                    onClick={() => submitAmenityIssue(amenityContext)}
+                                                                    className="mt-1 px-3 py-2 bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 text-white rounded-xl text-xs font-bold"
+                                                                >
+                                                                    {amenityContext === 'refill' ? 'Issue Refill' : 'Issue Complimentary'}
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
 
                                                 {/* Card: Minibar orders */}
                                                 <div className="p-5 rounded-xl bg-[#0f172a]/20 border border-[#334155]/60 shadow">

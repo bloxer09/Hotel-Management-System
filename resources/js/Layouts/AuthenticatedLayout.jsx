@@ -408,6 +408,12 @@ export default function AuthenticatedLayout({ children }) {
             current: route().current('settings.promo_codes.*')
         },
         {
+            name: 'Complimentary Amenities',
+            icon: Sparkles,
+            href: route('settings.amenity_policies.index'),
+            current: route().current('settings.amenity_policies.*')
+        },
+        {
             name: 'Room Rates',
             icon: BedDouble,
             href: route('settings.rates.index'),

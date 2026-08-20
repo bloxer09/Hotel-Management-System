@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\AmenityIssuanceException;
 use App\Http\Requests\CheckoutBookingRequest;
 use App\Http\Requests\ExtendBookingRequest;
 use App\Http\Requests\UpdateBookingRequest;
@@ -14,6 +15,7 @@ use App\Models\Room;
 use App\Models\Setting;
 use App\Models\ShiftSession;
 use App\Models\Transaction;
+use App\Services\AmenityIssuanceService;
 use App\Services\BookingService;
 use App\Services\InventoryChangeRequestService;
 use App\Services\InventoryUsageSettlementService;
@@ -29,7 +31,8 @@ class BookingController extends Controller
 {
     public function __construct(
         private readonly PaymentService $payments,
-        private readonly InventoryUsageSettlementService $inventorySettlement
+        private readonly InventoryUsageSettlementService $inventorySettlement,
+        private readonly AmenityIssuanceService $amenities
     ) {}
 
     public function show(Booking $booking, Request $request)
@@ -83,6 +86,7 @@ class BookingController extends Controller
             'inventoryUsages' => $inventoryUsages,
             'inventoryItems' => $inventoryItems,
             'vacantRooms' => $vacantRooms,
+            'amenityIssuance' => $this->amenities->stayPayload($booking),
             'calculations' => [
                 'current_time' => $now->format('Y-m-d H:i:s'),
                 'late_hours' => $lateHours,
@@ -290,6 +294,35 @@ class BookingController extends Controller
                 return redirect()->route('bookings.show', $booking->id)->with('success', "Added {$request->quantity} x {$item->item_name} to bill (₱{$totalPrice}).");
             });
         } catch (\Exception $e) {
+            return back()->with('error', $e->getMessage());
+        }
+    }
+
+    public function issueAmenities(Booking $booking, Request $request)
+    {
+        $request->validate([
+            'issue_context' => 'required|in:initial,refill',
+            'items' => 'required|array|min:1',
+            'items.*.inventory_item_id' => 'required|integer|exists:inventory_items,id',
+            'items.*.quantity' => 'required|integer|min:1',
+            'idempotency_key' => 'nullable|string|max:100',
+            'notes' => 'nullable|string|max:255',
+        ]);
+
+        try {
+            $issue = $this->amenities->issue(
+                $request->user(),
+                $booking,
+                $request->input('items'),
+                $request->string('issue_context')->toString(),
+                $request->input('notes'),
+                $request->input('idempotency_key')
+            );
+
+            $contextLabel = $issue->issue_context === 'initial' ? 'Initial' : 'Refill';
+
+            return back()->with('success', "{$contextLabel} complimentary amenities issued ({$issue->reference}).");
+        } catch (AmenityIssuanceException $e) {
             return back()->with('error', $e->getMessage());
         }
     }

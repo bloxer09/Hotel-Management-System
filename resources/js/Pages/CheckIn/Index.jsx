@@ -23,6 +23,7 @@ import {
     Edit,
     RefreshCw,
     ChevronDown,
+    Sparkles,
     CircleAlert
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -46,7 +47,7 @@ const STATUS_TABS = [
     { key: 'cancelled', label: 'Cancelled', color: 'text-red-400', dot: 'bg-red-400' },
 ];
 
-export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCodes = [], bookings, groupBookings = {}, currentFilter, showGroupsOnly: propShowGroupsOnly = false, sortBy, sortDir }) {
+export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCodes = [], bookings, groupBookings = {}, currentFilter, showGroupsOnly: propShowGroupsOnly = false, sortBy, sortDir, amenityPolicies = { overnight: [], short_time_24: [] } }) {
     const { auth } = usePage().props;
     const [selectedBookingIdForModal, setSelectedBookingIdForModal] = useState(null);
     const [isStayModalOpen, setIsStayModalOpen] = useState(false);
@@ -135,6 +136,26 @@ export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCod
         : (calc.expected_check_out || calc.totals?.expected_check_out);
 
     const [summaryView, setSummaryView] = useState('all');
+    const [amenityChecked, setAmenityChecked] = useState({});
+
+    const stayAmenityKey = data.booking_type === 'overnight'
+        ? 'overnight'
+        : (data.booking_type === 'short_time' && Number(data.short_time_hours) === 24 ? 'short_time_24' : null);
+    const currentAmenityPolicies = stayAmenityKey ? (amenityPolicies[stayAmenityKey] || []) : [];
+    const selectedAmenityItems = currentAmenityPolicies
+        .filter((policy) => amenityChecked[policy.inventory_item_id])
+        .map((policy) => ({
+            inventory_item_id: policy.inventory_item_id,
+            quantity: policy.default_quantity || 1,
+        }));
+
+    useEffect(() => {
+        const next = {};
+        currentAmenityPolicies.forEach((policy) => {
+            next[policy.inventory_item_id] = true;
+        });
+        setAmenityChecked(next);
+    }, [stayAmenityKey, currentAmenityPolicies.map((policy) => policy.inventory_item_id).join(',')]);
 
     // ── Room Selection Modal ──
     const [showRoomSelectModal, setShowRoomSelectModal] = useState(false);
@@ -464,8 +485,13 @@ export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCod
         setShowConfirmCheckInModal(true);
     };
 
-    const executeFormSubmit = () => {
+    const executeFormSubmit = (issueAmenities = false) => {
         post(route('checkin.store'), {
+            transform: (form) => ({
+                ...form,
+                issue_amenities: issueAmenities ? 1 : 0,
+                amenity_items: issueAmenities ? selectedAmenityItems : [],
+            }),
             onSuccess: () => {
                 setShowConfirmCheckInModal(false);
                 closeModal();
@@ -1255,6 +1281,34 @@ export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCod
                                                             <span className="font-outfit font-black text-slate-100 uppercase tracking-widest text-xs">Grand Total:</span>
                                                             <span className="font-mono text-xl font-black text-emerald-400 drop-shadow-md">₱{(calc.totals?.total_amount || calc.total_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                                         </div>
+                                                        {currentAmenityPolicies.length > 0 && (
+                                                            <div className="rounded-xl border border-emerald-500/20 bg-emerald-950/10 p-3 flex flex-col gap-2 mt-2">
+                                                                <div className="flex items-center gap-2">
+                                                                    <Sparkles size={14} className="text-emerald-400" />
+                                                                    <span className="text-[10px] font-black uppercase tracking-wider text-emerald-300">Complimentary Amenities</span>
+                                                                </div>
+                                                                <p className="text-[10px] text-slate-400 leading-relaxed">
+                                                                    Eligibility does not consume stock. Uncheck any item you are not issuing now. Stock decreases only when you choose Check In & Issue Amenities.
+                                                                </p>
+                                                                {currentAmenityPolicies.map((policy) => (
+                                                                    <label key={policy.inventory_item_id} className="flex items-center justify-between gap-3 text-[11px] text-slate-200">
+                                                                        <span className="flex items-center gap-2">
+                                                                            <input
+                                                                                type="checkbox"
+                                                                                checked={Boolean(amenityChecked[policy.inventory_item_id])}
+                                                                                onChange={(e) => setAmenityChecked((prev) => ({
+                                                                                    ...prev,
+                                                                                    [policy.inventory_item_id]: e.target.checked,
+                                                                                }))}
+                                                                                className="rounded border-[#334155] bg-[#0f172a] text-emerald-500"
+                                                                            />
+                                                                            {policy.item_name}
+                                                                        </span>
+                                                                        <span className="font-mono text-slate-400">Qty {policy.default_quantity}</span>
+                                                                    </label>
+                                                                ))}
+                                                            </div>
+                                                        )}
                                                         <div className="flex flex-col gap-2 mt-2 pt-3 border-t border-[#334155]/60">
                                                             <label className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Payment Method</label>
                                                             <CustomSelect
@@ -1863,7 +1917,7 @@ export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCod
                 {showConfirmCheckInModal && (
                     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
                         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-[#070b13]/90" onClick={() => setShowConfirmCheckInModal(false)} />
-                        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-[#1e293b] border border-brand-500/30 rounded-2xl w-full max-w-sm shadow-2xl relative z-10 overflow-hidden">
+                        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-[#1e293b] border border-brand-500/30 rounded-2xl w-full max-w-md shadow-2xl relative z-10 overflow-hidden">
                             <div className="p-6 flex flex-col items-center text-center gap-4">
                                 <div className="w-16 h-16 rounded-full bg-brand-500/10 flex items-center justify-center text-brand-500 mb-2">
                                     <CheckCircle size={32} />
@@ -1880,13 +1934,25 @@ export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCod
                                         Full {data.short_time_hours}-hour package will be charged. Checkout: {formatHotelDateTime(data.modified_check_out)}.
                                     </p>
                                 )}
-                                <div className="flex gap-3 w-full mt-4">
-                                    <button onClick={() => setShowConfirmCheckInModal(false)} className="flex-1 px-4 py-2.5 bg-[#0f172a] hover:bg-[#334155] border border-[#334155] text-slate-300 rounded-xl text-sm font-bold transition-colors">
-                                        Cancel
-                                    </button>
-                                    <button onClick={executeFormSubmit} disabled={processing} className="flex-1 px-4 py-2.5 bg-brand-600 hover:bg-brand-500 text-slate-50 rounded-xl text-sm font-bold transition-colors shadow-lg shadow-brand-900/20">
-                                        Confirm Check In
-                                    </button>
+                                {currentAmenityPolicies.length > 0 && selectedAmenityItems.length > 0 && (
+                                    <p className="text-[11px] text-emerald-200 bg-emerald-950/30 border border-emerald-500/30 rounded-xl px-3 py-2">
+                                        Check In keeps the stay even if amenities are out of stock. Check In & Issue Amenities deducts only the selected complimentary items.
+                                    </p>
+                                )}
+                                <div className="flex flex-col gap-2 w-full mt-2">
+                                    <div className="flex gap-3 w-full">
+                                        <button type="button" onClick={() => setShowConfirmCheckInModal(false)} className="flex-1 px-4 py-2.5 bg-[#0f172a] hover:bg-[#334155] border border-[#334155] text-slate-300 rounded-xl text-sm font-bold transition-colors">
+                                            Cancel
+                                        </button>
+                                        <button type="button" onClick={() => executeFormSubmit(false)} disabled={processing} className="flex-1 px-4 py-2.5 bg-brand-600 hover:bg-brand-500 text-slate-50 rounded-xl text-sm font-bold transition-colors shadow-lg shadow-brand-900/20">
+                                            Check In
+                                        </button>
+                                    </div>
+                                    {currentAmenityPolicies.length > 0 && selectedAmenityItems.length > 0 && (
+                                        <button type="button" onClick={() => executeFormSubmit(true)} disabled={processing} className="w-full px-4 py-2.5 bg-emerald-700 hover:bg-emerald-600 text-slate-50 rounded-xl text-sm font-bold transition-colors">
+                                            Check In & Issue Amenities
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                         </motion.div>

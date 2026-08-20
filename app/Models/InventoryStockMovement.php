@@ -24,7 +24,6 @@ class InventoryStockMovement extends Model
 
     public const TYPE_BOOKING_REVERSAL = 'booking_reversal';
 
-    /** Groundwork only — unused until later phases. */
     public const TYPE_COMPLIMENTARY_AMENITY = 'complimentary_amenity';
 
     public const TYPE_INVENTORY_VARIANCE = 'inventory_variance';
@@ -116,6 +115,7 @@ class InventoryStockMovement extends Model
             self::TYPE_POS_SALE => 'pos_sale',
             self::TYPE_BOOKING_USAGE => 'booking_usage',
             self::TYPE_BOOKING_REVERSAL => 'booking_reversal',
+            self::TYPE_COMPLIMENTARY_AMENITY => 'complimentary_amenity',
             default => $type,
         };
     }
