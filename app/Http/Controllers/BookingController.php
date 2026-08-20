@@ -19,6 +19,7 @@ use App\Services\AmenityIssuanceService;
 use App\Services\BookingService;
 use App\Services\InventoryChangeRequestService;
 use App\Services\InventoryUsageSettlementService;
+use App\Services\InventoryTurnoverService;
 use App\Services\PaymentService;
 use App\Services\ShiftService;
 use App\Support\HotelDateTime;
@@ -233,6 +234,7 @@ class BookingController extends Controller
 
         $user = $request->user();
         ShiftService::assertCanChangeTrackedInventory($user);
+        app(InventoryTurnoverService::class)->assertItemsMutable($user, [(int) $request->item_id]);
 
         if ($booking->status !== 'active') {
             return back()->with('error', 'Can only add inventory items to active bookings.');

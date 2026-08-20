@@ -28,9 +28,11 @@ export default function Report({ shift, report }) {
         if (typeof window === 'undefined') {
             return 'overview';
         }
-        return new URLSearchParams(window.location.search).get('tab') === 'variance'
-            ? 'variance'
-            : 'overview';
+        const tab = new URLSearchParams(window.location.search).get('tab');
+        if (tab === 'variance' || tab === 'inventory-accountability') {
+            return tab;
+        }
+        return 'overview';
     });
     // The official PDF logbook is the supported print/export output.
     // These defaults keep the browser's native print fallback intact.
@@ -127,6 +129,7 @@ export default function Report({ shift, report }) {
         { id: 'bookings', label: 'Bookings Ledger', icon: BookOpen, count: report.bookings?.length || 0 },
         { id: 'daily-cash', label: 'Daily Cash Report', icon: Banknote, count: null },
         { id: 'minibar', label: 'Minibar & POS', icon: Coffee, count: (report.transactions?.filter(t => t.transaction_type === 'pos_sale').length || 0) + (report.inventory_usage_details?.filter(u => u.booking_id !== null).length || 0) },
+        { id: 'inventory-accountability', label: 'Inventory Accountability', icon: Package, count: report.inventory_accountability?.items?.length || 0 },
         { id: 'inventory', label: 'Inventory Status', icon: Package, count: report.inventory_items?.length || 0 },
         { id: 'expenses', label: 'Expenses', icon: MinusCircle, count: report.expenses?.length || 0 },
         { id: 'income', label: 'Additional Cash', icon: PlusCircle, count: report.incomes?.length || 0 },
@@ -1204,6 +1207,89 @@ export default function Report({ shift, report }) {
                                     </table>
                                 </div>
                             </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'inventory-accountability' && (
+                        <div className="flex flex-col gap-4">
+                            <div>
+                                <h3 className="text-sm font-bold text-slate-200 uppercase mb-1 font-mono">Inventory Accountability</h3>
+                                <p className="text-xs text-slate-400">
+                                    Frozen turnover snapshot only. This is not cash variance and is not recomputed from live movements.
+                                    Between-Shift Movement is authorized activity after outgoing freeze (for example Admin restock with no register).
+                                    Expected at Handover = Outgoing Actual + Between-Shift Movement. Handover Difference is versus that expected physical figure, not versus outgoing expected closing.
+                                </p>
+                            </div>
+                            {!report.inventory_accountability && (
+                                <div className="rounded-xl border border-slate-700 p-4 text-sm text-slate-400">
+                                    No inventory turnover snapshot exists for this shift. If no products are turnover tracked, a count is not required.
+                                </div>
+                            )}
+                            {report.inventory_accountability && (
+                                <>
+                                    <div className="text-xs text-slate-400 flex flex-wrap gap-3">
+                                        <span>Status: <strong className="uppercase text-slate-200">{report.inventory_accountability.status}</strong></span>
+                                        {report.inventory_accountability.is_frozen && <span>Frozen snapshot</span>}
+                                        {report.inventory_accountability.has_manual_set && <span className="text-amber-300">Manual SET occurred — review</span>}
+                                        {report.inventory_accountability.submitted_at_manila && <span>Submitted {report.inventory_accountability.submitted_at_manila}</span>}
+                                        {report.inventory_accountability.accepted_at_manila && <span>Accepted {report.inventory_accountability.accepted_at_manila}</span>}
+                                    </div>
+                                    <div className="overflow-x-auto rounded-lg border border-slate-700">
+                                        <table className="w-full text-left border-collapse text-xs text-slate-200 min-w-[1100px]">
+                                            <thead>
+                                                <tr className="bg-slate-750 text-slate-400 border-b border-slate-700">
+                                                    <th className="p-2.5">Product</th>
+                                                    <th className="p-2.5 text-right">Opening</th>
+                                                    <th className="p-2.5 text-right">Restock</th>
+                                                    <th className="p-2.5 text-right">Returns</th>
+                                                    <th className="p-2.5 text-right">Sold</th>
+                                                    <th className="p-2.5 text-right">Complimentary</th>
+                                                    <th className="p-2.5 text-right">Other Out</th>
+                                                    <th className="p-2.5 text-right">Expected Closing</th>
+                                                    <th className="p-2.5 text-right">Outgoing Actual</th>
+                                                    <th className="p-2.5 text-right">Variance</th>
+                                                    <th className="p-2.5 text-right">Between-Shift Movement</th>
+                                                    <th className="p-2.5 text-right">Expected at Handover</th>
+                                                    <th className="p-2.5 text-right">Incoming Count</th>
+                                                    <th className="p-2.5 text-right">Handover Difference</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-700/50 font-mono">
+                                                {(report.inventory_accountability.items || []).map((item) => (
+                                                    <tr key={item.inventory_item_id} className="hover:bg-slate-800/40">
+                                                        <td className="p-2.5 font-sans font-bold">{item.item_name}</td>
+                                                        <td className="p-2.5 text-right">{item.opening_quantity ?? '—'}</td>
+                                                        <td className="p-2.5 text-right">{item.restock_quantity}</td>
+                                                        <td className="p-2.5 text-right">{item.return_quantity}</td>
+                                                        <td className="p-2.5 text-right">{item.sold_quantity}</td>
+                                                        <td className="p-2.5 text-right">{item.complimentary_quantity}</td>
+                                                        <td className="p-2.5 text-right">{item.other_out_quantity}</td>
+                                                        <td className="p-2.5 text-right font-bold">{item.expected_closing_quantity ?? '—'}</td>
+                                                        <td className="p-2.5 text-right">{item.outgoing_actual_quantity ?? '—'}</td>
+                                                        <td className={`p-2.5 text-right font-bold ${item.variance_label === 'BALANCED' ? 'text-emerald-400' : 'text-rose-300'}`}>
+                                                            {item.variance_label || '—'}
+                                                            {item.variance_quantity < 0 ? (
+                                                                <div className="text-[10px] font-sans font-normal text-slate-500">
+                                                                    Reference Retail Value: {formatCurrency(item.reference_retail_value || 0)}
+                                                                </div>
+                                                            ) : null}
+                                                        </td>
+                                                        <td className="p-2.5 text-right">{item.gap_net_quantity > 0 ? `+${item.gap_net_quantity}` : (item.gap_net_quantity ?? '—')}</td>
+                                                        <td className="p-2.5 text-right">{item.handover_expected_quantity ?? '—'}</td>
+                                                        <td className="p-2.5 text-right">{item.incoming_verified_quantity ?? '—'}</td>
+                                                        <td className="p-2.5 text-right">{item.handover_difference_label ?? (item.handover_difference ?? '—')}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    {report.inventory_accountability.admin_override_reason && (
+                                        <p className="text-xs text-amber-300">
+                                            Admin End Shift override: {report.inventory_accountability.admin_override_reason}
+                                        </p>
+                                    )}
+                                </>
+                            )}
                         </div>
                     )}
 

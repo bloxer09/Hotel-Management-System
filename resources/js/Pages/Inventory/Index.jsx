@@ -40,6 +40,7 @@ export default function Index({
     sortBy,
     sortDir,
     historyFilters = {},
+    trackedCount = 0,
 }) {
     const { auth } = usePage().props;
     const user = auth.user;
@@ -250,6 +251,14 @@ export default function Index({
 
                 {tab === 'items' && (
                 <>
+                {isAdmin && (
+                    <div className="rounded-2xl border border-[#334155] bg-[#1e293b] p-4 text-xs text-slate-300">
+                        Inventory turnover counts only the products you mark <span className="font-bold text-emerald-300">Turnover tracked</span>.
+                        Existing catalog items stay untracked until selected. Typical notebook items: Mineral Water, Coke, Safeguard, Shampoo.
+                        Leave services such as Laundry untracked. If zero products are tracked, End Shift will not require a fake empty count.
+                        Currently tracked: <span className="font-bold text-slate-100">{trackedCount}</span>.
+                    </div>
+                )}
                 {/* Filter and Search Panels */}
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 justify-between">
                     {/* Category CustomSelect Dropdown */}

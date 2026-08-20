@@ -10,6 +10,7 @@ use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\FrontDeskReportController;
 use App\Http\Controllers\GuestController;
 use App\Http\Controllers\InventoryController;
+use App\Http\Controllers\InventoryTurnoverController;
 use App\Http\Controllers\MaintenanceController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PaymentController;
@@ -59,6 +60,16 @@ Route::middleware('auth')->group(function () {
     // Shift Session Controls (Admin, Front Desk)
     Route::middleware('role:admin,front_desk')->group(function () {
         Route::get('/shifts', [ShiftController::class, 'index'])->name('shifts.index');
+        Route::get('/shifts/inventory-turnover', [InventoryTurnoverController::class, 'show'])->name('shifts.inventory_turnover.show');
+        Route::post('/shifts/inventory-turnover/opening', [InventoryTurnoverController::class, 'acceptOpening'])->name('shifts.inventory_turnover.opening');
+        Route::post('/shifts/inventory-turnover/start-counting', [InventoryTurnoverController::class, 'startCounting'])->name('shifts.inventory_turnover.start_counting');
+        Route::post('/shifts/inventory-turnover/cancel-counting', [InventoryTurnoverController::class, 'cancelCounting'])->name('shifts.inventory_turnover.cancel_counting');
+        Route::post('/shifts/inventory-turnover/submit', [InventoryTurnoverController::class, 'submit'])->name('shifts.inventory_turnover.submit');
+        Route::post('/shifts/inventory-turnover/accept', [InventoryTurnoverController::class, 'acceptHandover'])->name('shifts.inventory_turnover.accept');
+        Route::post('/shifts/inventory-turnover/dispute', [InventoryTurnoverController::class, 'disputeHandover'])->name('shifts.inventory_turnover.dispute');
+        Route::post('/shifts/inventory-turnover/{turnover}/resolve', [InventoryTurnoverController::class, 'resolveDispute'])
+            ->middleware('role:admin')
+            ->name('shifts.inventory_turnover.resolve');
         Route::get('/shifts/variances', [ShiftVarianceController::class, 'index'])
             ->middleware('role:admin')
             ->name('shifts.variances.index');

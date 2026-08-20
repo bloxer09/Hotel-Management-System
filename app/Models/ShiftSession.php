@@ -72,6 +72,11 @@ class ShiftSession extends Model
         return $this->hasMany(ShiftVarianceResolution::class);
     }
 
+    public function inventoryTurnover()
+    {
+        return $this->hasOne(InventoryShiftTurnover::class);
+    }
+
     public function recoveryReceipts()
     {
         return $this->hasMany(ShiftVarianceResolution::class, 'cash_received_into_shift_id');

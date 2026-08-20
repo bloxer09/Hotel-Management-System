@@ -42,6 +42,7 @@ import {
 import ProfileModal from '@/Components/ProfileModal';
 import ConfirmModal from '@/Components/ConfirmModal';
 import CashVarianceBanner from '@/Components/CashVarianceBanner';
+import InventoryTurnoverBanner from '@/Components/InventoryTurnoverBanner';
 import { useTheme } from '@/hooks/useTheme';
 import { useFlashToast } from '@/hooks/useFlashToast';
 import { useNotificationChime } from '@/hooks/useNotificationChime';
@@ -236,7 +237,7 @@ const AlertToastCard = ({ item, onDismiss }) => {
 
 export default function AuthenticatedLayout({ children }) {
     const page = usePage();
-    const { auth, flash, app_name, cash_variance_banner: pageVarianceBanner } = page.props;
+    const { auth, flash, app_name, cash_variance_banner: pageVarianceBanner, inventory_turnover_banner: inventoryTurnoverBanner } = page.props;
     const nameParts = (app_name || 'Uptown Pension House').split(' ');
     const firstWord = nameParts[0] || 'Uptown';
     const remainingWords = nameParts.slice(1).join(' ');
@@ -1116,6 +1117,7 @@ export default function AuthenticatedLayout({ children }) {
                 {/* Main Content */}
                 <main className="app-main flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 lg:p-8 scrollbar-thin relative print:p-0 print:overflow-visible print:bg-white print:h-auto">
                     <CashVarianceBanner banner={cashVarianceBanner} />
+                    <InventoryTurnoverBanner banner={inventoryTurnoverBanner} />
                     {viewerMode && (
                         <div
                             className="mb-4 rounded-2xl border border-sky-500/40 bg-sky-950/35 px-4 py-3.5 text-sky-100 shadow-lg print:hidden"

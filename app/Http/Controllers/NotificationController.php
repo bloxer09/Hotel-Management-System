@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\UserRole;
+use App\Services\InventoryTurnoverService;
 use App\Services\NotificationService;
 use App\Services\ShiftVarianceResolutionService;
 use Illuminate\Http\Request;
@@ -33,6 +34,7 @@ class NotificationController extends Controller
 
         // Bell items may be cached; variance banner always follows accounting state.
         $data['cash_variance_banner'] = app(ShiftVarianceResolutionService::class)->bannerForUser($user);
+        $data['inventory_turnover_banner'] = app(InventoryTurnoverService::class)->bannerForUser($user);
 
         return response()->json($data);
     }

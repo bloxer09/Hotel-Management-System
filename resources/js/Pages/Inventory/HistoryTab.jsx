@@ -14,6 +14,7 @@ const typeOptions = [
     { id: 'booking_usage', name: 'Booking Usage' },
     { id: 'booking_reversal', name: 'Booking Reversal' },
     { id: 'complimentary_amenity', name: 'Complimentary Amenity' },
+    { id: 'inventory_variance', name: 'Inventory Variance' },
 ];
 
 const statusBadge = (status) => {
@@ -40,6 +41,7 @@ const typeLabel = (type) => ({
     booking_usage: 'Booking Usage',
     booking_reversal: 'Booking Reversal',
     complimentary_amenity: 'Complimentary Amenity',
+    inventory_variance: 'Inventory Variance',
 }[type] || type);
 
 const quantityClass = (row) => {
@@ -191,7 +193,11 @@ export default function HistoryTab({ history, historyItems, historyUsers, histor
                                     <td className="px-4 py-3 text-[11px] text-slate-400 max-w-[180px]">{row.reason || '—'}</td>
                                     <td className="px-4 py-3 text-[11px] text-slate-400">{row.requested_by_name || '—'}</td>
                                     <td className="px-4 py-3 text-[11px] text-slate-400">{row.actor_name || row.performed_by_name || '—'}</td>
-                                    <td className="px-4 py-3 text-[11px] text-slate-400 whitespace-nowrap">{row.register_label || 'No register'}</td>
+                                    <td className="px-4 py-3 text-[11px] text-slate-400 whitespace-nowrap">
+                                        {row.shift_session_id
+                                            ? (row.register_label || `Shift #${row.shift_session_id}`)
+                                            : 'No register / Between Shifts'}
+                                    </td>
                                     <td className="px-4 py-3 text-[11px] text-slate-500">{row.review_note || '—'}</td>
                                 </tr>
                             )) : (

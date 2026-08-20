@@ -14,6 +14,7 @@ use App\Models\Room;
 use App\Models\ShiftSession;
 use App\Models\Transaction;
 use App\Services\BookingService;
+use App\Services\InventoryTurnoverService;
 use App\Services\ShiftCashReconciliationService;
 use App\Services\ShiftService;
 use App\Services\ShiftVarianceResolutionService;
@@ -88,7 +89,7 @@ class ShiftController extends Controller
         }
 
         // 5. Get recent closed shift sessions for reference
-        $recentShiftsQuery = ShiftSession::with('user')
+        $recentShiftsQuery = ShiftSession::with(['user', 'inventoryTurnover'])
             ->orderBy('id', 'desc');
 
         if ($user->role !== 'admin') {
@@ -123,6 +124,7 @@ class ShiftController extends Controller
             'unresolvedExpenses' => $activeShift
                 ? app(ShiftCashReconciliationService::class)->unresolvedExpenseCounts($activeShift)
                 : ['pending' => 0, 'approved_unpaid' => 0],
+            'inventoryTurnover' => app(InventoryTurnoverService::class)->indexSummary($registerShift, $user),
         ]);
     }
 
@@ -204,6 +206,8 @@ class ShiftController extends Controller
 
         BookingService::auditLog($user->id, 'SHIFT_START', 'shift_sessions', $shift->id, null, $request->shift_code, 'Shift started. Rooms opening cash: '.$openingCash.', Minibar opening cash: '.$openingCashMinibar);
 
+        app(InventoryTurnoverService::class)->ensureForShift($shift);
+
         if ($previousShift) {
             BookingService::auditLog(
                 $user->id,
@@ -252,6 +256,7 @@ class ShiftController extends Controller
             'closing_denominations_minibar' => 'nullable|array',
             'closing_denominations_minibar.*' => 'integer|min:0',
             'notes' => 'nullable|string',
+            'inventory_override_reason' => 'nullable|string|max:500',
         ]);
 
         $user = $request->user();
@@ -263,6 +268,12 @@ class ShiftController extends Controller
         if (! $activeShift) {
             return back()->with('error', 'No active shift found to end.');
         }
+
+        app(InventoryTurnoverService::class)->assertReadyToEndShift(
+            $user,
+            $activeShift,
+            $request->input('inventory_override_reason')
+        );
 
         $closingDenominations = $this->sanitizeDenominations($request->closing_denominations);
         $closingDenominationsMinibar = $this->sanitizeDenominations($request->closing_denominations_minibar);
@@ -610,6 +621,9 @@ class ShiftController extends Controller
                 'grand_cash_collection' => $grandCashCollection,
                 'cash_variance_review' => app(ShiftVarianceResolutionService::class)->reviewPayload($shift, $user),
                 'unresolved_expenses' => $unresolvedExpenses,
+                'inventory_accountability' => app(InventoryTurnoverService::class)->reportPayload(
+                    app(InventoryTurnoverService::class)->turnoverForShift((int) $shift->id)
+                ),
             ],
         ]);
     }

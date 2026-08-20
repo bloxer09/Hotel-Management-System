@@ -81,6 +81,7 @@ class InventoryChangeRequestService
 
     public function submitAdjustmentRequest(User $user, InventoryItem $item, string $type, int $quantity, string $reason): InventoryChangeRequest
     {
+        app(InventoryTurnoverService::class)->assertItemsMutable($user, [$item->id]);
         $this->assertAdjustmentQuantity($type, $quantity);
 
         $request = InventoryChangeRequest::create([
@@ -219,6 +220,7 @@ class InventoryChangeRequestService
 
     public function adjustItemImmediately(User $admin, InventoryItem $item, string $type, int $quantity, string $reason): InventoryItem
     {
+        app(InventoryTurnoverService::class)->assertItemsMutable($admin, [$item->id], InventoryTurnoverService::CONTEXT_ADMIN_ADJUST);
         $this->assertAdjustmentQuantity($type, $quantity);
 
         return DB::transaction(function () use ($admin, $item, $type, $quantity, $reason) {
@@ -577,6 +579,8 @@ class InventoryChangeRequestService
             );
         }
 
+        app(InventoryTurnoverService::class)->assertItemsMutable($admin, [$item->id], InventoryTurnoverService::CONTEXT_ADMIN_ADJUST);
+
         $after = $this->projectedStock($type, $current, $quantity);
         $item->current_stock = $after;
         $item->save();
@@ -685,7 +689,8 @@ class InventoryChangeRequestService
         ?int $changeRequestId,
         ?string $sourceType,
         ?int $sourceId,
-        ?string $notes
+        ?string $notes,
+        ?int $shiftSessionIdOverride = null
     ): InventoryStockMovement {
         return InventoryStockMovement::record([
             'inventory_item_id' => $item->id,
@@ -697,7 +702,7 @@ class InventoryChangeRequestService
             'source_type' => $sourceType,
             'source_id' => $sourceId,
             'performed_by' => $performedBy,
-            'shift_session_id' => ShiftService::activeRegisterId(),
+            'shift_session_id' => $shiftSessionIdOverride ?? app(InventoryTurnoverService::class)->movementShiftIdForNewRow(),
             'notes' => $notes,
         ]);
     }

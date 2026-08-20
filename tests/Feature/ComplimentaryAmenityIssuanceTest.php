@@ -15,6 +15,7 @@ use App\Models\StayAmenityPolicy;
 use App\Models\Transaction;
 use App\Models\User;
 use App\Services\AmenityIssuanceService;
+use App\Services\InventoryTurnoverService;
 use App\Services\InventoryUsageSettlementService;
 use App\Services\ShiftCashReconciliationService;
 use App\Services\ShiftService;
@@ -81,6 +82,10 @@ class ComplimentaryAmenityIssuanceTest extends TestCase
         $this->safeguard = $this->item('Safeguard', 20);
         $this->shampoo = $this->item('Shampoo', 20);
         $this->configurePolicies();
+        $this->acceptTrackedOpening($this->desk, [
+            [$this->safeguard, 20],
+            [$this->shampoo, 20],
+        ]);
     }
 
     protected function tearDown(): void
@@ -273,6 +278,10 @@ class ComplimentaryAmenityIssuanceTest extends TestCase
             'started_at' => now()->subHour(),
             'opening_cash' => 800,
             'opening_cash_minibar' => 200,
+        ]);
+        $this->acceptTrackedOpening($day3Desk, [
+            [$this->safeguard, 19],
+            [$this->shampoo, 19],
         ]);
 
         $this->actingAs($day3Desk)->post(route('bookings.amenities.issue', $booking), [
@@ -565,6 +574,18 @@ class ComplimentaryAmenityIssuanceTest extends TestCase
                 'is_active' => true,
             ]);
         }
+    }
+
+    private function acceptTrackedOpening(User $user, array $pairs): void
+    {
+        $shift = ShiftService::activeRegister();
+        $this->assertNotNull($shift);
+        $service = app(InventoryTurnoverService::class);
+        $turnover = $service->ensureForShift($shift);
+        $service->acceptOpening($user, $turnover, collect($pairs)->map(fn ($pair) => [
+            'inventory_item_id' => $pair[0]->id,
+            'quantity' => $pair[1],
+        ])->all());
     }
 
     private function item(string $name, int $stock): InventoryItem

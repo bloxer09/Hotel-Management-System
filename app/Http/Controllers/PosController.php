@@ -10,6 +10,7 @@ use App\Models\InventoryUsage;
 use App\Models\Transaction;
 use App\Services\BookingService;
 use App\Services\InventoryChangeRequestService;
+use App\Services\InventoryTurnoverService;
 use App\Services\ShiftService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -61,6 +62,8 @@ class PosController extends Controller
         ShiftService::assertCanChangeTrackedInventory($user);
         $bookingId = $request->booking_id;
         $consumerName = $request->consumer_name;
+        $itemIds = collect($request->items)->pluck('item_id')->all();
+        app(InventoryTurnoverService::class)->assertItemsMutable($user, $itemIds);
 
         try {
             return DB::transaction(function () use ($request, $user, $bookingId, $consumerName) {

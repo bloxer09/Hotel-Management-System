@@ -10,6 +10,7 @@ use App\Models\InventoryStockMovement;
 use App\Models\User;
 use App\Services\BookingService;
 use App\Services\InventoryChangeRequestService;
+use App\Services\InventoryTurnoverService;
 use App\Services\ShiftService;
 use App\Support\HotelDateTime;
 use Carbon\Carbon;
@@ -66,6 +67,7 @@ class InventoryController extends Controller
             'historyFilters' => $request->only([
                 'history_item', 'history_search', 'history_type', 'history_status', 'history_user', 'history_from', 'history_to',
             ]),
+            'trackedCount' => InventoryItem::query()->where('is_turnover_tracked', true)->where('is_active', true)->count(),
         ];
 
         if ($tab === 'items') {
@@ -250,6 +252,13 @@ class InventoryController extends Controller
         }
 
         ShiftService::assertCanChangeTrackedInventory($user);
+        app(InventoryTurnoverService::class)->assertItemsMutable(
+            $user,
+            [$inventoryItem->id],
+            $user->role === 'admin'
+                ? InventoryTurnoverService::CONTEXT_ADMIN_ADJUST
+                : InventoryTurnoverService::CONTEXT_SALE
+        );
 
         try {
             if ($user->role === 'admin') {
@@ -657,6 +666,10 @@ class InventoryController extends Controller
             ],
             'complimentary_amenity' => [
                 'movement' => [InventoryStockMovement::TYPE_COMPLIMENTARY_AMENITY],
+                'request' => [],
+            ],
+            'inventory_variance' => [
+                'movement' => [InventoryStockMovement::TYPE_INVENTORY_VARIANCE],
                 'request' => [],
             ],
         ];

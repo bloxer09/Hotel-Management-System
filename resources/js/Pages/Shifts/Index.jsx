@@ -19,7 +19,7 @@ import ConfirmModal from '@/Components/ConfirmModal';
 import CustomSelect from '@/Components/CustomSelect';
 import { formatUtcToManila } from '@/Utils/datetime';
 
-export default function Index({ activeShift, registerShift, isRegisterOperator, viewerMode, suggestedShift, suggestedOpeningCash, suggestedOpeningDenominations, suggestedOpeningCashMinibar, suggestedOpeningDenominationsMinibar, previousClosedShift, liveSummary, recentShifts, pendingVariances = [], canReviewVariances = false, unresolvedExpenses = { pending: 0, approved_unpaid: 0 } }) {
+export default function Index({ activeShift, registerShift, isRegisterOperator, viewerMode, suggestedShift, suggestedOpeningCash, suggestedOpeningDenominations, suggestedOpeningCashMinibar, suggestedOpeningDenominationsMinibar, previousClosedShift, liveSummary, recentShifts, pendingVariances = [], canReviewVariances = false, unresolvedExpenses = { pending: 0, approved_unpaid: 0 }, inventoryTurnover = {} }) {
     const [showShutdownConfirm, setShowShutdownConfirm] = useState(false);
 
     const COINS = [0.01, 0.05, 0.25, 1, 5, 10];
@@ -54,7 +54,8 @@ export default function Index({ activeShift, registerShift, isRegisterOperator, 
         closing_denominations: { ...defaultDenominations },
         closing_cash_minibar: 0.00,
         closing_denominations_minibar: { ...defaultDenominations },
-        notes: ''
+        notes: '',
+        inventory_override_reason: ''
     });
 
     const handleDenominationChange = (denom, qty) => {
@@ -223,12 +224,20 @@ export default function Index({ activeShift, registerShift, isRegisterOperator, 
                                         </div>
                                     </div>
                                     {!viewerMode && (
-                                        <Link
-                                            href={route('shifts.report', registerShift.id)}
-                                            className="inline-flex items-center gap-2 rounded-xl border border-[#334155] bg-[#1e293b] px-4 py-2 text-xs font-bold text-slate-300 hover:border-brand-500 hover:text-white"
-                                        >
-                                            <Printer size={14} /> View Live Report
-                                        </Link>
+                                        <div className="flex flex-col sm:flex-row gap-2">
+                                            <Link
+                                                href={route('shifts.inventory_turnover.show')}
+                                                className="inline-flex items-center gap-2 rounded-xl border border-brand-500/40 bg-brand-950/40 px-4 py-2 text-xs font-bold text-brand-200 hover:border-brand-400 hover:text-white"
+                                            >
+                                                <PackageOpen size={14} /> Inventory Turnover
+                                            </Link>
+                                            <Link
+                                                href={route('shifts.report', registerShift.id)}
+                                                className="inline-flex items-center gap-2 rounded-xl border border-[#334155] bg-[#1e293b] px-4 py-2 text-xs font-bold text-slate-300 hover:border-brand-500 hover:text-white"
+                                            >
+                                                <Printer size={14} /> View Live Report
+                                            </Link>
+                                        </div>
                                     )}
                                 </div>
                             </motion.div>
@@ -614,7 +623,7 @@ export default function Index({ activeShift, registerShift, isRegisterOperator, 
                                         </div>
                                         <div>
                                             <h2 className="text-lg font-outfit font-bold text-slate-200">Close Register & End Shift</h2>
-                                            <p className="text-xs text-slate-400 font-medium">Conduct a physical count of drawer cash, enter closing amount, and calculate variance.</p>
+                                            <p className="text-xs text-slate-400 font-medium">Count rooms and minibar cash, then complete the tracked inventory physical count before ending the shift.</p>
                                         </div>
                                     </div>
                                     <form onSubmit={handleEndShift} className="space-y-6">
@@ -817,6 +826,22 @@ export default function Index({ activeShift, registerShift, isRegisterOperator, 
                                             );
                                         })()}
 
+                                        {inventoryTurnover?.has_tracked_items && inventoryTurnover?.requires_count_before_end && (
+                                            <div className="rounded-xl border border-amber-500/40 bg-amber-950/40 p-4 text-xs text-amber-100">
+                                                Tracked inventory count is required before a normal End Shift.
+                                                Current status: <span className="uppercase font-bold">{inventoryTurnover.current_status || 'not started'}</span>.
+                                                {' '}<Link href={route('shifts.inventory_turnover.show')} className="underline font-bold">Open Inventory Turnover</Link>
+                                            </div>
+                                        )}
+                                        {inventoryTurnover?.pending_handover_status && (
+                                            <div className="rounded-xl border border-sky-500/40 bg-sky-950/40 p-4 text-xs text-sky-100">
+                                                Previous inventory handover is {inventoryTurnover.pending_handover_status}. Incoming tracked stock cannot be used until it is accepted.
+                                            </div>
+                                        )}
+                                        {endForm.errors.inventory_turnover && (
+                                            <p className="text-xs text-rose-400 font-bold">{endForm.errors.inventory_turnover}</p>
+                                        )}
+
                                         {((unresolvedExpenses?.pending || 0) + (unresolvedExpenses?.approved_unpaid || 0)) > 0 && (
                                             <div className="rounded-xl border border-amber-500/40 bg-amber-950/40 p-4 text-xs text-amber-100">
                                                 {(unresolvedExpenses.pending + unresolvedExpenses.approved_unpaid)} expense request{(unresolvedExpenses.pending + unresolvedExpenses.approved_unpaid) === 1 ? '' : 's'} from this shift {(unresolvedExpenses.pending + unresolvedExpenses.approved_unpaid) === 1 ? 'is' : 'are'} still unresolved.
@@ -824,7 +849,21 @@ export default function Index({ activeShift, registerShift, isRegisterOperator, 
                                             </div>
                                         )}
 
-                                        {/* Button */}
+                                        {canReviewVariances && inventoryTurnover?.has_tracked_items && inventoryTurnover?.requires_count_before_end && (
+                                            <div className="flex flex-col gap-2">
+                                                <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Admin inventory override reason</label>
+                                                <textarea
+                                                    value={endForm.data.inventory_override_reason}
+                                                    onChange={e => endForm.setData('inventory_override_reason', e.target.value)}
+                                                    placeholder="Required only if ending the cash shift without a completed inventory turnover. This does not pretend stock was counted."
+                                                    rows="2"
+                                                    className="w-full bg-[#0f172a] border border-amber-500/40 rounded-xl text-slate-100 p-4 focus:outline-none text-sm"
+                                                />
+                                                {endForm.errors.inventory_override_reason && (
+                                                    <p className="text-xs text-rose-400">{endForm.errors.inventory_override_reason}</p>
+                                                )}
+                                            </div>
+                                        )}
                                         <button
                                             type="submit"
                                             disabled={endForm.processing}
@@ -856,6 +895,7 @@ export default function Index({ activeShift, registerShift, isRegisterOperator, 
                                     <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Ended At</th>
                                     <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Opening (₱)</th>
                                     <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Closing (₱)</th>
+                                    <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-left">Inventory</th>
                                     <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-right">Actions</th>
                                 </tr>
                             </thead>
@@ -887,6 +927,9 @@ export default function Index({ activeShift, registerShift, isRegisterOperator, 
                                         </td>
                                         <td className="px-4 py-3 font-mono text-slate-300">
                                             {s.ended_at ? `₱${s.closing_cash.toLocaleString()}` : '-'}
+                                        </td>
+                                        <td className="px-4 py-3 text-[10px] uppercase font-bold text-slate-400">
+                                            {s.inventory_turnover?.status || (inventoryTurnover?.has_tracked_items ? '—' : 'n/a')}
                                         </td>
                                         <td className="px-4 py-3 text-right">
                                             <Link

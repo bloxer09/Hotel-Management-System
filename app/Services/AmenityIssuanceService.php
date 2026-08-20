@@ -129,6 +129,10 @@ class AmenityIssuanceService
             $user,
             'An active Front Desk register is required to issue complimentary inventory.'
         );
+        app(InventoryTurnoverService::class)->assertItemsMutable(
+            $user,
+            collect($lines)->pluck('inventory_item_id')->all()
+        );
 
         if (! in_array($context, [InventoryAmenityIssue::CONTEXT_INITIAL, InventoryAmenityIssue::CONTEXT_REFILL], true)) {
             throw new AmenityIssuanceException('Issue context must be initial or refill.');

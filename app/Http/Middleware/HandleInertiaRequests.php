@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Enums\UserRole;
+use App\Services\InventoryTurnoverService;
 use App\Services\ShiftService;
 use App\Services\ShiftVarianceResolutionService;
 use Illuminate\Http\Request;
@@ -57,6 +58,9 @@ class HandleInertiaRequests extends Middleware
             ],
             'cash_variance_banner' => $user
                 ? app(ShiftVarianceResolutionService::class)->bannerForUser($user)
+                : null,
+            'inventory_turnover_banner' => $user
+                ? app(InventoryTurnoverService::class)->bannerForUser($user)
                 : null,
         ];
     }
