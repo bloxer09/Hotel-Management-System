@@ -29,4 +29,24 @@ class ShiftService
 
         return $activeShift !== null && $activeShift->user_id === $user->id;
     }
+
+    public static function activeRegisterId(): ?int
+    {
+        $register = self::activeRegister();
+
+        return $register?->id;
+    }
+
+    /**
+     * Front Desk may only change physical inventory while assigned to the
+     * hotel's single active register. Admin may proceed without a register.
+     */
+    public static function assertCanChangeTrackedInventory(User $user): void
+    {
+        if (self::requireActiveShift($user)) {
+            return;
+        }
+
+        abort(403, 'An active Front Desk register is required to change tracked inventory.');
+    }
 }

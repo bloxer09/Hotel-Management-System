@@ -387,7 +387,7 @@ class InventoryRequestFixesTest extends TestCase
             ->has('history.data', 2)
             ->where('history.data', function ($rows) {
                 $keys = collect($rows)->pluck('type_key')->sort()->values()->all();
-                $this->assertSame(['add', 'manual_add'], $keys);
+                $this->assertSame(['add', 'restock'], $keys);
 
                 return true;
             })

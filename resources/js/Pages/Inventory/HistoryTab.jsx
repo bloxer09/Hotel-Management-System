@@ -7,7 +7,7 @@ import Pagination from '@/Components/Pagination';
 const typeOptions = [
     { id: '', name: 'All Types' },
     { id: 'create_item', name: 'New Item' },
-    { id: 'add', name: 'Add' },
+    { id: 'add', name: 'Restock / Add' },
     { id: 'subtract', name: 'Subtract' },
     { id: 'set', name: 'Set Exact' },
     { id: 'pos_sale', name: 'POS Sale' },
@@ -28,8 +28,9 @@ const statusBadge = (status) => {
 const typeLabel = (type) => ({
     create_item: 'New Item',
     initial_stock: 'New Item',
-    add: 'Add',
-    manual_add: 'Add',
+    add: 'Restock request',
+    restock: 'Restock',
+    manual_add: 'Add (legacy)',
     subtract: 'Subtract',
     manual_subtract: 'Subtract',
     set: 'Set Exact',
@@ -153,6 +154,7 @@ export default function HistoryTab({ history, historyItems, historyUsers, histor
                                 <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase">Reason</th>
                                 <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase">Requested By</th>
                                 <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase">Reviewed / Performed</th>
+                                <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase">Register</th>
                                 <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase">Review Note</th>
                             </tr>
                         </thead>
@@ -174,12 +176,13 @@ export default function HistoryTab({ history, historyItems, historyUsers, histor
                                     </td>
                                     <td className="px-4 py-3 text-[11px] text-slate-400 max-w-[180px]">{row.reason || '—'}</td>
                                     <td className="px-4 py-3 text-[11px] text-slate-400">{row.requested_by_name || '—'}</td>
-                                    <td className="px-4 py-3 text-[11px] text-slate-400">{row.actor_name || '—'}</td>
+                                    <td className="px-4 py-3 text-[11px] text-slate-400">{row.actor_name || row.performed_by_name || '—'}</td>
+                                    <td className="px-4 py-3 text-[11px] text-slate-400 whitespace-nowrap">{row.register_label || 'No register'}</td>
                                     <td className="px-4 py-3 text-[11px] text-slate-500">{row.review_note || '—'}</td>
                                 </tr>
                             )) : (
                                 <tr>
-                                    <td colSpan={11} className="py-16 text-center text-slate-500">
+                                    <td colSpan={12} className="py-16 text-center text-slate-500">
                                         <div className="flex flex-col items-center gap-3">
                                             <HistoryIcon size={32} className="opacity-20" />
                                             <span>No inventory history found.</span>

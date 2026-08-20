@@ -10,6 +10,7 @@ use App\Models\InventoryUsage;
 use App\Models\Transaction;
 use App\Services\BookingService;
 use App\Services\InventoryChangeRequestService;
+use App\Services\ShiftService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -57,6 +58,7 @@ class PosController extends Controller
         ]);
 
         $user = $request->user();
+        ShiftService::assertCanChangeTrackedInventory($user);
         $bookingId = $request->booking_id;
         $consumerName = $request->consumer_name;
 

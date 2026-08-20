@@ -18,6 +18,7 @@ use App\Services\BookingService;
 use App\Services\InventoryChangeRequestService;
 use App\Services\InventoryUsageSettlementService;
 use App\Services\PaymentService;
+use App\Services\ShiftService;
 use App\Support\HotelDateTime;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -227,6 +228,7 @@ class BookingController extends Controller
         ]);
 
         $user = $request->user();
+        ShiftService::assertCanChangeTrackedInventory($user);
 
         if ($booking->status !== 'active') {
             return back()->with('error', 'Can only add inventory items to active bookings.');
@@ -523,6 +525,7 @@ class BookingController extends Controller
         ]);
 
         $user = $request->user();
+        ShiftService::assertCanChangeTrackedInventory($user);
 
         try {
             return DB::transaction(function () use ($booking, $request, $user) {

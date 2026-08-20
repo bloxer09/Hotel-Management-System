@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 const typeLabel = (type) => ({
     create_item: 'New Item',
-    add: 'Add Stock',
+    add: 'Restock',
     subtract: 'Subtract Stock',
     set: 'Set Exact',
 }[type] || type || 'request');
@@ -58,7 +58,11 @@ export default function PendingRequestsTab({ requests, isAdmin }) {
     };
 
     return (
-        <>
+        <div className="flex flex-col gap-4">
+            <div className="text-[11px] text-slate-400 bg-[#1e293b] border border-[#334155] rounded-xl px-4 py-3 leading-relaxed">
+                Pending inventory adjustments do not change the official stock count.
+                Apply the physical stock change only after Admin approval.
+            </div>
             <div className="bg-[#1e293b] border border-[#334155] rounded-2xl shadow-xl overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
@@ -174,6 +178,11 @@ export default function PendingRequestsTab({ requests, isAdmin }) {
                                     </>
                                 ) : (
                                     <>
+                                        {reviewing.request_type === 'add' && (
+                                            <p className="text-[11px] text-slate-400 leading-relaxed bg-[#0f172a] border border-[#334155] rounded-xl px-3 py-2">
+                                                Stock will be added to the active Front Desk inventory only when this request is approved.
+                                            </p>
+                                        )}
                                         <Detail label="Requested quantity" value={reviewing.quantity} />
                                         <Detail label="Stock at request" value={reviewing.stock_at_request} />
                                         <Detail label="Current stock" value={reviewing.current_stock ?? 'Item missing'} />
@@ -235,6 +244,7 @@ export default function PendingRequestsTab({ requests, isAdmin }) {
                             <h3 className="font-outfit font-black text-slate-100 mb-2">Approve Request</h3>
                             <p className="text-xs text-slate-400 mb-4">
                                 Approve this {typeLabel(confirmApprove.request_type).toLowerCase()} request for {confirmApprove.item_name}? This cannot be undone.
+                                {confirmApprove.request_type === 'add' ? ' Stock will be added to the active Front Desk inventory only when this request is approved.' : ''}
                             </p>
                             <form onSubmit={submitApprove} className="space-y-4">
                                 <textarea
@@ -253,7 +263,7 @@ export default function PendingRequestsTab({ requests, isAdmin }) {
                     </div>
                 )}
             </AnimatePresence>
-        </>
+        </div>
     );
 }
 

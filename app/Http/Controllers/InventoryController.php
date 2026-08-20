@@ -10,6 +10,8 @@ use App\Models\InventoryStockMovement;
 use App\Models\User;
 use App\Services\BookingService;
 use App\Services\InventoryChangeRequestService;
+use App\Services\ShiftService;
+use App\Support\HotelDateTime;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -109,6 +111,7 @@ class InventoryController extends Controller
             'minimum_stock' => 'required|integer|min:0',
             'unit_cost' => 'required|numeric|min:0',
             'selling_price' => 'required|numeric|min:0',
+            'is_turnover_tracked' => 'sometimes|boolean',
             'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:2048',
         ]);
 
@@ -122,6 +125,9 @@ class InventoryController extends Controller
             'unit_cost',
             'selling_price',
         ]);
+        if ($user->role === 'admin') {
+            $data['is_turnover_tracked'] = $request->boolean('is_turnover_tracked');
+        }
 
         try {
             if ($user->role === 'admin') {
@@ -152,6 +158,7 @@ class InventoryController extends Controller
             'unit_cost' => 'required|numeric|min:0',
             'selling_price' => 'required|numeric|min:0',
             'is_active' => 'required|boolean',
+            'is_turnover_tracked' => 'sometimes|boolean',
             'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:2048',
         ]);
 
@@ -170,7 +177,14 @@ class InventoryController extends Controller
             'unit_cost',
             'selling_price',
             'is_active',
+            'is_turnover_tracked',
         ]);
+        $data['is_active'] = $request->boolean('is_active');
+        if ($request->exists('is_turnover_tracked')) {
+            $data['is_turnover_tracked'] = $request->boolean('is_turnover_tracked');
+        } else {
+            unset($data['is_turnover_tracked']);
+        }
 
         try {
             $inventoryItem = $this->changeRequests->updateCatalogItem(
@@ -235,6 +249,8 @@ class InventoryController extends Controller
             abort(403, 'You do not have permissions to perform stock adjustments.');
         }
 
+        ShiftService::assertCanChangeTrackedInventory($user);
+
         try {
             if ($user->role === 'admin') {
                 $item = $this->changeRequests->adjustItemImmediately(
@@ -256,7 +272,7 @@ class InventoryController extends Controller
                 $request->reason
             );
 
-            return back()->with('success', 'Stock adjustment submitted for admin approval.');
+            return back()->with('success', 'Request submitted. Official stock will change only after Admin approval.');
         } catch (InventoryChangeRequestException $e) {
             return back()->with('error', $e->getMessage());
         }
@@ -433,6 +449,7 @@ class InventoryController extends Controller
             ->leftJoin('users as requester', 'requester.id', '=', 'r.requested_by')
             ->leftJoin('users as performer', 'performer.id', '=', 'm.performed_by')
             ->leftJoin('users as reviewer', 'reviewer.id', '=', 'r.reviewed_by')
+            ->leftJoin('shift_sessions as ss', 'ss.id', '=', 'm.shift_session_id')
             ->selectRaw("
                 'movement' as row_kind,
                 m.id as row_id,
@@ -450,7 +467,10 @@ class InventoryController extends Controller
                 COALESCE(r.reviewed_by, m.performed_by) as actor_id,
                 r.review_note as review_note,
                 COALESCE(requester.full_name, performer.full_name) as requested_by_name,
-                COALESCE(reviewer.full_name, performer.full_name) as actor_name
+                COALESCE(reviewer.full_name, performer.full_name) as actor_name,
+                performer.full_name as performed_by_name,
+                m.shift_session_id as shift_session_id,
+                ss.shift_code as shift_code
             ");
 
         $rejected = DB::table('inventory_change_requests as r')
@@ -475,7 +495,10 @@ class InventoryController extends Controller
                 r.reviewed_by as actor_id,
                 r.review_note as review_note,
                 requester.full_name as requested_by_name,
-                reviewer.full_name as actor_name
+                reviewer.full_name as actor_name,
+                NULL as performed_by_name,
+                NULL as shift_session_id,
+                NULL as shift_code
             ");
 
         if ($user->role !== 'admin') {
@@ -563,12 +586,15 @@ class InventoryController extends Controller
             ->paginate(15, ['*'], 'history_page')
             ->withQueryString()
             ->through(function ($row) {
-                $row->occurred_at_manila = $this->toManila($row->occurred_at);
+                $row->occurred_at_manila = HotelDateTime::formatUtcForDisplay($row->occurred_at);
                 $row->requested_display = $this->requestedQuantityDisplay(
                     (string) $row->request_status,
                     (string) $row->type_key,
                     $row->requested_quantity !== null ? (int) $row->requested_quantity : null
                 );
+                $row->register_label = $row->shift_session_id
+                    ? 'Shift #'.$row->shift_session_id
+                    : 'No register';
 
                 return $row;
             });
@@ -578,7 +604,11 @@ class InventoryController extends Controller
     {
         $mapping = [
             'add' => [
-                'movement' => [InventoryStockMovement::TYPE_MANUAL_ADD],
+                'movement' => [InventoryStockMovement::TYPE_RESTOCK, InventoryStockMovement::TYPE_MANUAL_ADD],
+                'request' => [InventoryChangeRequest::TYPE_ADD],
+            ],
+            'restock' => [
+                'movement' => [InventoryStockMovement::TYPE_RESTOCK],
                 'request' => [InventoryChangeRequest::TYPE_ADD],
             ],
             'subtract' => [

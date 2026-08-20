@@ -12,6 +12,8 @@ class InventoryStockMovement extends Model
 
     public const TYPE_MANUAL_ADD = 'manual_add';
 
+    public const TYPE_RESTOCK = 'restock';
+
     public const TYPE_MANUAL_SUBTRACT = 'manual_subtract';
 
     public const TYPE_MANUAL_SET = 'manual_set';
@@ -21,6 +23,19 @@ class InventoryStockMovement extends Model
     public const TYPE_BOOKING_USAGE = 'booking_usage';
 
     public const TYPE_BOOKING_REVERSAL = 'booking_reversal';
+
+    /** Groundwork only — unused until later phases. */
+    public const TYPE_COMPLIMENTARY_AMENITY = 'complimentary_amenity';
+
+    public const TYPE_INVENTORY_VARIANCE = 'inventory_variance';
+
+    public const TYPE_DAMAGED = 'damaged';
+
+    public const TYPE_EXPIRED = 'expired';
+
+    public const TYPE_INTERNAL_USE = 'internal_use';
+
+    public const TYPE_OTHER_AUTHORIZED_OUT = 'other_authorized_out';
 
     protected $fillable = [
         'inventory_item_id',
@@ -32,6 +47,7 @@ class InventoryStockMovement extends Model
         'source_type',
         'source_id',
         'performed_by',
+        'shift_session_id',
         'notes',
         'created_at',
     ];
@@ -41,6 +57,7 @@ class InventoryStockMovement extends Model
         'stock_before' => 'integer',
         'stock_after' => 'integer',
         'source_id' => 'integer',
+        'shift_session_id' => 'integer',
         'created_at' => 'datetime',
     ];
 
@@ -68,6 +85,39 @@ class InventoryStockMovement extends Model
     public function performer()
     {
         return $this->belongsTo(User::class, 'performed_by');
+    }
+
+    public function shiftSession()
+    {
+        return $this->belongsTo(ShiftSession::class, 'shift_session_id');
+    }
+
+    /**
+     * Map a stock-adjustment request to the movement type written for NEW rows.
+     * Legacy `manual_add` history is never rewritten.
+     */
+    public static function typeForAdjustment(string $adjustmentType): string
+    {
+        return match ($adjustmentType) {
+            InventoryChangeRequest::TYPE_ADD => self::TYPE_RESTOCK,
+            InventoryChangeRequest::TYPE_SUBTRACT => self::TYPE_MANUAL_SUBTRACT,
+            InventoryChangeRequest::TYPE_SET => self::TYPE_MANUAL_SET,
+            default => self::TYPE_MANUAL_SET,
+        };
+    }
+
+    public static function reportingClass(string $type): string
+    {
+        return match ($type) {
+            self::TYPE_RESTOCK, self::TYPE_MANUAL_ADD => 'inflow_add',
+            self::TYPE_MANUAL_SUBTRACT => 'outflow_subtract',
+            self::TYPE_MANUAL_SET => 'manual_set',
+            self::TYPE_INITIAL_STOCK => 'initial_stock',
+            self::TYPE_POS_SALE => 'pos_sale',
+            self::TYPE_BOOKING_USAGE => 'booking_usage',
+            self::TYPE_BOOKING_REVERSAL => 'booking_reversal',
+            default => $type,
+        };
     }
 
     public static function record(array $attributes): self

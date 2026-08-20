@@ -30,15 +30,11 @@ class InventoryUsage extends Model
     protected static function booted()
     {
         static::creating(function ($usage) {
-            $user = auth()->user();
-            if ($user) {
-                $activeShift = \App\Models\ShiftSession::where('user_id', $user->id)
-                    ->whereNull('ended_at')
-                    ->first();
-                if ($activeShift) {
-                    $usage->shift_id = $activeShift->id;
-                }
+            if ($usage->shift_id) {
+                return;
             }
+
+            $usage->shift_id = \App\Services\ShiftService::activeRegisterId();
         });
     }
 

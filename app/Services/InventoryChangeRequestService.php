@@ -143,6 +143,7 @@ class InventoryChangeRequestService
                     'unit_cost' => $data['unit_cost'],
                     'selling_price' => $data['selling_price'],
                     'image_path' => $this->publicImagePath($storedImagePath),
+                    'is_turnover_tracked' => (bool) ($data['is_turnover_tracked'] ?? false),
                 ]);
 
                 $changeRequest = InventoryChangeRequest::create([
@@ -252,11 +253,7 @@ class InventoryChangeRequestService
                 'reviewed_at' => now(),
             ]);
 
-            $movementType = match ($type) {
-                InventoryChangeRequest::TYPE_ADD => InventoryStockMovement::TYPE_MANUAL_ADD,
-                InventoryChangeRequest::TYPE_SUBTRACT => InventoryStockMovement::TYPE_MANUAL_SUBTRACT,
-                default => InventoryStockMovement::TYPE_MANUAL_SET,
-            };
+            $movementType = InventoryStockMovement::typeForAdjustment($type);
 
             $this->recordMovement(
                 $locked,
@@ -490,6 +487,7 @@ class InventoryChangeRequestService
                 'unit_cost' => $payload['unit_cost'] ?? 0,
                 'selling_price' => $payload['selling_price'] ?? 0,
                 'image_path' => $imagePath,
+                'is_turnover_tracked' => (bool) ($payload['is_turnover_tracked'] ?? false),
             ]);
         } catch (UniqueConstraintViolationException $e) {
             throw $this->duplicateItemException();
@@ -590,11 +588,7 @@ class InventoryChangeRequestService
             'review_note' => $reviewNote,
         ]);
 
-        $movementType = match ($type) {
-            InventoryChangeRequest::TYPE_ADD => InventoryStockMovement::TYPE_MANUAL_ADD,
-            InventoryChangeRequest::TYPE_SUBTRACT => InventoryStockMovement::TYPE_MANUAL_SUBTRACT,
-            default => InventoryStockMovement::TYPE_MANUAL_SET,
-        };
+        $movementType = InventoryStockMovement::typeForAdjustment($type);
 
         $this->recordMovement(
             $item,
@@ -703,6 +697,7 @@ class InventoryChangeRequestService
             'source_type' => $sourceType,
             'source_id' => $sourceId,
             'performed_by' => $performedBy,
+            'shift_session_id' => ShiftService::activeRegisterId(),
             'notes' => $notes,
         ]);
     }

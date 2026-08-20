@@ -68,6 +68,7 @@ export default function Index({
         minimum_stock: 5,
         unit_cost: 0,
         selling_price: 0,
+        is_turnover_tracked: false,
         image: null
     });
 
@@ -80,6 +81,7 @@ export default function Index({
         unit_cost: 0,
         selling_price: 0,
         is_active: true,
+        is_turnover_tracked: false,
         image: null,
         _method: 'PATCH'
     });
@@ -139,6 +141,7 @@ export default function Index({
             unit_cost: item.unit_cost,
             selling_price: item.selling_price,
             is_active: item.is_active ? true : false,
+            is_turnover_tracked: item.is_turnover_tracked ? true : false,
             image: null,
             _method: 'PATCH'
         });
@@ -325,6 +328,11 @@ export default function Index({
                                                         {!item.is_active && (
                                                             <span className="inline-flex items-center gap-1 text-[9px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded uppercase font-bold w-max">
                                                                 Inactive
+                                                            </span>
+                                                        )}
+                                                        {item.is_turnover_tracked && (
+                                                            <span className="inline-flex items-center gap-1 text-[9px] bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 px-2 py-0.5 rounded uppercase font-bold w-max">
+                                                                Turnover tracked
                                                             </span>
                                                         )}
                                                     </div>
@@ -526,6 +534,23 @@ export default function Index({
                                             />
                                         </div>
 
+                                        {isAdmin && (
+                                            <div className="sm:col-span-2 flex flex-col gap-1">
+                                                <label className="flex items-start gap-2 cursor-pointer mt-1">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={createForm.data.is_turnover_tracked}
+                                                        onChange={e => createForm.setData('is_turnover_tracked', e.target.checked)}
+                                                        className="mt-0.5 rounded bg-[#0f172a] border-[#334155] text-brand-600 focus:ring-0 focus:ring-offset-0"
+                                                    />
+                                                    <span className="flex flex-col">
+                                                        <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Turnover tracked</span>
+                                                        <span className="text-[11px] text-slate-400">Include this item in Front Desk physical inventory turnover.</span>
+                                                    </span>
+                                                </label>
+                                            </div>
+                                        )}
+
                                         <div className="sm:col-span-2 flex flex-col gap-1">
                                             <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Product Image</label>
                                             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 bg-[#0f172a] p-4 rounded-xl border border-[#334155] mt-1">
@@ -675,6 +700,21 @@ export default function Index({
                                         </div>
 
                                         <div className="sm:col-span-2 flex flex-col gap-1">
+                                            <label className="flex items-start gap-2 cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={editForm.data.is_turnover_tracked}
+                                                    onChange={e => editForm.setData('is_turnover_tracked', e.target.checked)}
+                                                    className="mt-0.5 rounded bg-[#0f172a] border-[#334155] text-brand-600 focus:ring-0 focus:ring-offset-0"
+                                                />
+                                                <span className="flex flex-col">
+                                                    <span className="text-xs font-semibold text-slate-300">Turnover tracked</span>
+                                                    <span className="text-[11px] text-slate-400">Include this item in Front Desk physical inventory turnover.</span>
+                                                </span>
+                                            </label>
+                                        </div>
+
+                                        <div className="sm:col-span-2 flex flex-col gap-1">
                                             <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Product Image</label>
                                             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 bg-[#0f172a] p-4 rounded-xl border border-[#334155] mt-1">
                                                 {editForm.data.image ? (
@@ -752,7 +792,7 @@ export default function Index({
                                                 : 'text-slate-400'
                                                 }`}
                                         >
-                                            <Plus size={12} /> Add
+                                            <Plus size={12} /> Restock
                                         </button>
                                         <button
                                             type="button"
@@ -801,6 +841,14 @@ export default function Index({
                                             required
                                         />
                                     </div>
+
+                                    {!isAdmin && (
+                                        <p className="text-[11px] text-amber-200/90 leading-relaxed bg-amber-500/10 border border-amber-500/20 rounded-xl px-3 py-2">
+                                            Pending inventory adjustments do not change the official stock count.
+                                            Apply the physical stock change only after Admin approval.
+                                            {adjustForm.data.adjustment_type === 'add' ? ' Stock will be added to the active Front Desk inventory only when this request is approved.' : ''}
+                                        </p>
+                                    )}
 
                                     <div className="pt-4 border-t border-[#334155]/60 flex justify-end gap-3">
                                         <button type="button" onClick={() => setIsAdjustOpen(false)} className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold font-outfit">Cancel</button>

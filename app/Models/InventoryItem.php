@@ -20,6 +20,7 @@ class InventoryItem extends Model
         'selling_price',
         'image_path',
         'is_active',
+        'is_turnover_tracked',
     ];
 
     protected $casts = [
@@ -28,6 +29,7 @@ class InventoryItem extends Model
         'unit_cost' => 'float',
         'selling_price' => 'float',
         'is_active' => 'boolean',
+        'is_turnover_tracked' => 'boolean',
     ];
 
     protected static function booted(): void
