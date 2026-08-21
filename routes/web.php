@@ -61,15 +61,22 @@ Route::middleware('auth')->group(function () {
     Route::middleware('role:admin,front_desk')->group(function () {
         Route::get('/shifts', [ShiftController::class, 'index'])->name('shifts.index');
         Route::get('/shifts/inventory-turnover', [InventoryTurnoverController::class, 'show'])->name('shifts.inventory_turnover.show');
+        Route::get('/shifts/inventory-turnover/history', [InventoryTurnoverController::class, 'history'])->name('shifts.inventory_turnover.history');
+        Route::get('/shifts/inventory-turnover/{turnover}/print', [InventoryTurnoverController::class, 'print'])->name('shifts.inventory_turnover.print');
+        Route::get('/shifts/inventory-turnover/{turnover}', [InventoryTurnoverController::class, 'showRecord'])->name('shifts.inventory_turnover.show_record');
         Route::post('/shifts/inventory-turnover/opening', [InventoryTurnoverController::class, 'acceptOpening'])->name('shifts.inventory_turnover.opening');
         Route::post('/shifts/inventory-turnover/start-counting', [InventoryTurnoverController::class, 'startCounting'])->name('shifts.inventory_turnover.start_counting');
         Route::post('/shifts/inventory-turnover/cancel-counting', [InventoryTurnoverController::class, 'cancelCounting'])->name('shifts.inventory_turnover.cancel_counting');
         Route::post('/shifts/inventory-turnover/submit', [InventoryTurnoverController::class, 'submit'])->name('shifts.inventory_turnover.submit');
         Route::post('/shifts/inventory-turnover/accept', [InventoryTurnoverController::class, 'acceptHandover'])->name('shifts.inventory_turnover.accept');
         Route::post('/shifts/inventory-turnover/dispute', [InventoryTurnoverController::class, 'disputeHandover'])->name('shifts.inventory_turnover.dispute');
+        Route::post('/shifts/inventory-turnover/{turnover}/recount', [InventoryTurnoverController::class, 'requestRecount'])
+            ->middleware('role:admin')
+            ->name('shifts.inventory_turnover.recount');
         Route::post('/shifts/inventory-turnover/{turnover}/resolve', [InventoryTurnoverController::class, 'resolveDispute'])
             ->middleware('role:admin')
             ->name('shifts.inventory_turnover.resolve');
+        Route::delete('/shifts/inventory-turnover/{turnover}', [InventoryTurnoverController::class, 'destroy'])->name('shifts.inventory_turnover.destroy');
         Route::get('/shifts/variances', [ShiftVarianceController::class, 'index'])
             ->middleware('role:admin')
             ->name('shifts.variances.index');

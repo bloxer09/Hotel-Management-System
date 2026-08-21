@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Exceptions\InventoryTurnoverException;
 use App\Models\InventoryShiftTurnover;
+use App\Models\User;
 use App\Services\InventoryTurnoverService;
 use App\Services\ShiftService;
 use Illuminate\Http\Request;
@@ -20,6 +21,53 @@ class InventoryTurnoverController extends Controller
         $shift = ShiftService::activeRegister();
 
         return Inertia::render('Shifts/InventoryTurnover', $this->turnovers->screenPayload($shift, $user));
+    }
+
+    public function history(Request $request)
+    {
+        $user = $request->user();
+        $this->assertDeskRole($user);
+
+        $filters = $request->only(['date', 'status', 'shift_session_id', 'employee_id']);
+
+        return Inertia::render('Shifts/InventoryTurnoverHistory', [
+            'turnovers' => $this->turnovers->history($user, $filters),
+            'filters' => [
+                'date' => $filters['date'] ?? '',
+                'status' => $filters['status'] ?? '',
+                'shift_session_id' => $filters['shift_session_id'] ?? '',
+                'employee_id' => $filters['employee_id'] ?? '',
+            ],
+            'status_options' => InventoryShiftTurnover::STATUS_LABELS,
+            'employees' => $user->role === 'admin'
+                ? User::query()->whereIn('role', ['admin', 'front_desk'])->orderBy('full_name')->get(['id', 'full_name', 'role'])
+                : [],
+            'can_admin_resolve' => $user->role === 'admin',
+            'disputed_count' => $this->turnovers->disputedCount(),
+        ]);
+    }
+
+    public function showRecord(Request $request, InventoryShiftTurnover $turnover)
+    {
+        $user = $request->user();
+        $this->assertDeskRole($user);
+        $this->turnovers->assertCanView($user, $turnover);
+
+        return Inertia::render('Shifts/InventoryTurnoverShow', [
+            'turnover' => $this->turnovers->reportPayload($turnover),
+            'can_admin_resolve' => $user->role === 'admin' && $turnover->status === InventoryShiftTurnover::STATUS_DISPUTED,
+            'can_print' => true,
+        ]);
+    }
+
+    public function print(Request $request, InventoryShiftTurnover $turnover)
+    {
+        $user = $request->user();
+        $this->assertDeskRole($user);
+        $this->turnovers->assertCanView($user, $turnover);
+        $this->turnovers->recordReportExported($user, $turnover);
+
+        return Inertia::render('Shifts/InventoryTurnoverPrint', $this->turnovers->printPayload($turnover));
     }
 
     public function acceptOpening(Request $request)
@@ -91,7 +139,26 @@ class InventoryTurnoverController extends Controller
             (string) $request->input('reason')
         );
 
-        return back()->with('warning', 'Handover marked disputed. Outgoing expected/actual were not changed. Admin must confirm the accepted physical quantity.');
+        return back()->with('warning', 'Handover marked disputed. Live stock and outgoing expected/actual were not changed. Admin must confirm the accepted physical quantity.');
+    }
+
+    public function requestRecount(Request $request, InventoryShiftTurnover $turnover)
+    {
+        if ($request->user()->role !== 'admin') {
+            abort(403, 'Only administrators can request a handover recount.');
+        }
+
+        $request->validate([
+            'reason' => 'required|string|max:500',
+        ]);
+
+        $this->turnovers->requestRecount(
+            $request->user(),
+            $turnover,
+            (string) $request->input('reason')
+        );
+
+        return back()->with('warning', 'Recount requested. Status remains disputed. Inventory was not changed.');
     }
 
     public function resolveDispute(Request $request, InventoryShiftTurnover $turnover)
@@ -112,6 +179,12 @@ class InventoryTurnoverController extends Controller
         );
 
         return back()->with('success', 'Handover dispute resolved. Outgoing snapshot was not rewritten.');
+    }
+
+    public function destroy(Request $request, InventoryShiftTurnover $turnover)
+    {
+        $this->assertDeskRole($request->user());
+        abort(403, 'Submitted and accepted inventory turnovers cannot be deleted. Use an audited resolution instead.');
     }
 
     private function currentTurnover(): InventoryShiftTurnover

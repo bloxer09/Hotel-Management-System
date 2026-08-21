@@ -1227,12 +1227,17 @@ export default function Report({ shift, report }) {
                             )}
                             {report.inventory_accountability && (
                                 <>
-                                    <div className="text-xs text-slate-400 flex flex-wrap gap-3">
-                                        <span>Status: <strong className="uppercase text-slate-200">{report.inventory_accountability.status}</strong></span>
+                                    <div className="text-xs text-slate-400 flex flex-wrap gap-3 items-center">
+                                        <span>Status: <strong className="uppercase text-slate-200">{report.inventory_accountability.status_label || report.inventory_accountability.status}</strong></span>
+                                        {report.inventory_accountability.status_description && <span>{report.inventory_accountability.status_description}</span>}
                                         {report.inventory_accountability.is_frozen && <span>Frozen snapshot</span>}
-                                        {report.inventory_accountability.has_manual_set && <span className="text-amber-300">Manual SET occurred — review</span>}
+                                        {report.inventory_accountability.has_manual_set && <span className="text-amber-300">Manual stock SET occurred during this shift.</span>}
                                         {report.inventory_accountability.submitted_at_manila && <span>Submitted {report.inventory_accountability.submitted_at_manila}</span>}
                                         {report.inventory_accountability.accepted_at_manila && <span>Accepted {report.inventory_accountability.accepted_at_manila}</span>}
+                                        {report.inventory_accountability.resolution_notes && <span>Resolution: {report.inventory_accountability.resolution_notes}</span>}
+                                        {report.inventory_accountability.disputed_reason && <span className="text-rose-300">Dispute: {report.inventory_accountability.disputed_reason}</span>}
+                                        <Link href={route('shifts.inventory_turnover.show_record', report.inventory_accountability.id)} className="text-brand-300 font-bold">Open detail</Link>
+                                        <Link href={route('shifts.inventory_turnover.print', report.inventory_accountability.id)} className="text-brand-300 font-bold">Print / PDF</Link>
                                     </div>
                                     <div className="overflow-x-auto rounded-lg border border-slate-700">
                                         <table className="w-full text-left border-collapse text-xs text-slate-200 min-w-[1100px]">
@@ -1284,9 +1289,12 @@ export default function Report({ shift, report }) {
                                         </table>
                                     </div>
                                     {report.inventory_accountability.admin_override_reason && (
-                                        <p className="text-xs text-amber-300">
-                                            Admin End Shift override: {report.inventory_accountability.admin_override_reason}
-                                        </p>
+                                        <div className="rounded-xl border border-amber-500/40 bg-amber-950/20 p-3 text-xs text-amber-100">
+                                            <div className="font-extrabold uppercase tracking-wide">Inventory turnover override</div>
+                                            <div>Reason: {report.inventory_accountability.admin_override_reason}</div>
+                                            <div>Authorized by: {report.inventory_accountability.admin_override_by_name || 'Admin'}</div>
+                                            <div>Timestamp: {report.inventory_accountability.admin_override_at_manila || '—'}</div>
+                                        </div>
                                     )}
                                 </>
                             )}

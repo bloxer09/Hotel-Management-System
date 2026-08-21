@@ -232,6 +232,12 @@ export default function Index({ activeShift, registerShift, isRegisterOperator, 
                                                 <PackageOpen size={14} /> Inventory Turnover
                                             </Link>
                                             <Link
+                                                href={route('shifts.inventory_turnover.history')}
+                                                className="inline-flex items-center gap-2 rounded-xl border border-[#334155] bg-[#1e293b] px-4 py-2 text-xs font-bold text-slate-300 hover:border-brand-500 hover:text-white"
+                                            >
+                                                History
+                                            </Link>
+                                            <Link
                                                 href={route('shifts.report', registerShift.id)}
                                                 className="inline-flex items-center gap-2 rounded-xl border border-[#334155] bg-[#1e293b] px-4 py-2 text-xs font-bold text-slate-300 hover:border-brand-500 hover:text-white"
                                             >

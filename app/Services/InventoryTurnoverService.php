@@ -439,7 +439,11 @@ class InventoryTurnoverService
     {
         $this->assertCanVerify($user, $turnover);
 
-        if (! in_array($turnover->status, [InventoryShiftTurnover::STATUS_SUBMITTED, InventoryShiftTurnover::STATUS_DISPUTED], true)) {
+        if ($turnover->status === InventoryShiftTurnover::STATUS_DISPUTED) {
+            throw new InventoryTurnoverException('A disputed handover cannot be accepted normally. Admin must resolve the discrepancy or request a recount.');
+        }
+
+        if ($turnover->status !== InventoryShiftTurnover::STATUS_SUBMITTED) {
             throw new InventoryTurnoverException('Only a submitted turnover can be accepted.');
         }
 
@@ -474,7 +478,7 @@ class InventoryTurnoverService
         $reason = trim($reason);
         if ($reason === '') {
             throw ValidationException::withMessages([
-                'reason' => 'A reason is required when the incoming count differs from the outgoing declaration.',
+                'reason' => 'A reason is required when the incoming count differs from expected physical stock at handover.',
             ]);
         }
 
@@ -482,7 +486,12 @@ class InventoryTurnoverService
 
         return DB::transaction(function () use ($user, $turnover, $normalized, $reason) {
             $locked = InventoryShiftTurnover::query()->whereKey($turnover->id)->lockForUpdate()->firstOrFail();
+            $locked->load('items');
             $gaps = $this->gapNetByItem($locked);
+            $liveBefore = InventoryItem::query()
+                ->whereIn('id', $locked->items->pluck('inventory_item_id')->all())
+                ->pluck('current_stock', 'id');
+
             foreach ($locked->items as $line) {
                 $verified = $normalized[$line->inventory_item_id];
                 $this->writeHandoverFigures($line, $verified, $gaps);
@@ -491,7 +500,17 @@ class InventoryTurnoverService
 
             $locked->status = InventoryShiftTurnover::STATUS_DISPUTED;
             $locked->disputed_reason = $reason;
+            $locked->disputed_at = now();
+            $locked->disputed_by = $user->id;
             $locked->save();
+
+            foreach ($locked->items as $line) {
+                $itemId = (int) $line->inventory_item_id;
+                $stockNow = (int) InventoryItem::query()->whereKey($itemId)->value('current_stock');
+                if ($stockNow !== (int) ($liveBefore[$itemId] ?? $stockNow)) {
+                    throw new InventoryTurnoverException('Marking a handover disputed must not change live stock.');
+                }
+            }
 
             BookingService::auditLog(
                 $user->id,
@@ -527,6 +546,75 @@ class InventoryTurnoverService
         $normalized = $this->requireAllTrackedCounts($counts);
 
         return $this->finalizeAcceptance($admin, $turnover, $normalized, $reason, true);
+    }
+
+    public function requestRecount(User $user, InventoryShiftTurnover $turnover, string $reason): InventoryShiftTurnover
+    {
+        if ($user->role !== 'admin') {
+            abort(403, 'Only administrators can request a handover recount.');
+        }
+
+        if ($turnover->status !== InventoryShiftTurnover::STATUS_DISPUTED && $turnover->status !== InventoryShiftTurnover::STATUS_SUBMITTED) {
+            throw new InventoryTurnoverException('A recount can only be requested for a submitted or disputed handover.');
+        }
+
+        $reason = trim($reason);
+        if ($reason === '') {
+            throw ValidationException::withMessages([
+                'reason' => 'A reason is required to request a recount.',
+            ]);
+        }
+
+        $before = $turnover->status;
+        $turnover->status = InventoryShiftTurnover::STATUS_DISPUTED;
+        $turnover->resolution_type = InventoryShiftTurnover::RESOLUTION_REQUIRE_RECOUNT;
+        $turnover->recount_requested_at = now();
+        $turnover->recount_requested_by = $user->id;
+        if ($turnover->disputed_reason === null || $turnover->disputed_reason === '') {
+            $turnover->disputed_reason = $reason;
+            $turnover->disputed_at = $turnover->disputed_at ?? now();
+            $turnover->disputed_by = $turnover->disputed_by ?? $user->id;
+        }
+        $turnover->save();
+
+        BookingService::auditLog(
+            $user->id,
+            'INVENTORY_HANDOVER_RECOUNT_REQUESTED',
+            'inventory_shift_turnovers',
+            $turnover->id,
+            $before,
+            InventoryShiftTurnover::STATUS_DISPUTED,
+            $reason
+        );
+
+        return $turnover->fresh(['items']);
+    }
+
+    public function assertCanView(User $user, InventoryShiftTurnover $turnover): void
+    {
+        $turnover->loadMissing('shiftSession');
+        if ($user->role === 'housekeeping') {
+            abort(403, 'Housekeeping cannot access inventory turnover records.');
+        }
+
+        if ($user->role === 'admin') {
+            return;
+        }
+
+        if ($user->role !== 'front_desk') {
+            abort(403, 'Unauthorized inventory turnover access.');
+        }
+
+        $shiftUserId = (int) ($turnover->shiftSession?->user_id ?? 0);
+        $visible = $shiftUserId === (int) $user->id
+            || (int) $turnover->counted_by === (int) $user->id
+            || (int) $turnover->accepted_by === (int) $user->id
+            || (int) $turnover->disputed_by === (int) $user->id
+            || in_array($turnover->status, [InventoryShiftTurnover::STATUS_SUBMITTED, InventoryShiftTurnover::STATUS_DISPUTED], true);
+
+        if (! $visible) {
+            abort(403, 'Front Desk can only view current handover work and their own shift turnovers.');
+        }
     }
 
     public function recordCloseOverride(User $admin, InventoryShiftTurnover $turnover, ?string $reason): void
@@ -604,13 +692,32 @@ class InventoryTurnoverService
             return null;
         }
 
-        $turnover->loadMissing(['items', 'shiftSession.user', 'countedBy', 'acceptedBy']);
+        $turnover->loadMissing([
+            'items',
+            'shiftSession.user',
+            'countedBy',
+            'acceptedBy',
+            'disputedBy',
+            'resolvedBy',
+            'recountRequestedBy',
+            'adminOverrideBy',
+        ]);
         $liveGaps = $turnover->accepted_at ? null : $this->gapNetByItem($turnover);
+        $items = $turnover->items->map(fn (InventoryShiftCountItem $line) => $this->linePayload($line, $turnover, $liveGaps))->values()->all();
+        $shortItems = collect($items)->filter(fn (array $row) => ($row['variance_quantity'] ?? 0) < 0)->values()->all();
+        $overItems = collect($items)->filter(fn (array $row) => ($row['variance_quantity'] ?? 0) > 0)->values()->all();
+        $handoverIssues = collect($items)->filter(fn (array $row) => $row['handover_difference'] !== null && (int) $row['handover_difference'] !== 0)->values()->all();
 
         return [
             'id' => $turnover->id,
             'shift_session_id' => $turnover->shift_session_id,
+            'shift_code' => $turnover->shiftSession?->shift_code,
+            'business_date_manila' => $turnover->shiftSession?->started_at
+                ? HotelDateTime::formatUtcForDisplay($turnover->shiftSession->started_at)
+                : null,
             'status' => $turnover->status,
+            'status_label' => $turnover->statusLabel(),
+            'status_description' => $turnover->statusDescription(),
             'formula_version' => $turnover->formula_version,
             'is_bootstrap' => (bool) $turnover->is_bootstrap,
             'has_manual_set' => (bool) $turnover->has_manual_set,
@@ -618,12 +725,33 @@ class InventoryTurnoverService
             'freeze_started_at_manila' => HotelDateTime::formatUtcForDisplay($turnover->freeze_started_at),
             'submitted_at_manila' => HotelDateTime::formatUtcForDisplay($turnover->submitted_at),
             'accepted_at_manila' => HotelDateTime::formatUtcForDisplay($turnover->accepted_at),
+            'disputed_at_manila' => HotelDateTime::formatUtcForDisplay($turnover->disputed_at),
+            'resolved_at_manila' => HotelDateTime::formatUtcForDisplay($turnover->resolved_at),
+            'recount_requested_at_manila' => HotelDateTime::formatUtcForDisplay($turnover->recount_requested_at),
             'counted_by_name' => $turnover->countedBy?->full_name,
             'accepted_by_name' => $turnover->acceptedBy?->full_name,
+            'disputed_by_name' => $turnover->disputedBy?->full_name,
+            'resolved_by_name' => $turnover->resolvedBy?->full_name,
+            'recount_requested_by_name' => $turnover->recountRequestedBy?->full_name,
+            'outgoing_operator_name' => $turnover->shiftSession?->user?->full_name,
+            'incoming_operator_name' => $turnover->acceptedBy?->full_name,
             'notes' => $turnover->notes,
             'disputed_reason' => $turnover->disputed_reason,
+            'resolution_type' => $turnover->resolution_type,
+            'resolution_notes' => $turnover->resolution_notes,
             'admin_override_reason' => $turnover->admin_override_reason,
-            'items' => $turnover->items->map(fn (InventoryShiftCountItem $line) => $this->linePayload($line, $turnover, $liveGaps))->values()->all(),
+            'admin_override_by_name' => $turnover->adminOverrideBy?->full_name,
+            'admin_override_at_manila' => HotelDateTime::formatUtcForDisplay($turnover->admin_override_at),
+            'short_item_count' => count($shortItems),
+            'over_item_count' => count($overItems),
+            'handover_issue_count' => count($handoverIssues),
+            'handover_status' => $this->handoverStatusLabel($turnover, $handoverIssues),
+            'outgoing_shorts' => $shortItems,
+            'outgoing_overs' => $overItems,
+            'handover_issues' => $handoverIssues,
+            'gap_movements' => $this->gapMovementDetails($turnover),
+            'manual_set_movements' => $this->manualSetDetails($turnover),
+            'items' => $items,
         ];
     }
 
@@ -648,6 +776,7 @@ class InventoryTurnoverService
                 'current_stock' => (int) $item->current_stock,
             ])->values()->all(),
             'can_admin_resolve' => $user->role === 'admin',
+            'disputed_count' => $this->disputedCount(),
             'same_operator_checkpoint' => $pending !== null
                 && $pendingShiftUserId !== null
                 && (int) $pendingShiftUserId === (int) $user->id,
@@ -671,6 +800,10 @@ class InventoryTurnoverService
             'admin_override_reason' => $current['admin_override_reason'] ?? null,
             'same_operator_checkpoint' => $screen['same_operator_checkpoint'],
             'has_manual_set' => (bool) ($current['has_manual_set'] ?? false),
+            'disputed_count' => $screen['disputed_count'] ?? 0,
+            'pending_handover_status_label' => $screen['pending_handover']['status_label'] ?? null,
+            'current_status_label' => $current['status_label'] ?? null,
+            'current_status_description' => $current['status_description'] ?? null,
         ];
     }
 
@@ -689,10 +822,27 @@ class InventoryTurnoverService
             ];
         }
 
-        if ($this->pendingHandover()) {
+        $pending = $this->pendingHandover();
+        if ($pending && $pending->status === InventoryShiftTurnover::STATUS_DISPUTED) {
+            $count = $this->disputedCount();
+
             return [
                 'tone' => 'warning',
-                'title' => 'Inventory handover awaiting verification',
+                'title' => $user->role === 'admin'
+                    ? ($count > 1 ? $count.' inventory handovers require Admin review' : 'Inventory handover has a discrepancy and requires Admin review.')
+                    : 'Inventory handover has a discrepancy and requires Admin review.',
+                'message' => InventoryShiftTurnover::STATUS_DESCRIPTIONS[InventoryShiftTurnover::STATUS_DISPUTED],
+                'href' => $user->role === 'admin'
+                    ? route('shifts.inventory_turnover.show_record', $pending)
+                    : route('shifts.inventory_turnover.show'),
+                'disputed_count' => $count,
+            ];
+        }
+
+        if ($pending) {
+            return [
+                'tone' => 'warning',
+                'title' => 'Inventory handover requires verification.',
                 'message' => self::HANDOVER_MESSAGE,
                 'href' => route('shifts.inventory_turnover.show'),
             ];
@@ -742,6 +892,190 @@ class InventoryTurnoverService
         return $variance < 0 ? 'SHORT '.abs($variance) : 'OVER '.$variance;
     }
 
+    public function disputedCount(): int
+    {
+        return InventoryShiftTurnover::query()
+            ->where('status', InventoryShiftTurnover::STATUS_DISPUTED)
+            ->count();
+    }
+
+    public function history(User $user, array $filters = [])
+    {
+        $this->assertDeskRole($user);
+
+        $query = InventoryShiftTurnover::query()
+            ->with(['items', 'shiftSession.user', 'countedBy', 'acceptedBy', 'adminOverrideBy'])
+            ->orderByDesc('id');
+
+        if ($user->role === 'front_desk') {
+            $query->where(function ($inner) use ($user) {
+                $inner->where('counted_by', $user->id)
+                    ->orWhere('accepted_by', $user->id)
+                    ->orWhere('disputed_by', $user->id)
+                    ->orWhereHas('shiftSession', fn ($shift) => $shift->where('user_id', $user->id))
+                    ->orWhereIn('status', [InventoryShiftTurnover::STATUS_SUBMITTED, InventoryShiftTurnover::STATUS_DISPUTED]);
+            });
+        }
+
+        if (! empty($filters['status'])) {
+            $query->where('status', $filters['status']);
+        }
+        if (! empty($filters['shift_session_id'])) {
+            $query->where('shift_session_id', (int) $filters['shift_session_id']);
+        }
+        if (! empty($filters['employee_id'])) {
+            $employeeId = (int) $filters['employee_id'];
+            $query->where(function ($inner) use ($employeeId) {
+                $inner->where('counted_by', $employeeId)
+                    ->orWhere('accepted_by', $employeeId)
+                    ->orWhereHas('shiftSession', fn ($shift) => $shift->where('user_id', $employeeId));
+            });
+        }
+        if (! empty($filters['date'])) {
+            $from = HotelDateTime::startOfDay($filters['date'])->copy()->utc();
+            $to = HotelDateTime::endOfDay($filters['date'])->copy()->utc();
+            $query->whereHas('shiftSession', function ($shift) use ($from, $to) {
+                $shift->whereBetween('started_at', [$from, $to]);
+            });
+        }
+
+        return $query->paginate(20)->withQueryString()->through(fn (InventoryShiftTurnover $turnover) => $this->historyRow($turnover));
+    }
+
+    public function printPayload(InventoryShiftTurnover $turnover): array
+    {
+        return [
+            'hotel_name' => config('app.name', 'Hotel'),
+            'title' => 'HOTEL INVENTORY TURNOVER REPORT',
+            'printed_at_manila' => HotelDateTime::formatUtcForDisplay(now()),
+            'turnover' => $this->reportPayload($turnover),
+        ];
+    }
+
+    public function recordReportExported(User $user, InventoryShiftTurnover $turnover): void
+    {
+        BookingService::auditLog(
+            $user->id,
+            'INVENTORY_TURNOVER_REPORT_EXPORTED',
+            'inventory_shift_turnovers',
+            $turnover->id,
+            null,
+            $turnover->status,
+            'Inventory turnover report exported for Shift #'.$turnover->shift_session_id
+        );
+    }
+
+    private function assertDeskRole(User $user): void
+    {
+        if ($user->role === 'housekeeping') {
+            abort(403, 'Housekeeping cannot access inventory turnover records.');
+        }
+        if (! in_array($user->role, ['admin', 'front_desk'], true)) {
+            abort(403, 'Unauthorized inventory turnover access.');
+        }
+    }
+
+    private function historyRow(InventoryShiftTurnover $turnover): array
+    {
+        $payload = $this->reportPayload($turnover);
+
+        return [
+            'id' => $payload['id'],
+            'shift_session_id' => $payload['shift_session_id'],
+            'shift_code' => $payload['shift_code'],
+            'business_date_manila' => $payload['business_date_manila'],
+            'outgoing_operator_name' => $payload['outgoing_operator_name'],
+            'status' => $payload['status'],
+            'status_label' => $payload['status_label'],
+            'status_description' => $payload['status_description'],
+            'submitted_at_manila' => $payload['submitted_at_manila'],
+            'incoming_operator_name' => $payload['incoming_operator_name'],
+            'accepted_at_manila' => $payload['accepted_at_manila'],
+            'short_item_count' => $payload['short_item_count'],
+            'over_item_count' => $payload['over_item_count'],
+            'handover_status' => $payload['handover_status'],
+            'has_admin_override' => (bool) $payload['admin_override_reason'],
+        ];
+    }
+
+    private function handoverStatusLabel(InventoryShiftTurnover $turnover, array $handoverIssues): string
+    {
+        if ($turnover->status === InventoryShiftTurnover::STATUS_DISPUTED) {
+            return 'DISPUTED';
+        }
+        if ($turnover->accepted_at === null) {
+            return $turnover->status === InventoryShiftTurnover::STATUS_SUBMITTED ? 'AWAITING VERIFICATION' : 'NOT STARTED';
+        }
+
+        return $handoverIssues === [] ? 'BALANCED' : 'HANDOVER DIFFERENCE';
+    }
+
+    private function gapMovementDetails(InventoryShiftTurnover $turnover): array
+    {
+        $start = $turnover->submitted_at ?? $turnover->freeze_started_at;
+        if (! $start) {
+            return [];
+        }
+
+        $end = $turnover->accepted_at ?? now();
+        $itemIds = $turnover->items->pluck('inventory_item_id')->all();
+        if ($itemIds === []) {
+            return [];
+        }
+
+        return InventoryStockMovement::query()
+            ->with('performer')
+            ->whereNull('shift_session_id')
+            ->where('movement_type', '!=', InventoryStockMovement::TYPE_INVENTORY_VARIANCE)
+            ->whereIn('inventory_item_id', $itemIds)
+            ->where('created_at', '>=', $start)
+            ->where('created_at', '<=', $end)
+            ->orderBy('id')
+            ->get()
+            ->map(function (InventoryStockMovement $row) {
+                $change = (int) $row->quantity_change;
+
+                return [
+                    'inventory_item_id' => (int) $row->inventory_item_id,
+                    'movement_type' => $row->movement_type,
+                    'quantity_change' => $change,
+                    'quantity_label' => $change > 0 ? '+'.$change : (string) $change,
+                    'performed_by_name' => $row->performer?->full_name,
+                    'created_at_manila' => HotelDateTime::formatUtcForDisplay($row->created_at),
+                    'notes' => $row->notes,
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    private function manualSetDetails(InventoryShiftTurnover $turnover): array
+    {
+        if (! $turnover->shift_session_id) {
+            return [];
+        }
+
+        $until = $turnover->freeze_started_at ?? now();
+
+        return InventoryStockMovement::query()
+            ->with(['performer', 'item'])
+            ->where('shift_session_id', $turnover->shift_session_id)
+            ->where('movement_type', InventoryStockMovement::TYPE_MANUAL_SET)
+            ->where('created_at', '<=', $until)
+            ->orderBy('id')
+            ->get()
+            ->map(fn (InventoryStockMovement $row) => [
+                'inventory_item_id' => (int) $row->inventory_item_id,
+                'item_name' => $row->item?->item_name,
+                'quantity_change' => (int) $row->quantity_change,
+                'performed_by_name' => $row->performer?->full_name,
+                'created_at_manila' => HotelDateTime::formatUtcForDisplay($row->created_at),
+                'notes' => $row->notes,
+            ])
+            ->values()
+            ->all();
+    }
+
     private function finalizeAcceptance(
         User $user,
         InventoryShiftTurnover $turnover,
@@ -770,7 +1104,10 @@ class InventoryTurnoverService
                 $locked->notes = trim((string) $locked->notes."\n".$notes);
             }
             if ($adminResolve) {
-                $locked->disputed_reason = $notes;
+                $locked->resolution_type = InventoryShiftTurnover::RESOLUTION_ACCEPT_INCOMING;
+                $locked->resolution_notes = $notes;
+                $locked->resolved_at = now();
+                $locked->resolved_by = $user->id;
             }
             $locked->save();
 
@@ -808,11 +1145,15 @@ class InventoryTurnoverService
                     'quantity_change' => $after - $before,
                     'stock_before' => $before,
                     'stock_after' => $after,
-                    'source_type' => InventoryShiftTurnover::SOURCE_TYPE,
+                    'source_type' => $adminResolve
+                        ? InventoryShiftTurnover::SOURCE_RESOLUTION
+                        : InventoryShiftTurnover::SOURCE_TYPE,
                     'source_id' => $locked->id,
                     'performed_by' => $user->id,
                     'shift_session_id' => null,
-                    'notes' => 'Incoming handover physical alignment. Outgoing snapshot unchanged.',
+                    'notes' => $adminResolve
+                        ? 'Admin handover resolution. Live stock aligned to confirmed incoming physical count '.$after.' from '.$before.'. Outgoing snapshot unchanged. Reason: '.$notes
+                        : 'Incoming handover physical alignment. Outgoing snapshot unchanged.',
                 ]);
             }
 
@@ -833,12 +1174,14 @@ class InventoryTurnoverService
 
             BookingService::auditLog(
                 $user->id,
-                'INVENTORY_HANDOVER_ACCEPTED',
+                $adminResolve ? 'INVENTORY_HANDOVER_DISPUTE_RESOLVED' : 'INVENTORY_HANDOVER_ACCEPTED',
                 'inventory_shift_turnovers',
                 $locked->id,
                 $adminResolve ? InventoryShiftTurnover::STATUS_DISPUTED : InventoryShiftTurnover::STATUS_SUBMITTED,
                 InventoryShiftTurnover::STATUS_ACCEPTED,
-                'Incoming physical inventory accepted for Shift #'.$locked->shift_session_id
+                $adminResolve
+                    ? 'Admin accepted incoming physical quantities for Shift #'.$locked->shift_session_id.'. '.$notes
+                    : 'Incoming physical inventory accepted for Shift #'.$locked->shift_session_id
             );
 
             return $locked->fresh(['items']);
@@ -1090,6 +1433,8 @@ class InventoryTurnoverService
             }
         }
 
+        $handoverShortQty = $handover !== null && $handover < 0 ? abs((int) $handover) : 0;
+
         return [
             'inventory_item_id' => $line->inventory_item_id,
             'item_name' => $line->item_name,
@@ -1107,11 +1452,13 @@ class InventoryTurnoverService
             'variance_quantity' => $variance,
             'variance_label' => $variance === null ? null : $this->varianceLabel((int) $variance),
             'gap_net_quantity' => $gap,
+            'gap_net_label' => $gap > 0 ? '+'.$gap : (string) $gap,
             'handover_expected_quantity' => $handoverExpected,
             'incoming_verified_quantity' => $line->incoming_verified_quantity,
             'handover_difference' => $handover,
             'handover_difference_label' => $handover === null ? null : $this->varianceLabel((int) $handover),
             'reference_retail_value' => round($shortQty * (float) $line->selling_price, 2),
+            'handover_reference_retail_value' => round($handoverShortQty * (float) $line->selling_price, 2),
         ];
     }
 }
