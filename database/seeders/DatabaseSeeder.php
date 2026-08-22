@@ -205,5 +205,10 @@ class DatabaseSeeder extends Seeder
         }
 
         ExpenseCategory::ensureDefaults();
+
+        if (app()->environment('local')) {
+            $this->call(HotelDemoSeeder::class);
+            $this->call(HotelInventoryOpeningStockSeeder::class);
+        }
     }
 }
