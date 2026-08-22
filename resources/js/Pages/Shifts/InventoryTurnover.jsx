@@ -181,7 +181,7 @@ export default function InventoryTurnover({
                                 <h2 className="text-lg font-outfit font-bold text-slate-100">Incoming handover verification</h2>
                                 <p className="text-xs text-slate-400 mt-1">
                                     Expected at handover is outgoing actual plus authorized between-shift movement. A restock of +10 is not a discrepancy.
-                                    Handover difference is separate from outgoing inventory variance.
+                                    Handover difference is separate from outgoing inventory variance. Do not combine them into a total shortage.
                                 </p>
                             </div>
                             <StatusChip turnover={pendingHandover} />
@@ -206,7 +206,7 @@ export default function InventoryTurnover({
                                         <th className="py-2 pr-3">Between-shift movement</th>
                                         <th className="py-2 pr-3">Expected at handover</th>
                                         <th className="py-2 pr-3">Incoming physical count</th>
-                                        <th className="py-2">Handover difference</th>
+                                        <th className="py-2">Incoming Handover Difference</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -244,7 +244,7 @@ export default function InventoryTurnover({
                                                     />
                                                 </td>
                                                 <td className={`py-2 font-mono font-bold ${varianceClass(row.label)}`}>
-                                                    {row.label || '—'}
+                                                    {row.diff === null || row.diff === undefined ? (row.label || '—') : row.diff}
                                                     {row.diff < 0 && (
                                                         <div className="text-[10px] font-normal text-slate-500">
                                                             Reference Retail Value: {formatPHP(Math.abs(row.diff) * Number(item.selling_price || 0))}
@@ -394,7 +394,7 @@ export default function InventoryTurnover({
                                         <th className="py-2 pr-2">Manual adjustment</th>
                                         <th className="py-2 pr-2">Expected closing</th>
                                         <th className="py-2 pr-2">Physical count</th>
-                                        <th className="py-2">Variance / Status</th>
+                                        <th className="py-2">Outgoing Inventory Variance</th>
                                     </tr>
                                 </thead>
                                 <tbody>
