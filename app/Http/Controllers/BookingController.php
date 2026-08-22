@@ -582,8 +582,10 @@ class BookingController extends Controller
                 $room->status = 'vacant';
                 $room->save();
 
-                // Inventory reversal! We should return items to stock if cancelled
-                $usages = InventoryUsage::where('booking_id', $lockedBooking->id)->get();
+                // Restore only financially unsettled commercial usages.
+                // Paid POS and checkout-settled lines stay deducted. Complimentary
+                // amenities are not InventoryUsage rows and are never restored here.
+                $usages = $this->inventorySettlement->unsettledForCheckout($lockedBooking->id);
                 $itemIds = $usages->pluck('item_id')->filter()->unique()->sort()->values()->all();
                 $lockedItems = $itemIds === []
                     ? collect()

@@ -3,12 +3,14 @@
 namespace Tests\Feature;
 
 use App\Models\Booking;
+use App\Models\InventoryAmenityIssue;
 use App\Models\InventoryItem;
 use App\Models\InventoryStockMovement;
 use App\Models\InventoryUsage;
 use App\Models\Room;
 use App\Models\RoomType;
 use App\Models\ShiftSession;
+use App\Models\StayAmenityPolicy;
 use App\Models\Transaction;
 use App\Models\User;
 use App\Services\InventoryUsageSettlementService;
@@ -308,6 +310,117 @@ class InventoryUsageCheckoutSettlementTest extends TestCase
         $this->assertEquals(0, $show['calculations']['unpaid_inventory']);
         $this->assertEquals(0, $show['calculations']['additional_due']);
         $this->assertSame('cancelled', $booking->fresh()->status);
+    }
+
+    public function test_a_unpaid_booking_add_item_cancellation_restores_stock(): void
+    {
+        $booking = $this->activeStay();
+        $water = $this->item('Water', 20);
+
+        $this->actingAs($this->desk)->post(route('bookings.items', $booking), [
+            'item_id' => $water->id,
+            'quantity' => 1,
+        ])->assertRedirect();
+        $this->assertSame(9, (int) $water->fresh()->current_stock);
+        $this->assertFalse($this->settlement->isSettled(InventoryUsage::where('booking_id', $booking->id)->firstOrFail()));
+
+        $this->actingAs($this->desk)->post(route('bookings.cancel', $booking), [
+            'reason' => 'Guest left',
+        ])->assertRedirect();
+
+        $this->assertSame(10, (int) $water->fresh()->current_stock);
+        $this->assertSame(1, InventoryStockMovement::where('movement_type', InventoryStockMovement::TYPE_BOOKING_REVERSAL)->count());
+        $this->assertSame($water->id, (int) InventoryStockMovement::where('movement_type', InventoryStockMovement::TYPE_BOOKING_REVERSAL)->value('inventory_item_id'));
+    }
+
+    public function test_b_paid_room_pos_cancellation_does_not_restore_stock(): void
+    {
+        $booking = $this->activeStay();
+        $beer = $this->item('Beer', 80);
+
+        $this->roomPos($booking, $beer, 1, 80)->assertSessionHasNoErrors();
+        $usage = InventoryUsage::where('booking_id', $booking->id)->firstOrFail();
+        $this->assertTrue($this->settlement->isSettled($usage->load('transaction')));
+        $this->assertSame(9, (int) $beer->fresh()->current_stock);
+
+        $this->actingAs($this->desk)->post(route('bookings.cancel', $booking), [
+            'reason' => 'Guest left',
+        ])->assertRedirect();
+
+        $this->assertSame(9, (int) $beer->fresh()->current_stock);
+        $this->assertSame(0, InventoryStockMovement::where('movement_type', InventoryStockMovement::TYPE_BOOKING_REVERSAL)->count());
+        $this->assertSame(1, InventoryStockMovement::where('movement_type', InventoryStockMovement::TYPE_POS_SALE)->where('inventory_item_id', $beer->id)->count());
+        $this->assertSame('cancelled', $booking->fresh()->status);
+    }
+
+    public function test_c_mixed_paid_pos_and_unpaid_charge_to_room_cancel_restores_only_unsettled(): void
+    {
+        $booking = $this->activeStay();
+        $beer = $this->item('Beer', 80);
+        $water = $this->item('Water', 20);
+
+        $this->roomPos($booking, $beer, 1, 80)->assertSessionHasNoErrors();
+        $this->roomPos($booking, $water, 1, 0)->assertSessionHasNoErrors();
+
+        $this->assertTrue($this->settlement->isSettled(
+            InventoryUsage::where('item_id', $beer->id)->firstOrFail()->load('transaction')
+        ));
+        $this->assertFalse($this->settlement->isSettled(
+            InventoryUsage::where('item_id', $water->id)->firstOrFail()->load('transaction')
+        ));
+        $this->assertSame(9, (int) $beer->fresh()->current_stock);
+        $this->assertSame(9, (int) $water->fresh()->current_stock);
+
+        $this->actingAs($this->desk)->post(route('bookings.cancel', $booking), [
+            'reason' => 'Guest left',
+        ])->assertRedirect();
+
+        $this->assertSame(9, (int) $beer->fresh()->current_stock);
+        $this->assertSame(10, (int) $water->fresh()->current_stock);
+
+        $reversals = InventoryStockMovement::where('movement_type', InventoryStockMovement::TYPE_BOOKING_REVERSAL)->get();
+        $this->assertCount(1, $reversals);
+        $this->assertSame($water->id, (int) $reversals->first()->inventory_item_id);
+        $this->assertSame(0, InventoryStockMovement::where('movement_type', InventoryStockMovement::TYPE_BOOKING_REVERSAL)->where('inventory_item_id', $beer->id)->count());
+    }
+
+    public function test_d_complimentary_amenity_cancellation_does_not_restore_stock(): void
+    {
+        $booking = $this->activeStay();
+        $soap = InventoryItem::create([
+            'item_name' => 'Safeguard',
+            'category' => 'toiletries',
+            'unit' => 'pc',
+            'current_stock' => 10,
+            'minimum_stock' => 1,
+            'unit_cost' => 8,
+            'selling_price' => 0,
+            'is_active' => true,
+        ]);
+        StayAmenityPolicy::create([
+            'stay_key' => StayAmenityPolicy::STAY_OVERNIGHT,
+            'inventory_item_id' => $soap->id,
+            'default_quantity' => 1,
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($this->desk)->post(route('bookings.amenities.issue', $booking), [
+            'issue_context' => 'initial',
+            'items' => [['inventory_item_id' => $soap->id, 'quantity' => 1]],
+            'idempotency_key' => 'cancel-comp-'.$booking->id,
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $this->assertSame(9, (int) $soap->fresh()->current_stock);
+        $this->assertSame(0, InventoryUsage::count());
+        $this->assertSame(1, InventoryAmenityIssue::count());
+
+        $this->actingAs($this->desk)->post(route('bookings.cancel', $booking), [
+            'reason' => 'Guest left',
+        ])->assertRedirect();
+
+        $this->assertSame(9, (int) $soap->fresh()->current_stock);
+        $this->assertSame(0, InventoryStockMovement::where('movement_type', InventoryStockMovement::TYPE_BOOKING_REVERSAL)->count());
+        $this->assertSame(1, InventoryStockMovement::where('movement_type', InventoryStockMovement::TYPE_COMPLIMENTARY_AMENITY)->count());
     }
 
     public function test_lodging_partial_amount_paid_does_not_settle_inventory_usages(): void
