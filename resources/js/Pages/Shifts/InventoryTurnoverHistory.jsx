@@ -5,7 +5,8 @@ import { ChevronLeft, Info } from 'lucide-react';
 import Pagination from '@/Components/Pagination';
 
 const OUTGOING_SHORT_HINT = 'Difference between expected closing inventory and outgoing physical count. This belongs to the outgoing register accountability.';
-const HANDOVER_DIFFERENCE_HINT = 'Difference between outgoing declared inventory and incoming verified physical count. This identifies a handover discrepancy and requires review.';
+const HANDOVER_SHORT_HINT = 'Incoming verification short quantity. Belongs to incoming Front Desk. Not the same as outgoing shortage. Do not add them together.';
+const HANDOVER_OVER_HINT = 'Incoming verification over quantity. Belongs to incoming Front Desk. Not the same as outgoing overage. Do not add them together.';
 
 function HintHeader({ children, hint, align = 'left' }) {
     return (
@@ -107,13 +108,14 @@ export default function InventoryTurnoverHistory({
                                 <th className="text-left px-4 py-3">Accepted At</th>
                                 <HintHeader hint={OUTGOING_SHORT_HINT} align="right">Outgoing Short</HintHeader>
                                 <th className="text-right px-4 py-3">Outgoing Over</th>
-                                <HintHeader hint={HANDOVER_DIFFERENCE_HINT} align="right">Handover Difference</HintHeader>
+                                <HintHeader hint={HANDOVER_SHORT_HINT} align="right">Handover Short</HintHeader>
+                                <HintHeader hint={HANDOVER_OVER_HINT} align="right">Handover Over</HintHeader>
                                 <th className="text-left px-4 py-3">Handover Status</th>
                             </tr>
                         </thead>
                         <tbody>
                             {(turnovers.data || []).length === 0 ? (
-                                <tr><td colSpan={11} className="px-4 py-10 text-center text-slate-500">No matching turnovers.</td></tr>
+                                <tr><td colSpan={12} className="px-4 py-10 text-center text-slate-500">No matching turnovers.</td></tr>
                             ) : turnovers.data.map((row) => (
                                 <tr key={row.id} className="border-b border-[#334155]/50 hover:bg-[#0f172a]/40">
                                     <td className="px-4 py-3">
@@ -131,7 +133,10 @@ export default function InventoryTurnoverHistory({
                                     <td className="px-4 py-3 text-right font-mono">{row.short_item_count ?? 0}</td>
                                     <td className="px-4 py-3 text-right font-mono">{row.over_item_count ?? 0}</td>
                                     <td className="px-4 py-3 text-right font-mono">
-                                        {row.handover_difference_total === null || row.handover_difference_total === undefined ? '—' : row.handover_difference_total}
+                                        {row.handover_short_quantity === null || row.handover_short_quantity === undefined ? '—' : row.handover_short_quantity}
+                                    </td>
+                                    <td className="px-4 py-3 text-right font-mono">
+                                        {row.handover_over_quantity === null || row.handover_over_quantity === undefined ? '—' : row.handover_over_quantity}
                                     </td>
                                     <td className="px-4 py-3">{handoverStatusDisplay(row.handover_status)}</td>
                                 </tr>

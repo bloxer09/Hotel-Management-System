@@ -993,8 +993,34 @@ class InventoryTurnoverService
             'accepted_at_manila' => $payload['accepted_at_manila'],
             'short_item_count' => $payload['short_item_count'],
             'over_item_count' => $payload['over_item_count'],
+            ...$this->historyHandoverDisplay($payload['items'] ?? []),
             'handover_status' => $payload['handover_status'],
             'has_admin_override' => (bool) $payload['admin_override_reason'],
+        ];
+    }
+
+    /**
+     * History-list display only. Does not write handover_difference or change
+     * expected closing, variance, dispute, stock, or cash.
+     */
+    private function historyHandoverDisplay(array $items): array
+    {
+        $values = collect($items)
+            ->pluck('handover_difference')
+            ->filter(fn ($value) => $value !== null);
+
+        if ($values->isEmpty()) {
+            return [
+                'handover_short_quantity' => null,
+                'handover_over_quantity' => null,
+                'net_handover_difference' => null,
+            ];
+        }
+
+        return [
+            'handover_short_quantity' => (int) $values->sum(fn ($value) => ((int) $value) < 0 ? abs((int) $value) : 0),
+            'handover_over_quantity' => (int) $values->sum(fn ($value) => ((int) $value) > 0 ? (int) $value : 0),
+            'net_handover_difference' => (int) $values->sum(),
         ];
     }
 
