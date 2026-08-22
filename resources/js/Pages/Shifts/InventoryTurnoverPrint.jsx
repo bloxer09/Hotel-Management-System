@@ -31,7 +31,7 @@ export default function InventoryTurnoverPrint({ hotel_name: hotelName, title, p
                 <div className="border-b-2 border-black pb-3 mb-4">
                     <div className="text-xs uppercase tracking-widest">{hotelName}</div>
                     <h1 className="text-2xl font-black">{title}</h1>
-                    <p className="text-xs mt-1">Physical Count Variance and Handover Difference are quantity accountability. This is not a cash shortage, payroll deduction, or employee liability statement.</p>
+                    <p className="text-xs mt-1">Outgoing Inventory Variance and Incoming Handover Difference are separate accountability events. Do not add them together. This is not a cash shortage, payroll deduction, or employee liability statement.</p>
                 </div>
                 <div className="grid grid-cols-3 gap-2 text-xs mb-4">
                     <div>Shift #: {turnover.shift_session_id}</div>
@@ -58,7 +58,7 @@ export default function InventoryTurnoverPrint({ hotel_name: hotelName, title, p
                 <table className="w-full text-[10px] border-collapse mb-4">
                     <thead>
                         <tr>
-                            {['Product', 'Opening', 'Restock', 'Returns', 'Sold', 'Comp', 'Other Out', 'Expected', 'Outgoing Actual', 'Variance', 'Between-Shift', 'Expected at Handover', 'Incoming Count', 'Handover Difference'].map((h) => (
+                            {['Product', 'Opening', 'Restock', 'Returns', 'Sold', 'Comp', 'Other Out', 'Expected', 'Outgoing Actual', 'Outgoing Inventory Variance', 'Between-Shift', 'Expected at Handover', 'Incoming Count', 'Incoming Handover Difference'].map((h) => (
                                 <th key={h} className="border border-black p-1 text-left">{h}</th>
                             ))}
                         </tr>
@@ -79,7 +79,7 @@ export default function InventoryTurnoverPrint({ hotel_name: hotelName, title, p
                                 <td className="border border-black p-1">{item.gap_net_label ?? item.gap_net_quantity}</td>
                                 <td className="border border-black p-1">{item.handover_expected_quantity ?? '—'}</td>
                                 <td className="border border-black p-1">{item.incoming_verified_quantity ?? '—'}</td>
-                                <td className="border border-black p-1">{item.handover_difference_label ?? (item.handover_difference ?? '—')}</td>
+                                <td className="border border-black p-1">{item.handover_difference === null || item.handover_difference === undefined ? '—' : item.handover_difference}</td>
                             </tr>
                         ))}
                     </tbody>
@@ -88,32 +88,35 @@ export default function InventoryTurnoverPrint({ hotel_name: hotelName, title, p
                 <div className="grid grid-cols-2 gap-6 text-xs mb-6">
                     <div>
                         <h2 className="font-bold uppercase mb-1">Outgoing Inventory Variance</h2>
-                        <div>Inventory Shortage:</div>
-                        {shorts.length === 0 ? <div>None</div> : shorts.map((row) => (
-                            <div key={`s-${row.inventory_item_id}`}>{row.item_name} x{Math.abs(row.variance_quantity)} · Reference Retail Value: {formatPHP(row.reference_retail_value || 0)}</div>
+                        <div>Outgoing shortage (this shift):</div>
+                        {shorts.length === 0 ? <div>0</div> : shorts.map((row) => (
+                            <div key={`s-${row.inventory_item_id}`}>{row.item_name}: {Math.abs(row.variance_quantity)} · Reference Retail Value: {formatPHP(row.reference_retail_value || 0)}</div>
                         ))}
-                        <div className="mt-2">Inventory Overage:</div>
-                        {overs.length === 0 ? <div>None</div> : overs.map((row) => (
-                            <div key={`o-${row.inventory_item_id}`}>{row.item_name} x{row.variance_quantity}</div>
+                        <div className="mt-2">Outgoing Over:</div>
+                        {overs.length === 0 ? <div>0</div> : overs.map((row) => (
+                            <div key={`o-${row.inventory_item_id}`}>{row.item_name}: {row.variance_quantity}</div>
                         ))}
                         <div className="mt-2">BALANCED items: {balancedCount}</div>
                     </div>
                     <div>
-                        <h2 className="font-bold uppercase mb-1">Handover Discrepancy</h2>
+                        <h2 className="font-bold uppercase mb-1">Incoming Handover Difference</h2>
+                        <div>Incoming verification:</div>
                         {handoverIssues.length === 0 ? (
-                            <div>BALANCED</div>
+                            <div>0</div>
                         ) : handoverIssues.map((row) => (
                             <div key={`h-${row.inventory_item_id}`}>
-                                {row.item_name} {row.handover_difference_label}
+                                {row.item_name}: {row.handover_difference}
                                 {row.handover_difference < 0 ? ` · Reference Retail Value: ${formatPHP(row.handover_reference_retail_value || 0)}` : ''}
                             </div>
                         ))}
+                        <div className="mt-2">Handover Status: {turnover.status === 'disputed' ? 'DISPUTED / UNDER REVIEW' : (turnover.handover_status || turnover.status_label)}</div>
                         {turnover.disputed_reason && <div className="mt-2">Dispute reason: {turnover.disputed_reason}</div>}
                         {turnover.resolution_notes && <div>Resolution notes: {turnover.resolution_notes}</div>}
                     </div>
                 </div>
 
                 <p className="text-[10px] mb-8">
+                    Outgoing Inventory Variance and Incoming Handover Difference are separate accountability events. Do not add them together.
                     Reference Retail Value is informational only. It is not Amount Due, Cash Shortage, or Employee Liability.
                     Printed {printedAt}.
                 </p>

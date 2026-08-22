@@ -14,7 +14,7 @@ const typeOptions = [
     { id: 'booking_usage', name: 'Booking Usage' },
     { id: 'booking_reversal', name: 'Booking Reversal' },
     { id: 'complimentary_amenity', name: 'Complimentary Amenity' },
-    { id: 'inventory_variance', name: 'Inventory Variance' },
+    { id: 'inventory_variance', name: 'Physical count recon' },
 ];
 
 const statusBadge = (status) => {
@@ -41,7 +41,7 @@ const typeLabel = (type) => ({
     booking_usage: 'Booking Usage',
     booking_reversal: 'Booking Reversal',
     complimentary_amenity: 'Complimentary Amenity',
-    inventory_variance: 'Inventory Variance',
+    inventory_variance: 'Physical count recon',
 }[type] || type);
 
 const quantityClass = (row) => {
@@ -169,7 +169,14 @@ export default function HistoryTab({ history, historyItems, historyUsers, histor
                                 <tr key={`${row.row_kind}-${row.row_id}`} className="border-b border-[#334155]/50 hover:bg-[#0f172a]/40">
                                     <td className="px-4 py-3 text-[11px] font-mono text-brand-400 font-bold whitespace-nowrap">{row.occurred_at_manila}</td>
                                     <td className="px-4 py-3 text-xs font-bold text-slate-100">{row.item_name}</td>
-                                    <td className="px-4 py-3 text-[11px] text-slate-300">{typeLabel(row.type_key)}</td>
+                                    <td
+                                        className="px-4 py-3 text-[11px] text-slate-300"
+                                        title={row.type_key === 'inventory_variance'
+                                            ? 'Physical count reconciliation. Not handover difference. Not cash variance.'
+                                            : undefined}
+                                    >
+                                        {typeLabel(row.type_key)}
+                                    </td>
                                     <td className="px-4 py-3 text-[11px] text-slate-400 whitespace-nowrap">{row.issue_context_label || '—'}</td>
                                     <td className={`px-4 py-3 font-mono text-xs font-bold ${quantityClass(row)}`}>
                                         {quantityLabel(row)}

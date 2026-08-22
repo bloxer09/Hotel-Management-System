@@ -71,6 +71,37 @@ export default function Report({ shift, report }) {
             : '₱' + num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     };
 
+    const outgoingShortOver = (item) => {
+        if (item.variance_quantity === null || item.variance_quantity === undefined) {
+            return { short: '—', over: '—' };
+        }
+        const qty = Number(item.variance_quantity);
+        return { short: qty < 0 ? Math.abs(qty) : 0, over: qty > 0 ? qty : 0 };
+    };
+
+    const handoverStatusDisplay = (acc) => {
+        if (acc.status === 'disputed') {
+            return 'DISPUTED / UNDER REVIEW';
+        }
+        return acc.handover_status || acc.status_label || '—';
+    };
+
+    const resolutionStatusDisplay = (acc) => {
+        if (acc.resolution_type === 'accept_incoming') {
+            return 'Accepted incoming physical count';
+        }
+        if (acc.resolution_type === 'require_recount') {
+            return 'Recount requested';
+        }
+        if (acc.status === 'disputed') {
+            return 'Under review';
+        }
+        if (acc.status === 'accepted') {
+            return 'Accepted';
+        }
+        return '—';
+    };
+
     const formatDate = (dateStr) => {
         if (!dateStr) return '-';
         const date = new Date(dateStr);
@@ -1217,7 +1248,8 @@ export default function Report({ shift, report }) {
                                 <p className="text-xs text-slate-400">
                                     Frozen turnover snapshot only. This is not cash variance and is not recomputed from live movements.
                                     Between-Shift Movement is authorized activity after outgoing freeze (for example Admin restock with no register).
-                                    Expected at Handover = Outgoing Actual + Between-Shift Movement. Handover Difference is versus that expected physical figure, not versus outgoing expected closing.
+                                    Expected at Handover = Outgoing Actual + Between-Shift Movement. Incoming Handover Difference is versus that expected physical figure, not versus outgoing expected closing.
+                                    Outgoing Inventory Variance belongs to the outgoing shift. Incoming Handover Difference belongs to incoming verification. Do not add them together.
                                 </p>
                             </div>
                             {!report.inventory_accountability && (
@@ -1228,6 +1260,8 @@ export default function Report({ shift, report }) {
                             {report.inventory_accountability && (
                                 <>
                                     <div className="text-xs text-slate-400 flex flex-wrap gap-3 items-center">
+                                        <span>Outgoing Front Desk: <strong className="text-slate-200">{report.inventory_accountability.outgoing_operator_name || '—'}</strong></span>
+                                        <span>Incoming Front Desk: <strong className="text-slate-200">{report.inventory_accountability.incoming_operator_name || report.inventory_accountability.disputed_by_name || '—'}</strong></span>
                                         <span>Status: <strong className="uppercase text-slate-200">{report.inventory_accountability.status_label || report.inventory_accountability.status}</strong></span>
                                         {report.inventory_accountability.status_description && <span>{report.inventory_accountability.status_description}</span>}
                                         {report.inventory_accountability.is_frozen && <span>Frozen snapshot</span>}
@@ -1239,55 +1273,91 @@ export default function Report({ shift, report }) {
                                         <Link href={route('shifts.inventory_turnover.show_record', report.inventory_accountability.id)} className="text-brand-300 font-bold">Open detail</Link>
                                         <Link href={route('shifts.inventory_turnover.print', report.inventory_accountability.id)} className="text-brand-300 font-bold">Print / PDF</Link>
                                     </div>
-                                    <div className="overflow-x-auto rounded-lg border border-slate-700">
-                                        <table className="w-full text-left border-collapse text-xs text-slate-200 min-w-[1100px]">
-                                            <thead>
-                                                <tr className="bg-slate-750 text-slate-400 border-b border-slate-700">
-                                                    <th className="p-2.5">Product</th>
-                                                    <th className="p-2.5 text-right">Opening</th>
-                                                    <th className="p-2.5 text-right">Restock</th>
-                                                    <th className="p-2.5 text-right">Returns</th>
-                                                    <th className="p-2.5 text-right">Sold</th>
-                                                    <th className="p-2.5 text-right">Complimentary</th>
-                                                    <th className="p-2.5 text-right">Other Out</th>
-                                                    <th className="p-2.5 text-right">Expected Closing</th>
-                                                    <th className="p-2.5 text-right">Outgoing Actual</th>
-                                                    <th className="p-2.5 text-right">Variance</th>
-                                                    <th className="p-2.5 text-right">Between-Shift Movement</th>
-                                                    <th className="p-2.5 text-right">Expected at Handover</th>
-                                                    <th className="p-2.5 text-right">Incoming Count</th>
-                                                    <th className="p-2.5 text-right">Handover Difference</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-slate-700/50 font-mono">
-                                                {(report.inventory_accountability.items || []).map((item) => (
-                                                    <tr key={item.inventory_item_id} className="hover:bg-slate-800/40">
-                                                        <td className="p-2.5 font-sans font-bold">{item.item_name}</td>
-                                                        <td className="p-2.5 text-right">{item.opening_quantity ?? '—'}</td>
-                                                        <td className="p-2.5 text-right">{item.restock_quantity}</td>
-                                                        <td className="p-2.5 text-right">{item.return_quantity}</td>
-                                                        <td className="p-2.5 text-right">{item.sold_quantity}</td>
-                                                        <td className="p-2.5 text-right">{item.complimentary_quantity}</td>
-                                                        <td className="p-2.5 text-right">{item.other_out_quantity}</td>
-                                                        <td className="p-2.5 text-right font-bold">{item.expected_closing_quantity ?? '—'}</td>
-                                                        <td className="p-2.5 text-right">{item.outgoing_actual_quantity ?? '—'}</td>
-                                                        <td className={`p-2.5 text-right font-bold ${item.variance_label === 'BALANCED' ? 'text-emerald-400' : 'text-rose-300'}`}>
-                                                            {item.variance_label || '—'}
-                                                            {item.variance_quantity < 0 ? (
-                                                                <div className="text-[10px] font-sans font-normal text-slate-500">
-                                                                    Reference Retail Value: {formatCurrency(item.reference_retail_value || 0)}
-                                                                </div>
-                                                            ) : null}
-                                                        </td>
-                                                        <td className="p-2.5 text-right">{item.gap_net_quantity > 0 ? `+${item.gap_net_quantity}` : (item.gap_net_quantity ?? '—')}</td>
-                                                        <td className="p-2.5 text-right">{item.handover_expected_quantity ?? '—'}</td>
-                                                        <td className="p-2.5 text-right">{item.incoming_verified_quantity ?? '—'}</td>
-                                                        <td className="p-2.5 text-right">{item.handover_difference_label ?? (item.handover_difference ?? '—')}</td>
+
+                                    <section className="rounded-lg border border-slate-700 p-4 flex flex-col gap-3">
+                                        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-200">Outgoing Accountability</h4>
+                                        <p className="text-[11px] text-slate-500 inline-flex items-center gap-1" title="Outgoing Inventory Variance belongs to the outgoing shift. Do not add it to Incoming Handover Difference.">
+                                            <Info size={12} className="text-slate-500" />
+                                            Difference between expected closing inventory and outgoing physical count. Outgoing Inventory Variance belongs to the outgoing shift. Do not add it to Incoming Handover Difference.
+                                        </p>
+                                        <div className="overflow-x-auto rounded-lg border border-slate-700">
+                                            <table className="w-full text-left border-collapse text-xs text-slate-200 min-w-[720px]">
+                                                <thead>
+                                                    <tr className="bg-slate-750 text-slate-400 border-b border-slate-700">
+                                                        <th className="p-2.5">Product</th>
+                                                        <th className="p-2.5 text-right">Expected Closing Inventory</th>
+                                                        <th className="p-2.5 text-right">Physical Actual Count</th>
+                                                        <th className="p-2.5 text-right">Outgoing Inventory Variance</th>
+                                                        <th className="p-2.5 text-right">Short</th>
+                                                        <th className="p-2.5 text-right">Over</th>
                                                     </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
+                                                </thead>
+                                                <tbody className="divide-y divide-slate-700/50 font-mono">
+                                                    {(report.inventory_accountability.items || []).map((item) => {
+                                                        const qty = outgoingShortOver(item);
+                                                        return (
+                                                            <tr key={`out-${item.inventory_item_id}`} className="hover:bg-slate-800/40">
+                                                                <td className="p-2.5 font-sans font-bold">{item.item_name}</td>
+                                                                <td className="p-2.5 text-right">{item.expected_closing_quantity ?? '—'}</td>
+                                                                <td className="p-2.5 text-right">{item.outgoing_actual_quantity ?? '—'}</td>
+                                                                <td className={`p-2.5 text-right font-bold ${item.variance_label === 'BALANCED' ? 'text-emerald-400' : 'text-rose-300'}`}>
+                                                                    {item.variance_label || '—'}
+                                                                    {item.variance_quantity < 0 ? (
+                                                                        <div className="text-[10px] font-sans font-normal text-slate-500">
+                                                                            Reference Retail Value: {formatCurrency(item.reference_retail_value || 0)}
+                                                                        </div>
+                                                                    ) : null}
+                                                                </td>
+                                                                <td className="p-2.5 text-right">{qty.short}</td>
+                                                                <td className="p-2.5 text-right">{qty.over}</td>
+                                                            </tr>
+                                                        );
+                                                    })}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </section>
+
+                                    <section className="rounded-lg border border-slate-700 p-4 flex flex-col gap-3">
+                                        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-200">Incoming Verification</h4>
+                                        <p className="text-[11px] text-slate-500 inline-flex items-center gap-1" title="Incoming Handover Difference belongs to incoming verification. Do not add it to Outgoing Inventory Variance.">
+                                            <Info size={12} className="text-slate-500" />
+                                            Difference between expected physical stock at handover and incoming verified count. Incoming Handover Difference belongs to incoming verification. Do not add it to Outgoing Inventory Variance.
+                                        </p>
+                                        <div className="text-xs text-slate-400 flex flex-wrap gap-3">
+                                            <span>Handover Status: <strong className="text-slate-200">{handoverStatusDisplay(report.inventory_accountability)}</strong></span>
+                                            <span>Resolution Status: <strong className="text-slate-200">{resolutionStatusDisplay(report.inventory_accountability)}</strong></span>
+                                        </div>
+                                        <div className="overflow-x-auto rounded-lg border border-slate-700">
+                                            <table className="w-full text-left border-collapse text-xs text-slate-200 min-w-[720px]">
+                                                <thead>
+                                                    <tr className="bg-slate-750 text-slate-400 border-b border-slate-700">
+                                                        <th className="p-2.5">Product</th>
+                                                        <th className="p-2.5 text-right">Expected at Handover</th>
+                                                        <th className="p-2.5 text-right">Incoming Physical Count</th>
+                                                        <th className="p-2.5 text-right">Incoming Handover Difference</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-slate-700/50 font-mono">
+                                                    {(report.inventory_accountability.items || []).map((item) => (
+                                                        <tr key={`in-${item.inventory_item_id}`} className="hover:bg-slate-800/40">
+                                                            <td className="p-2.5 font-sans font-bold">{item.item_name}</td>
+                                                            <td className="p-2.5 text-right">{item.handover_expected_quantity ?? '—'}</td>
+                                                            <td className="p-2.5 text-right">{item.incoming_verified_quantity ?? '—'}</td>
+                                                            <td className="p-2.5 text-right font-bold">
+                                                                {item.handover_difference === null || item.handover_difference === undefined ? '—' : item.handover_difference}
+                                                                {item.handover_difference < 0 ? (
+                                                                    <div className="text-[10px] font-sans font-normal text-slate-500">
+                                                                        Reference Retail Value: {formatCurrency(item.handover_reference_retail_value || 0)}
+                                                                    </div>
+                                                                ) : null}
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </section>
                                     {report.inventory_accountability.admin_override_reason && (
                                         <div className="rounded-xl border border-amber-500/40 bg-amber-950/20 p-3 text-xs text-amber-100">
                                             <div className="font-extrabold uppercase tracking-wide">Inventory turnover override</div>

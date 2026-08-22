@@ -1,8 +1,20 @@
 import React, { useMemo } from 'react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
-import { ChevronLeft, Printer } from 'lucide-react';
+import { ChevronLeft, Info, Printer } from 'lucide-react';
 import { formatPHP } from '@/Utils/currency';
+
+const OUTGOING_SHORT_HINT = 'Difference between expected closing inventory and outgoing physical count. This belongs to the outgoing register accountability.';
+const HANDOVER_DIFFERENCE_HINT = 'Difference between outgoing declared inventory and incoming verified physical count. This identifies a handover discrepancy and requires review.';
+
+function HintLabel({ children, hint }) {
+    return (
+        <span className="inline-flex items-center gap-1" title={hint}>
+            {children}
+            <Info size={11} className="inline text-slate-500" aria-label={hint} />
+        </span>
+    );
+}
 
 function varianceClass(label) {
     if (!label || label === 'BALANCED') return 'text-emerald-400';
@@ -60,14 +72,15 @@ export default function InventoryTurnoverShow({ turnover, can_admin_resolve: can
                 )}
 
                 <div className="grid md:grid-cols-2 gap-3 text-xs text-slate-300 rounded-2xl border border-[#334155] bg-[#1e293b] p-4">
-                    <div>Outgoing Front Desk: <strong>{turnover.outgoing_operator_name || '—'}</strong></div>
-                    <div>Incoming / Accepted by: <strong>{turnover.incoming_operator_name || '—'}</strong></div>
+                    <div>Outgoing Front Desk accountability: <strong>{turnover.outgoing_operator_name || '—'}</strong></div>
+                    <div>Incoming Front Desk verification: <strong>{turnover.incoming_operator_name || turnover.disputed_by_name || '—'}</strong></div>
                     <div>Counted by: {turnover.counted_by_name || '—'}</div>
                     <div>Count started: {turnover.freeze_started_at_manila || '—'}</div>
                     <div>Submitted: {turnover.submitted_at_manila || '—'}</div>
                     <div>Accepted / resolved: {turnover.accepted_at_manila || turnover.resolved_at_manila || '—'}</div>
                     <div>Business date: {turnover.business_date_manila || '—'}</div>
-                    <div>Notes: {turnover.notes || '—'}</div>
+                    <div>Handover status: <strong>{turnover.status === 'disputed' ? 'DISPUTED / UNDER REVIEW' : (turnover.handover_status || turnover.status_label)}</strong></div>
+                    <div className="md:col-span-2">Notes: {turnover.notes || '—'}</div>
                     {turnover.disputed_reason && <div className="md:col-span-2 text-rose-300">Dispute reason: {turnover.disputed_reason} · {turnover.disputed_by_name} · {turnover.disputed_at_manila}</div>}
                     {turnover.resolution_notes && <div className="md:col-span-2 text-sky-300">Resolution notes: {turnover.resolution_notes} · {turnover.resolved_by_name} · {turnover.resolved_at_manila}</div>}
                 </div>
@@ -94,11 +107,15 @@ export default function InventoryTurnoverShow({ turnover, can_admin_resolve: can
                                 <th className="p-2.5 text-right">Other Out</th>
                                 <th className="p-2.5 text-right">Expected</th>
                                 <th className="p-2.5 text-right">Outgoing Actual</th>
-                                <th className="p-2.5 text-right">Outgoing Variance</th>
+                                <th className="p-2.5 text-right">
+                                    <HintLabel hint={OUTGOING_SHORT_HINT}>Outgoing Inventory Variance</HintLabel>
+                                </th>
                                 <th className="p-2.5 text-right">Between-Shift</th>
                                 <th className="p-2.5 text-right">Expected at Handover</th>
                                 <th className="p-2.5 text-right">Incoming Count</th>
-                                <th className="p-2.5 text-right">Handover Difference</th>
+                                <th className="p-2.5 text-right">
+                                    <HintLabel hint={HANDOVER_DIFFERENCE_HINT}>Incoming Handover Difference</HintLabel>
+                                </th>
                             </tr>
                         </thead>
                         <tbody>
@@ -123,7 +140,7 @@ export default function InventoryTurnoverShow({ turnover, can_admin_resolve: can
                                     <td className="p-2.5 text-right">{item.handover_expected_quantity ?? '—'}</td>
                                     <td className="p-2.5 text-right">{item.incoming_verified_quantity ?? '—'}</td>
                                     <td className={`p-2.5 text-right font-bold ${varianceClass(item.handover_difference_label)}`}>
-                                        {item.handover_difference_label ?? (item.handover_difference ?? '—')}
+                                        {item.handover_difference === null || item.handover_difference === undefined ? '—' : item.handover_difference}
                                         {item.handover_difference < 0 && (
                                             <div className="text-[10px] font-sans font-normal text-slate-500">Reference Retail Value: {formatPHP(item.handover_reference_retail_value || 0)}</div>
                                         )}
@@ -135,7 +152,12 @@ export default function InventoryTurnoverShow({ turnover, can_admin_resolve: can
                 </div>
 
                 <p className="text-[11px] text-slate-500">
-                    Outgoing variance and handover difference are two different accountability events. Reference Retail Value is informational only and is not cash shortage, amount due, or employee liability.
+                    Outgoing Inventory Variance belongs to the outgoing shift.
+                    Incoming Handover Difference belongs to incoming verification.
+                    Do not add them together.
+                </p>
+                <p className="text-[11px] text-slate-500">
+                    Reference Retail Value is informational only and is not cash shortage, amount due, or employee liability.
                 </p>
 
                 {canAdminResolve && isAdmin && (
